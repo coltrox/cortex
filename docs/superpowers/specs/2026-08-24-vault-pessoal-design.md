@@ -2,7 +2,7 @@
 
 **Data:** 2026-08-24
 **Status:** aguardando revisão do autor
-**Nome do app:** a definir (ver §15)
+**Nome do app:** Cortex
 
 ---
 
@@ -281,6 +281,6 @@ Amigos recebem o app **sem** o vault e sem as regras do autor: taxonomia de tipo
 
 ## 15. Decisões em aberto
 
-1. **Nome do app.** Precisa de um antes do primeiro commit; a pasta `app-pessoal` é provisória.
+1. ~~**Nome do app.**~~ **Resolvido em 2026-08-24: Cortex.** A pasta `app-pessoal` segue provisória e pode ser renomeada para `cortex` a qualquer momento — o repositório git acompanha a renomeação sem perder histórico.
 2. **Qual vault usar durante o desenvolvimento.** Recomendação: trabalhar sobre uma cópia de `C:\Users\PH\obsidian` até o app passar nos testes de escrita, e só então apontar para o vault real. O formato é compatível nos dois sentidos — Obsidian e app podem conviver no mesmo vault.
 3. **Se o checklist de segurança entra no v1** ou fica para o v1.1 (ver §9).
