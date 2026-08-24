@@ -41,7 +41,7 @@
 - [ ] **Step 1: Criar o projeto e instalar dependências**
 
 ```bash
-cd C:/Users/PH/Desktop/app-pessoal
+cd C:/Users/PH/Desktop/Cortex
 npm init -y
 npm i react react-dom better-sqlite3 gray-matter chokidar zod
 npm i -D electron electron-vite electron-builder @vitejs/plugin-react vitest typescript @types/react @types/react-dom @types/better-sqlite3 @types/node
