@@ -81,6 +81,17 @@ describe('Session.open — reconstrução do índice (ADENDO)', () => {
 
   it('caso feliz preservado: reabrir não reconstrói o índice sem motivo', async () => {
     await handle(session, 'note:write', { path: 'a.md', content: '---\ntipo: nota\n---\nx' })
+
+    // Marcador gravado diretamente no banco, sem correspondente em disco.
+    // `syncAll()` reindexa os .md a cada `open()` independentemente de o banco
+    // ter sido reconstruído ou não — por isso `note:list` sozinho não prova
+    // nada aqui (um rebuild incondicional passaria despercebido, já que os
+    // arquivos ainda estão no vault e seriam reindexados do zero). Este
+    // marcador só sobrevive se o ARQUIVO do banco não for apagado.
+    session.db.prepare(
+      "INSERT INTO meta (key,value) VALUES ('teste_marcador','presente')"
+    ).run()
+
     await session.close()
 
     session = new Session()
@@ -88,5 +99,10 @@ describe('Session.open — reconstrução do índice (ADENDO)', () => {
 
     const lista = await handle(session, 'note:list', {}) as any[]
     expect(lista.map(n => n.path)).toEqual(['a.md'])
+
+    const marcador = session.db.prepare(
+      "SELECT value FROM meta WHERE key='teste_marcador'"
+    ).get() as { value: string } | undefined
+    expect(marcador?.value).toBe('presente')
   })
 })
