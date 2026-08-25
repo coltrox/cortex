@@ -22,6 +22,17 @@ beforeEach(async () => {
   await vault.writeAtomic('Projetos/Nima.md',
     '---\ntipo: projeto\nproject: Nima\n---\nver [[MOC - Segurança]] e [[Fantasma]]')
   await vault.writeAtomic('Projetos/LCKP.md', '---\ntipo: projeto\nproject: LCKP\n---\noutro')
+  // Segunda nota apontando para a mesma MOC - Segurança (e com um segundo link
+  // quebrado), para provar que getBacklinks e getBrokenLinks devolvem todas as
+  // linhas, não só a primeira. tipo 'nota' para não contaminar o filtro por
+  // tipo='projeto' usado em outro teste.
+  await vault.writeAtomic('Projetos/Outro.md',
+    '---\ntipo: nota\n---\ntambém ver [[MOC - Segurança]] e [[Fantasma2]]')
+  // Corpo com sintaxe de operador FTS5 (C++) para provar que o fallback de
+  // frase literal em searchFullText não só evita a exceção como devolve a
+  // nota certa.
+  await vault.writeAtomic('Notas/Linguagens.md',
+    '---\ntipo: nota\n---\naprendendo C++ de novo')
   await ix.syncAll()
 })
 afterEach(async () => { await rm(root, { recursive: true, force: true }) })
@@ -47,7 +58,7 @@ describe('queries', () => {
   })
 
   it('listNotes sem filtro devolve tudo', () => {
-    expect(listNotes(db).length).toBe(3)
+    expect(listNotes(db).length).toBe(5)
   })
 
   it('searchFullText acha pelo corpo e devolve trecho', () => {
@@ -60,9 +71,45 @@ describe('queries', () => {
     expect(searchFullText(db, 'outro OR limiting OR ver', 1).length).toBe(1)
   })
 
+  it('searchFullText sem limite devolve todas as linhas encontradas', () => {
+    // "ver" aparece no corpo de Nima e de Outro — prova que a query
+    // subjacente devolve múltiplas linhas antes de qualquer LIMIT restritivo,
+    // não só a primeira.
+    const hits = searchFullText(db, 'ver')
+    expect(hits.length).toBe(2)
+    expect(hits.map(h => h.path).sort()).toEqual(['Projetos/Nima.md', 'Projetos/Outro.md'])
+  })
+
+  it('searchFullText não lança para entrada com sintaxe FTS5 inválida e continua achando o termo', () => {
+    let hits: { path: string; title: string; snippet: string }[] = []
+    expect(() => { hits = searchFullText(db, 'C++') }).not.toThrow()
+    expect(hits.map(h => h.path)).toEqual(['Notas/Linguagens.md'])
+  })
+
+  it('searchFullText não lança para aspa desbalanceada', () => {
+    expect(() => searchFullText(db, 'nota "aberta')).not.toThrow()
+  })
+
+  it('searchFullText não lança para foo:bar', () => {
+    expect(() => searchFullText(db, 'foo:bar')).not.toThrow()
+  })
+
+  it('searchFullText não lança para NOT sozinho', () => {
+    expect(() => searchFullText(db, 'NOT')).not.toThrow()
+  })
+
+  it('searchFullText continua suportando OR legítimo entre dois termos', () => {
+    // Prova que o fallback para frase literal só acontece em erro de sintaxe —
+    // um OR válido entre dois termos que existem em notas diferentes ainda
+    // precisa achar as duas.
+    const hits = searchFullText(db, 'limiting OR fantasma2')
+    expect(hits.map(h => h.path).sort()).toEqual(['Projetos/Outro.md', 'Segurança/MOC - Segurança.md'])
+  })
+
   it('getBacklinks lista quem aponta para a nota', () => {
-    expect(getBacklinks(db, 'Segurança/MOC - Segurança.md').map(b => b.path))
-      .toEqual(['Projetos/Nima.md'])
+    const backlinks = getBacklinks(db, 'Segurança/MOC - Segurança.md')
+    expect(backlinks.length).toBe(2)
+    expect(backlinks.map(b => b.path).sort()).toEqual(['Projetos/Nima.md', 'Projetos/Outro.md'])
   })
 
   it('getOutlinks lista os links de saída, resolvidos e quebrados', () => {
@@ -72,6 +119,12 @@ describe('queries', () => {
   })
 
   it('getBrokenLinks lista só os não resolvidos', () => {
-    expect(getBrokenLinks(db)).toEqual([{ src: 'Projetos/Nima.md', dst: 'Fantasma', line: 1 }])
+    const broken = getBrokenLinks(db)
+    expect(broken.length).toBe(2)
+    // ordenado por src: prova a ordenação além da contagem
+    expect(broken).toEqual([
+      { src: 'Projetos/Nima.md', dst: 'Fantasma', line: 1 },
+      { src: 'Projetos/Outro.md', dst: 'Fantasma2', line: 1 }
+    ])
   })
 })
