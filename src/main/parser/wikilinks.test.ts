@@ -26,4 +26,11 @@ describe('extractWikiLinks', () => {
   it('devolve lista vazia quando não há links', () => {
     expect(extractWikiLinks('texto puro')).toEqual([])
   })
+
+  it('extrai links com terminação CRLF', () => {
+    const links = extractWikiLinks('linha 1\r\n[[Link1]] aqui\r\ne [[Link2#anchor|alias]] ali')
+    expect(links).toHaveLength(2)
+    expect(links[0]).toEqual({ target: 'Link1', line: 2 })
+    expect(links[1]).toEqual({ target: 'Link2', anchor: 'anchor', alias: 'alias', line: 3 })
+  })
 })

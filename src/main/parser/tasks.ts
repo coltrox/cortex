@@ -5,7 +5,7 @@ const DUE = /📅\s*(\d{4}-\d{2}-\d{2})/
 
 export function extractTasks(body: string): TaskItem[] {
   const out: TaskItem[] = []
-  body.split('\n').forEach((line, i) => {
+  body.split(/\r\n|\n/).forEach((line, i) => {
     const m = line.match(TASK)
     if (!m) return
     let text = m[2].trim()
