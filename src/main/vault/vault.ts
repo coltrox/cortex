@@ -1,5 +1,6 @@
-import { readFile, writeFile, rename, mkdir, stat, readdir } from 'node:fs/promises'
+import { readFile, writeFile, rename, mkdir, stat, readdir, rm } from 'node:fs/promises'
 import { join, resolve, relative, dirname, sep, isAbsolute } from 'node:path'
+import { randomUUID } from 'node:crypto'
 
 export class Vault {
   readonly root: string
@@ -40,13 +41,23 @@ export class Vault {
     return readFile(this.toAbsolute(rel), 'utf8')
   }
 
-  /** Grava em .tmp e renomeia: o .md nunca fica parcial. */
+  /**
+   * Grava em .tmp e renomeia: o .md nunca fica parcial.
+   * O nome do temporário é único por CHAMADA, não por processo — duas escritas
+   * simultâneas no mesmo caminho compartilhariam o arquivo temporário e
+   * produziriam conteúdo híbrido, com ambas reportando sucesso.
+   */
   async writeAtomic(rel: string, content: string): Promise<void> {
     const abs = this.toAbsolute(rel)
     await mkdir(dirname(abs), { recursive: true })
-    const tmp = `${abs}.${process.pid}.tmp`
+    const tmp = `${abs}.${process.pid}.${randomUUID()}.tmp`
     await writeFile(tmp, content, 'utf8')
-    await rename(tmp, abs)
+    try {
+      await rename(tmp, abs)
+    } catch (err) {
+      await rm(tmp, { force: true })
+      throw err
+    }
   }
 
   async stat(rel: string): Promise<{ mtimeMs: number; size: number }> {

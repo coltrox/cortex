@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm, mkdir, writeFile, readFile } from 'node:fs/promises'
+import { mkdtemp, rm, mkdir, writeFile, readFile, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Vault } from './vault'
@@ -39,9 +39,31 @@ describe('Vault', () => {
     expect(await readFile(join(root, 'Saúde', 'Treinos', '2026-08-24.md'), 'utf8')).toBe('treino')
   })
 
-  it('não deixa arquivo temporário para trás', async () => {
+  it('não deixa arquivo temporário no diretório após escrita bem-sucedida', async () => {
     await vault.writeAtomic('a.md', 'x')
-    expect(await vault.listMarkdown()).toEqual(['a.md'])
+    expect(await readdir(root)).toEqual(['a.md'])
+  })
+
+  it('limpa o temporário quando o rename falha', async () => {
+    // Força uma falha de rename real: o destino é um diretório não vazio,
+    // então renomear um arquivo por cima dele deve rejeitar.
+    await mkdir(join(root, 'b.md'), { recursive: true })
+    await writeFile(join(root, 'b.md', 'dentro.txt'), 'y')
+
+    await expect(vault.writeAtomic('b.md', 'x')).rejects.toThrow()
+
+    const entries = await readdir(root)
+    expect(entries.some((e) => e.endsWith('.tmp'))).toBe(false)
+  })
+
+  it('escritas concorrentes no mesmo caminho não produzem conteúdo híbrido', async () => {
+    const a = 'AAAAAAAAAA-content-from-write-A-longer-string-here'
+    const b = 'B-short'
+
+    await Promise.all([vault.writeAtomic('c.md', a), vault.writeAtomic('c.md', b)])
+
+    const final = await vault.read('c.md')
+    expect([a, b]).toContain(final)
   })
 
   it('recusa path traversal com ..', () => {
