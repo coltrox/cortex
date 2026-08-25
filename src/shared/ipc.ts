@@ -14,6 +14,16 @@ export const IPC_SCHEMAS = {
     tipo: z.string().max(64).optional(),
     project: z.string().max(200).optional()
   }).strict(),
+  'note:list-fields': z.object({
+    tipo: z.string().max(64).optional(),
+    project: z.string().max(200).optional(),
+    desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    ate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+  }).strict(),
+  'note:create': z.object({
+    path: caminho,
+    content: z.string().max(5_000_000)
+  }).strict(),
   'search:fulltext': z.object({
     q: z.string().min(1).max(200),
     limit: z.number().int().positive().max(200).default(50)

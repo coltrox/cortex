@@ -80,6 +80,40 @@ describe('handle', () => {
     expect(hits.map(h => h.path)).toEqual(['a.md'])
   })
 
+  it('note:list-fields devolve campos reidratados', async () => {
+    await handle(session, 'note:write', {
+      path: 'Diario/2026-08-25.md',
+      content: '---\ntipo: diario\ndate: 2026-08-25\npeso: 78.4\n---\n'
+    })
+    const notas = await handle(session, 'note:list-fields', { tipo: 'diario' }) as any[]
+    expect(notas.length).toBe(1)
+    expect(notas[0].campos.peso).toBe(78.4)
+  })
+
+  it('note:create cria e indexa imediatamente a nota nova', async () => {
+    const r = await handle(session, 'note:create', {
+      path: 'Notas/Nova.md', content: '---\ntipo: nota\n---\nconteúdo'
+    }) as { path: string }
+    expect(r.path).toBe('Notas/Nova.md')
+
+    const read = await handle(session, 'note:read', { path: 'Notas/Nova.md' }) as { content: string }
+    expect(read.content).toBe('---\ntipo: nota\n---\nconteúdo')
+
+    const lista = await handle(session, 'note:list', { tipo: 'nota' }) as any[]
+    expect(lista.map(n => n.path)).toContain('Notas/Nova.md')
+  })
+
+  it('note:create recusa sobrescrever arquivo existente e não altera o conteúdo original', async () => {
+    await handle(session, 'note:write', { path: 'Notas/Existe.md', content: '---\ntipo: nota\n---\noriginal' })
+
+    await expect(
+      handle(session, 'note:create', { path: 'Notas/Existe.md', content: '---\ntipo: nota\n---\nnovo' })
+    ).rejects.toThrow()
+
+    const read = await handle(session, 'note:read', { path: 'Notas/Existe.md' }) as { content: string }
+    expect(read.content).toBe('---\ntipo: nota\n---\noriginal')
+  })
+
   // CRITICAL da revisão: escolher a raiz do vault é ação privilegiada — só o
   // main decide, e só via diálogo nativo (`pickVault`, Task 11). `vault:open`
   // deixaria o renderer nomear qualquer diretório do disco como "vault", o que

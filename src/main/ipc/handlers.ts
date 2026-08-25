@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { IPC_SCHEMAS, type IpcChannel } from '../../shared/ipc'
 import type { Session } from '../session'
 import {
-  getNote, listNotes, searchFullText, getBacklinks, getOutlinks, getBrokenLinks
+  getNote, listNotes, listNotesWithFields, searchFullText, getBacklinks, getOutlinks, getBrokenLinks
 } from '../index/queries'
 
 export async function handle(
@@ -28,6 +28,20 @@ export async function handle(
 
     case 'note:list':
       return listNotes(session.db, { tipo: p.tipo, project: p.project })
+
+    case 'note:list-fields':
+      return listNotesWithFields(session.db, {
+        tipo: p.tipo, project: p.project, desde: p.desde, ate: p.ate
+      })
+
+    case 'note:create': {
+      if (await session.vault.exists(p.path)) {
+        throw new Error(`nota já existe: ${p.path}`)
+      }
+      await session.vault.writeAtomic(p.path, p.content)
+      await session.indexer.indexFile(p.path)
+      return { path: p.path }
+    }
 
     case 'search:fulltext':
       return searchFullText(session.db, p.q, p.limit)
