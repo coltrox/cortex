@@ -64,6 +64,25 @@ describe('resolveLinks', () => {
     expect(resolved('a.md')[0].resolved_path).toBe('Depois.md')
   })
 
+  it('nome ambíguo (mesmo basename em duas pastas) resolve para o mesmo alvo em reindexações sucessivas', async () => {
+    await vault.writeAtomic('Segurança/Nima.md', 'x')
+    await vault.writeAtomic('Projetos/Nima.md', 'x')
+    await vault.writeAtomic('a.md', '[[Nima]]')
+    await ix.syncAll()
+    resolveLinks(db)
+    const primeiro = resolved('a.md')[0].resolved_path
+
+    // Reindexação completa (simula reabrir o app): sem ORDER BY na query do
+    // resolver, a ordem de varredura do SQLite não é garantida entre
+    // execuções, e o alvo escolhido para o nome ambíguo poderia mudar.
+    await ix.syncAll()
+    resolveLinks(db)
+    const segundo = resolved('a.md')[0].resolved_path
+
+    expect(primeiro).toBe('Projetos/Nima.md') // alfabeticamente primeiro
+    expect(segundo).toBe(primeiro)
+  })
+
   it('resolve todos os links de uma nota com vários, não só o primeiro', async () => {
     await vault.writeAtomic('B.md', 'x')
     await vault.writeAtomic('C.md', 'x')
