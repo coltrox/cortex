@@ -33,3 +33,14 @@ export interface NoteRow {
   size: number
   parseError: string | null
 }
+
+declare global {
+  interface Window {
+    vaultApi: {
+      invoke(canal: string, payload: unknown): Promise<unknown>
+      pickVault(): Promise<{ root: string } | null>
+      onVaultChange(cb: (rel: string) => void): () => void
+    }
+  }
+}
+export {}
