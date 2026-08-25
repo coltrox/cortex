@@ -69,7 +69,9 @@ x`)
     await ix.indexFile('t.md')
     const rows = db.prepare('SELECT key,value_text,value_num,value_date FROM fields WHERE path=?')
       .all('t.md') as any[]
+    expect(rows.length).toBe(4)
     const byKey = Object.fromEntries(rows.map(r => [r.key, r]))
+    expect(byKey.tipo.value_text).toBe('treino')
     expect(byKey.peso.value_num).toBe(78.4)
     expect(byKey.grupo.value_text).toBe('peito')
     expect(byKey.date.value_date).toBe('2026-08-24')
@@ -123,5 +125,55 @@ tipo: [quebrado
     const r = await ix.syncAll()
     expect(r.removed).toBe(1)
     expect(db.prepare('SELECT count(*) c FROM notes').get()).toEqual({ c: 0 })
+  })
+
+  it('syncAll indexa vários arquivos, ignora não-.md e reindexa só o que mudou', async () => {
+    await vault.writeAtomic('a.md', 'um')
+    await vault.writeAtomic('b.md', 'dois')
+    await vault.writeAtomic('c.md', 'tres')
+    await vault.writeAtomic('nota.txt', 'não é markdown')
+
+    const first = await ix.syncAll()
+    expect(first.indexed).toBe(3)
+    expect(first.skipped).toBe(0)
+    expect(db.prepare('SELECT count(*) c FROM notes').get()).toEqual({ c: 3 })
+
+    await vault.writeAtomic('b.md', 'dois modificado')
+    const second = await ix.syncAll()
+    expect(second.indexed).toBe(1)
+    expect(second.skipped).toBe(2)
+  })
+
+  it('grava path, title e body corretos em notes_fts', async () => {
+    await vault.writeAtomic('fts.md', 'primeira linha\n\ncontém a palavra zylophone no corpo')
+    await ix.indexFile('fts.md')
+    const row = db.prepare('SELECT path,title,body FROM notes_fts WHERE path=?').get('fts.md') as any
+    expect(row.path).toBe('fts.md')
+    expect(row.title).toBe('fts')
+    expect(row.body).toContain('zylophone')
+  })
+
+  it('MATCH em notes_fts encontra a nota por uma palavra do corpo', async () => {
+    await vault.writeAtomic('fts.md', 'primeira linha\n\ncontém a palavra zylophone no corpo')
+    await ix.indexFile('fts.md')
+    const hits = db.prepare("SELECT path FROM notes_fts WHERE notes_fts MATCH 'zylophone'").all()
+    expect(hits).toEqual([{ path: 'fts.md' }])
+  })
+
+  it('reindexar não duplica a linha em notes_fts', async () => {
+    await vault.writeAtomic('fts.md', 'conteúdo um')
+    await ix.indexFile('fts.md')
+    await vault.writeAtomic('fts.md', 'conteúdo dois')
+    await ix.indexFile('fts.md')
+    const n = db.prepare('SELECT count(*) c FROM notes_fts').get() as any
+    expect(n.c).toBe(1)
+  })
+
+  it('removeFile apaga a linha de notes_fts', async () => {
+    await vault.writeAtomic('fts.md', 'conteúdo')
+    await ix.indexFile('fts.md')
+    ix.removeFile('fts.md')
+    const n = db.prepare('SELECT count(*) c FROM notes_fts WHERE path=?').get('fts.md') as any
+    expect(n.c).toBe(0)
   })
 })
