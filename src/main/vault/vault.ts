@@ -1,6 +1,7 @@
 import { readFile, writeFile, rename, mkdir, stat, readdir, rm } from 'node:fs/promises'
 import { join, resolve, relative, dirname, sep, isAbsolute } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { VaultRootMissingError } from './errors'
 
 export class Vault {
   readonly root: string
@@ -51,6 +52,25 @@ export class Vault {
    */
   async writeAtomic(rel: string, content: string): Promise<void> {
     const abs = this.toAbsolute(rel)
+
+    // A raiz precisa existir e ser um diretório *antes* de qualquer mkdir.
+    // `mkdir(dir, { recursive: true })` cria todos os ancestrais que
+    // faltarem, inclusive a própria raiz do vault — se ela sumiu (deletada,
+    // pasta renomeada, drive externo desconectado) depois que a sessão já
+    // estava aberta, isso a reconstruiria vazia em silêncio, e a escrita
+    // seguiria feliz para dentro de uma casca fantasma enquanto as notas
+    // reais do usuário já se foram. Mesmo defeito, mesmo erro distinguível
+    // de `Session.open` (spec §10: "não cria vault vazio por cima").
+    let raizStat
+    try {
+      raizStat = await stat(this.root)
+    } catch {
+      throw new VaultRootMissingError(this.root)
+    }
+    if (!raizStat.isDirectory()) throw new VaultRootMissingError(this.root)
+
+    // Com a raiz confirmada, recriar os subdiretórios da nota é seguro e
+    // idempotente.
     await mkdir(dirname(abs), { recursive: true })
     const tmp = `${abs}.${process.pid}.${randomUUID()}.tmp`
     await writeFile(tmp, content, 'utf8')

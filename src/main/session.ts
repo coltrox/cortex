@@ -4,23 +4,11 @@ import { mkdir, rm, stat } from 'node:fs/promises'
 import Database from 'better-sqlite3'
 import { Vault } from './vault/vault'
 import { VaultWatcher } from './vault/watcher'
+import { VaultRootMissingError } from './vault/errors'
 import { openIndex, SCHEMA_VERSION, type Db } from './index/db'
 import { Indexer } from './index/indexer'
 
-/**
- * Erro distinguível: a raiz do vault não existe (ou não é diretório) no
- * momento de abrir a sessão. Nunca deve ser confundido com uma falha
- * genérica — o chamador precisa poder detectar este caso especificamente
- * para não reconstruir silenciosamente um vault que sumiu do disco (spec §10:
- * "não cria vault vazio por cima").
- */
-export class VaultRootMissingError extends Error {
-  readonly code = 'VAULT_ROOT_MISSING'
-  constructor(root: string) {
-    super(`raiz do vault não existe ou não é um diretório: ${root}`)
-    this.name = 'VaultRootMissingError'
-  }
-}
+export { VaultRootMissingError }
 
 /**
  * Abre o índice, reconstruindo do zero se estiver corrompido ou de versão antiga.

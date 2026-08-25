@@ -10,7 +10,12 @@ export function useVault() {
 
   const recarregar = useCallback(async () => {
     if (!root) return
-    setNotes(await window.vaultApi.invoke('note:list', {}) as NoteRow[])
+    try {
+      setNotes(await window.vaultApi.invoke('note:list', {}) as NoteRow[])
+      setErro(null)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e))
+    }
   }, [root])
 
   useEffect(() => { void recarregar() }, [recarregar])

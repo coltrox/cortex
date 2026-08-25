@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm, mkdir, writeFile, readFile, readdir } from 'node:fs/promises'
+import { mkdtemp, rm, mkdir, writeFile, readFile, readdir, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Vault } from './vault'
+import { VaultRootMissingError } from './errors'
 
 let root: string
 let vault: Vault
@@ -56,14 +57,55 @@ describe('Vault', () => {
     expect(entries.some((e) => e.endsWith('.tmp'))).toBe(false)
   })
 
+  // Este teste é a rede de regressão do defeito Crítico em que o nome do
+  // temporário usava só `process.pid`, deixando duas escritas concorrentes
+  // interlearem num híbrido corrompido enquanto ambas reportavam sucesso.
+  // Usamos `allSettled` (em vez de `Promise.all`) porque as duas chamadas
+  // correm de propósito para o mesmo `rename()` de destino: no POSIX isso é
+  // atômico e silencioso, mas no Windows um `rename` substituindo um arquivo
+  // existente pode fazer a perna perdedora falhar transitoriamente com
+  // EPERM/EBUSY mesmo sem a corrupção — e isso não pode ser confundido com o
+  // defeito real. A asserção de conteúdo abaixo, porém, NUNCA deve ser
+  // afrouxada: é ela que prova que não houve híbrido, e é o único motivo de
+  // este teste existir.
   it('escritas concorrentes no mesmo caminho não produzem conteúdo híbrido', async () => {
     const a = 'AAAAAAAAAA-content-from-write-A-longer-string-here'
     const b = 'B-short'
 
-    await Promise.all([vault.writeAtomic('c.md', a), vault.writeAtomic('c.md', b)])
+    const results = await Promise.allSettled([
+      vault.writeAtomic('c.md', a),
+      vault.writeAtomic('c.md', b),
+    ])
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled')
+    expect(fulfilled.length).toBeGreaterThanOrEqual(1)
+
+    for (const r of results) {
+      if (r.status === 'rejected') {
+        const code = (r.reason as { code?: string } | undefined)?.code
+        expect(['EPERM', 'EBUSY', 'EACCES']).toContain(code)
+      }
+    }
 
     const final = await vault.read('c.md')
     expect([a, b]).toContain(final)
+  })
+
+  it('não recria a raiz do vault se ela sumiu do disco entre escritas', async () => {
+    await vault.writeAtomic('a.md', 'primeira escrita ok')
+    expect(await vault.read('a.md')).toBe('primeira escrita ok')
+
+    await rm(root, { recursive: true, force: true })
+
+    await expect(vault.writeAtomic('b.md', 'segunda escrita')).rejects.toThrow(
+      VaultRootMissingError,
+    )
+
+    // A asserção que importa: a raiz não pode ter sido reconstruída pelo
+    // `mkdir(dirname(abs), { recursive: true })` antes do throw. Um teste
+    // que só checasse a rejeição passaria mesmo se o diretório tivesse sido
+    // recriado (vazio) primeiro.
+    await expect(stat(root)).rejects.toThrow()
   })
 
   it('recusa path traversal com ..', () => {
