@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { NoteRow } from '../../shared/types'
+import type { NoteComCampos } from '../tipos'
 
 type Props = {
-  notas: NoteRow[]
+  notas: NoteComCampos[]
   onEscolher: (path: string) => void
   onFechar: () => void
 }

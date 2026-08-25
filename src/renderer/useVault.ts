@@ -1,25 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { NoteRow } from '../shared/types'
+import type { NoteComCampos } from './tipos'
 
 export type Lente =
   | 'hoje' | 'notas' | 'vida' | 'saude'
   | 'dev' | 'conhecimento' | 'financas' | 'calendario'
 
-/** Lentes que a Fundação já sustenta com dados reais. O resto espera o plano seguinte. */
-export const LENTES_ATIVAS: Lente[] = ['notas', 'dev']
+/** Lentes que mostram o editor com a árvore do vault; o resto é view agregada. */
+export const LENTES_DE_EDICAO: Lente[] = ['notas', 'dev']
 
 export type Link = { dst: string; resolvedPath: string | null; line: number }
 export type Backlink = { path: string; title: string; line: number }
 
-/** O que o filtro de cada lente faz sobre a lista completa de notas. */
-function filtrarPorLente(notas: NoteRow[], lente: Lente): NoteRow[] {
+function filtrarPorLente(notas: NoteComCampos[], lente: Lente): NoteComCampos[] {
   if (lente === 'dev') return notas.filter(n => n.tipo === 'projeto')
   return notas
 }
 
 /** Agrupa por pasta de primeiro nível — a raiz vira um grupo próprio. */
-export function agruparPorPasta(notas: NoteRow[]): [string, NoteRow[]][] {
-  const grupos = new Map<string, NoteRow[]>()
+export function agruparPorPasta(notas: NoteComCampos[]): [string, NoteComCampos[]][] {
+  const grupos = new Map<string, NoteComCampos[]>()
   for (const n of notas) {
     const barra = n.path.indexOf('/')
     const pasta = barra === -1 ? 'Raiz' : n.path.slice(0, barra)
@@ -32,8 +31,8 @@ export function agruparPorPasta(notas: NoteRow[]): [string, NoteRow[]][] {
 
 export function useVault() {
   const [root, setRoot] = useState<string | null>(null)
-  const [notas, setNotas] = useState<NoteRow[]>([])
-  const [lente, setLente] = useState<Lente>('notas')
+  const [notas, setNotas] = useState<NoteComCampos[]>([])
+  const [lente, setLente] = useState<Lente>('hoje')
   const [filtro, setFiltro] = useState('')
 
   const [aberta, setAberta] = useState<string | null>(null)
@@ -49,7 +48,9 @@ export function useVault() {
   const recarregar = useCallback(async () => {
     if (!root) return
     try {
-      setNotas(await window.vaultApi.invoke('note:list', {}) as NoteRow[])
+      // `note:list-fields` é superconjunto de `note:list`: traz as mesmas colunas
+      // mais o frontmatter reidratado, que é o que as lentes de vida consomem.
+      setNotas(await window.vaultApi.invoke('note:list-fields', {}) as NoteComCampos[])
       setErro(null)
     } catch (e) { falhou(e) }
   }, [root])
@@ -86,6 +87,7 @@ export function useVault() {
       setAberta(path)
       setConteudo(r.content)
       setSalvo(r.content)
+      setLente(l => (LENTES_DE_EDICAO.includes(l) ? l : 'notas'))
       setErro(null)
       void carregarLinks(path)
     } catch (e) { falhou(e) }

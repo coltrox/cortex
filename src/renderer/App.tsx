@@ -1,10 +1,14 @@
 import { useEffect, useState, type ReactElement } from 'react'
-import { useVault, agruparPorPasta, LENTES_ATIVAS, type Lente } from './useVault'
+import { useVault, agruparPorPasta, LENTES_DE_EDICAO, type Lente } from './useVault'
+import { hojeISO } from './tipos'
 import {
   IconeHoje, IconeNotas, IconeVida, IconeSaude,
   IconeDev, IconeConhecimento, IconeFinancas, IconeCalendario
 } from './icons'
 import { Paleta } from './components/Paleta'
+import {
+  LenteHoje, LenteVida, LenteSaude, LenteEstudos, LenteGrana, LenteAgenda
+} from './components/lentes'
 
 const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactElement }[] = [
   { id: 'hoje',         nome: 'Hoje',    Icone: IconeHoje },
@@ -20,6 +24,7 @@ const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactE
 export function App() {
   const v = useVault()
   const [paleta, setPaleta] = useState(false)
+  const hoje = hojeISO()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -48,65 +53,79 @@ export function App() {
     )
   }
 
+  const edicao = LENTES_DE_EDICAO.includes(v.lente)
   const grupos = agruparPorPasta(v.visiveis)
   const lenteAtual = LENTES.find(l => l.id === v.lente)
+  const abrir = (p: string) => void v.abrir(p)
+
+  function view(): ReactElement {
+    switch (v.lente) {
+      case 'hoje':         return <LenteHoje notas={v.notas} hoje={hoje} aoAbrir={abrir} />
+      case 'vida':         return <LenteVida notas={v.notas} aoAbrir={abrir} />
+      case 'saude':        return <LenteSaude notas={v.notas} aoAbrir={abrir} />
+      case 'conhecimento': return <LenteEstudos notas={v.notas} hoje={hoje} aoAbrir={abrir} />
+      case 'financas':     return <LenteGrana notas={v.notas} aoAbrir={abrir} />
+      case 'calendario':   return <LenteAgenda notas={v.notas} hoje={hoje} aoAbrir={abrir} />
+      default:             return <></>
+    }
+  }
 
   return (
     <>
-      <div className="shell">
+      <div className={edicao ? 'shell' : 'shell so-lente'}>
         <nav className="rail">
-          {LENTES.map(({ id, nome, Icone }) => {
-            const ativa = LENTES_ATIVAS.includes(id)
-            return (
-              <button
-                key={id}
-                className="rail-item"
-                aria-current={v.lente === id}
-                disabled={!ativa}
-                title={ativa ? nome : `${nome} — chega no próximo plano`}
-                onClick={() => v.setLente(id)}
-              >
-                <Icone />
-                <span>{nome}</span>
-              </button>
-            )
-          })}
+          {LENTES.map(({ id, nome, Icone }) => (
+            <button
+              key={id}
+              className="rail-item"
+              aria-current={v.lente === id}
+              title={nome}
+              onClick={() => v.setLente(id)}
+            >
+              <Icone />
+              <span>{nome}</span>
+            </button>
+          ))}
         </nav>
 
-        <aside className="sidebar">
-          <div className="lente-nome">
-            {lenteAtual?.nome} · {v.visiveis.length} {v.visiveis.length === 1 ? 'nota' : 'notas'}
-          </div>
-          <input
-            className="busca"
-            placeholder="Filtrar…"
-            value={v.filtro}
-            onChange={e => v.setFiltro(e.target.value)}
-          />
-          {grupos.length === 0 && <div className="vazio">Nada aqui com esse filtro.</div>}
-          {grupos.map(([pasta, notas]) => (
-            <div key={pasta}>
-              <div className="pasta">{pasta}</div>
-              {notas.map(n => (
-                <button
-                  key={n.path}
-                  className="nota"
-                  aria-current={n.path === v.aberta}
-                  onClick={() => void v.abrir(n.path)}
-                >
-                  <span className="nota-titulo">{n.title}</span>
-                  <span className="tipo" data-t={n.tipo}>{n.tipo}</span>
-                </button>
-              ))}
+        {edicao && (
+          <aside className="sidebar">
+            <div className="lente-nome">
+              {lenteAtual?.nome} · {v.visiveis.length} {v.visiveis.length === 1 ? 'nota' : 'notas'}
             </div>
-          ))}
-        </aside>
+            <input
+              className="busca"
+              placeholder="Filtrar…"
+              value={v.filtro}
+              onChange={e => v.setFiltro(e.target.value)}
+            />
+            {grupos.length === 0 && <div className="vazio">Nada aqui com esse filtro.</div>}
+            {grupos.map(([pasta, notas]) => (
+              <div key={pasta}>
+                <div className="pasta">{pasta}</div>
+                {notas.map(n => (
+                  <button
+                    key={n.path}
+                    className="nota"
+                    aria-current={n.path === v.aberta}
+                    onClick={() => void v.abrir(n.path)}
+                  >
+                    <span className="nota-titulo">{n.title}</span>
+                    <span className="tipo" data-t={n.tipo}>{n.tipo}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </aside>
+        )}
 
         <main className="main">
           <div className="topo">
-            <span className="caminho">{v.aberta ?? 'nenhuma nota aberta'}</span>
+            <span className="caminho">
+              {edicao ? (v.aberta ?? 'nenhuma nota aberta') : lenteAtual?.nome}
+            </span>
             <div className="topo-dir">
-              {v.aberta && (
+              {edicao && v.aberta && (
                 <span className="salvo" data-sujo={v.sujo}>
                   {v.sujo ? 'não salvo' : 'salvo'}
                 </span>
@@ -114,59 +133,65 @@ export function App() {
               <button className="btn-fantasma" onClick={() => setPaleta(true)}>
                 Buscar <kbd>Ctrl K</kbd>
               </button>
-              <button className="btn" onClick={() => void v.salvar()} disabled={!v.aberta || !v.sujo}>
-                Salvar
-              </button>
+              {edicao && (
+                <button className="btn" onClick={() => void v.salvar()} disabled={!v.aberta || !v.sujo}>
+                  Salvar
+                </button>
+              )}
             </div>
           </div>
 
           {v.erro && <div className="erro">{v.erro}</div>}
 
-          <div className="editor-area">
-            {v.notaAberta && (
-              <>
-                <h1 className="titulo-nota">{v.notaAberta.title}</h1>
-                <div className="meta-nota">
-                  {v.notaAberta.tipo}
-                  {v.notaAberta.project ? ` · ${v.notaAberta.project}` : ''}
-                  {v.notaAberta.created ? ` · criada ${v.notaAberta.created}` : ''}
-                </div>
-              </>
-            )}
-            <textarea
-              className="editor"
-              value={v.conteudo}
-              onChange={e => v.setConteudo(e.target.value)}
-              disabled={!v.aberta}
-              spellCheck={false}
-              placeholder={v.aberta ? '' : 'Escolha uma nota na lista à esquerda.'}
-            />
-          </div>
+          {edicao ? (
+            <div className="editor-area">
+              {v.notaAberta && (
+                <>
+                  <h1 className="titulo-nota">{v.notaAberta.title}</h1>
+                  <div className="meta-nota">
+                    {v.notaAberta.tipo}
+                    {v.notaAberta.project ? ` · ${v.notaAberta.project}` : ''}
+                    {v.notaAberta.created ? ` · criada ${v.notaAberta.created}` : ''}
+                  </div>
+                </>
+              )}
+              <textarea
+                className="editor"
+                value={v.conteudo}
+                onChange={e => v.setConteudo(e.target.value)}
+                disabled={!v.aberta}
+                spellCheck={false}
+                placeholder={v.aberta ? '' : 'Escolha uma nota na lista à esquerda.'}
+              />
+            </div>
+          ) : view()}
         </main>
 
-        <aside className="aside">
-          <div className="aside-titulo">Dependências da rede</div>
-          {v.saindo.length === 0 && <div className="vazio">Nenhum link de saída.</div>}
-          {v.saindo.map((l, i) => (
-            <button
-              key={`${l.dst}-${i}`}
-              className="link"
-              data-quebrado={l.resolvedPath === null}
-              onClick={() => void v.abrirLink(l)}
-              title={l.resolvedPath ?? 'esta nota ainda não existe'}
-            >
-              {l.dst}
-            </button>
-          ))}
+        {edicao && (
+          <aside className="aside">
+            <div className="aside-titulo">Dependências da rede</div>
+            {v.saindo.length === 0 && <div className="vazio">Nenhum link de saída.</div>}
+            {v.saindo.map((l, i) => (
+              <button
+                key={`${l.dst}-${i}`}
+                className="link"
+                data-quebrado={l.resolvedPath === null}
+                onClick={() => void v.abrirLink(l)}
+                title={l.resolvedPath ?? 'esta nota ainda não existe'}
+              >
+                {l.dst}
+              </button>
+            ))}
 
-          <div className="aside-titulo">Apontam para esta</div>
-          {v.entrando.length === 0 && <div className="vazio">Nenhum backlink.</div>}
-          {v.entrando.map(b => (
-            <button key={b.path} className="link" onClick={() => void v.abrir(b.path)}>
-              {b.title}
-            </button>
-          ))}
-        </aside>
+            <div className="aside-titulo">Apontam para esta</div>
+            {v.entrando.length === 0 && <div className="vazio">Nenhum backlink.</div>}
+            {v.entrando.map(b => (
+              <button key={b.path} className="link" onClick={() => void v.abrir(b.path)}>
+                {b.title}
+              </button>
+            ))}
+          </aside>
+        )}
       </div>
 
       {paleta && (
