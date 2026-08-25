@@ -63,4 +63,19 @@ describe('resolveLinks', () => {
     resolveLinks(db)
     expect(resolved('a.md')[0].resolved_path).toBe('Depois.md')
   })
+
+  it('resolve todos os links de uma nota com vários, não só o primeiro', async () => {
+    await vault.writeAtomic('B.md', 'x')
+    await vault.writeAtomic('C.md', 'x')
+    await vault.writeAtomic(
+      'a.md',
+      '[[B]] [[C]] [[Fantasma1]] [[Fantasma2]]'
+    )
+    await ix.syncAll()
+    resolveLinks(db)
+    const rows = resolved('a.md')
+    expect(rows).toHaveLength(4)
+    expect(rows.filter(r => r.resolved_path !== null)).toHaveLength(2)
+    expect(rows.filter(r => r.resolved_path === null)).toHaveLength(2)
+  })
 })
