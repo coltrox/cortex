@@ -6,8 +6,9 @@ import {
   IconeDev, IconeConhecimento, IconeFinancas, IconeCalendario
 } from './icons'
 import { Paleta } from './components/Paleta'
+import { Calendario } from './components/Calendario'
 import {
-  LenteHoje, LenteVida, LenteSaude, LenteEstudos, LenteGrana, LenteAgenda
+  LenteHoje, LenteVida, LenteSaude, LenteEstudos, LenteGrana
 } from './components/lentes'
 
 const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactElement }[] = [
@@ -65,7 +66,7 @@ export function App() {
       case 'saude':        return <LenteSaude notas={v.notas} aoAbrir={abrir} />
       case 'conhecimento': return <LenteEstudos notas={v.notas} hoje={hoje} aoAbrir={abrir} />
       case 'financas':     return <LenteGrana notas={v.notas} aoAbrir={abrir} />
-      case 'calendario':   return <LenteAgenda notas={v.notas} hoje={hoje} aoAbrir={abrir} />
+      case 'calendario':   return <Calendario notas={v.notas} hoje={hoje} aoAbrir={abrir} />
       default:             return <></>
     }
   }
