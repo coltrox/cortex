@@ -17,7 +17,7 @@ export function parseFrontmatter(raw: string): {
   parseError: string | null
 } {
   try {
-    const parsed = matter(raw)
+    const parsed = matter(raw, {})
     return {
       frontmatter: isoDates(parsed.data) as Record<string, unknown>,
       body: parsed.content,
