@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useVault, agruparPorPasta, LENTES_DE_EDICAO, type Lente } from './useVault'
 import { hojeISO } from './tipos'
+import { SUBS } from './subnav'
 import {
   IconeHoje, IconeNotas, IconeVida, IconeSaude,
   IconeDev, IconeConhecimento, IconeFinancas, IconeCalendario
@@ -57,15 +58,16 @@ export function App() {
   const edicao = LENTES_DE_EDICAO.includes(v.lente)
   const grupos = agruparPorPasta(v.visiveis)
   const lenteAtual = LENTES.find(l => l.id === v.lente)
+  const subs = edicao ? null : SUBS[v.lente]
   const abrir = (p: string) => void v.abrir(p)
 
   function view(): ReactElement {
     switch (v.lente) {
       case 'hoje':         return <LenteHoje notas={v.notas} hoje={hoje} aoAbrir={abrir} />
-      case 'vida':         return <LenteVida notas={v.notas} aoAbrir={abrir} />
-      case 'saude':        return <LenteSaude notas={v.notas} aoAbrir={abrir} />
-      case 'conhecimento': return <LenteEstudos notas={v.notas} hoje={hoje} aoAbrir={abrir} />
-      case 'financas':     return <LenteGrana notas={v.notas} aoAbrir={abrir} />
+      case 'vida':         return <LenteVida notas={v.notas} sub={v.sub} hoje={hoje} aoAbrir={abrir} />
+      case 'saude':        return <LenteSaude notas={v.notas} sub={v.sub} hoje={hoje} aoAbrir={abrir} />
+      case 'conhecimento': return <LenteEstudos notas={v.notas} sub={v.sub} hoje={hoje} aoAbrir={abrir} />
+      case 'financas':     return <LenteGrana notas={v.notas} sub={v.sub} hoje={hoje} aoAbrir={abrir} />
       case 'calendario':   return <Calendario notas={v.notas} hoje={hoje} aoAbrir={abrir} />
       default:             return <></>
     }
@@ -73,7 +75,7 @@ export function App() {
 
   return (
     <>
-      <div className={edicao ? 'shell' : 'shell so-lente'}>
+      <div className={edicao ? 'shell' : (subs ? 'shell com-subnav' : 'shell so-lente')}>
         <nav className="rail">
           {LENTES.map(({ id, nome, Icone }) => (
             <button
@@ -116,6 +118,22 @@ export function App() {
                   </button>
                 ))}
               </div>
+            ))}
+          </aside>
+        )}
+
+        {subs && (
+          <aside className="subnav">
+            <div className="lente-nome">{lenteAtual?.nome}</div>
+            {subs.map(s => (
+              <button
+                key={s.id}
+                className="subnav-item"
+                aria-current={v.sub === s.id}
+                onClick={() => v.setSub(s.id)}
+              >
+                {s.nome}
+              </button>
             ))}
           </aside>
         )}

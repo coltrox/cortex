@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { NoteComCampos } from './tipos'
+import { subPadrao, type Sub } from './subnav'
 
 export type Lente =
   | 'hoje' | 'notas' | 'vida' | 'saude'
@@ -33,6 +34,7 @@ export function useVault() {
   const [root, setRoot] = useState<string | null>(null)
   const [notas, setNotas] = useState<NoteComCampos[]>([])
   const [lente, setLente] = useState<Lente>('hoje')
+  const [sub, setSub] = useState<Sub>('overview')
   const [filtro, setFiltro] = useState('')
 
   const [aberta, setAberta] = useState<string | null>(null)
@@ -129,7 +131,9 @@ export function useVault() {
 
   return {
     root, notas, visiveis, notaAberta,
-    lente, setLente,
+    lente,
+    setLente: (l: Lente) => { setLente(l); setSub(subPadrao(l)) },
+    sub, setSub,
     filtro, setFiltro,
     aberta, conteudo, setConteudo,
     sujo: conteudo !== salvo,

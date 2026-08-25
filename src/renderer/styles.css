@@ -685,3 +685,91 @@ kbd {
   color: var(--text-2);
   padding-bottom: 6px;
 }
+
+/* ---------- sub-navegacao ---------- */
+
+.shell.com-subnav { grid-template-columns: var(--rail) 190px 1fr; }
+
+.subnav {
+  background: var(--surface-sunk);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px 10px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.subnav-item {
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13.5px;
+  transition: background 140ms, color 140ms;
+}
+
+.subnav-item:hover { background: rgba(0,0,0,.035); color: var(--text); }
+
+.subnav-item[aria-current="true"] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+
+/* ---------- contador de prazo ---------- */
+
+.prazo {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: var(--surface-sunk);
+  color: var(--text-3);
+}
+
+.prazo[data-u="longe"]  { background: var(--surface-sunk); color: var(--text-2); }
+.prazo[data-u="perto"]  { background: var(--pale-yel-bg); color: var(--pale-yel); }
+.prazo[data-u="agora"]  { background: var(--pale-red-bg); color: var(--pale-red); font-weight: 600; }
+.prazo[data-u="passou"] { background: #9F2F2D; color: #FFFFFF; font-weight: 600; }
+.prazo[data-u="ok"]     { background: var(--pale-grn-bg); color: var(--pale-grn); }
+
+/* ---------- nivel de dominio ---------- */
+
+.nivel {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: var(--surface-sunk);
+  color: var(--text-3);
+}
+
+.nivel[data-n="1"], .nivel[data-n="2"] { background: var(--pale-red-bg); color: var(--pale-red); }
+.nivel[data-n="3"]                     { background: var(--pale-yel-bg); color: var(--pale-yel); }
+.nivel[data-n="4"], .nivel[data-n="5"] { background: var(--pale-grn-bg); color: var(--pale-grn); }
+
+/* ---------- setas de entrada e saida ---------- */
+
+.seta {
+  flex: none;
+  width: 16px;
+  font-family: var(--mono);
+  font-size: 13px;
+  text-align: center;
+  color: var(--pale-red);
+}
+
+.seta[data-d="entrada"] { color: var(--pale-grn); }
+
+.linha-valor[data-d="entrada"] { color: var(--pale-grn); }
+.linha-valor[data-d="saida"]   { color: var(--pale-red); }
+
+.linha-titulo[data-feito="true"] { text-decoration: line-through; color: var(--text-3); }
