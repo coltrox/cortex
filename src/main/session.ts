@@ -58,6 +58,10 @@ export class Session {
     this.db = await openOrRebuildIndex(join(dir, 'index.db'))
     this.indexer = new Indexer(this.db, this.vault)
     await this.indexer.syncAll()
+    // `onChange` desta task só repassa o caminho relativo (contrato herdado do
+    // brief da Task 10, usado por `vault:changed` no preload); `kind`
+    // ('add'/'change'/'unlink') não é repassado porque nada nesta camada
+    // consome essa distinção ainda — não é esquecimento.
     this.watcher = new VaultWatcher(this.vault, this.indexer, this.db, rel => onChange(rel))
     await this.watcher.start()
     this.aberta = true

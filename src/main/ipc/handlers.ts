@@ -16,10 +16,6 @@ export async function handle(
   const p = parsed.data as any
 
   switch (canal) {
-    case 'vault:open':
-      await session.open(p.root)
-      return { root: session.vault.root }
-
     case 'note:read': {
       const content = await session.vault.read(p.path)
       return { content, meta: getNote(session.db, p.path) ?? null }

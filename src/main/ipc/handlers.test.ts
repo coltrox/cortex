@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
 import { SCHEMA_VERSION } from '../index/db'
+import { IPC_SCHEMAS } from '../../shared/ipc'
 import { Session } from '../session'
 import { handle } from './handlers'
 
@@ -47,6 +48,21 @@ describe('handle', () => {
     await handle(session, 'note:write', { path: 'a.md', content: 'rate limiting no login' })
     const hits = await handle(session, 'search:fulltext', { q: 'limiting' }) as any[]
     expect(hits.map(h => h.path)).toEqual(['a.md'])
+  })
+
+  // CRITICAL da revisão: escolher a raiz do vault é ação privilegiada — só o
+  // main decide, e só via diálogo nativo (`pickVault`, Task 11). `vault:open`
+  // deixaria o renderer nomear qualquer diretório do disco como "vault", o que
+  // torna toda a confinação de `Vault.toAbsolute` inútil (ela mede distância a
+  // partir de uma raiz que o próprio atacante escolheu). O canal não existe
+  // mais na superfície IPC.
+  it('vault:open não é alcançável pelo renderer', async () => {
+    await expect(handle(session, 'vault:open' as any, { root: 'C:\\qualquer' }))
+      .rejects.toThrow(/desconhecido/)
+  })
+
+  it('vault:open não é chave de IPC_SCHEMAS', () => {
+    expect(Object.keys(IPC_SCHEMAS)).not.toContain('vault:open')
   })
 })
 

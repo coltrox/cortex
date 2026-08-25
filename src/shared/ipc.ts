@@ -3,7 +3,6 @@ import { z } from 'zod'
 const caminho = z.string().min(1).max(1024)
 
 export const IPC_SCHEMAS = {
-  'vault:open': z.object({ root: z.string().min(1) }).strict(),
   'note:read': z.object({ path: caminho }).strict(),
   'note:write': z.object({ path: caminho, content: z.string().max(5_000_000) }).strict(),
   'note:list': z.object({
