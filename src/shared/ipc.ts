@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
 const caminho = z.string().min(1).max(1024)
+  .refine(p => !p.includes('\\'), { message: 'caminho deve usar apenas "/" (POSIX), não "\\"' })
+  .refine(p => p.toLowerCase().endsWith('.md'), { message: 'caminho deve terminar em .md' })
+  .refine(p => p.split('/').every(seg => !seg.startsWith('.')), {
+    message: 'caminho não pode conter segmentos que comecem com "." (ex.: .vault, ou ".." usado para escapar da raiz)'
+  })
 
 export const IPC_SCHEMAS = {
   'note:read': z.object({ path: caminho }).strict(),

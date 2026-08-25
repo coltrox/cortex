@@ -1,11 +1,26 @@
 import { join } from 'node:path'
-import { existsSync } from 'node:fs'
-import { mkdir, rm } from 'node:fs/promises'
+import { existsSync, type Stats } from 'node:fs'
+import { mkdir, rm, stat } from 'node:fs/promises'
 import Database from 'better-sqlite3'
 import { Vault } from './vault/vault'
 import { VaultWatcher } from './vault/watcher'
 import { openIndex, SCHEMA_VERSION, type Db } from './index/db'
 import { Indexer } from './index/indexer'
+
+/**
+ * Erro distinguível: a raiz do vault não existe (ou não é diretório) no
+ * momento de abrir a sessão. Nunca deve ser confundido com uma falha
+ * genérica — o chamador precisa poder detectar este caso especificamente
+ * para não reconstruir silenciosamente um vault que sumiu do disco (spec §10:
+ * "não cria vault vazio por cima").
+ */
+export class VaultRootMissingError extends Error {
+  readonly code = 'VAULT_ROOT_MISSING'
+  constructor(root: string) {
+    super(`raiz do vault não existe ou não é um diretório: ${root}`)
+    this.name = 'VaultRootMissingError'
+  }
+}
 
 /**
  * Abre o índice, reconstruindo do zero se estiver corrompido ou de versão antiga.
@@ -53,18 +68,45 @@ export class Session {
   async open(root: string, onChange: (rel: string) => void = () => {}): Promise<void> {
     await this.close()
     this.vault = new Vault(root)
+
+    // A raiz precisa existir e ser um diretório *antes* de qualquer mkdir.
+    // `mkdir(dir, { recursive: true })` cria todos os ancestrais que faltarem,
+    // inclusive a própria raiz do vault — se ela sumiu (deletada, pasta
+    // renomeada, drive externo desconectado), isso a reconstruiria vazia em
+    // silêncio, e o resto do open() seguiria feliz sobre um vault fantasma.
+    let raizStat: Stats
+    try {
+      raizStat = await stat(this.vault.root)
+    } catch {
+      throw new VaultRootMissingError(this.vault.root)
+    }
+    if (!raizStat.isDirectory()) throw new VaultRootMissingError(this.vault.root)
+
     const dir = join(this.vault.root, '.vault')
     await mkdir(dir, { recursive: true })
-    this.db = await openOrRebuildIndex(join(dir, 'index.db'))
-    this.indexer = new Indexer(this.db, this.vault)
-    await this.indexer.syncAll()
-    // `onChange` desta task só repassa o caminho relativo (contrato herdado do
-    // brief da Task 10, usado por `vault:changed` no preload); `kind`
-    // ('add'/'change'/'unlink') não é repassado porque nada nesta camada
-    // consome essa distinção ainda — não é esquecimento.
-    this.watcher = new VaultWatcher(this.vault, this.indexer, this.db, rel => onChange(rel))
-    await this.watcher.start()
-    this.aberta = true
+
+    try {
+      this.db = await openOrRebuildIndex(join(dir, 'index.db'))
+      this.indexer = new Indexer(this.db, this.vault)
+      await this.indexer.syncAll()
+      // `onChange` desta task só repassa o caminho relativo (contrato herdado do
+      // brief da Task 10, usado por `vault:changed` no preload); `kind`
+      // ('add'/'change'/'unlink') não é repassado porque nada nesta camada
+      // consome essa distinção ainda — não é esquecimento.
+      this.watcher = new VaultWatcher(this.vault, this.indexer, this.db, rel => onChange(rel))
+      await this.watcher.start()
+      this.aberta = true
+    } catch (err) {
+      // Qualquer falha entre a abertura do db e `aberta = true` não pode
+      // deixar um handle do better-sqlite3 aberto sem caminho para fechar:
+      // `close()` só chama `db.close()` quando `aberta` é true. Sem isto, no
+      // Windows o handle vazado trava index.db e a próxima tentativa de abrir
+      // o mesmo vault falha com EBUSY dentro de `openOrRebuildIndex`.
+      await this.watcher?.stop().catch(() => {})
+      this.watcher = null
+      try { this.db?.close() } catch { /* já fechado ou nunca abriu */ }
+      throw err
+    }
   }
 
   async close(): Promise<void> {

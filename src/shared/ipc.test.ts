@@ -21,4 +21,23 @@ describe('IPC_SCHEMAS', () => {
   it('recusa campo desconhecido', () => {
     expect(IPC_SCHEMAS['note:read'].safeParse({ path: 'a.md', extra: 1 }).success).toBe(false)
   })
+
+  describe('caminho — confina o QUE, não só o ONDE', () => {
+    const rejeitados = [
+      '.vault/index.db',
+      'a/../.vault/index.db',
+      'Anexos/contrato.pdf',
+      'Projetos\\Nima.md'
+    ]
+
+    for (const path of rejeitados) {
+      it(`rejeita "${path}"`, () => {
+        expect(IPC_SCHEMAS['note:read'].safeParse({ path }).success).toBe(false)
+      })
+    }
+
+    it('aceita um caminho .md normal', () => {
+      expect(IPC_SCHEMAS['note:read'].safeParse({ path: 'Projetos/Nima.md' }).success).toBe(true)
+    })
+  })
 })

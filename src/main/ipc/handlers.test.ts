@@ -34,10 +34,40 @@ describe('handle', () => {
     await expect(handle(session, 'note:read', { path: '' })).rejects.toThrow(/inválido/i)
   })
 
-  it('rejeita path traversal', async () => {
+  it('rejeita path traversal (agora barrado já no schema, por segmento começando com ".")', async () => {
     await expect(
       handle(session, 'note:read', { path: '../../fora.md' })
-    ).rejects.toThrow(/fora do vault/)
+    ).rejects.toThrow(/inválido/i)
+  })
+
+  it('note:write + note:read fazem round-trip com um caminho POSIX .md normal (Projetos/Nima.md)', async () => {
+    await handle(session, 'note:write', { path: 'Projetos/Nima.md', content: '# nima' })
+    const r = await handle(session, 'note:read', { path: 'Projetos/Nima.md' }) as { content: string }
+    expect(r.content).toBe('# nima')
+  })
+
+  it('rejeita escritas fora do contrato .md (ex.: .vault/index.db, Anexos/contrato.pdf, path com "\\")', async () => {
+    await expect(
+      handle(session, 'note:write', { path: '.vault/index.db', content: '' })
+    ).rejects.toThrow(/inválido/i)
+    await expect(
+      handle(session, 'note:write', { path: 'a/../.vault/index.db', content: '' })
+    ).rejects.toThrow(/inválido/i)
+    await expect(
+      handle(session, 'note:write', { path: 'Anexos/contrato.pdf', content: 'x' })
+    ).rejects.toThrow(/inválido/i)
+    await expect(
+      handle(session, 'note:write', { path: 'Projetos\\Nima.md', content: 'x' })
+    ).rejects.toThrow(/inválido/i)
+  })
+
+  it('links:backlinks e links:outlinks continuam funcionando com paths reais de notes.path (tightening não quebra)', async () => {
+    await handle(session, 'note:write', { path: 'A.md', content: '[[B]]' })
+    await handle(session, 'note:write', { path: 'B.md', content: 'sem links' })
+    const back = await handle(session, 'links:backlinks', { path: 'B.md' }) as { path: string }[]
+    const out = await handle(session, 'links:outlinks', { path: 'A.md' }) as { dst: string }[]
+    expect(back.map(r => r.path)).toEqual(['A.md'])
+    expect(out.map(r => r.dst)).toEqual(['B'])
   })
 
   it('rejeita canal desconhecido', async () => {

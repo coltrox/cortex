@@ -5,7 +5,7 @@ import type { Db } from './db'
  * esperado (milhares de notas) e elimina estado inconsistente entre reindexações.
  */
 export function resolveLinks(db: Db): void {
-  const paths = (db.prepare('SELECT path FROM notes').all() as { path: string }[]).map(r => r.path)
+  const paths = (db.prepare('SELECT path FROM notes ORDER BY path').all() as { path: string }[]).map(r => r.path)
 
   const byFull = new Map<string, string>()
   const byName = new Map<string, string>()

@@ -1,12 +1,13 @@
 import { useVault } from './useVault'
 
 export function App() {
-  const { root, notes, aberta, conteudo, setConteudo, escolher, abrir, salvar } = useVault()
+  const { root, notes, aberta, conteudo, setConteudo, escolher, abrir, salvar, erro } = useVault()
 
   if (!root) {
     return (
       <div style={{ fontFamily: 'system-ui', padding: 32 }}>
         <h1>Cortex</h1>
+        {erro && <div style={{ color: 'red', marginBottom: 12 }}>{erro}</div>}
         <button onClick={() => void escolher()}>Abrir pasta do vault…</button>
       </div>
     )
@@ -36,6 +37,7 @@ export function App() {
             Salvar
           </button>
         </div>
+        {erro && <div style={{ color: 'red', marginBottom: 8 }}>{erro}</div>}
         <textarea
           value={conteudo}
           onChange={e => setConteudo(e.target.value)}

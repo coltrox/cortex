@@ -43,9 +43,11 @@ export class Vault {
 
   /**
    * Grava em .tmp e renomeia: o .md nunca fica parcial.
-   * O nome do temporário é único por CHAMADA, não por processo — duas escritas
-   * simultâneas no mesmo caminho compartilhariam o arquivo temporário e
-   * produziriam conteúdo híbrido, com ambas reportando sucesso.
+   * O nome do temporário inclui `randomUUID()`, não só `process.pid`: é único
+   * por CHAMADA, não por processo, para que duas escritas simultâneas no
+   * mesmo caminho usem arquivos temporários distintos em vez de colidir num
+   * único `.pid.tmp` compartilhado. Em caso de falha no `rename`, o temporário
+   * é removido explicitamente para não deixar lixo `.tmp` no vault.
    */
   async writeAtomic(rel: string, content: string): Promise<void> {
     const abs = this.toAbsolute(rel)
