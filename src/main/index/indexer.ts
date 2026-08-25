@@ -3,6 +3,7 @@ import { basename } from 'node:path'
 import type { Db } from './db'
 import type { Vault } from '../vault/vault'
 import { parseNote } from '../parser'
+import { resolveLinks } from './resolver'
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -72,6 +73,8 @@ export class Indexer {
       this.db.prepare('INSERT INTO notes_fts (path,title,body) VALUES (?,?,?)')
         .run(rel, title, note.body)
     })()
+
+    resolveLinks(this.db)
   }
 
   async syncAll(): Promise<{ indexed: number; removed: number; skipped: number }> {
@@ -95,6 +98,8 @@ export class Indexer {
     for (const rel of known.keys()) {
       if (!present.has(rel)) { this.removeFile(rel); removed++ }
     }
+
+    resolveLinks(this.db)
 
     return { indexed, removed, skipped }
   }
