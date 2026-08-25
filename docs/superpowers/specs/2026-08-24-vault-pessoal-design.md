@@ -178,9 +178,9 @@ O que hoje é convenção passa a ser verificado pelo app:
 
 ### 7.1 Checklist de segurança
 
-Os itens vêm de `Segurança/MOC - Segurança (Checklist Obrigatório).md` (parseados dos `- [ ]`, agrupados pelos headings existentes). O estado é **por projeto**, em `checklist_state`, e aparece como painel na lente Projetos: *"Nima: 14/23 · faltam rate limiting, CORS allowlist, Helmet+CSP"*.
+Os itens vêm de `Segurança/MOC - Segurança (Checklist Obrigatório).md` (parseados dos `- [ ]`, agrupados pelos headings existentes). O estado é **por projeto** e vive no frontmatter da própria nota do projeto, sob a chave `seguranca:`, um booleano por item. O painel da lente Projetos mostra o agregado: *"Nima: 14/23 · faltam rate limiting, CORS allowlist, Helmet+CSP"*.
 
-Como isso é dado indexado e não texto, perguntas como "quais projetos estão sem rate limiting?" viram uma query.
+A tabela `checklist_state` do índice é **derivada** desse frontmatter, como todas as outras — apagar `index.db` continua sendo seguro, porque o progresso real está nos `.md`. Isso mantém o princípio de §4.1 intacto e é coerente com "tudo é uma nota": o estado do checklist de um projeto pertence à nota daquele projeto. Como o dado é indexado, perguntas como "quais projetos estão sem rate limiting?" continuam sendo uma query.
 
 ## 8. Interface
 
@@ -281,6 +281,6 @@ Amigos recebem o app **sem** o vault e sem as regras do autor: taxonomia de tipo
 
 ## 15. Decisões em aberto
 
-1. ~~**Nome do app.**~~ **Resolvido em 2026-08-24: Cortex.** A pasta `app-pessoal` segue provisória e pode ser renomeada para `cortex` a qualquer momento — o repositório git acompanha a renomeação sem perder histórico.
+1. ~~**Nome do app.**~~ **Resolvido em 2026-08-24: Cortex.** A pasta do projeto foi renomeada de `app-pessoal` para `Cortex` na mesma data, com o histórico do git preservado.
 2. **Qual vault usar durante o desenvolvimento.** Recomendação: trabalhar sobre uma cópia de `C:\Users\PH\obsidian` até o app passar nos testes de escrita, e só então apontar para o vault real. O formato é compatível nos dois sentidos — Obsidian e app podem conviver no mesmo vault.
 3. **Se o checklist de segurança entra no v1** ou fica para o v1.1 (ver §9).
