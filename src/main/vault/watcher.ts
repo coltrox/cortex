@@ -11,12 +11,15 @@ export class VaultWatcher {
   private watcher: FSWatcher | null = null
   private fila = new Map<string, Kind>()
   private timer: NodeJS.Timeout | null = null
+  private drenando: Promise<void> | null = null
 
   constructor(
     private vault: Vault,
     private indexer: Indexer,
     private db: Db,
-    private onChange: (rel: string, kind: Kind) => void
+    private onChange: (rel: string, kind: Kind) => void,
+    private onError: (err: Error, rel: string) => void =
+      (err, rel) => console.error(`[cortex] falha ao indexar ${rel}:`, err)
   ) {}
 
   async start(): Promise<void> {
@@ -38,8 +41,14 @@ export class VaultWatcher {
     const rel = relative(this.vault.root, abs).split(sep).join('/')
     if (!rel.toLowerCase().endsWith('.md')) return
     this.fila.set(rel, kind)
+    this.agendar()
+  }
+
+  private agendar(): void {
     if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => void this.drenar(), 100)
+    this.timer = setTimeout(() => {
+      this.drenando = this.drenar().finally(() => { this.drenando = null })
+    }, 100)
   }
 
   /** Agrupa rajadas: salvar um arquivo pode disparar vários eventos seguidos. */
@@ -51,22 +60,38 @@ export class VaultWatcher {
       try {
         if (kind === 'unlink') this.indexer.removeFile(rel)
         else await this.indexer.indexFile(rel)
-      } catch {
-        // Arquivo pode ter sumido entre o evento e a leitura: ignorar.
-        continue
+        processados.push([rel, kind])
+      } catch (err) {
+        // Arquivo sumiu entre o evento e a leitura: corrida esperada e benigna.
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue
+        // Qualquer outra falha significa que o índice parou de refletir o disco.
+        // Não podemos derrubar o watcher — as outras notas ainda precisam dele —
+        // mas o silêncio aqui já custou caro neste projeto.
+        this.onError(err as Error, rel)
       }
-      processados.push([rel, kind])
     }
     // resolveLinks recomputa o vault inteiro: uma única chamada por lote, fora do
     // laço acima, cobre tanto indexações quanto remoções (removeFile não chama
-    // resolveLinks sozinho — ver ADENDO da Task 9).
-    if (processados.length > 0) resolveLinks(this.db)
+    // resolveLinks sozinho — ver ADENDO da Task 9). Protegida por try/catch: sem
+    // isso, uma falha aqui vira rejeição de promessa não tratada, já que drenar()
+    // é disparado como "void this.drenar()" pelo timer.
+    if (processados.length > 0) {
+      try {
+        resolveLinks(this.db)
+      } catch (err) {
+        this.onError(err as Error, '(resolveLinks)')
+      }
+    }
     for (const [rel, kind] of processados) this.onChange(rel, kind)
   }
 
   async stop(): Promise<void> {
     if (this.timer) clearTimeout(this.timer)
+    this.timer = null
+    // Fecha o chokidar antes de esperar o drenar em voo: se esperássemos primeiro,
+    // eventos novos poderiam ser enfileirados enquanto aguardamos.
     await this.watcher?.close()
     this.watcher = null
+    await this.drenando
   }
 }
