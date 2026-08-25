@@ -178,9 +178,9 @@ O que hoje é convenção passa a ser verificado pelo app:
 
 ### 7.1 Checklist de segurança
 
-Os itens vêm de `Segurança/MOC - Segurança (Checklist Obrigatório).md` (parseados dos `- [ ]`, agrupados pelos headings existentes). O estado é **por projeto**, em `checklist_state`, e aparece como painel na lente Projetos: *"Nima: 14/23 · faltam rate limiting, CORS allowlist, Helmet+CSP"*.
+Os itens vêm de `Segurança/MOC - Segurança (Checklist Obrigatório).md` (parseados dos `- [ ]`, agrupados pelos headings existentes). O estado é **por projeto** e vive no frontmatter da própria nota do projeto, sob a chave `seguranca:`, um booleano por item. O painel da lente Projetos mostra o agregado: *"Nima: 14/23 · faltam rate limiting, CORS allowlist, Helmet+CSP"*.
 
-Como isso é dado indexado e não texto, perguntas como "quais projetos estão sem rate limiting?" viram uma query.
+A tabela `checklist_state` do índice é **derivada** desse frontmatter, como todas as outras — apagar `index.db` continua sendo seguro, porque o progresso real está nos `.md`. Isso mantém o princípio de §4.1 intacto e é coerente com "tudo é uma nota": o estado do checklist de um projeto pertence à nota daquele projeto. Como o dado é indexado, perguntas como "quais projetos estão sem rate limiting?" continuam sendo uma query.
 
 ## 8. Interface
 

@@ -345,7 +345,7 @@ export function parseFrontmatter(raw: string): {
   parseError: string | null
 } {
   try {
-    const parsed = matter(raw)
+    const parsed = matter(raw, {})
     return {
       frontmatter: isoDates(parsed.data) as Record<string, unknown>,
       body: parsed.content,
@@ -445,7 +445,9 @@ function blankOutCode(body: string): string {
 
 export function extractWikiLinks(body: string): WikiLink[] {
   const out: WikiLink[] = []
-  const lines = blankOutCode(body).split('\n')
+  const lines = blankOutCode(body).split(/\r\n|\n/)
+|
+/)
   lines.forEach((line, i) => {
     for (const m of line.matchAll(LINK)) {
       const link: WikiLink = { target: m[1].trim(), line: i + 1 }
@@ -509,7 +511,9 @@ import type { TaskItem } from '../../shared/types'
 const TASK = /^\s*[-*]\s+\[( |x|X)\]\s+(.*)$/
 const DUE = /📅\s*(\d{4}-\d{2}-\d{2})/
 
-export function extractTasks(body: string): TaskItem[] {
+  body.split(/\r\n|\n/).forEach((line, i) => {
+|
+/).forEach((line, i) => {
   const out: TaskItem[] = []
   body.split('\n').forEach((line, i) => {
     const m = line.match(TASK)
