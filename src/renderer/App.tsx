@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import { useVault, agruparPorPasta, LENTES_DE_EDICAO, type Lente } from './useVault'
 import { hojeISO } from './tipos'
 import { SUBS } from './subnav'
+import { FORMULARIOS, ITENS, ModalFormulario } from './formularios'
 import {
   IconeHoje, IconeNotas, IconeVida, IconeSaude,
   IconeDev, IconeConhecimento, IconeFinancas, IconeCalendario
@@ -26,6 +27,8 @@ const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactE
 export function App() {
   const v = useVault()
   const [paleta, setPaleta] = useState(false)
+  const [criando, setCriando] = useState<string | null>(null)
+  const [lancando, setLancando] = useState<string | null>(null)
   const hoje = hojeISO()
 
   useEffect(() => {
@@ -60,14 +63,20 @@ export function App() {
   const lenteAtual = LENTES.find(l => l.id === v.lente)
   const subs = edicao ? null : SUBS[v.lente]
   const abrir = (p: string) => void v.abrir(p)
+  const acoes = {
+    aoAbrir: abrir,
+    aoAdicionar: (tipo: string) => setCriando(tipo),
+    aoLancar: (item: string) => setLancando(item),
+    aoAlternar: (path: string, feito: boolean) => void v.alterar(path, { feito: feito ? true : null })
+  }
 
   function view(): ReactElement {
     switch (v.lente) {
-      case 'hoje':         return <LenteHoje notas={v.notas} hoje={hoje} aoAbrir={abrir} />
-      case 'vida':         return <LenteVida notas={v.notas} sub={v.sub} hoje={hoje} aoAbrir={abrir} />
-      case 'saude':        return <LenteSaude notas={v.notas} sub={v.sub} hoje={hoje} aoAbrir={abrir} />
-      case 'conhecimento': return <LenteEstudos notas={v.notas} sub={v.sub} hoje={hoje} aoAbrir={abrir} />
-      case 'financas':     return <LenteGrana notas={v.notas} sub={v.sub} hoje={hoje} aoAbrir={abrir} />
+      case 'hoje':         return <LenteHoje notas={v.notas} hoje={hoje} {...acoes} />
+      case 'vida':         return <LenteVida notas={v.notas} sub={v.sub} hoje={hoje} {...acoes} />
+      case 'saude':        return <LenteSaude notas={v.notas} sub={v.sub} hoje={hoje} {...acoes} />
+      case 'conhecimento': return <LenteEstudos notas={v.notas} sub={v.sub} hoje={hoje} {...acoes} />
+      case 'financas':     return <LenteGrana notas={v.notas} sub={v.sub} hoje={hoje} {...acoes} />
       case 'calendario':   return <Calendario notas={v.notas} hoje={hoje} aoAbrir={abrir} />
       default:             return <></>
     }
@@ -218,6 +227,28 @@ export function App() {
           notas={v.notas}
           onEscolher={p => { void v.abrir(p); setPaleta(false) }}
           onFechar={() => setPaleta(false)}
+        />
+      )}
+      {criando && FORMULARIOS[criando] && (
+        <ModalFormulario
+          nome={FORMULARIOS[criando].nome}
+          campos={FORMULARIOS[criando].campos}
+          hoje={hoje}
+          aoFechar={() => setCriando(null)}
+          aoSalvar={async campos => { await v.criar(criando, campos); setCriando(null) }}
+        />
+      )}
+
+      {lancando && ITENS[lancando] && (
+        <ModalFormulario
+          nome={ITENS[lancando].nome}
+          campos={ITENS[lancando].campos}
+          hoje={hoje}
+          aoFechar={() => setLancando(null)}
+          aoSalvar={async item => {
+            await v.lancar(hoje, ITENS[lancando].campo, item)
+            setLancando(null)
+          }}
         />
       )}
     </>

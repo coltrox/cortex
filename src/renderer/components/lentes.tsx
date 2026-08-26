@@ -26,7 +26,15 @@ function txt(v: unknown): string {
 
 const porData = (a: NoteComCampos, b: NoteComCampos) => (a.date ?? '').localeCompare(b.date ?? '')
 
-type Props = { notas: NoteComCampos[]; sub: Sub; hoje: string; aoAbrir: (p: string) => void }
+type Props = {
+  notas: NoteComCampos[]
+  sub: Sub
+  hoje: string
+  aoAbrir: (p: string) => void
+  aoAdicionar: (tipo: string) => void
+  aoLancar: (item: string) => void
+  aoAlternar: (path: string, feito: boolean) => void
+}
 
 /* ---------- blocos reutilizáveis ---------- */
 
@@ -119,6 +127,33 @@ function Barras({ itens, formato }: { itens: [string, number][]; formato?: (v: n
   )
 }
 
+
+/** Cabecalho de secao com acao. O botao some quando a secao nao cria nada. */
+function Secao({ nome, acao, aoClicar }: { nome: string; acao?: string; aoClicar?: () => void }) {
+  return (
+    <div className="secao-linha">
+      <h3 className="secao">{nome}</h3>
+      {acao && aoClicar && (
+        <button className="btn-add" onClick={aoClicar}>+ {acao}</button>
+      )}
+    </div>
+  )
+}
+
+/** Caixa de marcar, para tarefas e itens de compra. */
+function Check({ feito, aoAlternar }: { feito: boolean; aoAlternar: () => void }) {
+  return (
+    <span
+      className="check"
+      role="checkbox"
+      aria-checked={feito}
+      onClick={e => { e.stopPropagation(); aoAlternar() }}
+    >
+      {feito ? '✓' : ''}
+    </span>
+  )
+}
+
 function Titulo({ nome, sub }: { nome: string; sub?: string }) {
   return (
     <>
@@ -130,7 +165,7 @@ function Titulo({ nome, sub }: { nome: string; sub?: string }) {
 
 /* ---------- Hoje ---------- */
 
-export function LenteHoje({ notas, hoje, aoAbrir }: Omit<Props, 'sub'>) {
+export function LenteHoje({ notas, hoje, aoAbrir, aoAdicionar, aoLancar }: Omit<Props, 'sub'>) {
   const doDia = notas.filter(n => n.date === hoje)
   const diario = doDia.find(n => n.tipo === 'diario')
   const treino = doDia.find(n => n.tipo === 'treino')
@@ -163,12 +198,12 @@ export function LenteHoje({ notas, hoje, aoAbrir }: Omit<Props, 'sub'>) {
         </>
       )}
 
-      <h3 className="secao">Suplementos de hoje</h3>
+      <Secao nome="Suplementos de hoje" acao="Suplemento" aoClicar={() => aoAdicionar('suplemento')} />
       {suplementos.length === 0
         ? <div className="vazio">Nenhum suplemento cadastrado.</div>
         : <ListaNotas notas={suplementos} aoAbrir={aoAbrir} vazio="" />}
 
-      <h3 className="secao">Dieta</h3>
+      <Secao nome="Dieta" acao="Refeicao" aoClicar={() => aoLancar('refeicao')} />
       {refeicoes.length === 0 ? <div className="vazio">Nada registrado hoje.</div> : (
         <div className="lista-notas">
           {refeicoes.map((r, i) => (
@@ -181,7 +216,7 @@ export function LenteHoje({ notas, hoje, aoAbrir }: Omit<Props, 'sub'>) {
         </div>
       )}
 
-      <h3 className="secao">Do dia</h3>
+      <Secao nome="Do dia" acao="Gasto" aoClicar={() => aoLancar('gasto')} />
       <ListaNotas notas={doDia} aoAbrir={aoAbrir} vazio="Nada registrado hoje ainda." />
 
       <h3 className="secao">Vem por aí</h3>
@@ -192,7 +227,7 @@ export function LenteHoje({ notas, hoje, aoAbrir }: Omit<Props, 'sub'>) {
 
 /* ---------- Saúde ---------- */
 
-export function LenteSaude({ notas, sub, hoje, aoAbrir }: Props) {
+export function LenteSaude({ notas, sub, hoje, aoAbrir, aoAdicionar, aoLancar }: Props) {
   const treinos = notas.filter(n => n.tipo === 'treino').sort(porData)
   const cardio = treinos.filter(n => txt(n.campos.modalidade) === 'cardio')
   const forca = treinos.filter(n => txt(n.campos.modalidade) !== 'cardio')
@@ -233,7 +268,7 @@ export function LenteSaude({ notas, sub, hoje, aoAbrir }: Props) {
           </div>
           <h3 className="secao">Peso ao longo do tempo</h3>
           <Serie pontos={pesos} rotulo="kg" />
-          <h3 className="secao">Consultas</h3>
+          <Secao nome="Consultas" acao="Consulta" aoClicar={() => aoAdicionar('consulta')} />
           <ListaNotas notas={consultas} aoAbrir={aoAbrir} vazio="Nenhuma consulta marcada." hoje={hoje} comPrazo />
         </>
       )}
@@ -242,14 +277,14 @@ export function LenteSaude({ notas, sub, hoje, aoAbrir }: Props) {
         <>
           <h3 className="secao">Por grupo</h3>
           <Barras itens={[...porGrupo.entries()]} />
-          <h3 className="secao">Histórico</h3>
+          <Secao nome="Histórico" acao="Treino" aoClicar={() => aoAdicionar('treino')} />
           <ListaNotas notas={[...forca].reverse()} aoAbrir={aoAbrir} vazio="Nenhum treino de força registrado." />
         </>
       )}
 
       {sub === 'cardio' && (
         <>
-          <h3 className="secao">Sessões de cardio</h3>
+          <Secao nome="Sessões de cardio" acao="Cardio" aoClicar={() => aoAdicionar('treino')} />
           <ListaNotas notas={[...cardio].reverse()} aoAbrir={aoAbrir}
             vazio="Nada aqui. Um treino vira cardio com o campo modalidade: cardio." />
         </>
@@ -276,7 +311,7 @@ export function LenteSaude({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'dieta' && (
         <>
-          <h3 className="secao">Refeições por dia</h3>
+          <Secao nome="Refeições por dia" acao="Refeicao" aoClicar={() => aoLancar('refeicao')} />
           {diarios.length === 0 && <div className="vazio">Nenhum diário com refeições.</div>}
           {[...diarios].reverse().map(d => {
             const rs = lista(d.campos.refeicoes)
@@ -302,7 +337,7 @@ export function LenteSaude({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'suplementos' && (
         <>
-          <h3 className="secao">Cadastrados</h3>
+          <Secao nome="Cadastrados" acao="Suplemento" aoClicar={() => aoAdicionar('suplemento')} />
           {suplementos.length === 0
             ? <div className="vazio">Nenhum suplemento. Uma nota tipo: suplemento com dose e dias entra aqui.</div>
             : (
@@ -324,7 +359,7 @@ export function LenteSaude({ notas, sub, hoje, aoAbrir }: Props) {
 
 /* ---------- Estudos ---------- */
 
-export function LenteEstudos({ notas, sub, hoje, aoAbrir }: Props) {
+export function LenteEstudos({ notas, sub, hoje, aoAbrir, aoAdicionar, aoAlternar }: Props) {
   const materias = notas.filter(n => n.tipo === 'materia')
   const provas = notas.filter(n => n.tipo === 'prova' && n.date).sort(porData)
   const simulados = notas.filter(n => n.tipo === 'simulado').sort(porData)
@@ -362,7 +397,7 @@ export function LenteEstudos({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'conteudos' && (
         <>
-          <h3 className="secao">Conteúdos</h3>
+          <Secao nome="Conteúdos" acao="Conteudo" aoClicar={() => aoAdicionar('materia')} />
           {materias.length === 0
             ? <div className="vazio">Nenhum conteúdo cadastrado.</div>
             : (
@@ -385,7 +420,7 @@ export function LenteEstudos({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'provas' && (
         <>
-          <h3 className="secao">Marcadas</h3>
+          <Secao nome="Marcadas" acao="Prova" aoClicar={() => aoAdicionar('prova')} />
           <ListaNotas notas={futuras} aoAbrir={aoAbrir} vazio="Nenhuma prova marcada." hoje={hoje} comPrazo />
           <h3 className="secao">Passadas</h3>
           <ListaNotas notas={provas.filter(p => (p.date ?? '') < hoje).reverse()} aoAbrir={aoAbrir} vazio="Nenhuma." />
@@ -394,7 +429,7 @@ export function LenteEstudos({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'simulados' && (
         <>
-          <h3 className="secao">Simulados</h3>
+          <Secao nome="Simulados" acao="Simulado" aoClicar={() => aoAdicionar('simulado')} />
           {simulados.length === 0
             ? <div className="vazio">Nenhum simulado. Uma nota tipo: simulado com acertos e total entra aqui.</div>
             : (
@@ -419,7 +454,7 @@ export function LenteEstudos({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'redacoes' && (
         <>
-          <h3 className="secao">Redações</h3>
+          <Secao nome="Redações" acao="Redacao" aoClicar={() => aoAdicionar('redacao')} />
           <ListaNotas notas={[...redacoes].reverse()} aoAbrir={aoAbrir}
             vazio="Nenhuma redação. Repertórios entram no corpo da nota." />
         </>
@@ -427,7 +462,7 @@ export function LenteEstudos({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'tarefas' && (
         <>
-          <h3 className="secao">Abertas</h3>
+          <Secao nome="Abertas" acao="Tarefa" aoClicar={() => aoAdicionar('tarefa')} />
           <ListaNotas notas={tarefas.filter(t => t.campos.feito !== true)} aoAbrir={aoAbrir}
             vazio="Nenhuma tarefa aberta." hoje={hoje} comPrazo />
           <h3 className="secao">Concluídas</h3>
@@ -437,7 +472,7 @@ export function LenteEstudos({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'livros' && (
         <>
-          <h3 className="secao">Livros</h3>
+          <Secao nome="Livros" acao="Livro" aoClicar={() => aoAdicionar('livro')} />
           {livros.length === 0
             ? <div className="vazio">Nenhum livro. Nome, resumo e link de aula entram na nota.</div>
             : (
@@ -459,7 +494,7 @@ export function LenteEstudos({ notas, sub, hoje, aoAbrir }: Props) {
 
 /* ---------- Grana ---------- */
 
-export function LenteGrana({ notas, sub, aoAbrir }: Props) {
+export function LenteGrana({ notas, sub, aoAbrir, aoAdicionar, aoLancar }: Props) {
   const comGastos = notas.filter(n => lista(n.campos.gastos).length > 0).sort((a, b) => porData(b, a))
 
   const todos: Record<string, unknown>[] = comGastos.flatMap(n =>
@@ -498,7 +533,7 @@ export function LenteGrana({ notas, sub, aoAbrir }: Props) {
 
       {sub === 'transacoes' && (
         <>
-          <h3 className="secao">Lançamentos</h3>
+          <Secao nome="Lançamentos" acao="Gasto" aoClicar={() => aoLancar('gasto')} />
           {todos.length === 0 && <div className="vazio">Nada lançado.</div>}
           <div className="lista-notas">
             {todos.slice(0, 120).map((g, i) => (
@@ -527,7 +562,7 @@ export function LenteGrana({ notas, sub, aoAbrir }: Props) {
               valor={moeda(mov.filter(m => txt(m.campos.direcao) === 'saida').reduce((s, m) => s + num(m.campos.valor), 0))}
             />
           </div>
-          <h3 className="secao">Movimentos</h3>
+          <Secao nome="Movimentos" acao="Movimento" aoClicar={() => aoAdicionar('porquinho')} />
           {mov.length === 0
             ? <div className="vazio">Nenhum movimento. Cada depósito ou saque é uma nota tipo: porquinho, e o texto dela é a sua anotação sobre o movimento.</div>
             : (
@@ -555,7 +590,7 @@ export function LenteGrana({ notas, sub, aoAbrir }: Props) {
 
 /* ---------- Vida ---------- */
 
-export function LenteVida({ notas, sub, hoje, aoAbrir }: Props) {
+export function LenteVida({ notas, sub, hoje, aoAbrir, aoAdicionar, aoAlternar }: Props) {
   const objetivos = notas.filter(n => n.tipo === 'objetivo')
   const anotacoes = notas.filter(n => n.tipo === 'anotacao')
   const pessoas = notas.filter(n => n.tipo === 'pessoa')
@@ -583,7 +618,7 @@ export function LenteVida({ notas, sub, hoje, aoAbrir }: Props) {
             <Cartao rotulo="Para comprar" valor={String(compras.filter(c => c.campos.feito !== true).length)} />
             <Cartao rotulo="Dias no diário" valor={String(diarios.length)} />
           </div>
-          <h3 className="secao">Metas</h3>
+          <Secao nome="Metas" acao="Meta" aoClicar={() => aoAdicionar('objetivo')} />
           <ListaNotas notas={objetivos} aoAbrir={aoAbrir} vazio="Nenhuma meta escrita." hoje={hoje} comPrazo />
           <h3 className="secao">Diário</h3>
           <ListaNotas notas={diarios.slice(0, 10)} aoAbrir={aoAbrir} vazio="Nenhum dia registrado." />
@@ -592,7 +627,7 @@ export function LenteVida({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'anotacoes' && (
         <>
-          <h3 className="secao">Anotações rápidas</h3>
+          <Secao nome="Anotações rápidas" acao="Anotacao" aoClicar={() => aoAdicionar('anotacao')} />
           <ListaNotas notas={anotacoes} aoAbrir={aoAbrir}
             vazio="Nenhuma anotação. Uma nota tipo: anotacao entra aqui." />
         </>
@@ -600,7 +635,7 @@ export function LenteVida({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'metas' && (
         <>
-          <h3 className="secao">Metas</h3>
+          <Secao nome="Metas" acao="Meta" aoClicar={() => aoAdicionar('objetivo')} />
           <ListaNotas notas={objetivos} aoAbrir={aoAbrir} vazio="Nenhuma meta." hoje={hoje} comPrazo />
         </>
       )}
@@ -630,7 +665,7 @@ export function LenteVida({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'pessoas' && (
         <>
-          <h3 className="secao">Pessoas</h3>
+          <Secao nome="Pessoas" acao="Pessoa" aoClicar={() => aoAdicionar('pessoa')} />
           {pessoas.length === 0
             ? <div className="vazio">Ninguém cadastrado — nutricionista, médico e fisio entram aqui.</div>
             : (
@@ -648,7 +683,7 @@ export function LenteVida({ notas, sub, hoje, aoAbrir }: Props) {
 
       {sub === 'documentos' && (
         <>
-          <h3 className="secao">Documentos</h3>
+          <Secao nome="Documentos" acao="Documento" aoClicar={() => aoAdicionar('documento')} />
           <p className="lente-sub">
             Busque por nome no <code>Ctrl+K</code>. Arquivos ficam em <code>Anexos/</code> e a
             nota de documento aponta para eles.

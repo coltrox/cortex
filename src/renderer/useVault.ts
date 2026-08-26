@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { NoteComCampos } from './tipos'
 import { subPadrao, type Sub } from './subnav'
+import { FORMULARIOS } from './formularios'
 
 export type Lente =
   | 'hoje' | 'notas' | 'vida' | 'saude'
@@ -115,6 +116,60 @@ export function useVault() {
     } catch (e) { falhou(e) }
   }
 
+
+  /** Higieniza um titulo para virar nome de arquivo POSIX valido. */
+  const nomeArquivo = (s: string) =>
+    s.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120)
+
+  /** Cria uma nota a partir de um formulario. Recusa se ja existir. */
+  const criar = useCallback(async (tipo: string, campos: Record<string, unknown>): Promise<void> => {
+    const form = FORMULARIOS[tipo]
+    if (!form) { setErro(`Tipo desconhecido: ${tipo}`); return }
+    const titulo = String(campos.titulo ?? '')
+    const base = form.nomearPor === 'data' ? String(campos.date ?? '') : nomeArquivo(titulo)
+    if (!base) { setErro('Faltou o nome da nota.'); return }
+
+    const fm: Record<string, unknown> = { tipo, ...campos }
+    const linhas = Object.entries(fm).map(([k, val]) =>
+      `${k}: ${typeof val === 'string' ? val : JSON.stringify(val)}`)
+    const conteudo =
+      `---\n${linhas.join('\n')}\n---\n\n### 🕸️ Dependências da Rede\n-\n\n## Notas\n`
+
+    try {
+      await window.vaultApi.invoke('note:create', {
+        path: `${form.pasta}/${form.nomearPor === 'data' ? `${tipo}-${base}` : base}.md`,
+        content: conteudo
+      })
+      await recarregar()
+      setErro(null)
+    } catch (e) { falhou(e) }
+  }, [recarregar])
+
+  /** Altera campos do frontmatter preservando o corpo da nota. */
+  const alterar = useCallback(async (path: string, campos: Record<string, unknown>): Promise<void> => {
+    try {
+      await window.vaultApi.invoke('note:patch', { path, campos })
+      await recarregar()
+      setErro(null)
+    } catch (e) { falhou(e) }
+  }, [recarregar])
+
+  /** Lanca um item numa lista do diario do dia, criando o diario se preciso. */
+  const lancar = useCallback(async (
+    dia: string, campo: string, item: Record<string, unknown>
+  ): Promise<void> => {
+    const path = `Diario/${dia}.md`
+    try {
+      await window.vaultApi.invoke('note:ensure', {
+        path,
+        conteudoInicial: `---\ntipo: diario\ndate: ${dia}\n---\n\n## Como foi o dia\n`
+      })
+      await window.vaultApi.invoke('note:append', { path, campo, item })
+      await recarregar()
+      setErro(null)
+    } catch (e) { falhou(e) }
+  }, [recarregar])
+
   const visiveis = useMemo(() => {
     const base = filtrarPorLente(notas, lente)
     const q = filtro.trim().toLowerCase()
@@ -139,6 +194,7 @@ export function useVault() {
     sujo: conteudo !== salvo,
     saindo, entrando,
     escolher, abrir, abrirLink, salvar,
+    criar, alterar, lancar,
     erro, limparErro: () => setErro(null)
   }
 }
