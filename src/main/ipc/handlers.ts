@@ -4,6 +4,37 @@ import type { Session } from '../session'
 import {
   getNote, listNotes, listNotesWithFields, searchFullText, getBacklinks, getOutlinks, getBrokenLinks
 } from '../index/queries'
+import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
+
+/**
+ * `note:patch`, `note:append` e `note:ensure` são todos ler-modificar-gravar.
+ * Duas chamadas concorrentes para o MESMO caminho (ex.: dois lançamentos
+ * rápidos de gasto no diário de hoje) não podem interlear leitura e escrita —
+ * senão a segunda gravação sobrescreve a primeira em silêncio (mesmo defeito
+ * do nome de temporário por PID que já mordeu este projeto: "correto no
+ * teste, errado sob concorrência real"). Cada `path` tem sua própria fila:
+ * a operação N+1 só começa a ler o disco depois que a N terminou de gravar
+ * (sucesso ou falha), mas caminhos diferentes seguem em paralelo.
+ */
+const filasPorSessao = new WeakMap<Session, Map<string, Promise<unknown>>>()
+
+function serializarPorCaminho<T>(
+  session: Session, path: string, tarefa: () => Promise<T>
+): Promise<T> {
+  let filas = filasPorSessao.get(session)
+  if (!filas) { filas = new Map(); filasPorSessao.set(session, filas) }
+
+  const anterior = filas.get(path) ?? Promise.resolve()
+  const atual = anterior.then(tarefa, tarefa)
+  // A entrada na fila nunca deve rejeitar — senão a PRÓXIMA operação na fila
+  // (que só encadeia em `anterior.then(tarefa, tarefa)`) já dispara a partir
+  // de uma promise resolvida, o que está correto; mas se guardássemos `atual`
+  // diretamente aqui, um `.catch` externo tardio na op N poderia observar
+  // "unhandled rejection" nesta referência interna. Guardamos uma cópia
+  // silenciada só para servir de marcador de "vez" da fila.
+  filas.set(path, atual.then(() => undefined, () => undefined))
+  return atual
+}
 
 export async function handle(
   session: Session, canal: IpcChannel, bruto: unknown
@@ -42,6 +73,38 @@ export async function handle(
       await session.indexer.indexFile(p.path)
       return { path: p.path }
     }
+
+    // Frontmatter escrito por formulário — ação explícita do usuário, nunca
+    // automática (emenda à constraint "o app nunca reescreve frontmatter que
+    // o autor digitou"). Ler-modificar-gravar acontece aqui, no processo
+    // principal, serializado por caminho: ver `serializarPorCaminho`.
+    case 'note:patch':
+      return serializarPorCaminho(session, p.path, async () => {
+        const raw = await session.vault.read(p.path)
+        const patched = patchFrontmatter(raw, p.campos)
+        await session.vault.writeAtomic(p.path, patched)
+        await session.indexer.indexFile(p.path)
+        return { path: p.path }
+      })
+
+    case 'note:append':
+      return serializarPorCaminho(session, p.path, async () => {
+        const raw = await session.vault.read(p.path)
+        const { raw: patched, total } = appendToFrontmatterList(raw, p.campo, p.item)
+        await session.vault.writeAtomic(p.path, patched)
+        await session.indexer.indexFile(p.path)
+        return { path: p.path, total }
+      })
+
+    case 'note:ensure':
+      return serializarPorCaminho(session, p.path, async () => {
+        if (await session.vault.exists(p.path)) {
+          return { path: p.path, criada: false }
+        }
+        await session.vault.writeAtomic(p.path, p.conteudoInicial)
+        await session.indexer.indexFile(p.path)
+        return { path: p.path, criada: true }
+      })
 
     case 'search:fulltext':
       return searchFullText(session.db, p.q, p.limit)

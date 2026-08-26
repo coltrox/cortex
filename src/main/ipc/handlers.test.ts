@@ -130,6 +130,111 @@ describe('handle', () => {
   })
 })
 
+describe('note:patch', () => {
+  it('altera o frontmatter e preserva o corpo, reindexando na hora', async () => {
+    await handle(session, 'note:write', {
+      path: 'a.md',
+      content: '---\ntipo: nota\nstatus: aberto\n---\n\nCorpo com acentuação e ção.\n'
+    })
+
+    const r = await handle(session, 'note:patch', {
+      path: 'a.md', campos: { status: 'fechado', prioridade: 'alta' }
+    }) as { path: string }
+    expect(r.path).toBe('a.md')
+
+    const read = await handle(session, 'note:read', { path: 'a.md' }) as { content: string }
+    expect(read.content).toContain('Corpo com acentuação e ção.')
+    expect(read.content).toContain('status: fechado')
+
+    // reindexado imediatamente: note:list-fields reflete o campo novo
+    const lista = await handle(session, 'note:list-fields', { tipo: 'nota' }) as any[]
+    expect(lista[0].campos.prioridade).toBe('alta')
+  })
+
+  it('null em note:patch remove a chave', async () => {
+    await handle(session, 'note:write', {
+      path: 'a.md', content: '---\ntipo: nota\nstatus: aberto\n---\nx'
+    })
+    await handle(session, 'note:patch', { path: 'a.md', campos: { status: null } })
+    const read = await handle(session, 'note:read', { path: 'a.md' }) as { content: string }
+    expect(read.content).not.toContain('status:')
+  })
+
+  it('note:patch em YAML inválido lança e não altera o arquivo em disco', async () => {
+    const original = '---\ntipo: [nao, fechado\n---\ncorpo original'
+    await handle(session, 'note:write', { path: 'a.md', content: original })
+
+    await expect(
+      handle(session, 'note:patch', { path: 'a.md', campos: { status: 'x' } })
+    ).rejects.toThrow()
+
+    const read = await handle(session, 'note:read', { path: 'a.md' }) as { content: string }
+    expect(read.content).toBe(original)
+  })
+})
+
+describe('note:append', () => {
+  it('acrescenta item a campo inexistente, criando a lista', async () => {
+    await handle(session, 'note:write', { path: 'Diario/2026-08-25.md', content: '---\ntipo: diario\n---\n' })
+
+    const r = await handle(session, 'note:append', {
+      path: 'Diario/2026-08-25.md', campo: 'gastos', item: { valor: 10, desc: 'café' }
+    }) as { path: string; total: number }
+    expect(r.total).toBe(1)
+
+    const lista = await handle(session, 'note:list-fields', { tipo: 'diario' }) as any[]
+    expect(lista[0].campos.gastos).toEqual([{ valor: 10, desc: 'café' }])
+  })
+
+  it('duas chamadas simultâneas (Promise.all, sem await entre elas) resultam em 2 itens, não 1', async () => {
+    await handle(session, 'note:write', { path: 'Diario/2026-08-25.md', content: '---\ntipo: diario\n---\n' })
+
+    const [r1, r2] = await Promise.all([
+      handle(session, 'note:append', {
+        path: 'Diario/2026-08-25.md', campo: 'gastos', item: { valor: 10 }
+      }) as Promise<{ total: number }>,
+      handle(session, 'note:append', {
+        path: 'Diario/2026-08-25.md', campo: 'gastos', item: { valor: 20 }
+      }) as Promise<{ total: number }>
+    ])
+
+    // uma operação viu total 1, a outra viu total 2 (ordem entre elas não é
+    // garantida, mas nenhum lançamento pode se perder)
+    expect([r1.total, r2.total].sort()).toEqual([1, 2])
+
+    const read = await handle(session, 'note:read', { path: 'Diario/2026-08-25.md' }) as { content: string }
+    const lista = await handle(session, 'note:list-fields', { tipo: 'diario' }) as any[]
+    expect(lista[0].campos.gastos.length).toBe(2)
+    expect(read.content).toMatch(/valor: 10/)
+    expect(read.content).toMatch(/valor: 20/)
+  })
+})
+
+describe('note:ensure', () => {
+  it('nota inexistente: cria, indexa e devolve criada: true', async () => {
+    const r = await handle(session, 'note:ensure', {
+      path: 'Diario/2026-08-25.md', conteudoInicial: '---\ntipo: diario\ndate: 2026-08-25\n---\n'
+    }) as { path: string; criada: boolean }
+    expect(r.criada).toBe(true)
+
+    const lista = await handle(session, 'note:list', { tipo: 'diario' }) as any[]
+    expect(lista.map(n => n.path)).toEqual(['Diario/2026-08-25.md'])
+  })
+
+  it('nota existente: não altera o conteúdo e devolve criada: false', async () => {
+    const original = '---\ntipo: diario\n---\nconteúdo original já escrito pela pessoa'
+    await handle(session, 'note:write', { path: 'Diario/2026-08-25.md', content: original })
+
+    const r = await handle(session, 'note:ensure', {
+      path: 'Diario/2026-08-25.md', conteudoInicial: '---\ntipo: diario\n---\nOUTRO CONTEÚDO'
+    }) as { path: string; criada: boolean }
+    expect(r.criada).toBe(false)
+
+    const read = await handle(session, 'note:read', { path: 'Diario/2026-08-25.md' }) as { content: string }
+    expect(read.content).toBe(original)
+  })
+})
+
 describe('Session.open — reconstrução do índice (ADENDO)', () => {
   it('versão antiga: reconstrói e schema_version volta a ser SCHEMA_VERSION', async () => {
     await session.close()
