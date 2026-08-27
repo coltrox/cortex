@@ -44,12 +44,12 @@ describe('lerConfig', () => {
   })
 
   it('le de volta o que gravou', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'] })
-    expect(await lerConfig(arq)).toEqual({ areas: ['dev'], pastasDev: ['/x'] })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'], escolheu: true })
+    expect(await lerConfig(arq)).toEqual({ areas: ['dev'], pastasDev: ['/x'], escolheu: true })
   })
 
   it('grava JSON legivel por humano', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: [] })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: [], escolheu: true })
     expect(await readFile(arq, 'utf8')).toContain('\n  "areas"')
   })
 })

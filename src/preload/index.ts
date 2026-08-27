@@ -1,7 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcChannel, IpcPayload } from '../shared/ipc'
 
-export type EstadoVault = { root: string | null; config: { areas: string[]; pastasDev: string[] } | null }
+export type EstadoVault = {
+  root: string | null
+  config: { areas: string[]; pastasDev: string[]; escolheu: boolean } | null
+}
 
 const api = {
   invoke<C extends IpcChannel>(canal: C, payload: IpcPayload<C>): Promise<unknown> {

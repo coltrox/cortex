@@ -3,9 +3,8 @@ import type { Lente } from './useVault'
 /**
  * Sub-navegação de cada lente.
  *
- * As lentes de edição (Notas, Dev) não têm sub-navegação: a coluna delas é a
- * árvore do vault. As lentes de vida têm seções, e a primeira é sempre o
- * panorama — o resto detalha.
+ * A primeira sub é sempre o panorama; o resto detalha. `Hoje` e `Agenda` não
+ * têm sub — são uma tela só.
  */
 export type Sub = string
 
@@ -15,6 +14,7 @@ export const SUBS: Partial<Record<Lente, { id: Sub; nome: string }[]>> = {
     { id: 'anotacoes',   nome: 'Anotações' },
     { id: 'metas',       nome: 'Metas' },
     { id: 'compras',     nome: 'Comprar' },
+    { id: 'contas',      nome: 'Contas e senhas' },
     { id: 'pessoas',     nome: 'Pessoas' },
     { id: 'documentos',  nome: 'Documentos' }
   ],
@@ -39,6 +39,11 @@ export const SUBS: Partial<Record<Lente, { id: Sub; nome: string }[]>> = {
     { id: 'overview',    nome: 'Panorama' },
     { id: 'transacoes',  nome: 'Transações' },
     { id: 'porquinho',   nome: 'Porquinho' }
+  ],
+  dev: [
+    { id: 'projetos',    nome: 'Projetos' },
+    { id: 'codigo',      nome: 'Código' },
+    { id: 'seguranca',   nome: 'Segurança' }
   ]
 }
 
@@ -60,8 +65,9 @@ export function diasAte(data: string, hoje: string): number {
 /**
  * Urgência de um prazo, para colorir o contador.
  *
- * `feito` sempre devolve 'ok' — marcar como concluído tira o alerta, que é o
- * comportamento que o alerta existe para provocar.
+ * `feito` sempre devolve 'ok' — marcar como concluído (ou como matéria
+ * revisada) tira o alerta, que é o comportamento que o alerta existe para
+ * provocar.
  */
 export function urgencia(dias: number, feito: boolean): 'ok' | 'longe' | 'perto' | 'agora' | 'passou' {
   if (feito) return 'ok'

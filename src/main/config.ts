@@ -16,6 +16,14 @@ import { readFile, writeFile } from 'node:fs/promises'
 export type Config = {
   areas: string[]
   pastasDev: string[]
+  /**
+   * Se o dono do vault já passou pela tela de escolha de áreas.
+   *
+   * Existe porque "escolhi todas" e "nunca escolhi" produzem a mesma lista, e
+   * sem este sinal a tela de abertura reapareceria para sempre — ou nunca
+   * apareceria, dependendo do padrão que escolhêssemos para `areas`.
+   */
+  escolheu: boolean
 }
 
 /** Todas as lentes que o usuário pode ligar na abertura. `hoje` é sempre ligada. */
@@ -30,7 +38,7 @@ export const AREAS = [
 
 export const IDS_AREAS: string[] = AREAS.map(a => a.id)
 
-export const CONFIG_PADRAO: Config = { areas: [...IDS_AREAS], pastasDev: [] }
+export const CONFIG_PADRAO: Config = { areas: [...IDS_AREAS], pastasDev: [], escolheu: false }
 
 /**
  * Sanitiza o que veio do disco. Um `config.json` editado à mão, truncado por
@@ -45,7 +53,7 @@ export function normalizarConfig(bruto: unknown): Config {
   const pastasDev = Array.isArray(o.pastasDev)
     ? [...new Set(o.pastasDev.filter((p): p is string => typeof p === 'string' && p.length > 0))]
     : []
-  return { areas, pastasDev }
+  return { areas, pastasDev, escolheu: o.escolheu === true }
 }
 
 export async function lerConfig(caminho: string): Promise<Config> {

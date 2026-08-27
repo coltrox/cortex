@@ -159,7 +159,7 @@ export async function handle(
       return session.config
 
     case 'config:areas': {
-      const c = await session.salvarConfig({ areas: p.areas })
+      const c = await session.salvarConfig({ areas: p.areas, escolheu: true })
       // Criar as pastas na hora que a área é ligada é o que faz o vault ser
       // legível fora do app: quem abrir a pasta no Explorer (ou o Claude
       // lendo do disco) encontra a estrutura mesmo antes da primeira nota.
