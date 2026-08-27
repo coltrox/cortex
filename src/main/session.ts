@@ -93,6 +93,11 @@ export class Session {
     this.configPath = join(dir, 'config.json')
     this.config = await lerConfig(this.configPath)
 
+    // `lerConfig` gera um vaultId quando não havia; gravar de volta para que
+    // ele seja o mesmo na próxima abertura. Sem isto, cada início de sessão
+    // inventaria um id novo e o celular pararia de entregar.
+    if (!existsSync(this.configPath)) await gravarConfig(this.configPath, this.config)
+
     try {
       this.db = await openOrRebuildIndex(join(dir, 'index.db'))
       this.indexer = new Indexer(this.db, this.vault)

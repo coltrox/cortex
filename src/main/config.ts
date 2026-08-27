@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 
 /**
  * Configuração do vault — `.vault/config.json`.
@@ -24,6 +25,24 @@ export type Config = {
    * apareceria, dependendo do padrão que escolhêssemos para `areas`.
    */
   escolheu: boolean
+  /** Identificador deste vault para a captura rápida. Ver `novoVaultId`. */
+  vaultId: string
+  /** Credenciais do Supabase. `null` enquanto a nuvem não foi configurada. */
+  nuvem: { url: string; chave: string } | null
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
+/**
+ * O identificador do vault, gerado OFFLINE.
+ *
+ * É a única credencial da captura rápida: quem tem o id escreve neste vault.
+ * Nasce aqui, e não no banco, porque assim o Cortex não precisa escrever nada
+ * lá nem para se registrar — o que mantém de pé a regra de que só o cardápio
+ * sobe.
+ */
+export function novoVaultId(): string {
+  return randomUUID()
 }
 
 /** Todas as lentes que o usuário pode ligar na abertura. `hoje` é sempre ligada. */
@@ -38,7 +57,9 @@ export const AREAS = [
 
 export const IDS_AREAS: string[] = AREAS.map(a => a.id)
 
-export const CONFIG_PADRAO: Config = { areas: [...IDS_AREAS], pastasDev: [], escolheu: false }
+export const CONFIG_PADRAO: Config = {
+  areas: [...IDS_AREAS], pastasDev: [], escolheu: false, vaultId: '', nuvem: null
+}
 
 /**
  * Sanitiza o que veio do disco. Um `config.json` editado à mão, truncado por
@@ -53,16 +74,29 @@ export function normalizarConfig(bruto: unknown): Config {
   const pastasDev = Array.isArray(o.pastasDev)
     ? [...new Set(o.pastasDev.filter((p): p is string => typeof p === 'string' && p.length > 0))]
     : []
-  return { areas, pastasDev, escolheu: o.escolheu === true }
+
+  // Um id ausente ou corrompido é substituído; um id válido é sagrado —
+  // trocá-lo sozinho deixaria todos os celulares apontando para o vazio.
+  const idBruto = typeof o.vaultId === 'string' ? o.vaultId : ''
+  const vaultId = UUID.test(idBruto) ? idBruto : novoVaultId()
+
+  const n = o.nuvem as { url?: unknown; chave?: unknown } | undefined
+  const nuvem = n && typeof n.url === 'string' && n.url && typeof n.chave === 'string' && n.chave
+    ? { url: n.url, chave: n.chave }
+    : null
+
+  return { areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem }
 }
 
 export async function lerConfig(caminho: string): Promise<Config> {
   try {
     return normalizarConfig(JSON.parse(await readFile(caminho, 'utf8')))
   } catch {
-    // Ausente ou ilegível: o vault abre com tudo ligado. Não é erro — é o
-    // estado de um vault que ainda não passou pela tela de abertura.
-    return { ...CONFIG_PADRAO }
+    // Ausente ou ilegível: o vault abre com tudo ligado. Passa por
+    // `normalizarConfig` — e não pelo padrão cru — porque é ela que gera o
+    // vaultId; devolver a constante deixaria o vault novo sem identificador,
+    // e a captura rápida nasceria quebrada.
+    return normalizarConfig({})
   }
 }
 
