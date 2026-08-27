@@ -78,7 +78,9 @@ describe('montarCardapio', () => {
       // aqui: só passa quem também filtra campo a campo dentro do tipo certo.
       nota({ path: 'Saude/Treinos/Push A.md', title: 'Push A', tipo: 'treino-modelo',
              campos: {
-               grupo: 'push',
+               // grupo como array — String() de array junta com vírgula, então
+               // um segundo item vaza grudado no primeiro se txt() não filtrar
+               grupo: ['push', 'SEGREDO-ARRAY-GRUPO'],
                // campo extra no frontmatter do treino, fora da lista branca
                notaMedica: 'evitar por causa da cirurgia no ombro',
                exercicios: [{
@@ -90,7 +92,8 @@ describe('montarCardapio', () => {
              } }),
       nota({ path: 'Saude/Suplementos/Whey.md', title: 'Whey', tipo: 'suplemento',
              campos: {
-               dose: '30 g', quando: 'pós-treino',
+               // dose como array — mesma classe de furo que grupo acima
+               dose: ['30 g', 'SEGREDO-DOSE-ARRAY'], quando: 'pós-treino',
                // dias mistura strings de verdade com um objeto disfarçado de dia
                dias: ['seg', 'qua', { dia: 'sex', motivo: 'combinar com consulta psiquiátrica dia 12' }],
                estoque: 42,
@@ -100,7 +103,9 @@ describe('montarCardapio', () => {
              campos: {
                ativo: true,
                refeicoes: [{
-                 nome: 'Café', hora: '07:00', itens: '2 ovos', prot: 30,
+                 nome: 'Café', hora: '07:00',
+                 // itens como array — mesma classe de furo, agora em refeicao
+                 itens: ['2 ovos', 'SEGREDO-ITENS-ARRAY'], prot: 30,
                  // kcal também vem como objeto — mesma classe de furo que series
                  kcal: { valor: 600, obs: 'restrição renal detectada em exame recente' }
                }]
@@ -114,7 +119,8 @@ describe('montarCardapio', () => {
       'Almoço', '32.5', '60 kg', 'texto pessoal',
       'evitar por causa da cirurgia', 'dor lombar recorrente',
       'combinar com consulta psiquiátrica', 'prescrito pelo psiquiatra',
-      'restrição renal detectada em exame recente'
+      'restrição renal detectada em exame recente',
+      'SEGREDO-ARRAY-GRUPO', 'SEGREDO-DOSE-ARRAY', 'SEGREDO-ITENS-ARRAY'
     ]) {
       expect(json).not.toContain(proibido)
     }

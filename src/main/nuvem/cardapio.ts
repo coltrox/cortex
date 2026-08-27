@@ -14,7 +14,10 @@ import type { NoteComCampos } from '../index/queries'
  * gasto e carga, e falha se qualquer um deles aparecer no JSON publicado.
  */
 
-const txt = (v: unknown): string => (v === null || v === undefined ? '' : String(v))
+// Só escalar vira texto — `String(v)` de um array junta os elementos com
+// vírgula (recursivamente), então um array escapa junto sem que ninguém peça.
+const txt = (v: unknown): string =>
+  typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' ? String(v) : ''
 
 /** Só número de verdade sobe — um objeto disfarçado de kcal não é escalar. */
 const num = (v: unknown): number | undefined =>
