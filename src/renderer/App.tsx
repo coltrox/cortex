@@ -118,6 +118,7 @@ export function App() {
             aoRevelar={(raiz, sub) => void v.revelar(raiz, sub)}
             aoCriarPasta={p => void v.criarPasta(p)}
             aoMoverNota={(de, para) => void v.mover(de, para)}
+            aoSoltarPastas={arquivos => void v.autorizarArrastadas(arquivos)}
           />
         )
       default: return <></>

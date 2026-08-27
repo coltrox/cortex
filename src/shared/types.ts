@@ -48,6 +48,8 @@ declare global {
       pickVault(): Promise<EstadoVault | null>
       criarVault(): Promise<EstadoVault | null>
       autorizarPastaDev(): Promise<string[]>
+      caminhoArrastado(f: File): string
+      autorizarPastaArrastada(caminho: string): Promise<string[]>
       abrirTerminal(raiz: string, sub?: string): Promise<{ cwd: string }>
       abrirNoExplorador(raiz: string, sub?: string): Promise<{ ok: true }>
       onVaultChange(cb: (rel: string) => void): () => void

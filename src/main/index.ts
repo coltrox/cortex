@@ -132,6 +132,43 @@ ipcMain.handle('dev:add-folder', async () => {
 })
 
 /**
+ * Autoriza uma pasta que o usuário arrastou para a janela.
+ *
+ * Aqui o renderer nomeia um caminho absoluto — a única vez em todo o app. Por
+ * isso o processo principal não confia nele: confirma que é mesmo um
+ * diretório e PERGUNTA ao usuário, com o caminho na tela, antes de gravar na
+ * lista de autorização. Um arrastar sem querer não pode virar acesso
+ * permanente a uma pasta, e a confirmação é o que mantém a autorização sendo
+ * uma decisão humana, como no diálogo nativo.
+ */
+ipcMain.handle('dev:add-dropped', async (_e, payload: unknown) => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { caminho?: unknown }
+  if (typeof p.caminho !== 'string' || !p.caminho) throw new Error('caminho inválido')
+
+  const alvo = resolve(p.caminho)
+  const s = await stat(alvo).catch(() => null)
+  if (!s?.isDirectory()) throw new Error('arraste uma pasta, não um arquivo')
+
+  const atuais = session.config.pastasDev
+  if (atuais.some(x => resolve(x) === alvo)) return atuais
+
+  const r = await dialog.showMessageBox({
+    type: 'question',
+    title: 'Autorizar pasta de código',
+    message: `Dar ao Cortex acesso de leitura e escrita a esta pasta?`,
+    detail: alvo,
+    buttons: ['Autorizar', 'Cancelar'],
+    defaultId: 0,
+    cancelId: 1
+  })
+  if (r.response !== 0) return atuais
+
+  const c = await session.salvarConfig({ pastasDev: [...atuais, alvo] })
+  return c.pastasDev
+})
+
+/**
  * Abre um terminal na pasta.
  *
  * A pasta passa por `PastasDev.resolver` antes: mesmo sendo o processo

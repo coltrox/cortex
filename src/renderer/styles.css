@@ -1339,3 +1339,7 @@ kbd {
   .dev-corpo { grid-template-columns: 190px 1fr; }
   .areas { grid-template-columns: 1fr; }
 }
+
+/* Zona de soltar pastas de código arrastadas do explorador de arquivos. */
+[data-soltar="true"] { outline: 2px dashed var(--accent); outline-offset: 6px; border-radius: 10px; }
+.zona-soltar[data-ativa="true"] { background: var(--accent-bg); border-radius: 10px; }

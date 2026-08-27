@@ -280,6 +280,25 @@ export function useVault() {
     } catch (e) { falhou(e) }
   }, [])
 
+  /**
+   * Autoriza pastas arrastadas do explorador de arquivos.
+   *
+   * O caminho real sai do `webUtils` no preload — `File.path` não existe mais.
+   * Cada uma passa pela confirmação do processo principal antes de entrar na
+   * lista, então soltar algo por engano não autoriza nada.
+   */
+  const autorizarArrastadas = useCallback(async (arquivos: FileList): Promise<void> => {
+    for (const f of Array.from(arquivos)) {
+      const caminho = window.vaultApi.caminhoArrastado(f)
+      if (!caminho) continue
+      try {
+        const pastasDev = await window.vaultApi.autorizarPastaArrastada(caminho)
+        setConfig(c => ({ ...c, pastasDev }))
+        setErro(null)
+      } catch (e) { falhou(e) }
+    }
+  }, [])
+
   const removerPasta = useCallback(async (raiz: string): Promise<void> => {
     try {
       setConfig(await window.vaultApi.invoke('dev:remove-folder', { raiz }) as Config)
@@ -349,7 +368,8 @@ export function useVault() {
     escolher, criarVault, salvarAreas,
     abrir, abrirPorNome, abrirLink, fechar, salvar,
     criar, alterar, excluir, mover, criarPasta, lancar, marcarNoDia,
-    autorizarPasta, removerPasta, arvoreDev, lerArquivo, gravarArquivo, abrirTerminal, revelar,
+    autorizarPasta, autorizarArrastadas, removerPasta,
+    arvoreDev, lerArquivo, gravarArquivo, abrirTerminal, revelar,
     erro, limparErro: () => setErro(null)
   }
 }

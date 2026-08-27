@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type DragEvent } from 'react'
 import type { EntradaDev } from '../useVault'
 import { Secao, Titulo, Linha, Vazio, txt, type PropsLente } from './base'
 
@@ -30,6 +30,7 @@ type PropsDev = PropsLente & {
   aoRevelar: (raiz: string, sub?: string) => void
   aoCriarPasta: (pasta: string) => void
   aoMoverNota: (de: string, paraPasta: string) => void
+  aoSoltarPastas: (arquivos: FileList) => void
 }
 
 const nomeBase = (p: string): string => p.slice(p.lastIndexOf('/') + 1).replace(/\.md$/i, '')
@@ -80,7 +81,7 @@ function NavegadorVault({
     setCriandoPasta(false)
   }
 
-  const soltar = (destino: string) => (e: React.DragEvent): void => {
+  const soltar = (destino: string) => (e: DragEvent): void => {
     e.preventDefault()
     if (arrastando) aoMoverNota(arrastando, destino)
     setArrastando(null)
@@ -201,8 +202,9 @@ function NavegadorVault({
 
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
-  aoTerminal, aoRevelar
+  aoTerminal, aoRevelar, aoSoltarPastas
 }: PropsDev) {
+  const [sobrevoando, setSobrevoando] = useState(false)
   const [raiz, setRaiz] = useState<string | null>(pastasDev[0] ?? null)
   const [pastaAtual, setPastaAtual] = useState('')
   const [itens, setItens] = useState<EntradaDev[]>([])
@@ -252,24 +254,37 @@ function Codigo({
   const sujo = texto !== gravado
   const trilha = pastaAtual ? pastaAtual.split('/') : []
 
+  // Arrastar do explorador de arquivos é o atalho para o mesmo diálogo: o
+  // caminho vai para o processo principal, que confirma antes de autorizar.
+  const zona = {
+    onDragOver: (e: DragEvent) => { e.preventDefault(); setSobrevoando(true) },
+    onDragLeave: () => setSobrevoando(false),
+    onDrop: (e: DragEvent) => {
+      e.preventDefault()
+      setSobrevoando(false)
+      if (e.dataTransfer?.files?.length) aoSoltarPastas(e.dataTransfer.files)
+    }
+  }
+
   if (pastasDev.length === 0) {
     return (
-      <>
+      <div {...zona} data-soltar={sobrevoando}>
         <Secao nome="Pastas de código" />
-        <div className="vazio-grande">
+        <div className="vazio-grande zona-soltar" data-ativa={sobrevoando}>
           <p>Nenhuma pasta autorizada ainda.</p>
           <p className="lente-sub">
-            O Cortex só enxerga as pastas que você autorizar, uma a uma. Nada fora
-            delas é lido ou gravado — nem o resto do disco, nem o próprio vault.
+            Arraste a pasta do projeto para cá, ou escolha pelo botão. O Cortex só
+            enxerga as pastas que você autorizar, uma a uma — nada fora delas é
+            lido ou gravado, nem o resto do disco, nem o próprio vault.
           </p>
           <button className="btn grande" onClick={aoAutorizar}>Escolher uma pasta</button>
         </div>
-      </>
+      </div>
     )
   }
 
   return (
-    <>
+    <div {...zona} data-soltar={sobrevoando}>
       <Secao
         nome="Pastas de código"
         direita={<button className="btn-fantasma" onClick={aoAutorizar}>+ Autorizar pasta</button>}
@@ -374,6 +389,6 @@ function Codigo({
           </div>
         </>
       )}
-    </>
+    </div>
   )
 }
