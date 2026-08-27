@@ -16,8 +16,16 @@ import type { NoteComCampos } from '../index/queries'
 
 const txt = (v: unknown): string => (v === null || v === undefined ? '' : String(v))
 
+/** Só número de verdade sobe — um objeto disfarçado de kcal não é escalar. */
+const num = (v: unknown): number | undefined =>
+  typeof v === 'number' && Number.isFinite(v) ? v : undefined
+
 const lista = (v: unknown): Record<string, unknown>[] =>
   Array.isArray(v) ? v.filter(i => i && typeof i === 'object') as Record<string, unknown>[] : []
+
+/** Lista de strings simples — um dia da semana é 'seg', nunca um objeto com motivo anexado. */
+const listaDeTexto = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
 
 /** Só entra no detalhe o que tem valor — chave vazia polui a tela do celular. */
 function comValor(o: Record<string, unknown>): Record<string, unknown> {
@@ -41,7 +49,7 @@ export function montarCardapio(notas: NoteComCampos[]): ItemCardapio[] {
         // Campo a campo: `series` e `reps` são estrutura, `carga` é histórico.
         exercicios: lista(n.campos.exercicios).map(e => comValor({
           nome: txt(e.nome),
-          series: e.series,
+          series: num(e.series),
           reps: txt(e.reps)
         }))
       })
@@ -55,7 +63,8 @@ export function montarCardapio(notas: NoteComCampos[]): ItemCardapio[] {
       detalhe: comValor({
         dose: txt(n.campos.dose),
         quando: txt(n.campos.quando),
-        dias: Array.isArray(n.campos.dias) ? n.campos.dias : undefined
+        // Item a item, igual exercicios/refeicoes: um objeto disfarçado de dia não passa.
+        dias: listaDeTexto(n.campos.dias)
       })
     })
   }
@@ -69,7 +78,7 @@ export function montarCardapio(notas: NoteComCampos[]): ItemCardapio[] {
     out.push({
       especie: 'refeicao',
       nome,
-      detalhe: comValor({ hora: txt(r.hora), itens: txt(r.itens), kcal: r.kcal, prot: r.prot })
+      detalhe: comValor({ hora: txt(r.hora), itens: txt(r.itens), kcal: num(r.kcal), prot: num(r.prot) })
     })
   }
 

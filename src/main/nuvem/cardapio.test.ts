@@ -73,16 +73,48 @@ describe('montarCardapio', () => {
              campos: { modelo: 'Push A', exercicios: [{ nome: 'Supino', carga: '60 kg' }] } }),
       nota({ path: 'Vida/n.md', title: 'Ideia', tipo: 'anotacao',
              campos: { texto: 'texto pessoal que nao pode vazar' } }),
-      // e o que PODE subir, para o teste não passar por lista vazia
+      // e o que PODE subir — mas com campos sensíveis embutidos DENTRO dos três
+      // tipos que montarCardapio de fato processa. Filtrar por tipo não basta
+      // aqui: só passa quem também filtra campo a campo dentro do tipo certo.
       nota({ path: 'Saude/Treinos/Push A.md', title: 'Push A', tipo: 'treino-modelo',
-             campos: { grupo: 'push', exercicios: [{ nome: 'Supino', series: 4, reps: '8' }] } })
+             campos: {
+               grupo: 'push',
+               // campo extra no frontmatter do treino, fora da lista branca
+               notaMedica: 'evitar por causa da cirurgia no ombro',
+               exercicios: [{
+                 nome: 'Supino', reps: '8',
+                 // series e obs vêm como objeto — nem series pode ser copiado bruto,
+                 // nem obs (chave que nem existe na lista branca) pode vazar
+                 series: { valor: 4, obs: 'dor lombar recorrente' }
+               }]
+             } }),
+      nota({ path: 'Saude/Suplementos/Whey.md', title: 'Whey', tipo: 'suplemento',
+             campos: {
+               dose: '30 g', quando: 'pós-treino',
+               // dias mistura strings de verdade com um objeto disfarçado de dia
+               dias: ['seg', 'qua', { dia: 'sex', motivo: 'combinar com consulta psiquiátrica dia 12' }],
+               estoque: 42,
+               receita: 'prescrito pelo psiquiatra dr. Fulano'
+             } }),
+      nota({ path: 'Saude/Planos/Cutting.md', title: 'Cutting', tipo: 'plano',
+             campos: {
+               ativo: true,
+               refeicoes: [{
+                 nome: 'Café', hora: '07:00', itens: '2 ovos', prot: 30,
+                 // kcal também vem como objeto — mesma classe de furo que series
+                 kcal: { valor: 600, obs: 'restrição renal detectada em exame recente' }
+               }]
+             } })
     ]
     const json = JSON.stringify(montarCardapio(vault))
 
     expect(json).toContain('Push A')          // o cardápio não veio vazio
     for (const proibido of [
       'SENHA-SECRETA-123', 'pedro@mail', '99.999.999-9',
-      'Almoço', '32.5', '60 kg', 'texto pessoal'
+      'Almoço', '32.5', '60 kg', 'texto pessoal',
+      'evitar por causa da cirurgia', 'dor lombar recorrente',
+      'combinar com consulta psiquiátrica', 'prescrito pelo psiquiatra',
+      'restrição renal detectada em exame recente'
     ]) {
       expect(json).not.toContain(proibido)
     }
