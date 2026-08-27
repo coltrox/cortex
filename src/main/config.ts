@@ -88,6 +88,25 @@ export function normalizarConfig(bruto: unknown): Config {
   return { areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem }
 }
 
+/**
+ * Lê o `vaultId` cru do disco, sem validar nem gerar — só o que estava no
+ * JSON, ou `undefined` se o campo faltar, o arquivo não existir ou não for
+ * um JSON válido.
+ *
+ * Existe só para quem grava depois de ler (`Session.open`) saber se o id
+ * mudou e precisa regravar. A validação e a geração continuam sendo
+ * exclusividade de `normalizarConfig` — esta função não decide qual id é
+ * válido, só relata o que havia antes da decisão.
+ */
+export async function vaultIdBruto(caminho: string): Promise<string | undefined> {
+  try {
+    const o = JSON.parse(await readFile(caminho, 'utf8')) as Record<string, unknown>
+    return typeof o.vaultId === 'string' ? o.vaultId : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export async function lerConfig(caminho: string): Promise<Config> {
   try {
     return normalizarConfig(JSON.parse(await readFile(caminho, 'utf8')))
