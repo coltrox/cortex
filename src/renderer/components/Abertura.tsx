@@ -11,13 +11,14 @@ import { useEffect, useState } from 'react'
  * do processo principal. O renderer nunca nomeia uma pasta do disco.
  */
 
+/** Uma linha por área, curta o bastante para não quebrar na grade. */
 export const AREAS = [
-  { id: 'conhecimento', nome: 'Estudos', linha: 'Conteúdos, provas, simulados, redações e livros' },
-  { id: 'saude', nome: 'Saúde', linha: 'Treinos, cardio, medidas, dieta e suplementos' },
-  { id: 'financas', nome: 'Grana', linha: 'Transações por categoria e porquinho' },
-  { id: 'vida', nome: 'Vida', linha: 'Anotações, metas, compras, documentos e senhas' },
-  { id: 'dev', nome: 'Dev', linha: 'Pastas de código, editor, terminal e notas de projeto' },
-  { id: 'calendario', nome: 'Agenda', linha: 'Calendário mensal com tudo que tem data' }
+  { id: 'conhecimento', nome: 'Estudos', linha: 'Conteúdos, provas, simulados e redações' },
+  { id: 'saude', nome: 'Saúde', linha: 'Treinos, cardio, medidas e dieta' },
+  { id: 'financas', nome: 'Grana', linha: 'Transações, categorias e porquinho' },
+  { id: 'vida', nome: 'Vida', linha: 'Anotações, metas, compras e senhas' },
+  { id: 'dev', nome: 'Dev', linha: 'Código, editor, terminal e projetos' },
+  { id: 'calendario', nome: 'Agenda', linha: 'Calendário com tudo que tem data' }
 ]
 
 type Props = {

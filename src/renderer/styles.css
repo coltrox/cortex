@@ -307,25 +307,36 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ---------- tela inicial ---------- */
 
+/*
+ * A tela de abertura tem uma caixa só, centrada na janela.
+ *
+ * Nada aqui estiliza `h1` ou `p` soltos: a versão anterior fazia isso, e as
+ * regras `.abertura h1` / `.abertura p` tinham especificidade maior que as
+ * classes da caixa — o título alinhava à esquerda e o parágrafo centralizava
+ * com 40ch, dentro do mesmo bloco. Toda a tipografia desta tela mora nas
+ * classes `.abertura-*`, para que continuem sendo a última palavra.
+ *
+ * `overflow-y: auto` porque a etapa de escolher áreas é mais alta que a
+ * primeira: numa janela baixa, a caixa precisa rolar em vez de ser cortada.
+ */
 .abertura {
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 22px;
+  padding: 40px 32px;
+  overflow-y: auto;
   background: var(--canvas);
 }
 
-.abertura h1 {
-  font-family: var(--serif);
-  font-size: 52px;
-  font-weight: 400;
-  letter-spacing: -.03em;
-  margin: 0;
-}
-
-.abertura p { color: var(--text-2); margin: -14px 0 0; max-width: 40ch; text-align: center; }
+/*
+ * `margin: auto` centra, `align-items: center` não.
+ *
+ * Num container flex que rola, centrar pelo eixo transversal corta o começo
+ * do conteúdo quando ele é mais alto que a janela: o excesso vaza para cima,
+ * fora do alcance da barra de rolagem. Com `margin: auto` a sobra é
+ * distribuída como margem, e margem o scroll respeita.
+ */
+.abertura-caixa { margin: auto; }
 
 /* ---------- erro ---------- */
 
@@ -886,23 +897,48 @@ kbd {
    Abertura
    ============================================================ */
 
-.abertura-caixa { width: 100%; max-width: 460px; text-align: left; }
-.abertura-caixa.larga { max-width: 640px; }
-.abertura-caixa h1 { font-family: var(--serif); font-size: 34px; margin: 0 0 10px; font-weight: 500; }
+.abertura-caixa { width: 100%; max-width: 480px; text-align: left; flex: 0 0 auto; }
+.abertura-caixa.larga { max-width: 660px; }
+
+.abertura-caixa h1 {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin: 0 0 10px;
+}
+/* A primeira etapa é a marca do app; a segunda é uma pergunta. Tamanhos
+   diferentes porque são pesos diferentes na mesma tela. */
+.abertura-caixa:not(.larga) h1 { font-size: 46px; font-weight: 400; letter-spacing: -.03em; }
+
+/* Sem max-width próprio: a caixa já define a medida da coluna, e um limite
+   aqui deixaria o parágrafo mais estreito que os botões logo abaixo. */
 .abertura-sub { color: var(--text-2); margin: 0 0 26px; line-height: 1.65; }
 .abertura-acoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .abertura-nota { font-size: 12px; color: var(--text-3); }
-.abertura-rodape { margin-top: 22px; font-size: 12px; color: var(--text-3); }
+.abertura-rodape { margin: 22px 0 0; font-size: 12px; color: var(--text-3); line-height: 1.6; }
+
+/* O erro herdava a margem lateral do erro que aparece dentro da lente. */
+.abertura .erro { margin: 0 0 16px; }
 .abertura-rodape code, .lente-sub code {
   font-family: var(--mono); font-size: 11px;
   background: var(--surface-sunk); padding: 1px 5px; border-radius: 4px;
 }
 .btn.grande, .btn-fantasma.grande { padding: 10px 20px; font-size: 14px; }
 
-.areas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 22px; }
+/* `grid-auto-rows: 1fr` iguala a altura das linhas. Sem isso, uma descrição
+   que quebra em duas linhas deixa aquela fileira mais alta que as outras — e
+   a grade inteira parece desalinhada por causa de uma frase. */
+.areas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
+  gap: 8px;
+  margin: 0 0 24px;
+}
 .area {
-  display: flex; gap: 11px; align-items: flex-start; text-align: left;
-  padding: 13px 14px; background: var(--surface); border: 1px solid var(--border);
+  display: flex; gap: 10px; align-items: flex-start; text-align: left;
+  padding: 11px 13px; background: var(--surface); border: 1px solid var(--border);
   border-radius: 8px; transition: border-color .12s, background .12s;
 }
 .area:hover { border-color: var(--border-strong); }
@@ -1337,6 +1373,11 @@ kbd {
   .nota-corpo { grid-template-columns: 1fr; }
   .nota-lado { border-left: 0; border-top: 1px solid var(--border); }
   .dev-corpo { grid-template-columns: 190px 1fr; }
+}
+
+/* As áreas cabem em duas colunas até bem abaixo da largura mínima da janela;
+   quebrar em 1100px jogava a tela inteira numa coluna só sem necessidade. */
+@media (max-width: 700px) {
   .areas { grid-template-columns: 1fr; }
 }
 
