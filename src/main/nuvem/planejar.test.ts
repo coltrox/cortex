@@ -50,7 +50,7 @@ describe('planejar', () => {
     expect(planejar(ev('sessao', {
       modelo: 'Push A', exercicios: [{ nome: 'Supino', carga: '60 kg' }]
     }))).toEqual([{
-      acao: 'nota', tipo: 'sessao', path: 'Saude/Treinos/Push A — 2026-08-27.md',
+      acao: 'nota', tipo: 'sessao', seExistir: 'mesclar', path: 'Saude/Treinos/Push A — 2026-08-27.md',
       frontmatter: {
         tipo: 'sessao', date: '2026-08-27',
         exercicios: [{ nome: 'Supino', carga: '60 kg' }], modelo: 'Push A'
@@ -71,7 +71,7 @@ describe('planejar', () => {
   it('cardio cria a nota do dia', () => {
     const [op] = planejar(ev('cardio', { aparelho: 'esteira', minutos: 30, pace: '5:45' }))
     expect(op).toEqual({
-      acao: 'nota', tipo: 'cardio', path: 'Saude/Treinos/cardio-2026-08-27.md',
+      acao: 'nota', tipo: 'cardio', seExistir: 'mesclar', path: 'Saude/Treinos/cardio-2026-08-27.md',
       frontmatter: { tipo: 'cardio', date: '2026-08-27', aparelho: 'esteira', minutos: 30, pace: '5:45' }
     })
   })
@@ -107,10 +107,17 @@ describe('planejar', () => {
   it('anotacao vira nota com titulo tirado do texto', () => {
     const [op] = planejar(ev('anotacao', { texto: 'Comprar caderno novo para o cursinho' }))
     expect(op).toMatchObject({
-      acao: 'nota', tipo: 'anotacao',
+      acao: 'nota', tipo: 'anotacao', seExistir: 'criarOutro',
       path: expect.stringContaining('Vida/'),
       frontmatter: { tipo: 'anotacao', texto: 'Comprar caderno novo para o cursinho' }
     })
+  })
+
+  it('anotacao nunca mescla — duas anotacoes diferentes nao podem se apagar', () => {
+    const [op1] = planejar(ev('anotacao', { texto: 'Lembrar de pagar conta de luz' }))
+    const [op2] = planejar(ev('anotacao', { texto: 'Lembrar de pagar conta do cartão' }, '2026-08-28'))
+    expect(op1).toMatchObject({ seExistir: 'criarOutro' })
+    expect(op2).toMatchObject({ seExistir: 'criarOutro' })
   })
 
   it('tipo desconhecido nao gera operacao — Cortex velho + app novo nao quebra', () => {

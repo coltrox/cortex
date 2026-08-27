@@ -2,6 +2,7 @@ import type { Vault } from '../vault/vault'
 import type { Indexer } from '../index/indexer'
 import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
 import { parseFrontmatter } from '../parser/frontmatter'
+import { DEPENDENCIAS } from '../templates'
 import type { Operacao } from './planejar'
 
 /**
@@ -9,18 +10,72 @@ import type { Operacao } from './planejar'
  *
  * Fino de propósito: toda a decisão está em `planejar`, e aqui só há escrita.
  * Usa exatamente os mesmos utilitários que os formulários da interface usam —
- * nenhum caminho novo de escrita entra no projeto por causa da nuvem.
+ * nenhum caminho novo de escrita entra no projeto por causa da nuvem. Isso
+ * vale também para nota nova: o esqueleto abaixo (`ESQUELETO_VAZIO`) é só
+ * `---\n---\n` — YAML vazio, mas válido — e quem escreve o frontmatter de
+ * verdade por cima é sempre o `patchFrontmatter`, com o `gray-matter` real
+ * escapando dois-pontos, aspas e quebra de linha. Montar as linhas do YAML na
+ * mão (como uma versão anterior deste arquivo fazia) corrompe qualquer valor
+ * com esses caracteres — e `anotacao` é justamente o tipo que carrega texto
+ * livre digitado pelo usuário no celular, o mais propenso a ter ": " ou
+ * parágrafo.
  */
 
 const cabecalhoDiario = (dia: string): string =>
   `---\ntipo: diario\ndate: ${dia}\n---\n\n## Como foi o dia\n`
 
+/** Esqueleto de nota nova: YAML vazio válido + o mesmo rodapé de sempre. */
+const ESQUELETO_VAZIO = `---\n---\n\n${DEPENDENCIAS}\n\n`
+
 async function garantir(vault: Vault, path: string, inicial: string): Promise<void> {
   if (!(await vault.exists(path))) await vault.writeAtomic(path, inicial)
 }
 
+/** Conteúdo de `path`, ou o esqueleto vazio se ele ainda não existir. */
+async function lerOuVazio(vault: Vault, path: string): Promise<string> {
+  return (await vault.exists(path)) ? vault.read(path) : ESQUELETO_VAZIO
+}
+
+/**
+ * Acha um caminho livre para uma nota com política `seExistir: 'criarOutro'`
+ * (ver `Operacao` em `planejar.ts`). `anotacao` deriva o nome da primeira
+ * linha do texto — duas anotações de dias diferentes que começam igual não
+ * podem colidir e uma apagar a outra, então aqui se acrescenta " (2)",
+ * " (3)"... até achar um nome que ainda não existe.
+ */
+async function proximoCaminhoLivre(vault: Vault, path: string): Promise<string> {
+  if (!(await vault.exists(path))) return path
+  const base = path.endsWith('.md') ? path.slice(0, -3) : path
+  for (let n = 2; ; n++) {
+    const candidato = `${base} (${n}).md`
+    if (!(await vault.exists(candidato))) return candidato
+  }
+}
+
 function comoLista(v: unknown): string[] {
   return Array.isArray(v) ? v.map(x => String(x)) : []
+}
+
+/**
+ * Indexa sem deixar uma falha aqui virar reprocessamento do evento inteiro.
+ *
+ * Quando esta função é chamada, o `writeAtomic` já terminou — o dado já está
+ * gravado no disco. Se `indexFile` falhar (índice bloqueado, disco cheio no
+ * meio da escrita do `.db`, o que for) e essa falha subir até o
+ * `Sincronizador`, o evento não é marcado como aplicado, e a próxima rodada
+ * reaplica a mesma operação sobre um arquivo que já tem o dado — para
+ * `diario-lista` (gasto, refeição extra) isso duplica a linha no arquivo do
+ * usuário. Entre um índice temporariamente desatualizado e um gasto em
+ * dobro, o índice é o erro mais barato: `VaultWatcher` observa o disco
+ * diretamente (não depende desta chamada) e reindexa sozinho assim que
+ * perceber a mudança.
+ */
+async function indexarSemFalhar(indexer: Indexer, path: string): Promise<void> {
+  try {
+    await indexer.indexFile(path)
+  } catch (err) {
+    console.error(`[cortex] falha ao indexar ${path} após escrita vinda da nuvem:`, err)
+  }
 }
 
 export async function executar(
@@ -36,7 +91,7 @@ export async function executar(
         const atual = comoLista(parseFrontmatter(raw).frontmatter[op.campo])
         if (atual.includes(op.valor)) break
         await vault.writeAtomic(path, patchFrontmatter(raw, { [op.campo]: [...atual, op.valor] }))
-        await indexer.indexFile(path)
+        await indexarSemFalhar(indexer, path)
         break
       }
 
@@ -45,32 +100,38 @@ export async function executar(
         await garantir(vault, path, cabecalhoDiario(op.dia))
         const raw = await vault.read(path)
         await vault.writeAtomic(path, appendToFrontmatterList(raw, op.campo, op.item).raw)
-        await indexer.indexFile(path)
+        await indexarSemFalhar(indexer, path)
         break
       }
 
       case 'nota': {
-        // Já existir não é erro: dois cardios no mesmo dia caem no mesmo
-        // caminho, e o segundo mescla em vez de estourar.
-        if (await vault.exists(op.path)) {
-          const raw = await vault.read(op.path)
+        if (op.seExistir === 'mesclar') {
+          // Já existir não é erro: dois cardios no mesmo dia (ou duas
+          // sessões com o mesmo modelo e data) caem no mesmo caminho, e o
+          // segundo mescla em vez de estourar.
+          const raw = await lerOuVazio(vault, op.path)
           await vault.writeAtomic(op.path, patchFrontmatter(raw, op.frontmatter))
+          await indexarSemFalhar(indexer, op.path)
         } else {
-          const linhas = Object.entries(op.frontmatter).map(([k, v]) =>
-            `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
-          await vault.writeAtomic(op.path,
-            `---\n${linhas.join('\n')}\n---\n\n### 🕸️ Dependências da Rede\n-\n\n`)
+          // 'criarOutro': mesclar aqui apagaria uma anotação diferente que
+          // só por acaso começa com a mesma frase — nunca sobrescreve,
+          // sempre cria um arquivo à parte com um sufixo que desambigua.
+          const path = await proximoCaminhoLivre(vault, op.path)
+          await vault.writeAtomic(path, patchFrontmatter(ESQUELETO_VAZIO, op.frontmatter))
+          await indexarSemFalhar(indexer, path)
         }
-        await indexer.indexFile(op.path)
         break
       }
 
       case 'nota-campos': {
-        await garantir(vault, op.path,
-          `---\ntipo: ${op.tipo}\n---\n\n### 🕸️ Dependências da Rede\n-\n\n`)
-        const raw = await vault.read(op.path)
-        await vault.writeAtomic(op.path, patchFrontmatter(raw, op.campos))
-        await indexer.indexFile(op.path)
+        const raw = await lerOuVazio(vault, op.path)
+        // `op.tipo` depois do spread de `op.campos`: quem decide o `tipo`
+        // da nota é este executor, não o evento que originou `campos` — a
+        // mesma regra de "seus campos depois do spread" usada no resto do
+        // plano (ver `planejar.ts`), aplicada aqui de novo por segurança
+        // mesmo que hoje `campos` já traga o `tipo` certo.
+        await vault.writeAtomic(op.path, patchFrontmatter(raw, { ...op.campos, tipo: op.tipo }))
+        await indexarSemFalhar(indexer, op.path)
         break
       }
     }

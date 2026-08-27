@@ -12,8 +12,18 @@ export type Operacao =
   | { acao: 'diario-conjunto'; dia: string; campo: string; valor: string }
   /** Acrescenta a uma lista do diário (gasto, refeição extra). */
   | { acao: 'diario-lista'; dia: string; campo: string; item: Record<string, unknown> }
-  /** Cria uma nota nova; se já existir, mescla o frontmatter. */
-  | { acao: 'nota'; tipo: string; path: string; frontmatter: Record<string, unknown> }
+  /**
+   * Cria uma nota nova. `seExistir` decide o que fazer quando `path` já
+   * existe: `'mesclar'` funde o frontmatter novo por cima do que já está lá
+   * (dois cardios no mesmo dia devem virar um registro só); `'criarOutro'`
+   * nunca mescla — o executor acrescenta um sufixo ao nome e cria um arquivo
+   * à parte (duas anotações que só por acaso começam com a mesma frase não
+   * podem apagar uma à outra).
+   */
+  | {
+      acao: 'nota'; tipo: string; path: string; frontmatter: Record<string, unknown>
+      seExistir: 'mesclar' | 'criarOutro'
+    }
   /** Cria a nota se faltar e mescla campos — usado por peso e medida. */
   | { acao: 'nota-campos'; tipo: string; path: string; campos: Record<string, unknown> }
 
@@ -69,7 +79,7 @@ export function planejar(evento: Evento): Operacao[] {
       // tipo/date depois do spread, mesmo motivo do `cardio` — só `modelo`
       // estava protegido aqui antes; `tipo`/`date` tinham o mesmo furo.
       return [{
-        acao: 'nota', tipo: 'sessao',
+        acao: 'nota', tipo: 'sessao', seExistir: 'mesclar',
         path: `Saude/Treinos/${nomeArquivo(`${modelo} — ${dia}`)}.md`,
         frontmatter: comValor({ ...dados, tipo: 'sessao', date: dia, modelo })
       }]
@@ -81,7 +91,7 @@ export function planejar(evento: Evento): Operacao[] {
       // decide o que a nota É para o app inteiro — um evento não pode
       // escolher isso espalhando `dados.tipo`/`dados.date` por cima.
       return [{
-        acao: 'nota', tipo: 'cardio',
+        acao: 'nota', tipo: 'cardio', seExistir: 'mesclar',
         path: `Saude/Treinos/cardio-${dia}.md`,
         frontmatter: comValor({ ...dados, tipo: 'cardio', date: dia })
       }]
@@ -101,8 +111,12 @@ export function planejar(evento: Evento): Operacao[] {
       const texto = txt(dados.texto).trim()
       if (!texto) return []
       const titulo = texto.split(/\r\n|\n/)[0].slice(0, 60)
+      // 'criarOutro': o caminho vem só da primeira linha do texto, então duas
+      // anotações de dias diferentes que começam igual não podem cair no
+      // mesmo arquivo e mesclar — mesclar aqui apagaria o texto de uma
+      // anotação inteira sem aviso nenhum para o usuário.
       return [{
-        acao: 'nota', tipo: 'anotacao',
+        acao: 'nota', tipo: 'anotacao', seExistir: 'criarOutro',
         path: `Vida/${nomeArquivo(titulo)}.md`,
         frontmatter: { tipo: 'anotacao', date: dia, titulo, texto }
       }]
