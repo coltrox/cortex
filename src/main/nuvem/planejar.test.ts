@@ -36,6 +36,16 @@ describe('planejar', () => {
     expect(op).toMatchObject({ acao: 'diario-lista', item: { dir: 'entrada' } })
   })
 
+  it('gasto com direcao invalida vira saida, nao passa cru', () => {
+    const [op] = planejar(ev('gasto', { item: 'Estranho', valor: 10, dir: 'lateral' }))
+    expect(op).toMatchObject({ acao: 'diario-lista', item: { dir: 'saida' } })
+  })
+
+  it('gasto com direcao em caixa diferente vira saida, nao normaliza', () => {
+    const [op] = planejar(ev('gasto', { item: 'Freela', valor: 500, dir: 'ENTRADA' }))
+    expect(op).toMatchObject({ acao: 'diario-lista', item: { dir: 'saida' } })
+  })
+
   it('sessao cria uma nota de treino com o titulo previsivel', () => {
     expect(planejar(ev('sessao', {
       modelo: 'Push A', exercicios: [{ nome: 'Supino', carga: '60 kg' }]

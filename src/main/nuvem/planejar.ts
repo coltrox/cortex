@@ -53,11 +53,15 @@ export function planejar(evento: Evento): Operacao[] {
       return [{ acao: 'diario-lista', dia, campo: 'extras', item: comValor(dados) }]
 
     case 'gasto':
-      // Sem direção declarada é saída: foi assim que a lista nasceu, e supor
-      // entrada inflaria o saldo do mês por engano.
+      // Só a string exata 'entrada' produz entrada; qualquer outra coisa
+      // (ausente, com caixa diferente, lixo qualquer) vira saída — entre
+      // errar o saldo do mês para mais ou para menos, menos é o lado seguro.
+      // `dir` é escrito por último de propósito: espalhar `dados` primeiro e
+      // sobrescrever `dir` depois é a única ordem em que ler a linha já diz
+      // quem ganha — sobrescrever cedo deixaria um `dados.dir` cru vencer.
       return [{
         acao: 'diario-lista', dia, campo: 'transacoes',
-        item: comValor({ dir: txt(dados.dir) === 'entrada' ? 'entrada' : 'saida', ...dados })
+        item: comValor({ ...dados, dir: txt(dados.dir) === 'entrada' ? 'entrada' : 'saida' })
       }]
 
     case 'sessao': {
