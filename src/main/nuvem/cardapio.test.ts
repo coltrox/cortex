@@ -109,7 +109,23 @@ describe('montarCardapio', () => {
                  // kcal também vem como objeto — mesma classe de furo que series
                  kcal: { valor: 600, obs: 'restrição renal detectada em exame recente' }
                }]
-             } })
+             } }),
+      // title como array, em treino e suplemento — nome vinha de n.title direto,
+      // sem passar por txt(). NoteRow.title é `string`, então isto exige cast:
+      // hoje o indexer.ts sempre entrega string de verdade, e é só por isso que
+      // o cast é necessário aqui. O ponto do teste não é "o frontmatter consegue
+      // produzir isso" — é que montarCardapio não pode depender de uma garantia
+      // que mora em outro arquivo para não vazar. Se o indexer mudar, ou se
+      // montarCardapio for chamada por outro caminho que não garanta title
+      // string, a função tem que se defender sozinha.
+      nota({ path: 'Saude/Treinos/Titulo-Malicioso.md',
+             title: ['Treino X', 'SEGREDO-TITLE-TREINO'] as unknown as string,
+             tipo: 'treino-modelo',
+             campos: { grupo: 'push' } }),
+      nota({ path: 'Saude/Suplementos/Titulo-Malicioso.md',
+             title: ['Whey X', 'SEGREDO-TITLE-SUPLEMENTO'] as unknown as string,
+             tipo: 'suplemento',
+             campos: { dose: '10 g' } })
     ]
     const json = JSON.stringify(montarCardapio(vault))
 
@@ -120,7 +136,8 @@ describe('montarCardapio', () => {
       'evitar por causa da cirurgia', 'dor lombar recorrente',
       'combinar com consulta psiquiátrica', 'prescrito pelo psiquiatra',
       'restrição renal detectada em exame recente',
-      'SEGREDO-ARRAY-GRUPO', 'SEGREDO-DOSE-ARRAY', 'SEGREDO-ITENS-ARRAY'
+      'SEGREDO-ARRAY-GRUPO', 'SEGREDO-DOSE-ARRAY', 'SEGREDO-ITENS-ARRAY',
+      'SEGREDO-TITLE-TREINO', 'SEGREDO-TITLE-SUPLEMENTO'
     ]) {
       expect(json).not.toContain(proibido)
     }

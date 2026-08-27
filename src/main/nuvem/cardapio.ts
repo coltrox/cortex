@@ -46,7 +46,10 @@ export function montarCardapio(notas: NoteComCampos[]): ItemCardapio[] {
   for (const n of notas.filter(x => x.tipo === 'treino-modelo')) {
     out.push({
       especie: 'treino',
-      nome: n.title,
+      // txt() aqui, não n.title direto: a garantia de que title é string
+      // mora em indexer.ts, fora do controle desta função. Se isso mudar, ou
+      // se alguém chamar montarCardapio por outro caminho, txt() segura.
+      nome: txt(n.title),
       detalhe: comValor({
         grupo: txt(n.campos.grupo),
         // Campo a campo: `series` e `reps` são estrutura, `carga` é histórico.
@@ -62,7 +65,7 @@ export function montarCardapio(notas: NoteComCampos[]): ItemCardapio[] {
   for (const n of notas.filter(x => x.tipo === 'suplemento')) {
     out.push({
       especie: 'suplemento',
-      nome: n.title,
+      nome: txt(n.title),
       detalhe: comValor({
         dose: txt(n.campos.dose),
         quando: txt(n.campos.quando),
