@@ -7,6 +7,8 @@ import { VaultWatcher } from './vault/watcher'
 import { VaultRootMissingError } from './vault/errors'
 import { openIndex, SCHEMA_VERSION, type Db } from './index/db'
 import { Indexer } from './index/indexer'
+import { lerConfig, gravarConfig, normalizarConfig, CONFIG_PADRAO, type Config } from './config'
+import { PastasDev } from './dev/pastas'
 
 export { VaultRootMissingError }
 
@@ -48,6 +50,18 @@ export class Session {
   vault!: Vault
   db!: Db
   indexer!: Indexer
+  /**
+   * Config do vault. Começa no padrão para que uma sessão ainda não aberta
+   * responda com algo coerente em vez de estourar — e é substituída pelo que
+   * está em disco assim que `open` roda.
+   */
+  config: Config = { ...CONFIG_PADRAO }
+  /**
+   * Acesso às pastas de código. A lista autorizada é lida a cada chamada
+   * (função, não array) para que uma pasta recém-adicionada valha na hora.
+   */
+  readonly pastasDev = new PastasDev(() => this.config.pastasDev)
+  private configPath = ''
   private watcher: VaultWatcher | null = null
   private aberta = false
 
@@ -73,6 +87,12 @@ export class Session {
     const dir = join(this.vault.root, '.vault')
     await mkdir(dir, { recursive: true })
 
+    // A config vem antes do índice de propósito: ela é barata, nunca falha
+    // (config ilegível cai no padrão) e as lentes precisam dela para saber o
+    // que desenhar mesmo que a indexação ainda esteja rodando.
+    this.configPath = join(dir, 'config.json')
+    this.config = await lerConfig(this.configPath)
+
     try {
       this.db = await openOrRebuildIndex(join(dir, 'index.db'))
       this.indexer = new Indexer(this.db, this.vault)
@@ -95,6 +115,17 @@ export class Session {
       try { this.db?.close() } catch { /* já fechado ou nunca abriu */ }
       throw err
     }
+  }
+
+  /**
+   * Grava a config, mesclando com a que está em memória. Passa por
+   * `normalizarConfig` também na escrita: o renderer é entrada hostil, e uma
+   * área inventada por ele não pode ser persistida no vault.
+   */
+  async salvarConfig(mudanca: Partial<Config>): Promise<Config> {
+    this.config = normalizarConfig({ ...this.config, ...mudanca })
+    await gravarConfig(this.configPath, this.config)
+    return this.config
   }
 
   async close(): Promise<void> {

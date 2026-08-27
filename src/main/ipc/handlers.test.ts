@@ -291,3 +291,99 @@ describe('Session.open — reconstrução do índice (ADENDO)', () => {
     expect(marcador?.value).toBe('presente')
   })
 })
+
+describe('note:delete e note:move', () => {
+  it('apaga a nota do disco e do indice', async () => {
+    await handle(session, 'note:write', { path: 'x.md', content: '---\ntipo: nota\n---\noi' })
+    expect((await handle(session, 'note:list', {}) as any[]).length).toBe(1)
+    await handle(session, 'note:delete', { path: 'x.md' })
+    expect(await session.vault.exists('x.md')).toBe(false)
+    expect((await handle(session, 'note:list', {}) as any[]).length).toBe(0)
+  })
+
+  it('apagar duas vezes nao quebra', async () => {
+    await handle(session, 'note:write', { path: 'x.md', content: 'oi' })
+    await handle(session, 'note:delete', { path: 'x.md' })
+    await expect(handle(session, 'note:delete', { path: 'x.md' })).resolves.toBeTruthy()
+  })
+
+  it('mover leva o conteudo e reindexa no caminho novo', async () => {
+    await handle(session, 'note:write', { path: 'a.md', content: '---\ntipo: nota\n---\ncorpo' })
+    await handle(session, 'note:move', { de: 'a.md', para: 'Pasta/b.md' })
+    const r = await handle(session, 'note:read', { path: 'Pasta/b.md' }) as { content: string }
+    expect(r.content).toContain('corpo')
+    const lista = await handle(session, 'note:list', {}) as any[]
+    expect(lista.map(n => n.path)).toEqual(['Pasta/b.md'])
+  })
+
+  it('mover recusa sobrescrever uma nota que ja existe', async () => {
+    await handle(session, 'note:write', { path: 'a.md', content: 'A' })
+    await handle(session, 'note:write', { path: 'b.md', content: 'B' })
+    await expect(handle(session, 'note:move', { de: 'a.md', para: 'b.md' })).rejects.toThrow()
+    const r = await handle(session, 'note:read', { path: 'b.md' }) as { content: string }
+    expect(r.content).toBe('B')
+  })
+
+  it('apagar corrige o link de quem apontava para a nota', async () => {
+    await handle(session, 'note:write', { path: 'alvo.md', content: 'sou o alvo' })
+    await handle(session, 'note:write', { path: 'origem.md', content: 'veja [[alvo]]' })
+    const antes = await handle(session, 'links:outlinks', { path: 'origem.md' }) as any[]
+    expect(antes[0].resolvedPath).toBe('alvo.md')
+
+    await handle(session, 'note:delete', { path: 'alvo.md' })
+    const depois = await handle(session, 'links:outlinks', { path: 'origem.md' }) as any[]
+    expect(depois[0].resolvedPath).toBeNull()
+  })
+})
+
+describe('folder e config', () => {
+  it('cria pasta e ela aparece na listagem', async () => {
+    await handle(session, 'folder:create', { pasta: 'Dev/Projetos' })
+    const pastas = await handle(session, 'folder:list', {}) as string[]
+    expect(pastas).toContain('Dev')
+    expect(pastas).toContain('Dev/Projetos')
+  })
+
+  it('folder:list nao mostra .vault', async () => {
+    const pastas = await handle(session, 'folder:list', {}) as string[]
+    expect(pastas.some(p => p.startsWith('.'))).toBe(false)
+  })
+
+  it('salvar areas cria as pastas correspondentes', async () => {
+    await handle(session, 'config:areas', { areas: ['saude'] })
+    const pastas = await handle(session, 'folder:list', {}) as string[]
+    expect(pastas).toContain('Saude')
+    expect(pastas).toContain('Saude/Treinos')
+    expect(pastas).toContain('Diario')
+    expect(pastas).not.toContain('Grana')
+  })
+
+  it('area inventada pelo renderer nao e persistida', async () => {
+    const c = await handle(session, 'config:areas', { areas: ['vida', 'hackeado'] }) as any
+    expect(c.areas).toEqual(['vida'])
+  })
+
+  it('config:get devolve o que foi salvo', async () => {
+    await handle(session, 'config:areas', { areas: ['dev'] })
+    const c = await handle(session, 'config:get', {}) as any
+    expect(c.areas).toEqual(['dev'])
+  })
+})
+
+describe('dev — confinamento pela lista autorizada', () => {
+  it('recusa uma raiz que o renderer inventou', async () => {
+    await expect(handle(session, 'dev:tree', { raiz: root, sub: '' })).rejects.toThrow(/autorizada/)
+  })
+
+  it('dev:folders comeca vazio', async () => {
+    expect(await handle(session, 'dev:folders', {})).toEqual([])
+  })
+
+  it('so enxerga a pasta depois de ela entrar na config', async () => {
+    await session.salvarConfig({ pastasDev: [root] })
+    const itens = await handle(session, 'dev:tree', { raiz: root, sub: '' }) as any[]
+    expect(Array.isArray(itens)).toBe(true)
+    await handle(session, 'dev:remove-folder', { raiz: root })
+    await expect(handle(session, 'dev:tree', { raiz: root, sub: '' })).rejects.toThrow(/autorizada/)
+  })
+})

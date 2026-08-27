@@ -5,6 +5,7 @@ import {
   getNote, listNotes, listNotesWithFields, searchFullText, getBacklinks, getOutlinks, getBrokenLinks
 } from '../index/queries'
 import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
+import { resolveLinks } from '../index/resolver'
 
 /**
  * `note:patch`, `note:append` e `note:ensure` são todos ler-modificar-gravar.
@@ -17,6 +18,25 @@ import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
  * (sucesso ou falha), mas caminhos diferentes seguem em paralelo.
  */
 const filasPorSessao = new WeakMap<Session, Map<string, Promise<unknown>>>()
+
+/** Pastas que cada área quer ver existindo no vault. */
+const PASTAS_POR_AREA: Record<string, string[]> = {
+  vida: ['Vida', 'Vida/Documentos', 'Vida/Contas'],
+  saude: ['Saude', 'Saude/Treinos', 'Saude/Dieta'],
+  dev: ['Dev', 'Dev/Projetos', 'Dev/Seguranca'],
+  conhecimento: ['Estudos', 'Estudos/Conteudos', 'Estudos/Provas', 'Estudos/Redacoes'],
+  financas: ['Grana'],
+  calendario: []
+}
+
+/** Diário e anexos existem sempre: são o lastro de qualquer área. */
+const PASTAS_SEMPRE = ['Diario', 'Anexos']
+
+export function pastasDasAreas(areas: string[]): string[] {
+  const out = new Set(PASTAS_SEMPRE)
+  for (const a of areas) for (const p of PASTAS_POR_AREA[a] ?? []) out.add(p)
+  return [...out]
+}
 
 function serializarPorCaminho<T>(
   session: Session, path: string, tarefa: () => Promise<T>
@@ -105,6 +125,69 @@ export async function handle(
         await session.indexer.indexFile(p.path)
         return { path: p.path, criada: true }
       })
+
+    // Apagar e mover mexem no conjunto de notas existentes, então `resolveLinks`
+    // roda logo em seguida: sem isso, um wikilink que apontava para a nota
+    // movida continuaria com `resolved_path` antigo até o próximo lote do
+    // watcher — o painel de dependências mostraria um link válido para um
+    // arquivo que não está mais ali. Mesmo defeito que já mordeu o watcher.
+    case 'note:delete':
+      return serializarPorCaminho(session, p.path, async () => {
+        await session.vault.remover(p.path)
+        session.indexer.removeFile(p.path)
+        resolveLinks(session.db)
+        return { path: p.path }
+      })
+
+    case 'note:move':
+      return serializarPorCaminho(session, p.de, async () => {
+        await session.vault.mover(p.de, p.para)
+        session.indexer.removeFile(p.de)
+        await session.indexer.indexFile(p.para)
+        resolveLinks(session.db)
+        return { de: p.de, para: p.para }
+      })
+
+    case 'folder:list':
+      return session.vault.listarPastas()
+
+    case 'folder:create':
+      await session.vault.criarPasta(p.pasta)
+      return { pasta: p.pasta }
+
+    case 'config:get':
+      return session.config
+
+    case 'config:areas': {
+      const c = await session.salvarConfig({ areas: p.areas })
+      // Criar as pastas na hora que a área é ligada é o que faz o vault ser
+      // legível fora do app: quem abrir a pasta no Explorer (ou o Claude
+      // lendo do disco) encontra a estrutura mesmo antes da primeira nota.
+      // Idempotente — religar uma área não mexe no que já está lá.
+      for (const pasta of pastasDasAreas(c.areas)) {
+        await session.vault.criarPasta(pasta)
+      }
+      return c
+    }
+
+    case 'dev:folders':
+      return session.config.pastasDev
+
+    case 'dev:remove-folder': {
+      // Só tira da lista de autorização — o app nunca apaga pasta de código.
+      const restantes = session.config.pastasDev.filter(r => r !== p.raiz)
+      return session.salvarConfig({ pastasDev: restantes })
+    }
+
+    case 'dev:tree':
+      return session.pastasDev.listar(p.raiz, p.sub)
+
+    case 'dev:read':
+      return { conteudo: await session.pastasDev.ler(p.raiz, p.arquivo) }
+
+    case 'dev:write':
+      await session.pastasDev.gravar(p.raiz, p.arquivo, p.conteudo)
+      return { ok: true }
 
     case 'search:fulltext':
       return searchFullText(session.db, p.q, p.limit)
