@@ -40,7 +40,15 @@ export function validarEvento(bruto: unknown): Evento {
   if (!r.success) throw new Error(`evento inválido: ${r.error.message}`)
   // O mesmo teto que a função no banco aplica. Checar dos dois lados evita
   // que um app desatualizado descubra o limite só quando o INSERT falha.
-  if (JSON.stringify(r.data.dados).length > LIMITE_DADOS) {
+  //
+  // Conta code points (`[...texto].length`), não unidades UTF-16 (`.length`):
+  // é isso que o Postgres mede em `length(p_dados::text)`. Para qualquer
+  // caractere fora do BMP (emoji, por exemplo) o JS enxerga 2 unidades onde
+  // o Postgres enxerga 1 caractere — contar `.length` tornaria o cliente
+  // mais restritivo que o banco e rejeitaria por engano algo que o banco
+  // aceitaria.
+  const texto = JSON.stringify(r.data.dados)
+  if ([...texto].length > LIMITE_DADOS) {
     throw new Error('dados do evento grande demais (máx. 8 KB)')
   }
   return r.data

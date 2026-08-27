@@ -26,6 +26,16 @@ describe('validarEvento', () => {
       .toThrow(/grande/)
   })
 
+  it('aceita dados com emoji que passam de 8192 unidades UTF-16 mas ficam sob 8192 code points — é isso que o banco conta', () => {
+    // Cada emoji ocupa 2 unidades UTF-16 mas é 1 code point só. Com N = 4500,
+    // o JSON passa de 8192 em .length (UTF-16) mas fica bem abaixo em code
+    // points — o mesmo critério que o Postgres usa em length(p_dados::text).
+    const dados = { texto: '😀'.repeat(4500) }
+    expect(JSON.stringify(dados).length).toBeGreaterThan(8192)
+    const e = validarEvento({ tipo: 'anotacao', dia: '2026-08-27', dados })
+    expect(e.dados).toEqual(dados)
+  })
+
   it('cobre todos os tipos que a spec define', () => {
     expect([...TIPOS_EVENTO].sort()).toEqual([
       'anotacao', 'cardio', 'gasto', 'medida', 'peso',
