@@ -2,20 +2,19 @@
   "name": "cortex",
   "productName": "Cortex",
   "version": "0.1.0",
-  "description": "",
+  "description": "Vault pessoal em markdown, com lentes para estudos, saúde, grana, vida e código.",
   "main": "out/main/index.js",
-  "directories": {
-    "doc": "docs"
-  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "electron-builder install-app-deps"
+    "icone": "node scripts/gerar-icone.cjs",
+    "dist": "npm run test && npm run icone && electron-vite build && electron-builder --win",
+    "_comentario_postinstall": "Sem 'electron-builder install-app-deps': o better-sqlite3 usa binarios N-API prebuilds e recompilar exigiria Python e as Build Tools do Visual Studio."
   },
   "keywords": [],
-  "author": "",
+  "author": "Pedro Costa",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
