@@ -1343,3 +1343,7 @@ kbd {
 /* Zona de soltar pastas de código arrastadas do explorador de arquivos. */
 [data-soltar="true"] { outline: 2px dashed var(--accent); outline-offset: 6px; border-radius: 10px; }
 .zona-soltar[data-ativa="true"] { background: var(--accent-bg); border-radius: 10px; }
+
+/* Engrenagem no pé do rail: acessível, mas nunca no caminho das lentes. */
+.rail-rodape { margin-top: auto; opacity: .62; }
+.rail-rodape:hover { opacity: 1; }

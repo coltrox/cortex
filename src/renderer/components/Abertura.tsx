@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 /**
  * Primeiro acesso.
@@ -73,22 +73,7 @@ export function Abertura({
           desmarcar uma área, ela só some da barra lateral.
         </p>
 
-        <div className="areas">
-          {AREAS.map(a => (
-            <button
-              key={a.id}
-              className="area"
-              aria-pressed={marcadas.includes(a.id)}
-              onClick={() => alternar(a.id)}
-            >
-              <span className="area-check">{marcadas.includes(a.id) ? '✓' : ''}</span>
-              <span className="area-texto">
-                <strong>{a.nome}</strong>
-                <span>{a.linha}</span>
-              </span>
-            </button>
-          ))}
-        </div>
+        <SeletorAreas marcadas={marcadas} aoAlternar={alternar} />
 
         {erro && <div className="erro">{erro}</div>}
 
@@ -101,6 +86,74 @@ export function Abertura({
           </span>
         </div>
         <p className="abertura-rodape">Vault em <code>{root}</code></p>
+      </div>
+    </div>
+  )
+}
+
+export function SeletorAreas({ marcadas, aoAlternar }: {
+  marcadas: string[]
+  aoAlternar: (id: string) => void
+}) {
+  return (
+    <div className="areas">
+      {AREAS.map(a => (
+        <button
+          key={a.id}
+          className="area"
+          aria-pressed={marcadas.includes(a.id)}
+          onClick={() => aoAlternar(a.id)}
+        >
+          <span className="area-check">{marcadas.includes(a.id) ? '✓' : ''}</span>
+          <span className="area-texto">
+            <strong>{a.nome}</strong>
+            <span>{a.linha}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * A mesma escolha, agora em modal.
+ *
+ * A tela de abertura promete "dá para mudar depois"; sem isto seria mentira,
+ * e desligar uma área exigiria editar `.vault/config.json` na mão.
+ */
+export function ModalAreas({ areasAtuais, aoSalvar, aoFechar }: {
+  areasAtuais: string[]
+  aoSalvar: (areas: string[]) => void
+  aoFechar: () => void
+}) {
+  const [marcadas, setMarcadas] = useState<string[]>(areasAtuais)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') aoFechar() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [aoFechar])
+
+  return (
+    <div className="paleta-fundo" onClick={aoFechar}>
+      <div className="form largo" onClick={e => e.stopPropagation()}>
+        <div className="form-topo">Áreas do app</div>
+        <div className="form-corpo">
+          <p className="form-dica">
+            Desmarcar não apaga nada: as notas continuam no vault e a área volta
+            a aparecer quando você marcar de novo.
+          </p>
+          <SeletorAreas
+            marcadas={marcadas}
+            aoAlternar={id => setMarcadas(m => (m.includes(id) ? m.filter(x => x !== id) : [...m, id]))}
+          />
+        </div>
+        <div className="form-rodape">
+          <button className="btn-fantasma" onClick={aoFechar}>Cancelar</button>
+          <button className="btn" onClick={() => { aoSalvar(marcadas); aoFechar() }}>
+            Salvar
+          </button>
+        </div>
       </div>
     </div>
   )
