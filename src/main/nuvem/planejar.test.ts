@@ -58,11 +58,31 @@ describe('planejar', () => {
     }])
   })
 
+  it('evento de sessao nao pode escolher o tipo nem a data da nota', () => {
+    const [op] = planejar(ev('sessao', {
+      modelo: 'Push A', tipo: 'conta', date: '1970-01-01'
+    }))
+    expect(op).toMatchObject({
+      acao: 'nota', tipo: 'sessao',
+      frontmatter: { tipo: 'sessao', date: '2026-08-27' }
+    })
+  })
+
   it('cardio cria a nota do dia', () => {
     const [op] = planejar(ev('cardio', { aparelho: 'esteira', minutos: 30, pace: '5:45' }))
     expect(op).toEqual({
       acao: 'nota', tipo: 'cardio', path: 'Saude/Treinos/cardio-2026-08-27.md',
       frontmatter: { tipo: 'cardio', date: '2026-08-27', aparelho: 'esteira', minutos: 30, pace: '5:45' }
+    })
+  })
+
+  it('evento de cardio nao pode escolher o tipo nem a data da nota', () => {
+    const [op] = planejar(ev('cardio', {
+      aparelho: 'esteira', minutos: 30, tipo: 'conta', date: '1970-01-01'
+    }))
+    expect(op).toMatchObject({
+      acao: 'nota', tipo: 'cardio',
+      frontmatter: { tipo: 'cardio', date: '2026-08-27' }
     })
   })
 
@@ -72,6 +92,16 @@ describe('planejar', () => {
     expect(p[0]).toMatchObject({ path: 'Saude/medida-2026-08-27.md' })
     expect(m[0]).toMatchObject({ path: 'Saude/medida-2026-08-27.md' })
     expect(p[0]).toMatchObject({ acao: 'nota-campos' })
+  })
+
+  it('evento de medida nao pode escolher o tipo nem a data da nota', () => {
+    const [op] = planejar(ev('medida', {
+      peso: 78.4, tipo: 'conta', date: '1970-01-01'
+    }))
+    expect(op).toMatchObject({
+      acao: 'nota-campos', tipo: 'medida',
+      campos: { tipo: 'medida', date: '2026-08-27' }
+    })
   })
 
   it('anotacao vira nota com titulo tirado do texto', () => {

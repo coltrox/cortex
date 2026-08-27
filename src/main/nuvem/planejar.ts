@@ -66,28 +66,35 @@ export function planejar(evento: Evento): Operacao[] {
 
     case 'sessao': {
       const modelo = txt(dados.modelo) || 'Treino livre'
+      // tipo/date depois do spread, mesmo motivo do `cardio` — só `modelo`
+      // estava protegido aqui antes; `tipo`/`date` tinham o mesmo furo.
       return [{
         acao: 'nota', tipo: 'sessao',
         path: `Saude/Treinos/${nomeArquivo(`${modelo} — ${dia}`)}.md`,
-        frontmatter: comValor({ tipo: 'sessao', date: dia, ...dados, modelo })
+        frontmatter: comValor({ ...dados, tipo: 'sessao', date: dia, modelo })
       }]
     }
 
     case 'cardio':
+      // tipo/date são escritos depois do spread de propósito: `dados` é
+      // Record<string, unknown> livre, vindo de um evento externo, e `tipo`
+      // decide o que a nota É para o app inteiro — um evento não pode
+      // escolher isso espalhando `dados.tipo`/`dados.date` por cima.
       return [{
         acao: 'nota', tipo: 'cardio',
         path: `Saude/Treinos/cardio-${dia}.md`,
-        frontmatter: comValor({ tipo: 'cardio', date: dia, ...dados })
+        frontmatter: comValor({ ...dados, tipo: 'cardio', date: dia })
       }]
 
     // Peso e medida escrevem na mesma nota de propósito: o botão de peso é um
     // atalho, não um dado paralelo, e o gráfico de peso lê um lugar só.
+    // tipo/date depois do spread pelo mesmo motivo do caso `cardio` acima.
     case 'peso':
     case 'medida':
       return [{
         acao: 'nota-campos', tipo: 'medida',
         path: `Saude/medida-${dia}.md`,
-        campos: comValor({ tipo: 'medida', date: dia, ...dados })
+        campos: comValor({ ...dados, tipo: 'medida', date: dia })
       }]
 
     case 'anotacao': {
