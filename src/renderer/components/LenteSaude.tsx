@@ -1,9 +1,10 @@
 import type { NoteComCampos } from '../tipos'
-import { diaDaSemana, DIAS_SEMANA } from '../formularios'
+import { DIAS_SEMANA } from '../formularios'
 import {
   Cartao, Serie, Secao, Check, Titulo, Linha, ListaNotas, Vazio, Progresso,
   nf, num, txt, lista, textos, porData, type PropsLente
 } from './base'
+import { suplementosDoDia, seriePeso, totaisDoDia } from '../dados'
 
 /**
  * Saúde.
@@ -45,22 +46,13 @@ export function LenteSaude({
   const diarios = notas.filter(n => n.tipo === 'diario').sort(porData)
   const diarioHoje = diarios.find(d => d.date === hoje)
 
-  // Peso vem de qualquer nota que tenha `peso` e `date` — nota de medida,
-  // diário, o que for. Quem registra não precisa saber onde o gráfico lê.
-  const pesos = notas
-    .filter(n => n.date && typeof n.campos.peso !== 'undefined')
-    .sort(porData)
-    .map(n => ({ x: n.date as string, y: num(n.campos.peso) }))
+  const pesos = seriePeso(notas)
   const ultimo = pesos[pesos.length - 1]
   const primeiro = pesos[0]
   const delta = ultimo && primeiro ? ultimo.y - primeiro.y : 0
 
   const planoAtivo = planos.find(p => p.campos.ativo === true)
-  const diaSemanaHoje = diaDaSemana(hoje)
-  const suplementosHoje = suplementos.filter(s => {
-    const d = textos(s.campos.dias)
-    return d.length === 0 || d.includes(diaSemanaHoje)
-  })
+  const suplementosHoje = suplementosDoDia(notas, hoje)
 
   return (
     <div className="lente">
@@ -331,10 +323,7 @@ function Dieta({
   const extras = lista(diarioHoje?.campos.extras)
 
   const kcalPlano = refeicoes.reduce((s, r) => s + num(r.kcal), 0)
-  const kcalFeito = refeicoes.filter(r => feitas.includes(txt(r.nome))).reduce((s, r) => s + num(r.kcal), 0)
-    + extras.reduce((s, e) => s + num(e.kcal), 0)
-  const protFeito = refeicoes.filter(r => feitas.includes(txt(r.nome))).reduce((s, r) => s + num(r.prot), 0)
-    + extras.reduce((s, e) => s + num(e.prot), 0)
+  const { kcal: kcalFeito, prot: protFeito } = totaisDoDia(planoAtivo, diarioHoje)
 
   /**
    * Ativar um plano desativa os outros. Sem isso dois planos ativos deixariam

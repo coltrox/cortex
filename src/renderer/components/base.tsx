@@ -13,23 +13,9 @@ import { diasAte, urgencia, rotuloPrazo } from '../subnav'
 export const nf = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 export const moeda = (v: number): string => `R$ ${nf.format(v)}`
 
-export function num(v: unknown): number {
-  return typeof v === 'number' ? v : Number(v) || 0
-}
-
-export function lista(v: unknown): Record<string, unknown>[] {
-  return Array.isArray(v) ? v.filter(i => i && typeof i === 'object') as Record<string, unknown>[] : []
-}
-
-export function textos(v: unknown): string[] {
-  if (Array.isArray(v)) return v.map(x => String(x))
-  if (typeof v === 'string' && v.trim()) return v.split(',').map(s => s.trim()).filter(Boolean)
-  return []
-}
-
-export function txt(v: unknown): string {
-  return v === null || v === undefined ? '' : String(v)
-}
+// Os helpers de leitura moram em `dados.ts`, que é testado. Reexportar daqui
+// evita que existam duas versões de `num()` divergindo em silêncio.
+export { num, txt, lista, textos } from '../dados'
 
 export const porData = (a: NoteComCampos, b: NoteComCampos): number =>
   (a.date ?? '').localeCompare(b.date ?? '')

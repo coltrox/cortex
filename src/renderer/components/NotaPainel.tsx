@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { NoteComCampos } from '../tipos'
 import type { Link, Backlink } from '../useVault'
 import { Markdown } from './Markdown'
+import { corpoAlinhado } from '../dados'
 
 /**
  * A nota aberta.
@@ -106,7 +107,7 @@ export function NotaPainel({
             />
           ) : (
             <Markdown
-              texto={conteudo.replace(/^---\n[\s\S]*?\n---\n?/, '')}
+              texto={corpoAlinhado(conteudo)}
               aoAbrirLink={aoAbrirNome}
               aoMarcarTarefa={marcarTarefa}
             />

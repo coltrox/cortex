@@ -1,8 +1,8 @@
-import { diaDaSemana } from '../formularios'
 import {
   Cartao, Secao, Titulo, Linha, ListaNotas, Check, Vazio, Progresso,
   moeda, nf, num, txt, lista, textos, porData, type PropsLente
 } from './base'
+import { suplementosDoDia, totaisDoDia } from '../dados'
 
 /**
  * Hoje.
@@ -45,15 +45,9 @@ export function LenteHoje({
   const refeicoes = lista(planoAtivo?.campos.refeicoes)
   const feitas = textos(diario?.campos.dieta_feitas)
   const extras = lista(diario?.campos.extras)
-  const kcal = refeicoes.filter(r => feitas.includes(txt(r.nome))).reduce((s, r) => s + num(r.kcal), 0)
-    + extras.reduce((s, e) => s + num(e.kcal), 0)
+  const { kcal } = totaisDoDia(planoAtivo, diario)
 
-  const diaSemana = diaDaSemana(hoje)
-  const suplementos = notas.filter(n => {
-    if (n.tipo !== 'suplemento') return false
-    const d = textos(n.campos.dias)
-    return d.length === 0 || d.includes(diaSemana)
-  })
+  const suplementos = suplementosDoDia(notas, hoje)
   const tomados = textos(diario?.campos.suplementos_feitos)
 
   const compromissosHoje = doDia.filter(n =>

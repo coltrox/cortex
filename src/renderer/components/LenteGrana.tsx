@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
-import type { NoteComCampos } from '../tipos'
 import {
   Cartao, Secao, Titulo, Linha, Barras, Vazio, Progresso,
-  moeda, num, txt, lista, porData, type PropsLente
+  moeda, num, txt, porData, type PropsLente
 } from './base'
+import {
+  extrairTransacoes, porCategoria, saldoPorquinho, ehSangria, type Transacao
+} from '../dados'
 
 /**
  * Grana.
@@ -15,39 +17,6 @@ import {
  * A lista antiga `gastos` continua sendo lida como saída: quem já tinha
  * lançamentos não os perde por causa de uma mudança de nome.
  */
-
-type Tx = {
-  dir: 'entrada' | 'saida'
-  item: string
-  valor: number
-  cat: string
-  data: string
-  path: string
-  i: number
-  campo: 'transacoes' | 'gastos'
-}
-
-function extrair(notas: NoteComCampos[]): Tx[] {
-  const out: Tx[] = []
-  for (const n of notas) {
-    if (!n.date) continue
-    for (const [campo, forcarSaida] of [['transacoes', false], ['gastos', true]] as const) {
-      lista(n.campos[campo]).forEach((t, i) => {
-        out.push({
-          dir: forcarSaida || txt(t.dir) !== 'entrada' ? 'saida' : 'entrada',
-          item: txt(t.item) || '—',
-          valor: num(t.valor),
-          cat: txt(t.cat) || 'sem categoria',
-          data: n.date as string,
-          path: n.path,
-          i,
-          campo
-        })
-      })
-    }
-  }
-  return out.sort((a, b) => b.data.localeCompare(a.data))
-}
 
 const MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -67,21 +36,14 @@ export function LenteGrana({
   const [visao, setVisao] = useState<'lista' | 'dia'>('lista')
   const [diaAberto, setDiaAberto] = useState<string | null>(hoje)
 
-  const todas = useMemo(() => extrair(notas), [notas])
+  const todas = useMemo(() => extrairTransacoes(notas), [notas])
 
   const mesAtual = hoje.slice(0, 7)
   const doMes = todas.filter(t => t.data.startsWith(mesAtual))
   const saiuMes = doMes.filter(t => t.dir === 'saida').reduce((s, t) => s + t.valor, 0)
   const entrouMes = doMes.filter(t => t.dir === 'entrada').reduce((s, t) => s + t.valor, 0)
 
-  const categorias = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const t of todas) {
-      if (t.dir !== 'saida') continue
-      m.set(t.cat, (m.get(t.cat) ?? 0) + t.valor)
-    }
-    return m
-  }, [todas])
+  const categorias = useMemo(() => porCategoria(todas), [todas])
 
   const filtradas = useMemo(() => {
     const busca = q.trim().toLowerCase()
@@ -91,7 +53,7 @@ export function LenteGrana({
   }, [todas, q, cat])
 
   const porDia = useMemo(() => {
-    const m = new Map<string, Tx[]>()
+    const m = new Map<string, Transacao[]>()
     for (const t of filtradas) {
       const atual = m.get(t.data)
       if (atual) atual.push(t)
@@ -103,16 +65,7 @@ export function LenteGrana({
   /* ---------- porquinho ---------- */
 
   const mov = notas.filter(n => n.tipo === 'porquinho').sort(porData)
-  // `saida` é aceito além de `sangria` porque foi o vocabulário da primeira
-  // versão do formulário — trocar o rótulo não pode invalidar o que já foi
-  // gravado no disco.
-  const ehSangria = (m: NoteComCampos): boolean => {
-    const d = txt(m.campos.direcao)
-    return d === 'sangria' || d === 'saida'
-  }
-  const depositado = mov.filter(m => !ehSangria(m)).reduce((s, m) => s + num(m.campos.valor), 0)
-  const sangrado = mov.filter(m => ehSangria(m)).reduce((s, m) => s + num(m.campos.valor), 0)
-  const saldo = depositado - sangrado
+  const { depositado, sangrado, saldo } = saldoPorquinho(mov)
   const metas = notas.filter(n => n.tipo === 'meta-cofre')
   const meta = metas.find(m => m.campos.ativa === true) ?? metas[0]
 
@@ -292,7 +245,7 @@ export function LenteGrana({
 }
 
 function ListaTx({ txs, aoAbrir, comData }: {
-  txs: Tx[]; aoAbrir: (p: string) => void; comData?: boolean
+  txs: Transacao[]; aoAbrir: (p: string) => void; comData?: boolean
 }) {
   if (txs.length === 0) return null
   return (

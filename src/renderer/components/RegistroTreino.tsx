@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { NoteComCampos } from '../tipos'
 import { txt, lista } from './base'
 
@@ -37,15 +37,24 @@ export function RegistroTreino({
 
   const modelo = modelos.find(m => m.path === modeloPath)
 
+  // `modelos` e `sessoes` chegam como arrays novos a cada render do App (são
+  // `filter` inline sobre `notas`). Se entrassem na lista de dependências, o
+  // watcher do vault — que recarrega as notas a cada gravação — apagaria as
+  // cargas digitadas no meio do preenchimento. Guardar em ref mantém os dados
+  // atualizados sem que a identidade do array dispare o efeito.
+  const dados = useRef({ modelos, sessoes })
+  dados.current = { modelos, sessoes }
+
   // Trocar de modelo recarrega a lista. É um efeito, e não um cálculo, porque
   // depois de carregada a lista é editável — ela deixa de ser função do modelo.
   useEffect(() => {
-    const alvo = modelos.find(m => m.path === modeloPath)
+    const { modelos: ms, sessoes: ss } = dados.current
+    const alvo = ms.find(m => m.path === modeloPath)
     if (!alvo) { setExercicios([vazio()]); return }
 
     // Cargas da última sessão feita a partir deste modelo: é o número que você
     // quer bater, e redigitá-lo do zero toda semana é atrito puro.
-    const anteriores = sessoes
+    const anteriores = ss
       .filter(s => txt(s.campos.modelo) === alvo.title)
       .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
     const ultimas = new Map<string, string>()
@@ -60,7 +69,7 @@ export function RegistroTreino({
       carga: ultimas.get(txt(e.nome)) ?? ''
     }))
     setExercicios(exs.length ? exs : [vazio()])
-  }, [modeloPath, modelos, sessoes])
+  }, [modeloPath])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') aoFechar() }
