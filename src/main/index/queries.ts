@@ -19,6 +19,52 @@ export function listNotes(db: Db, filter: { tipo?: string; project?: string } = 
   return db.prepare(sql).all(...args) as NoteRow[]
 }
 
+export type NoteComCampos = NoteRow & { campos: Record<string, unknown> }
+
+type FieldRow = { key: string; value_text: string | null; value_num: number | null; value_date: string | null }
+
+/**
+ * Reidrata as linhas de `fields` de volta para um objeto JS. `value_num` e
+ * `value_date` já chegam tipados pela própria coluna; `value_text` que seja
+ * JSON válido (objetos e arrays gravados via JSON.stringify pelo Indexer)
+ * volta a ser objeto/array — texto que não é JSON (a maioria dos campos)
+ * permanece string como está.
+ */
+function reidratarCampos(rows: FieldRow[]): Record<string, unknown> {
+  const campos: Record<string, unknown> = {}
+  for (const r of rows) {
+    if (r.value_num !== null) { campos[r.key] = r.value_num; continue }
+    if (r.value_date !== null) { campos[r.key] = r.value_date; continue }
+    if (r.value_text !== null) {
+      try { campos[r.key] = JSON.parse(r.value_text) }
+      catch { campos[r.key] = r.value_text }
+      continue
+    }
+    campos[r.key] = null
+  }
+  return campos
+}
+
+export function listNotesWithFields(
+  db: Db,
+  filtro: { tipo?: string; project?: string; desde?: string; ate?: string } = {}
+): NoteComCampos[] {
+  const notas = listNotes(db, { tipo: filtro.tipo, project: filtro.project }).filter(n => {
+    if (filtro.desde && (!n.date || n.date < filtro.desde)) return false
+    if (filtro.ate && (!n.date || n.date > filtro.ate)) return false
+    return true
+  })
+  if (notas.length === 0) return []
+
+  const fieldsStmt = db.prepare(
+    'SELECT key, value_text, value_num, value_date FROM fields WHERE path = ?'
+  )
+  return notas.map(n => ({
+    ...n,
+    campos: reidratarCampos(fieldsStmt.all(n.path) as FieldRow[])
+  }))
+}
+
 /** Escapa a entrada como frase literal FTS5: aspas internas viram aspas duplicadas. */
 function comoFrase(q: string): string {
   return `"${q.replace(/"/g, '""')}"`

@@ -82,6 +82,57 @@ export class Vault {
     }
   }
 
+  /**
+   * Apaga uma nota. `force: true` porque apagar o que já não está lá é o
+   * estado desejado — dois cliques rápidos no botão de excluir não podem
+   * virar erro na cara do usuário.
+   */
+  async remover(rel: string): Promise<void> {
+    await rm(this.toAbsolute(rel), { force: true })
+  }
+
+  /**
+   * Move uma nota de lugar. É como o app arrasta uma nota entre pastas.
+   * Recusa se o destino já existe: sobrescrever aqui apagaria uma nota
+   * inteira em silêncio, e nenhum arrastar de mouse justifica isso.
+   */
+  async mover(de: string, para: string): Promise<void> {
+    const origem = this.toAbsolute(de)
+    const destino = this.toAbsolute(para)
+    if (origem === destino) return
+    let ocupado = true
+    try {
+      await stat(destino)
+    } catch (err) {
+      // ENOENT é o caminho feliz: o destino está livre.
+      if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') throw err
+      ocupado = false
+    }
+    if (ocupado) throw new Error(`já existe uma nota em ${para}`)
+    await mkdir(dirname(destino), { recursive: true })
+    await rename(origem, destino)
+  }
+
+  /** Todas as pastas do vault, em POSIX, relativas à raiz. Ordenadas. */
+  async listarPastas(): Promise<string[]> {
+    const out: string[] = []
+    const walk = async (dir: string): Promise<void> => {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory() || entry.name.startsWith('.')) continue
+        const abs = join(dir, entry.name)
+        out.push(this.toPosix(relative(this.root, abs)))
+        await walk(abs)
+      }
+    }
+    await walk(this.root)
+    return out.sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }
+
+  /** Cria uma pasta vazia. Idempotente. */
+  async criarPasta(rel: string): Promise<void> {
+    await mkdir(this.toAbsolute(rel), { recursive: true })
+  }
+
   async stat(rel: string): Promise<{ mtimeMs: number; size: number }> {
     const s = await stat(this.toAbsolute(rel))
     return { mtimeMs: s.mtimeMs, size: s.size }

@@ -6,7 +6,7 @@ import { Vault } from '../vault/vault'
 import { openIndex, type Db } from './db'
 import { Indexer } from './indexer'
 import {
-  getNote, listNotes, searchFullText, getBacklinks, getOutlinks, getBrokenLinks
+  getNote, listNotes, listNotesWithFields, searchFullText, getBacklinks, getOutlinks, getBrokenLinks
 } from './queries'
 
 let root: string, vault: Vault, db: Db, ix: Indexer
@@ -126,5 +126,66 @@ describe('queries', () => {
       { src: 'Projetos/Nima.md', dst: 'Fantasma', line: 1 },
       { src: 'Projetos/Outro.md', dst: 'Fantasma2', line: 1 }
     ])
+  })
+})
+
+describe('listNotesWithFields', () => {
+  beforeEach(async () => {
+    await vault.writeAtomic('Diario/2026-08-25.md', [
+      '---',
+      'tipo: diario',
+      'date: 2026-08-25',
+      'peso: 78.4',
+      'gastos:',
+      '  - { hora: "08:30", item: Café, valor: 8.50, cat: alimentacao }',
+      '  - { hora: "10:15", item: Mercado, valor: 42.90, cat: mercado }',
+      '---',
+      '',
+      '## Como foi o dia'
+    ].join('\n'))
+    await vault.writeAtomic('Diario/2026-08-20.md', [
+      '---',
+      'tipo: diario',
+      'date: 2026-08-20',
+      'peso: 79.1',
+      '---',
+      ''
+    ].join('\n'))
+    await vault.writeAtomic('Diario/2026-08-30.md', [
+      '---',
+      'tipo: diario',
+      'date: 2026-08-30',
+      'peso: 77.9',
+      '---',
+      ''
+    ].join('\n'))
+    await ix.syncAll()
+  })
+
+  it('reidrata número, data, texto e array de objetos', () => {
+    const notas = listNotesWithFields(db, { tipo: 'diario' })
+    const nota = notas.find(n => n.path === 'Diario/2026-08-25.md')!
+    expect(nota.campos.peso).toBe(78.4)
+    expect(nota.campos.date).toBe('2026-08-25')
+    expect(nota.campos.tipo).toBe('diario')
+    expect(Array.isArray(nota.campos.gastos)).toBe(true)
+    const gastos = nota.campos.gastos as Array<Record<string, unknown>>
+    expect(gastos.length).toBe(2)
+    expect(gastos[0].item).toBe('Café')
+    expect(gastos[0].valor).toBe(8.5)
+    expect(gastos[1].item).toBe('Mercado')
+    expect(gastos[1].cat).toBe('mercado')
+  })
+
+  it('devolve o mesmo número de chaves em campos que existem no frontmatter (asserção de contagem)', () => {
+    const notas = listNotesWithFields(db, { tipo: 'diario' })
+    const nota = notas.find(n => n.path === 'Diario/2026-08-25.md')!
+    // tipo, date, peso, gastos = 4 chaves de frontmatter
+    expect(Object.keys(nota.campos).sort()).toEqual(['date', 'gastos', 'peso', 'tipo'])
+  })
+
+  it('filtra por desde/ate incluindo as duas pontas', () => {
+    const notas = listNotesWithFields(db, { tipo: 'diario', desde: '2026-08-20', ate: '2026-08-25' })
+    expect(notas.map(n => n.path).sort()).toEqual(['Diario/2026-08-20.md', 'Diario/2026-08-25.md'])
   })
 })

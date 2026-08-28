@@ -1,0 +1,59 @@
+appId: dev.pedrocosta.cortex
+productName: Cortex
+copyright: Pedro Costa
+
+directories:
+  buildResources: build
+  output: dist
+
+# Exclusões sobre o padrão do electron-builder — ele já sabe incluir `out/` e
+# as dependências de produção, e já deixa as devDependencies de fora. Listar
+# `files` de forma positiva substituiria esse padrão, e é assim que se esquece
+# de empacotar um `node_modules` inteiro.
+files:
+  - '!src/*'
+  - '!scripts/*'
+  - '!docs/*'
+  - '!previa/*'
+  - '!**/*.test.*'
+  - '!electron.vite.config.*'
+  - '!vitest.config.*'
+  - '!tsconfig*.json'
+  - '!**/.vscode/*'
+  - '!**/*.map'
+
+# O better-sqlite3 é um módulo nativo: o `.node` precisa ficar FORA do asar,
+# senão o processo não consegue carregá-lo em tempo de execução.
+asarUnpack:
+  - '**/*.node'
+  - '**/better-sqlite3/**'
+
+# Não recompilar dependências nativas.
+#
+# O better-sqlite3 13 distribui binários N-API em `prebuilds/<plataforma>.node`
+# (padrão do node-gyp-build). N-API é estável entre runtimes: o mesmo arquivo
+# serve para Node e para Electron, e o app já roda com ele em desenvolvimento.
+# Deixar o rebuild ligado faz o electron-builder chamar node-gyp, que exige
+# Python e as Build Tools do Visual Studio — ausentes nesta máquina de
+# propósito. Escolhemos esta biblioteca justamente para não precisar delas.
+npmRebuild: false
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  # Instalação por usuário, em %LOCALAPPDATA% — não pede senha de
+  # administrador, que é o que permite instalar num PC de escola.
+  perMachine: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Cortex
+  artifactName: Cortex-${version}-instalador.${ext}
+  # Ao desinstalar, o vault NÃO é tocado: ele vive numa pasta do usuário,
+  # escolhida por ele. O desinstalador só remove o app.
+  deleteAppDataOnUninstall: false

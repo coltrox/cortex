@@ -80,6 +80,40 @@ describe('handle', () => {
     expect(hits.map(h => h.path)).toEqual(['a.md'])
   })
 
+  it('note:list-fields devolve campos reidratados', async () => {
+    await handle(session, 'note:write', {
+      path: 'Diario/2026-08-25.md',
+      content: '---\ntipo: diario\ndate: 2026-08-25\npeso: 78.4\n---\n'
+    })
+    const notas = await handle(session, 'note:list-fields', { tipo: 'diario' }) as any[]
+    expect(notas.length).toBe(1)
+    expect(notas[0].campos.peso).toBe(78.4)
+  })
+
+  it('note:create cria e indexa imediatamente a nota nova', async () => {
+    const r = await handle(session, 'note:create', {
+      path: 'Notas/Nova.md', content: '---\ntipo: nota\n---\nconteúdo'
+    }) as { path: string }
+    expect(r.path).toBe('Notas/Nova.md')
+
+    const read = await handle(session, 'note:read', { path: 'Notas/Nova.md' }) as { content: string }
+    expect(read.content).toBe('---\ntipo: nota\n---\nconteúdo')
+
+    const lista = await handle(session, 'note:list', { tipo: 'nota' }) as any[]
+    expect(lista.map(n => n.path)).toContain('Notas/Nova.md')
+  })
+
+  it('note:create recusa sobrescrever arquivo existente e não altera o conteúdo original', async () => {
+    await handle(session, 'note:write', { path: 'Notas/Existe.md', content: '---\ntipo: nota\n---\noriginal' })
+
+    await expect(
+      handle(session, 'note:create', { path: 'Notas/Existe.md', content: '---\ntipo: nota\n---\nnovo' })
+    ).rejects.toThrow()
+
+    const read = await handle(session, 'note:read', { path: 'Notas/Existe.md' }) as { content: string }
+    expect(read.content).toBe('---\ntipo: nota\n---\noriginal')
+  })
+
   // CRITICAL da revisão: escolher a raiz do vault é ação privilegiada — só o
   // main decide, e só via diálogo nativo (`pickVault`, Task 11). `vault:open`
   // deixaria o renderer nomear qualquer diretório do disco como "vault", o que
@@ -93,6 +127,111 @@ describe('handle', () => {
 
   it('vault:open não é chave de IPC_SCHEMAS', () => {
     expect(Object.keys(IPC_SCHEMAS)).not.toContain('vault:open')
+  })
+})
+
+describe('note:patch', () => {
+  it('altera o frontmatter e preserva o corpo, reindexando na hora', async () => {
+    await handle(session, 'note:write', {
+      path: 'a.md',
+      content: '---\ntipo: nota\nstatus: aberto\n---\n\nCorpo com acentuação e ção.\n'
+    })
+
+    const r = await handle(session, 'note:patch', {
+      path: 'a.md', campos: { status: 'fechado', prioridade: 'alta' }
+    }) as { path: string }
+    expect(r.path).toBe('a.md')
+
+    const read = await handle(session, 'note:read', { path: 'a.md' }) as { content: string }
+    expect(read.content).toContain('Corpo com acentuação e ção.')
+    expect(read.content).toContain('status: fechado')
+
+    // reindexado imediatamente: note:list-fields reflete o campo novo
+    const lista = await handle(session, 'note:list-fields', { tipo: 'nota' }) as any[]
+    expect(lista[0].campos.prioridade).toBe('alta')
+  })
+
+  it('null em note:patch remove a chave', async () => {
+    await handle(session, 'note:write', {
+      path: 'a.md', content: '---\ntipo: nota\nstatus: aberto\n---\nx'
+    })
+    await handle(session, 'note:patch', { path: 'a.md', campos: { status: null } })
+    const read = await handle(session, 'note:read', { path: 'a.md' }) as { content: string }
+    expect(read.content).not.toContain('status:')
+  })
+
+  it('note:patch em YAML inválido lança e não altera o arquivo em disco', async () => {
+    const original = '---\ntipo: [nao, fechado\n---\ncorpo original'
+    await handle(session, 'note:write', { path: 'a.md', content: original })
+
+    await expect(
+      handle(session, 'note:patch', { path: 'a.md', campos: { status: 'x' } })
+    ).rejects.toThrow()
+
+    const read = await handle(session, 'note:read', { path: 'a.md' }) as { content: string }
+    expect(read.content).toBe(original)
+  })
+})
+
+describe('note:append', () => {
+  it('acrescenta item a campo inexistente, criando a lista', async () => {
+    await handle(session, 'note:write', { path: 'Diario/2026-08-25.md', content: '---\ntipo: diario\n---\n' })
+
+    const r = await handle(session, 'note:append', {
+      path: 'Diario/2026-08-25.md', campo: 'gastos', item: { valor: 10, desc: 'café' }
+    }) as { path: string; total: number }
+    expect(r.total).toBe(1)
+
+    const lista = await handle(session, 'note:list-fields', { tipo: 'diario' }) as any[]
+    expect(lista[0].campos.gastos).toEqual([{ valor: 10, desc: 'café' }])
+  })
+
+  it('duas chamadas simultâneas (Promise.all, sem await entre elas) resultam em 2 itens, não 1', async () => {
+    await handle(session, 'note:write', { path: 'Diario/2026-08-25.md', content: '---\ntipo: diario\n---\n' })
+
+    const [r1, r2] = await Promise.all([
+      handle(session, 'note:append', {
+        path: 'Diario/2026-08-25.md', campo: 'gastos', item: { valor: 10 }
+      }) as Promise<{ total: number }>,
+      handle(session, 'note:append', {
+        path: 'Diario/2026-08-25.md', campo: 'gastos', item: { valor: 20 }
+      }) as Promise<{ total: number }>
+    ])
+
+    // uma operação viu total 1, a outra viu total 2 (ordem entre elas não é
+    // garantida, mas nenhum lançamento pode se perder)
+    expect([r1.total, r2.total].sort()).toEqual([1, 2])
+
+    const read = await handle(session, 'note:read', { path: 'Diario/2026-08-25.md' }) as { content: string }
+    const lista = await handle(session, 'note:list-fields', { tipo: 'diario' }) as any[]
+    expect(lista[0].campos.gastos.length).toBe(2)
+    expect(read.content).toMatch(/valor: 10/)
+    expect(read.content).toMatch(/valor: 20/)
+  })
+})
+
+describe('note:ensure', () => {
+  it('nota inexistente: cria, indexa e devolve criada: true', async () => {
+    const r = await handle(session, 'note:ensure', {
+      path: 'Diario/2026-08-25.md', conteudoInicial: '---\ntipo: diario\ndate: 2026-08-25\n---\n'
+    }) as { path: string; criada: boolean }
+    expect(r.criada).toBe(true)
+
+    const lista = await handle(session, 'note:list', { tipo: 'diario' }) as any[]
+    expect(lista.map(n => n.path)).toEqual(['Diario/2026-08-25.md'])
+  })
+
+  it('nota existente: não altera o conteúdo e devolve criada: false', async () => {
+    const original = '---\ntipo: diario\n---\nconteúdo original já escrito pela pessoa'
+    await handle(session, 'note:write', { path: 'Diario/2026-08-25.md', content: original })
+
+    const r = await handle(session, 'note:ensure', {
+      path: 'Diario/2026-08-25.md', conteudoInicial: '---\ntipo: diario\n---\nOUTRO CONTEÚDO'
+    }) as { path: string; criada: boolean }
+    expect(r.criada).toBe(false)
+
+    const read = await handle(session, 'note:read', { path: 'Diario/2026-08-25.md' }) as { content: string }
+    expect(read.content).toBe(original)
   })
 })
 
@@ -150,5 +289,159 @@ describe('Session.open — reconstrução do índice (ADENDO)', () => {
       "SELECT value FROM meta WHERE key='teste_marcador'"
     ).get() as { value: string } | undefined
     expect(marcador?.value).toBe('presente')
+  })
+})
+
+describe('note:delete e note:move', () => {
+  it('apaga a nota do disco e do indice', async () => {
+    await handle(session, 'note:write', { path: 'x.md', content: '---\ntipo: nota\n---\noi' })
+    expect((await handle(session, 'note:list', {}) as any[]).length).toBe(1)
+    await handle(session, 'note:delete', { path: 'x.md' })
+    expect(await session.vault.exists('x.md')).toBe(false)
+    expect((await handle(session, 'note:list', {}) as any[]).length).toBe(0)
+  })
+
+  it('apagar duas vezes nao quebra', async () => {
+    await handle(session, 'note:write', { path: 'x.md', content: 'oi' })
+    await handle(session, 'note:delete', { path: 'x.md' })
+    await expect(handle(session, 'note:delete', { path: 'x.md' })).resolves.toBeTruthy()
+  })
+
+  it('mover leva o conteudo e reindexa no caminho novo', async () => {
+    await handle(session, 'note:write', { path: 'a.md', content: '---\ntipo: nota\n---\ncorpo' })
+    await handle(session, 'note:move', { de: 'a.md', para: 'Pasta/b.md' })
+    const r = await handle(session, 'note:read', { path: 'Pasta/b.md' }) as { content: string }
+    expect(r.content).toContain('corpo')
+    const lista = await handle(session, 'note:list', {}) as any[]
+    expect(lista.map(n => n.path)).toEqual(['Pasta/b.md'])
+  })
+
+  it('mover recusa sobrescrever uma nota que ja existe', async () => {
+    await handle(session, 'note:write', { path: 'a.md', content: 'A' })
+    await handle(session, 'note:write', { path: 'b.md', content: 'B' })
+    await expect(handle(session, 'note:move', { de: 'a.md', para: 'b.md' })).rejects.toThrow()
+    const r = await handle(session, 'note:read', { path: 'b.md' }) as { content: string }
+    expect(r.content).toBe('B')
+  })
+
+  it('apagar corrige o link de quem apontava para a nota', async () => {
+    await handle(session, 'note:write', { path: 'alvo.md', content: 'sou o alvo' })
+    await handle(session, 'note:write', { path: 'origem.md', content: 'veja [[alvo]]' })
+    const antes = await handle(session, 'links:outlinks', { path: 'origem.md' }) as any[]
+    expect(antes[0].resolvedPath).toBe('alvo.md')
+
+    await handle(session, 'note:delete', { path: 'alvo.md' })
+    const depois = await handle(session, 'links:outlinks', { path: 'origem.md' }) as any[]
+    expect(depois[0].resolvedPath).toBeNull()
+  })
+})
+
+describe('folder e config', () => {
+  it('cria pasta e ela aparece na listagem', async () => {
+    await handle(session, 'folder:create', { pasta: 'Dev/Projetos' })
+    const pastas = await handle(session, 'folder:list', {}) as string[]
+    expect(pastas).toContain('Dev')
+    expect(pastas).toContain('Dev/Projetos')
+  })
+
+  it('folder:list nao mostra .vault', async () => {
+    const pastas = await handle(session, 'folder:list', {}) as string[]
+    expect(pastas.some(p => p.startsWith('.'))).toBe(false)
+  })
+
+  it('salvar areas cria as pastas correspondentes', async () => {
+    await handle(session, 'config:areas', { areas: ['saude'] })
+    const pastas = await handle(session, 'folder:list', {}) as string[]
+    expect(pastas).toContain('Saude')
+    expect(pastas).toContain('Saude/Treinos')
+    expect(pastas).toContain('Diario')
+    expect(pastas).not.toContain('Grana')
+  })
+
+  it('area inventada pelo renderer nao e persistida', async () => {
+    const c = await handle(session, 'config:areas', { areas: ['vida', 'hackeado'] }) as any
+    expect(c.areas).toEqual(['vida'])
+  })
+
+  it('config:get devolve o que foi salvo', async () => {
+    await handle(session, 'config:areas', { areas: ['dev'] })
+    const c = await handle(session, 'config:get', {}) as any
+    expect(c.areas).toEqual(['dev'])
+  })
+})
+
+describe('dev — confinamento pela lista autorizada', () => {
+  it('recusa uma raiz que o renderer inventou', async () => {
+    await expect(handle(session, 'dev:tree', { raiz: root, sub: '' })).rejects.toThrow(/autorizada/)
+  })
+
+  it('dev:folders comeca vazio', async () => {
+    expect(await handle(session, 'dev:folders', {})).toEqual([])
+  })
+
+  it('so enxerga a pasta depois de ela entrar na config', async () => {
+    await session.salvarConfig({ pastasDev: [root] })
+    const itens = await handle(session, 'dev:tree', { raiz: root, sub: '' }) as any[]
+    expect(Array.isArray(itens)).toBe(true)
+    await handle(session, 'dev:remove-folder', { raiz: root })
+    await expect(handle(session, 'dev:tree', { raiz: root, sub: '' })).rejects.toThrow(/autorizada/)
+  })
+})
+
+describe('canais da nuvem', () => {
+  it('estado devolve o id do vault e diz que nao ha credencial', async () => {
+    const e = await handle(session, 'nuvem:estado', {}) as
+      { vaultId: string; configurada: boolean }
+    expect(e.vaultId).toMatch(/^[0-9a-f]{8}-/)
+    expect(e.configurada).toBe(false)
+  })
+
+  it('guarda as credenciais', async () => {
+    const e = await handle(session, 'nuvem:credenciais', {
+      url: 'https://x.supabase.co', chave: 'chave-longa-o-suficiente'
+    }) as { configurada: boolean }
+    expect(e.configurada).toBe(true)
+    expect(session.config.nuvem?.url).toBe('https://x.supabase.co')
+  })
+
+  // A URL alimenta fetch no processo principal — http:// mandaria a chave do
+  // Supabase em texto puro nos cabeçalhos da rede.
+  it('recusa url http:// nas credenciais da nuvem', async () => {
+    await expect(handle(session, 'nuvem:credenciais', {
+      url: 'http://x.supabase.co', chave: 'chave-longa-o-suficiente'
+    })).rejects.toThrow(/https/i)
+  })
+
+  it('gerar id novo troca o id', async () => {
+    const antes = session.config.vaultId
+    const e = await handle(session, 'nuvem:novo-id', {}) as { vaultId: string }
+    expect(e.vaultId).not.toBe(antes)
+    expect(session.config.vaultId).toBe(e.vaultId)
+  })
+
+  it('sincronizar sem credencial falha com mensagem clara, nao com stack', async () => {
+    await expect(handle(session, 'nuvem:sincronizar', {}))
+      .rejects.toThrow(/nuvem não configurada/)
+  })
+
+  // A chave só devia sair pelo canal que a recebe de volta em texto (nenhum,
+  // hoje); nenhum outro canal que devolve config pode carregá-la de carona.
+  // `config:get`, `config:areas` e `dev:remove-folder` também devolvem
+  // config — os três passam por `projetarConfigParaRenderer`, e este teste
+  // falha se qualquer um deles vazar a chave ou o vaultId no JSON serializado.
+  it('nenhum canal que devolve config deixa a chave da nuvem vazar para o renderer', async () => {
+    const chaveFicticia = 'chave-secreta-jamais-deve-vazar'
+    await handle(session, 'nuvem:credenciais', { url: 'https://x.supabase.co', chave: chaveFicticia })
+
+    const viaConfigGet = await handle(session, 'config:get', {})
+    const viaConfigAreas = await handle(session, 'config:areas', { areas: ['vida'] })
+    const viaDevRemove = await handle(session, 'dev:remove-folder', { raiz: '/nao-existe' })
+
+    for (const payload of [viaConfigGet, viaConfigAreas, viaDevRemove]) {
+      const serializado = JSON.stringify(payload)
+      expect(serializado).not.toContain(chaveFicticia)
+      expect(serializado).not.toContain('nuvem')
+      expect(Object.keys(payload as object)).not.toContain('vaultId')
+    }
   })
 })
