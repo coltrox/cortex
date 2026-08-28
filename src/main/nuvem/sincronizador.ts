@@ -12,6 +12,38 @@ const JANELA_DIAS_PADRAO = 30
 const RETENCAO_DIAS_PADRAO = 90
 
 /**
+ * Vaults com uma sincronização em andamento agora mesmo, por raiz absoluta.
+ *
+ * Não é um campo de instância porque `Sincronizador` não é de vida longa —
+ * quem chama (abrir o vault, timer de 2 minutos, botão manual; ver
+ * `recebidos.ts` sobre esses três gatilhos poderem se sobrepor) instancia um
+ * novo a cada disparo. Travar dentro da instância não protegeria nada, já
+ * que duas instâncias diferentes não compartilhariam o cadeado. O que
+ * precisa ser único é o VAULT, não a instância — daí este `Set` a nível de
+ * módulo, chaveado pela raiz do vault.
+ *
+ * Sem isto, dois lotes concorrentes leem a mesma lista de eventos de
+ * `cliente.listarEventos` e cada um vê o mesmo evento como "ainda não
+ * aplicado" (o outro ainda não chamou `recebidos.marcar`) — os dois aplicam,
+ * e `gasto`/`refeicao_extra` (não idempotentes) duplicam no vault. É o
+ * mesmo defeito que a colisão de `proximoCaminhoLivre` em `executar.ts`
+ * resolve para duas anotações diferentes; aqui a causa raiz é uma camada
+ * acima, então a correção também precisa ser.
+ *
+ * Escolha: DESISTIR, não esperar. Enfileirar a chamada N+1 (como
+ * `serializarPorCaminho` em `ipc/handlers.ts` faz para escritas de nota)
+ * resolveria a corrida também, mas o timer de 2 minutos dispara de novo
+ * mesmo que a rodada anterior ainda esteja rodando (rede lenta, lote
+ * grande) — encadear indefinidamente empilha rodadas redundantes que fazem
+ * o trabalho de novo assim que rodarem. Como cada rodada busca TUDO dentro
+ * de `janelaDias`, a próxima chamada natural (2 minutos depois, ou a
+ * próxima abertura do vault) cobre os mesmos eventos sem perda — desistir
+ * agora e deixar o próximo disparo pegar o que ficou de fora é seguro e
+ * mais barato que empilhar.
+ */
+const sincronizandoAgora = new Set<string>()
+
+/**
  * Junta as peças: puxa do banco, descarta o que já foi aplicado, planeja,
  * executa e registra.
  *
@@ -54,6 +86,25 @@ export class Sincronizador {
   }
 
   async sincronizar(): Promise<{ aplicados: number; ignorados: number; falhas: number }> {
+    const vaultRoot = this.session.vault.root
+    // Checagem e marcação síncronas, antes de qualquer `await`: duas
+    // chamadas a `sincronizar()` disparadas sem `await` entre elas (mesmo
+    // padrão de teste usado em `serializarPorCaminho`) executam este trecho
+    // em ordem determinística — a primeira reserva o vault e segue; a
+    // segunda já encontra a reserva feita e desiste imediatamente. Ver
+    // comentário de `sincronizandoAgora` acima para a escolha de desistir.
+    if (sincronizandoAgora.has(vaultRoot)) {
+      return { aplicados: 0, ignorados: 0, falhas: 0 }
+    }
+    sincronizandoAgora.add(vaultRoot)
+    try {
+      return await this.sincronizarAgora()
+    } finally {
+      sincronizandoAgora.delete(vaultRoot)
+    }
+  }
+
+  private async sincronizarAgora(): Promise<{ aplicados: number; ignorados: number; falhas: number }> {
     try {
       await this.recebidos.carregar()
     } catch (err) {

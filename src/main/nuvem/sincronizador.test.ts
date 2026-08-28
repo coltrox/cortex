@@ -182,4 +182,77 @@ describe('Sincronizador', () => {
     expect(() => new Sincronizador(session, clienteQualquer, 30, 20)).toThrow()
     expect(() => new Sincronizador(session, clienteQualquer, 30, 31)).not.toThrow()
   })
+
+  it('duas sincronizacoes concorrentes no mesmo vault nao aplicam o mesmo evento duas vezes', async () => {
+    // Mesmo cliente, mesma lista: representa duas rodadas (timer de 2min +
+    // botao manual, por exemplo) que buscariam exatamente os mesmos eventos
+    // do servidor por estarem perto uma da outra no tempo.
+    const cliente = new ClienteFalso([ev('e1', 'gasto', { item: 'Marmita', valor: 25 })])
+
+    // Disparadas sem await entre elas: as duas comecam a rodar antes de
+    // qualquer uma terminar.
+    const [r1, r2] = await Promise.all([
+      sinc(cliente).sincronizar(),
+      sinc(cliente).sincronizar()
+    ])
+
+    // Sem a trava, as duas rodadas veriam 'e1' como nao aplicado (nenhuma
+    // marcou ainda, cada uma com seu proprio `Recebidos` em memoria) e as
+    // duas tentariam aplicar ao mesmo tempo — na pratica, no Windows, isso
+    // aparece como um `rename` EPERM (duas escritas atomicas concorrentes
+    // para o mesmo `Diario/2026-08-27.md`), contado como `falhas`, nao como
+    // duplicacao silenciosa; em outra interleaving teria duplicado o texto
+    // ou perdido uma escrita por cima da outra. As tres saidas sao sintomas
+    // da mesma causa raiz. Com a trava, a segunda rodada nem chega a tocar
+    // o vault: zero falhas, exatamente uma aplicacao.
+    expect(r1.falhas + r2.falhas).toBe(0)
+    expect(r1.aplicados + r2.aplicados).toBe(1)
+    expect(r1.aplicados === 1 || r2.aplicados === 1).toBe(true)
+
+    const md = await session.vault.read('Diario/2026-08-27.md')
+    // Nem duplicado (a trava evitou a corrida) nem ausente (uma das duas
+    // rodadas realmente aplicou o evento) — exatamente uma ocorrencia.
+    expect(md.split('Marmita').length - 1).toBe(1)
+  })
+
+  it('sincronizacao concorrente desiste em vez de perder o evento — proxima rodada aplica', async () => {
+    // Duas anotacoes DIFERENTES que comecam com a mesma primeira linha —
+    // o cenario exato descrito na correcao: sem trava, as duas rodadas
+    // concorrentes veem 'Ideia solta.md' livre ao mesmo tempo e as duas
+    // escrevem nele, uma apagando a outra em silencio.
+    const t1 = 'Ideia solta\nPrimeira anotacao'
+    const t2 = 'Ideia solta\nSegunda anotacao, bem diferente'
+    const c1 = new ClienteFalso([ev('e1', 'anotacao', { texto: t1 })])
+    const c2 = new ClienteFalso([ev('e2', 'anotacao', { texto: t2 })])
+
+    const [r1, r2] = await Promise.all([
+      sinc(c1).sincronizar(),
+      sinc(c2).sincronizar()
+    ])
+
+    // Uma das duas rodadas aplicou; a outra desistiu (0/0/0) sem tocar no
+    // vault — o evento dela continua pendente, nao perdido. Sem a trava, as
+    // duas tentam ao mesmo tempo: ou as duas "conseguem" (uma sobrescreve o
+    // arquivo da outra por cima — texto perdido em silencio, sem nenhuma
+    // falha reportada) ou uma delas esbarra num erro real de SO (EPERM/EBUSY
+    // no Windows). As duas checagens abaixo pegam os dois casos.
+    expect(r1.falhas + r2.falhas).toBe(0)
+    const totalAplicados = r1.aplicados + r2.aplicados
+    expect(totalAplicados).toBe(1)
+
+    // A rodada que desistiu nao criou (nem sobrescreveu) nenhum arquivo.
+    let notas = session.db.prepare("SELECT path FROM notes WHERE tipo='anotacao'").all() as { path: string }[]
+    expect(notas).toHaveLength(1)
+
+    // A proxima chamada (sequencial, sem concorrencia) e livre para rodar e
+    // pega o evento que ficou de fora — nada foi perdido de vez.
+    const clienteQueFicouDeFora = r1.aplicados === 1 ? c2 : c1
+    await sinc(clienteQueFicouDeFora).sincronizar()
+
+    notas = session.db.prepare("SELECT path FROM notes WHERE tipo='anotacao'").all() as { path: string }[]
+    expect(notas).toHaveLength(2)
+    const textos = await Promise.all(notas.map(n => session.vault.read(n.path)))
+    expect(textos.some(md => md.includes('Primeira anotacao'))).toBe(true)
+    expect(textos.some(md => md.includes('Segunda anotacao'))).toBe(true)
+  })
 })

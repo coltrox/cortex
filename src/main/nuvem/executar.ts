@@ -66,9 +66,18 @@ function comoLista(v: unknown): string[] {
  * reaplica a mesma operação sobre um arquivo que já tem o dado — para
  * `diario-lista` (gasto, refeição extra) isso duplica a linha no arquivo do
  * usuário. Entre um índice temporariamente desatualizado e um gasto em
- * dobro, o índice é o erro mais barato: `VaultWatcher` observa o disco
- * diretamente (não depende desta chamada) e reindexa sozinho assim que
- * perceber a mudança.
+ * dobro, o índice é o erro mais barato.
+ *
+ * Isso não quer dizer que o índice se autocorrige sozinho. `VaultWatcher`
+ * (`vault/watcher.ts`) observa o disco e tenta indexar de novo quando este
+ * arquivo mudar de novo — mas se essa nova tentativa também falhar, ele só
+ * loga (`console.error`) e segue: não refileira, não insiste. Quem garante
+ * a correção de fato é `syncAll()` (`index/indexer.ts`), chamado por
+ * `Session.open` a cada abertura do vault: ele compara `mtime`/`size` de
+ * cada arquivo contra o que está gravado no banco e reindexa qualquer
+ * divergência, inclusive esta. Até lá, ou até a próxima mudança neste
+ * arquivo, o índice fica defasado para esta nota — defasado é recuperável;
+ * duplicado no arquivo do usuário não é.
  */
 async function indexarSemFalhar(indexer: Indexer, path: string): Promise<void> {
   try {
