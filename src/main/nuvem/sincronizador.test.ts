@@ -209,10 +209,25 @@ describe('Sincronizador', () => {
     expect(r1.aplicados + r2.aplicados).toBe(1)
     expect(r1.aplicados === 1 || r2.aplicados === 1).toBe(true)
 
+    // A chamada que roda de verdade (a primeira, deterministicamente — as
+    // duas comecam sincronamente na mesma ordem do Promise.all) nao vem
+    // marcada como pulada; a segunda, barrada pela trava, vem.
+    expect(r1.pulado).toBe(false)
+    expect(r2.pulado).toBe(true)
+
     const md = await session.vault.read('Diario/2026-08-27.md')
     // Nem duplicado (a trava evitou a corrida) nem ausente (uma das duas
     // rodadas realmente aplicou o evento) — exatamente uma ocorrencia.
     expect(md.split('Marmita').length - 1).toBe(1)
+  })
+
+  it('rodada sem eventos novos nao vem marcada como pulada', async () => {
+    // Sem isto, o campo `pulado` nao distingue nada: "rodou e nao achou
+    // nada" e "nem chegou a rodar" ficariam com a mesma cara pra quem
+    // consome o retorno.
+    const r = await sinc(new ClienteFalso([])).sincronizar()
+    expect(r.aplicados).toBe(0)
+    expect(r.pulado).toBe(false)
   })
 
   it('sincronizacao concorrente desiste em vez de perder o evento — proxima rodada aplica', async () => {
@@ -239,6 +254,9 @@ describe('Sincronizador', () => {
     expect(r1.falhas + r2.falhas).toBe(0)
     const totalAplicados = r1.aplicados + r2.aplicados
     expect(totalAplicados).toBe(1)
+    // Exatamente uma das duas veio marcada como pulada pela trava — a outra,
+    // que realmente rodou, nao.
+    expect(r1.pulado).toBe(!r2.pulado)
 
     // A rodada que desistiu nao criou (nem sobrescreveu) nenhum arquivo.
     let notas = session.db.prepare("SELECT path FROM notes WHERE tipo='anotacao'").all() as { path: string }[]

@@ -85,7 +85,7 @@ export class Sincronizador {
     this.recebidos = new Recebidos(join(session.vault.root, '.vault', 'recebidos.json'))
   }
 
-  async sincronizar(): Promise<{ aplicados: number; ignorados: number; falhas: number }> {
+  async sincronizar(): Promise<{ aplicados: number; ignorados: number; falhas: number; pulado: boolean }> {
     const vaultRoot = this.session.vault.root
     // Checagem e marcação síncronas, antes de qualquer `await`: duas
     // chamadas a `sincronizar()` disparadas sem `await` entre elas (mesmo
@@ -94,7 +94,18 @@ export class Sincronizador {
     // segunda já encontra a reserva feita e desiste imediatamente. Ver
     // comentário de `sincronizandoAgora` acima para a escolha de desistir.
     if (sincronizandoAgora.has(vaultRoot)) {
-      return { aplicados: 0, ignorados: 0, falhas: 0 }
+      // `pulado: true` é o que distingue esta desistência de uma rodada que
+      // rodou de verdade e não achou nada novo — as duas, sem este campo,
+      // devolveriam o mesmo `{ aplicados: 0, ignorados: 0, falhas: 0 }`. A
+      // Task 9 liga um botão "Sincronizar agora" na interface: sem o campo,
+      // um clique nesse botão bem no meio da rodada do timer de 2 minutos
+      // mostraria "0 registros novos" e o usuário concluiria (errado) que
+      // está tudo em dia, quando a rodada em andamento pode estar trazendo
+      // dezenas de eventos. Loga também — uma rodada pulada sem rastro
+      // nenhum é difícil de diagnosticar depois (mesmo padrão de log do
+      // resto deste arquivo).
+      console.error(`[cortex] sincronização pulada: outra rodada já está em andamento para ${vaultRoot}`)
+      return { aplicados: 0, ignorados: 0, falhas: 0, pulado: true }
     }
     sincronizandoAgora.add(vaultRoot)
     try {
@@ -104,7 +115,7 @@ export class Sincronizador {
     }
   }
 
-  private async sincronizarAgora(): Promise<{ aplicados: number; ignorados: number; falhas: number }> {
+  private async sincronizarAgora(): Promise<{ aplicados: number; ignorados: number; falhas: number; pulado: boolean }> {
     try {
       await this.recebidos.carregar()
     } catch (err) {
@@ -128,7 +139,11 @@ export class Sincronizador {
       // por definição — a próxima rodada, 2 minutos depois, tenta de novo com
       // a mesma janela de busca, e nada foi perdido nesse meio-tempo.
       console.error('[cortex] recebidos.json ilegível nesta rodada, sincronização adiada:', err)
-      return { aplicados: 0, ignorados: 0, falhas: 0 }
+      // `pulado: false` de propósito: esta rodada tentou rodar e abortou por
+      // um problema de I/O, bem diferente de desistir por já haver outra
+      // rodada em andamento (ver `sincronizar()`). Só o caso de concorrência
+      // é o que a interface precisa distinguir de "rodou e não achou nada".
+      return { aplicados: 0, ignorados: 0, falhas: 0, pulado: false }
     }
 
     const desde = new Date(Date.now() - this.janelaDias * 86400000).toISOString()
@@ -175,7 +190,7 @@ export class Sincronizador {
     }
 
     await this.recebidos.podar(this.retencaoDias)
-    return { aplicados, ignorados, falhas }
+    return { aplicados, ignorados, falhas, pulado: false }
   }
 
   async publicar(): Promise<number> {
