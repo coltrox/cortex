@@ -9,7 +9,6 @@
     "build": "electron-vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "icone": "node scripts/gerar-icone.cjs",
     "dist": "npm run test && npm run icone && electron-vite build && electron-builder --win",
     "_comentario_postinstall": "Sem 'electron-builder install-app-deps': o better-sqlite3 usa binarios N-API prebuilds e recompilar exigiria Python e as Build Tools do Visual Studio."
   },
