@@ -10,7 +10,12 @@
     "types": [
       "node",
       "vitest/globals"
-    ]
+    ],
+    "paths": {
+      "@compartilhado/*": [
+        "./src/shared/*"
+      ]
+    }
   },
   "include": [
     "src",

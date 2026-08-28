@@ -1,0 +1,134 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Evento } from '@compartilhado/eventos'
+import { guardadoDoNavegador } from './guardado'
+import { lerVaultId } from './ajustes'
+import { Fila } from './fila'
+import { ClienteWeb } from './nuvem'
+import { lerCardapio, gravarCardapio, type Cardapio } from './cardapio'
+
+/** De quanto em quanto tempo a fila tenta sair sozinha, com o app aberto. */
+const INTERVALO_MS = 30_000
+
+const CREDENCIAL = {
+  url: import.meta.env.VITE_SUPABASE_URL ?? '',
+  chave: import.meta.env.VITE_SUPABASE_CHAVE ?? ''
+}
+
+export function faltaCredencial(): boolean {
+  return CREDENCIAL.url === '' || CREDENCIAL.chave === ''
+}
+
+/**
+ * O cliente da vez, ou `null` enquanto o id do vault não estiver configurado.
+ *
+ * É recriado a cada chamada de propósito: o id pode ter acabado de ser colado
+ * na tela de Ajustes, e um cliente guardado em módulo continuaria apontando
+ * para o vault antigo até alguém recarregar a página.
+ */
+export function clienteAtual(): ClienteWeb | null {
+  const id = lerVaultId(guardadoDoNavegador)
+  if (!id || faltaCredencial()) return null
+  return new ClienteWeb(CREDENCIAL, id)
+}
+
+export type EstadoEnvio = {
+  naFila: number
+  enviando: boolean
+  avisos: string[]
+}
+
+/**
+ * A fila, os relógios e o estado que a tela mostra.
+ *
+ * A fila esvazia ao abrir, ao voltar a rede, e a cada 30 segundos. Falha de
+ * rede não vira erro na tela: a próxima tentativa resolve, e um aviso vermelho
+ * a cada 30 segundos dentro do metrô seria só ruído.
+ */
+export function useEnvio() {
+  const fila = useRef(new Fila(guardadoDoNavegador)).current
+  const [estado, setEstado] = useState<EstadoEnvio>({
+    naFila: fila.quantos(), enviando: false, avisos: []
+  })
+  // Impede duas drenagens ao mesmo tempo — o relógio de 30 s e o evento
+  // `online` disparam juntos quando o sinal volta.
+  const drenando = useRef(false)
+
+  const drenar = useCallback(async () => {
+    if (drenando.current) return
+    const cliente = clienteAtual()
+    if (!cliente || fila.quantos() === 0) {
+      setEstado(e => ({ ...e, naFila: fila.quantos() }))
+      return
+    }
+
+    drenando.current = true
+    setEstado(e => ({ ...e, enviando: true }))
+    try {
+      const r = await fila.esvaziar(ev => cliente.registrarEvento(ev))
+      setEstado(e => ({ naFila: r.restam, enviando: false, avisos: [...e.avisos, ...r.avisos] }))
+    } finally {
+      drenando.current = false
+      setEstado(e => ({ ...e, enviando: false, naFila: fila.quantos() }))
+    }
+  }, [fila])
+
+  const registrar = useCallback((evento: Evento) => {
+    fila.enfileirar(evento)
+    setEstado(e => ({ ...e, naFila: fila.quantos() }))
+    void drenar()
+  }, [fila, drenar])
+
+  const limparAvisos = useCallback(() => setEstado(e => ({ ...e, avisos: [] })), [])
+
+  useEffect(() => {
+    void drenar()
+    const relogio = setInterval(() => void drenar(), INTERVALO_MS)
+    const aoVoltar = () => void drenar()
+    window.addEventListener('online', aoVoltar)
+    return () => {
+      clearInterval(relogio)
+      window.removeEventListener('online', aoVoltar)
+    }
+  }, [drenar])
+
+  return { estado, registrar, drenar, limparAvisos }
+}
+
+export type UsoDoCardapio = {
+  cardapio: Cardapio
+  atualizar: () => Promise<void>
+  erro: string | null
+  buscando: boolean
+}
+
+/** O cardápio guardado, com uma busca ao abrir o app. */
+export function useCardapio(): UsoDoCardapio {
+  const [cardapio, setCardapio] = useState<Cardapio>(() => lerCardapio(guardadoDoNavegador))
+  const [erro, setErro] = useState<string | null>(null)
+  const [buscando, setBuscando] = useState(false)
+
+  const atualizar = useCallback(async () => {
+    const cliente = clienteAtual()
+    if (!cliente) return
+    setBuscando(true)
+    try {
+      const itens = await cliente.listarCardapio()
+      gravarCardapio(guardadoDoNavegador, itens, new Date().toISOString())
+      setCardapio(lerCardapio(guardadoDoNavegador))
+      // Cardápio vazio quase sempre é id errado, ou Cortex que ainda não
+      // publicou. Dizer isso é melhor do que mostrar uma tela em branco.
+      setErro(itens.length === 0
+        ? 'O cardápio veio vazio. Confira o id do vault e publique o cardápio no Cortex, na aba Nuvem.'
+        : null)
+    } catch {
+      // Sem rede: fica com o que já estava guardado, em silêncio.
+      setErro(null)
+    } finally {
+      setBuscando(false)
+    }
+  }, [])
+
+  useEffect(() => { void atualizar() }, [atualizar])
+
+  return { cardapio, atualizar, erro, buscando }
+}
