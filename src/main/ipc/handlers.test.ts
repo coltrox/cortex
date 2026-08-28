@@ -387,3 +387,32 @@ describe('dev — confinamento pela lista autorizada', () => {
     await expect(handle(session, 'dev:tree', { raiz: root, sub: '' })).rejects.toThrow(/autorizada/)
   })
 })
+
+describe('canais da nuvem', () => {
+  it('estado devolve o id do vault e diz que nao ha credencial', async () => {
+    const e = await handle(session, 'nuvem:estado', {}) as
+      { vaultId: string; configurada: boolean }
+    expect(e.vaultId).toMatch(/^[0-9a-f]{8}-/)
+    expect(e.configurada).toBe(false)
+  })
+
+  it('guarda as credenciais', async () => {
+    const e = await handle(session, 'nuvem:credenciais', {
+      url: 'https://x.supabase.co', chave: 'chave-longa-o-suficiente'
+    }) as { configurada: boolean }
+    expect(e.configurada).toBe(true)
+    expect(session.config.nuvem?.url).toBe('https://x.supabase.co')
+  })
+
+  it('gerar id novo troca o id', async () => {
+    const antes = session.config.vaultId
+    const e = await handle(session, 'nuvem:novo-id', {}) as { vaultId: string }
+    expect(e.vaultId).not.toBe(antes)
+    expect(session.config.vaultId).toBe(e.vaultId)
+  })
+
+  it('sincronizar sem credencial falha com mensagem clara, nao com stack', async () => {
+    await expect(handle(session, 'nuvem:sincronizar', {}))
+      .rejects.toThrow(/nuvem não configurada/)
+  })
+})

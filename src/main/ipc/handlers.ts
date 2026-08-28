@@ -6,6 +6,16 @@ import {
 } from '../index/queries'
 import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
 import { resolveLinks } from '../index/resolver'
+import { novoVaultId } from '../config'
+import { ClienteNuvem } from '../nuvem/cliente'
+import { Sincronizador } from '../nuvem/sincronizador'
+
+/** Monta o sincronizador na hora. Sem credencial, falha com mensagem legível. */
+function sincronizadorDe(session: Session): Sincronizador {
+  const cred = session.config.nuvem
+  if (!cred) throw new Error('nuvem não configurada — cole a URL e a chave na aba Nuvem')
+  return new Sincronizador(session, new ClienteNuvem(cred, session.config.vaultId))
+}
 
 /**
  * `note:patch`, `note:append` e `note:ensure` são todos ler-modificar-gravar.
@@ -195,6 +205,31 @@ export async function handle(
     case 'links:backlinks': return getBacklinks(session.db, p.path)
     case 'links:outlinks':  return getOutlinks(session.db, p.path)
     case 'links:broken':    return getBrokenLinks(session.db)
+
+    case 'nuvem:estado':
+      return {
+        vaultId: session.config.vaultId,
+        configurada: session.config.nuvem !== null,
+        url: session.config.nuvem?.url ?? null
+      }
+
+    case 'nuvem:credenciais': {
+      const c = await session.salvarConfig({ nuvem: { url: p.url, chave: p.chave } })
+      return { configurada: c.nuvem !== null, url: c.nuvem?.url ?? null }
+    }
+
+    case 'nuvem:novo-id': {
+      // Trocar o id é o que revoga um celular cujo id vazou. Nada é apagado:
+      // os eventos antigos simplesmente deixam de ser buscados.
+      const c = await session.salvarConfig({ vaultId: novoVaultId() })
+      return { vaultId: c.vaultId }
+    }
+
+    case 'nuvem:sincronizar':
+      return sincronizadorDe(session).sincronizar()
+
+    case 'nuvem:publicar':
+      return { itens: await sincronizadorDe(session).publicar() }
 
     default: {
       // Guarda de exaustividade: se um canal novo for acrescentado a IPC_SCHEMAS

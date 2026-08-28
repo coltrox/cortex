@@ -102,7 +102,18 @@ export const IPC_SCHEMAS = {
   }).strict(),
   'links:backlinks': z.object({ path: caminho }).strict(),
   'links:outlinks': z.object({ path: caminho }).strict(),
-  'links:broken': z.object({}).strict()
+  'links:broken': z.object({}).strict(),
+
+  // Canais da captura rápida: id do vault, credenciais do Supabase, puxar
+  // eventos e publicar o cardápio. Ver `Sincronizador`/`ClienteNuvem`.
+  'nuvem:estado': z.object({}).strict(),
+  'nuvem:credenciais': z.object({
+    url: z.string().url().max(500),
+    chave: z.string().min(10).max(2000)
+  }).strict(),
+  'nuvem:novo-id': z.object({}).strict(),
+  'nuvem:sincronizar': z.object({}).strict(),
+  'nuvem:publicar': z.object({}).strict()
 } as const
 
 export type IpcChannel = keyof typeof IPC_SCHEMAS

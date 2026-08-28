@@ -9,6 +9,7 @@ import {
   IconeConhecimento, IconeFinancas, IconeCalendario
 } from './icons'
 import { Abertura, ModalAreas } from './components/Abertura'
+import { Nuvem } from './components/Nuvem'
 import { Paleta } from './components/Paleta'
 import { Calendario } from './components/Calendario'
 import { NotaPainel } from './components/NotaPainel'
@@ -28,6 +29,16 @@ function IconeAreas({ size = 18 }: { size?: number }) {
       stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
+/** Nuvem do rodapé do rail — abre a aba de credenciais e sincronização. */
+function IconeNuvem({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19h11z" />
     </svg>
   )
 }
@@ -53,6 +64,7 @@ export function App() {
   const [modal, setModal] = useState<{ id: string; ctx?: Record<string, unknown> } | null>(null)
   const [excluindo, setExcluindo] = useState<NoteComCampos | null>(null)
   const [ajustandoAreas, setAjustandoAreas] = useState(false)
+  const [nuvem, setNuvem] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -68,6 +80,38 @@ export function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [v])
+
+  // Puxa ao abrir o vault e a cada 2 minutos. Falha de rede é silenciosa: a
+  // próxima rodada resolve, e um aviso a cada perda de sinal seria ruído.
+  useEffect(() => {
+    if (!v.root) return
+    const puxar = (): void => {
+      void window.vaultApi.invoke('nuvem:sincronizar', {}).catch(() => {})
+    }
+    puxar()
+    const t = setInterval(puxar, 120000)
+    return () => clearInterval(t)
+  }, [v.root])
+
+  // Republica o cardápio quando a estrutura muda — criar um treino no Cortex
+  // tem que fazer ele aparecer no celular sem ninguém apertar nada.
+  //
+  // A espera de 5 segundos existe porque `v.notas` muda a cada gravação do
+  // watcher: digitar o nome de um treino dispararia uma publicação por tecla.
+  // E a assinatura evita republicar quando mudou outra coisa qualquer do
+  // vault — um gasto lançado não mexe no cardápio.
+  const assinaturaCardapio = v.notas
+    .filter(n => n.tipo === 'treino-modelo' || n.tipo === 'suplemento' || n.tipo === 'plano')
+    .map(n => `${n.path}:${n.mtime}`)
+    .join('|')
+
+  useEffect(() => {
+    if (!v.root || !assinaturaCardapio) return
+    const t = setTimeout(() => {
+      void window.vaultApi.invoke('nuvem:publicar', {}).catch(() => {})
+    }, 5000)
+    return () => clearTimeout(t)
+  }, [v.root, assinaturaCardapio])
 
   // Abertura: escolher a pasta e, depois, as áreas. `escolheu` distingue
   // "marquei todas" de "nunca passei por aqui".
@@ -162,6 +206,14 @@ export function App() {
           >
             <IconeAreas />
             <span>Áreas</span>
+          </button>
+          <button
+            className="rail-item rail-rodape"
+            title="Nuvem"
+            onClick={() => setNuvem(true)}
+          >
+            <IconeNuvem />
+            <span>Nuvem</span>
           </button>
         </nav>
 
@@ -316,6 +368,8 @@ export function App() {
           aoFechar={() => setExcluindo(null)}
         />
       )}
+
+      {nuvem && <Nuvem aoFechar={() => setNuvem(false)} />}
     </>
   )
 }
