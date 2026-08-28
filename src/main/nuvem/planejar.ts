@@ -1,4 +1,5 @@
 import type { Evento } from '../../shared/eventos'
+import { txt, comValor } from './util'
 
 /**
  * Traduz um evento vindo do celular nas mudanças que ele causa no vault.
@@ -31,17 +32,11 @@ export type Operacao =
 const nomeArquivo = (s: string): string =>
   s.replace(/[/:*?"<>|\\]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120)
 
-const txt = (v: unknown): string => (v === null || v === undefined ? '' : String(v))
-
-/** Copia só as chaves que têm valor — evita `pace: ""` sujando o frontmatter. */
-function comValor(o: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(o)) {
-    if (v === undefined || v === null || v === '') continue
-    out[k] = v
-  }
-  return out
-}
+// `txt`/`comValor` vêm de `./util` — mesma guarda endurecida usada por
+// `cardapio.ts`: só escalar vira texto, porque `String(v)` de um array junta
+// os elementos com vírgula e deixaria um array escapar sem ninguém perceber
+// (ver comentário em `util.ts`). `dados` aqui é `Record<string, unknown>`
+// vindo do banco, tão hostil quanto o frontmatter que `cardapio.ts` lê.
 
 export function planejar(evento: Evento): Operacao[] {
   const { tipo, dia, dados } = evento

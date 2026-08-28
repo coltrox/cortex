@@ -1,5 +1,6 @@
 import type { ItemCardapio } from '../../shared/eventos'
 import type { NoteComCampos } from '../index/queries'
+import { txt, num, lista, listaDeTexto, comValor } from './util'
 
 /**
  * O que o Cortex publica — e nada além.
@@ -12,33 +13,11 @@ import type { NoteComCampos } from '../index/queries'
  *
  * `cardapio.test.ts` monta um vault com senha, número de documento, valor de
  * gasto e carga, e falha se qualquer um deles aparecer no JSON publicado.
+ *
+ * `txt`/`num`/`lista`/`listaDeTexto`/`comValor` vêm de `./util` — mesma
+ * guarda endurecida usada por `planejar.ts`, para as duas pontas que lidam
+ * com dado hostil de fora não divergirem de novo (ver comentário em `util.ts`).
  */
-
-// Só escalar vira texto — `String(v)` de um array junta os elementos com
-// vírgula (recursivamente), então um array escapa junto sem que ninguém peça.
-const txt = (v: unknown): string =>
-  typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' ? String(v) : ''
-
-/** Só número de verdade sobe — um objeto disfarçado de kcal não é escalar. */
-const num = (v: unknown): number | undefined =>
-  typeof v === 'number' && Number.isFinite(v) ? v : undefined
-
-const lista = (v: unknown): Record<string, unknown>[] =>
-  Array.isArray(v) ? v.filter(i => i && typeof i === 'object') as Record<string, unknown>[] : []
-
-/** Lista de strings simples — um dia da semana é 'seg', nunca um objeto com motivo anexado. */
-const listaDeTexto = (v: unknown): string[] =>
-  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
-
-/** Só entra no detalhe o que tem valor — chave vazia polui a tela do celular. */
-function comValor(o: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(o)) {
-    if (v === undefined || v === null || v === '') continue
-    out[k] = v
-  }
-  return out
-}
 
 export function montarCardapio(notas: NoteComCampos[]): ItemCardapio[] {
   const out: ItemCardapio[] = []

@@ -11,6 +11,9 @@ import type { ClienteNuvem } from './cliente'
 const JANELA_DIAS_PADRAO = 30
 const RETENCAO_DIAS_PADRAO = 90
 
+/** Os únicos tipos de nota que `montarCardapio` usa — ver `publicar()` abaixo. */
+const TIPOS_CARDAPIO = ['treino-modelo', 'suplemento', 'plano'] as const
+
 /**
  * Vaults com uma sincronização em andamento agora mesmo, por raiz absoluta.
  *
@@ -194,7 +197,13 @@ export class Sincronizador {
   }
 
   async publicar(): Promise<number> {
-    const notas = listNotesWithFields(this.session.db, {})
+    // `montarCardapio` só usa três tipos ('treino-modelo', 'suplemento',
+    // 'plano'); `listNotesWithFields` já aceita filtrar por `tipo` (só um por
+    // vez, sem API nova pra isso), então chamamos uma vez por tipo em vez de
+    // trazer o vault inteiro — senha, finanças e documento nem chegam perto
+    // do processo de filtragem. `montarCardapio` continua sendo quem decide
+    // o que publica; isto só reduz o que passa por perto dela.
+    const notas = TIPOS_CARDAPIO.flatMap(tipo => listNotesWithFields(this.session.db, { tipo }))
     return this.cliente.publicarCardapio(montarCardapio(notas))
   }
 }

@@ -108,7 +108,14 @@ export const IPC_SCHEMAS = {
   // eventos e publicar o cardápio. Ver `Sincronizador`/`ClienteNuvem`.
   'nuvem:estado': z.object({}).strict(),
   'nuvem:credenciais': z.object({
-    url: z.string().url().max(500),
+    // Só https: esta URL alimenta `fetch` no processo principal, e um
+    // `http://` mandaria a chave do Supabase em texto puro nos cabeçalhos da
+    // rede — basta alguém colar o endereço errado, sem precisar de ataque
+    // nenhum de fora.
+    url: z.string().url().max(500)
+      .refine(u => u.toLowerCase().startsWith('https://'), {
+        message: 'url deve começar com https:// — http:// mandaria a chave do Supabase sem criptografia'
+      }),
     chave: z.string().min(10).max(2000)
   }).strict(),
   'nuvem:novo-id': z.object({}).strict(),

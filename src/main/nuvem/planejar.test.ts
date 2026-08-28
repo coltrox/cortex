@@ -127,4 +127,33 @@ describe('planejar', () => {
   it('suplemento sem nome nao vira operacao vazia', () => {
     expect(planejar(ev('suplemento', {}))).toEqual([])
   })
+
+  // `dados` vem do banco como Record<string, unknown> livre — tao hostil
+  // quanto o frontmatter que cardapio.ts le. `String(array)` junta os
+  // elementos com virgula, entao um array escaparia grudado no texto se
+  // txt() nao filtrasse por escalar puro (ver util.ts). Os tres casos abaixo
+  // sao os mesmos campos citados na revisao: nome, modelo e texto.
+  it('suplemento com nome vindo como array nao concatena a string escondida no resultado', () => {
+    const ops = planejar(ev('suplemento', { nome: ['Whey', 'SEGREDO-NOME-ARRAY'] }))
+    expect(JSON.stringify(ops)).not.toContain('SEGREDO-NOME-ARRAY')
+    // nome vira '' pela guarda de escalar — sem nome, nao ha operacao.
+    expect(ops).toEqual([])
+  })
+
+  it('sessao com modelo vindo como array cai no nome padrao, nao concatena a string escondida', () => {
+    const ops = planejar(ev('sessao', { modelo: ['Push A', 'SEGREDO-MODELO-ARRAY'] }))
+    expect(JSON.stringify(ops)).not.toContain('SEGREDO-MODELO-ARRAY')
+    expect(ops[0]).toMatchObject({
+      path: expect.stringContaining('Treino livre'),
+      frontmatter: { modelo: 'Treino livre' }
+    })
+  })
+
+  it('anotacao com texto vindo como array nao concatena a string escondida — vira operacao vazia', () => {
+    const ops = planejar(ev('anotacao', { texto: ['Ideia', 'SEGREDO-TEXTO-ARRAY'] }))
+    expect(JSON.stringify(ops)).not.toContain('SEGREDO-TEXTO-ARRAY')
+    // texto vira '' pela guarda de escalar — depois do trim fica vazio, sem
+    // titulo possivel, entao nenhuma operacao e gerada.
+    expect(ops).toEqual([])
+  })
 })

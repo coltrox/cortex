@@ -404,6 +404,14 @@ describe('canais da nuvem', () => {
     expect(session.config.nuvem?.url).toBe('https://x.supabase.co')
   })
 
+  // A URL alimenta fetch no processo principal — http:// mandaria a chave do
+  // Supabase em texto puro nos cabeçalhos da rede.
+  it('recusa url http:// nas credenciais da nuvem', async () => {
+    await expect(handle(session, 'nuvem:credenciais', {
+      url: 'http://x.supabase.co', chave: 'chave-longa-o-suficiente'
+    })).rejects.toThrow(/https/i)
+  })
+
   it('gerar id novo troca o id', async () => {
     const antes = session.config.vaultId
     const e = await handle(session, 'nuvem:novo-id', {}) as { vaultId: string }
