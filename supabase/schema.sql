@@ -82,18 +82,41 @@ begin
   -- Substitui o cardápio inteiro do vault: um treino apagado no Cortex tem
   -- que sumir do celular, e mesclar deixaria fantasmas para sempre.
   delete from cardapio where vault_id = p_vault;
-  -- Duas notas com o mesmo título colidem na chave primária
-  -- (vault_id, especie, nome). Sem o ON CONFLICT, essa sincronização — que
-  -- roda a cada 2 minutos — falharia sempre a partir da primeira colisão,
-  -- sem que a pessoa entendesse por quê. O último item da lista vence, o que
-  -- é aceitável para um cardápio.
+
+  -- Duas notas com o mesmo título (especie, nome) violam a chave primária
+  -- se as duas forem inseridas na MESMA instrução — e como o DELETE acima
+  -- já esvaziou o vault, essa é a única colisão possível aqui, nunca sobra
+  -- linha antiga para conflitar contra. ON CONFLICT DO UPDATE não resolve
+  -- esse caso: ele trata conflito contra linha já existente na tabela, não
+  -- duas linhas propostas colidindo entre si (o Postgres recusa com
+  -- "cannot affect row a second time"). Por isso a deduplicação tem que
+  -- acontecer antes, no próprio payload — aqui, com DISTINCT ON. A
+  -- ocorrência com a maior posição (a última do array) vence.
   insert into cardapio (vault_id, especie, nome, detalhe)
-  select p_vault, i->>'especie', i->>'nome', coalesce(i->'detalhe', '{}'::jsonb)
-  from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb)) i
-  where i->>'especie' in ('treino','suplemento','refeicao')
-    and coalesce(i->>'nome','') <> ''
+  select p_vault, dedup.especie, dedup.nome, dedup.detalhe
+  from (
+    select distinct on (item.especie, item.nome)
+           item.especie, item.nome, item.detalhe
+    from (
+      select el->>'especie' as especie,
+             el->>'nome'    as nome,
+             coalesce(el->'detalhe', '{}'::jsonb) as detalhe,
+             pos
+      from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb)) with ordinality as bruto(el, pos)
+      where el->>'especie' in ('treino','suplemento','refeicao')
+        and coalesce(el->>'nome','') <> ''
+    ) item
+    order by item.especie, item.nome, item.pos desc
+  ) dedup
+  -- Este ON CONFLICT não cuida mais da colisão do payload — a deduplicação
+  -- acima já garante no máximo uma linha por (especie, nome) antes de
+  -- chegar aqui. Ele cobre a corrida entre duas chamadas concorrentes para
+  -- o mesmo vault: se uma segunda invocação desta função gravar depois que
+  -- a primeira já inseriu a mesma linha (o DELETE de cada uma não bloqueia
+  -- a outra), isso vira um UPDATE em vez de um erro de chave duplicada.
   on conflict (vault_id, especie, nome)
   do update set detalhe = excluded.detalhe, atualizado_em = now();
+
   get diagnostics n = row_count;
   return n;
 end $$;
