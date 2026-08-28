@@ -15,6 +15,10 @@ create table if not exists eventos (
   dados     jsonb not null default '{}'::jsonb
 );
 create index if not exists eventos_busca on eventos (vault_id, criado_em);
+-- Separado do índice acima porque `limpar_antigos()` filtra só por
+-- `criado_em`, sem `vault_id` — o índice líder em vault_id não serve para
+-- essa busca.
+create index if not exists eventos_retencao on eventos (criado_em);
 
 create table if not exists cardapio (
   vault_id      uuid not null,
@@ -78,11 +82,18 @@ begin
   -- Substitui o cardápio inteiro do vault: um treino apagado no Cortex tem
   -- que sumir do celular, e mesclar deixaria fantasmas para sempre.
   delete from cardapio where vault_id = p_vault;
+  -- Duas notas com o mesmo título colidem na chave primária
+  -- (vault_id, especie, nome). Sem o ON CONFLICT, essa sincronização — que
+  -- roda a cada 2 minutos — falharia sempre a partir da primeira colisão,
+  -- sem que a pessoa entendesse por quê. O último item da lista vence, o que
+  -- é aceitável para um cardápio.
   insert into cardapio (vault_id, especie, nome, detalhe)
   select p_vault, i->>'especie', i->>'nome', coalesce(i->'detalhe', '{}'::jsonb)
   from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb)) i
   where i->>'especie' in ('treino','suplemento','refeicao')
-    and coalesce(i->>'nome','') <> '';
+    and coalesce(i->>'nome','') <> ''
+  on conflict (vault_id, especie, nome)
+  do update set detalhe = excluded.detalhe, atualizado_em = now();
   get diagnostics n = row_count;
   return n;
 end $$;
@@ -108,3 +119,17 @@ grant execute on function registrar_evento(uuid, date, text, jsonb) to anon;
 grant execute on function listar_eventos(uuid, timestamptz)        to anon;
 grant execute on function publicar_cardapio(uuid, jsonb)           to anon;
 grant execute on function listar_cardapio(uuid)                    to anon;
+
+-- O Postgres concede EXECUTE a PUBLIC por padrão em toda função nova — a
+-- chave anon herda isso automaticamente, mesmo sem aparecer em nenhum grant
+-- acima. Sem estes REVOKEs, `limpar_antigos()` (apaga eventos de todos os
+-- vaults) e `tipos_validos()` ficariam alcançáveis por qualquer portador da
+-- chave anon, sem o id do vault — contradizendo a promessa do README de que
+-- a chave sozinha não dá acesso a nada. Precisam vir depois da criação das
+-- funções: é na criação que o grant padrão a PUBLIC acontece.
+revoke execute on function tipos_validos() from public;
+revoke execute on function limpar_antigos() from public;
+-- E para qualquer função futura que alguém acrescente a este arquivo sem
+-- lembrar deste detalhe: muda o padrão do schema, não é preciso repetir o
+-- revoke acima toda vez.
+alter default privileges in schema public revoke execute on functions from public;
