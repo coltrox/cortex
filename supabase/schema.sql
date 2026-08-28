@@ -143,16 +143,25 @@ grant execute on function listar_eventos(uuid, timestamptz)        to anon;
 grant execute on function publicar_cardapio(uuid, jsonb)           to anon;
 grant execute on function listar_cardapio(uuid)                    to anon;
 
--- O Postgres concede EXECUTE a PUBLIC por padrão em toda função nova — a
--- chave anon herda isso automaticamente, mesmo sem aparecer em nenhum grant
--- acima. Sem estes REVOKEs, `limpar_antigos()` (apaga eventos de todos os
--- vaults) e `tipos_validos()` ficariam alcançáveis por qualquer portador da
--- chave anon, sem o id do vault — contradizendo a promessa do README de que
--- a chave sozinha não dá acesso a nada. Precisam vir depois da criação das
--- funções: é na criação que o grant padrão a PUBLIC acontece.
-revoke execute on function tipos_validos() from public;
-revoke execute on function limpar_antigos() from public;
+-- Dois caminhos concedem EXECUTE sem ninguem pedir, e e preciso fechar os
+-- dois.
+--
+-- O Postgres concede EXECUTE a PUBLIC por padrao em toda funcao nova, e a
+-- chave anon herda isso mesmo sem aparecer em nenhum grant acima. E o
+-- Supabase, por cima, concede EXECUTE em todas as funcoes do schema public
+-- diretamente a anon e a authenticated, na configuracao inicial do projeto.
+-- Esse segundo e um grant nominal: um revoke de PUBLIC nao o remove.
+--
+-- Medido contra o projeto real: so com o revoke de PUBLIC, limpar_antigos()
+-- -- que apaga eventos de TODOS os vaults -- continuava respondendo 200 a
+-- chave anon, sem o id de vault nenhum. Isso contradizia a promessa de que a
+-- chave sozinha nao da acesso a nada, e por isso os revokes nomeiam os tres.
+--
+-- Precisam vir depois da criacao das funcoes: e na criacao que o grant
+-- padrao a PUBLIC acontece.
+revoke execute on function tipos_validos()  from public, anon, authenticated;
+revoke execute on function limpar_antigos() from public, anon, authenticated;
 -- E para qualquer função futura que alguém acrescente a este arquivo sem
 -- lembrar deste detalhe: muda o padrão do schema, não é preciso repetir o
 -- revoke acima toda vez.
-alter default privileges in schema public revoke execute on functions from public;
+alter default privileges in schema public revoke execute on functions from public, anon, authenticated;
