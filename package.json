@@ -10,7 +10,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dist": "npm run test && electron-vite build && electron-builder --win",
-    "_comentario_postinstall": "Sem 'electron-builder install-app-deps': o better-sqlite3 usa binarios N-API prebuilds e recompilar exigiria Python e as Build Tools do Visual Studio."
+    "_comentario_postinstall": "Sem 'electron-builder install-app-deps': o better-sqlite3 usa binarios N-API prebuilds e recompilar exigiria Python e as Build Tools do Visual Studio.",
+    "web:dev": "vite --config web/vite.config.ts",
+    "web:build": "vite build --config web/vite.config.ts",
+    "web:preview": "vite preview --config web/vite.config.ts"
   },
   "keywords": [],
   "author": "Pedro Costa",
@@ -34,6 +37,7 @@
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "vite": "^7.2.0"
   }
 }
