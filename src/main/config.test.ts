@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { lerConfig, gravarConfig, normalizarConfig, novoVaultId, IDS_AREAS } from './config'
+import {
+  lerConfig, gravarConfig, normalizarConfig, novoVaultId, IDS_AREAS, projetarConfigParaRenderer
+} from './config'
 
 let dir: string, arq: string
 
@@ -97,5 +99,35 @@ describe('vaultId', () => {
 
   it('descarta nuvem sem url ou sem chave', () => {
     expect(normalizarConfig({ nuvem: { url: 'https://x' } }).nuvem).toBeNull()
+  })
+})
+
+describe('projetarConfigParaRenderer', () => {
+  // `vault:state`, `vault:pick`, `vault:create`, o evento `vault:aberto` e
+  // `config:get` mandam este recorte para o renderer — nunca `session.config`
+  // inteiro. O teste serializa como o IPC do Electron faria (JSON) e falha
+  // se a chave da nuvem, mesmo fictícia, aparecer em qualquer parte do
+  // payload: é essa string na rede/no devtools que não pode existir.
+  const chaveFicticia = 'chave-secreta-jamais-deve-vazar'
+  const configCompleta = normalizarConfig({
+    areas: ['saude'],
+    pastasDev: ['/projetos/x'],
+    escolheu: true,
+    vaultId: novoVaultId(),
+    nuvem: { url: 'https://x.supabase.co', chave: chaveFicticia }
+  })
+
+  it('nao inclui vaultId nem nuvem no objeto', () => {
+    const p = projetarConfigParaRenderer(configCompleta)
+    expect(p).toEqual({ areas: ['saude'], pastasDev: ['/projetos/x'], escolheu: true })
+    expect(Object.keys(p)).not.toContain('vaultId')
+    expect(Object.keys(p)).not.toContain('nuvem')
+  })
+
+  it('a chave da nuvem nao aparece na serializacao JSON do payload', () => {
+    const serializado = JSON.stringify(projetarConfigParaRenderer(configCompleta))
+    expect(serializado).not.toContain(chaveFicticia)
+    expect(serializado).not.toContain('nuvem')
+    expect(serializado).not.toContain(configCompleta.vaultId)
   })
 })

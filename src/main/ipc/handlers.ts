@@ -6,7 +6,7 @@ import {
 } from '../index/queries'
 import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
 import { resolveLinks } from '../index/resolver'
-import { novoVaultId } from '../config'
+import { novoVaultId, projetarConfigParaRenderer } from '../config'
 import { ClienteNuvem } from '../nuvem/cliente'
 import { Sincronizador } from '../nuvem/sincronizador'
 
@@ -165,8 +165,10 @@ export async function handle(
       await session.vault.criarPasta(p.pasta)
       return { pasta: p.pasta }
 
+    // Recorte explícito: o renderer nunca recebe `session.config` inteiro,
+    // que carrega `vaultId` e a chave da nuvem. Ver `projetarConfigParaRenderer`.
     case 'config:get':
-      return session.config
+      return projetarConfigParaRenderer(session.config)
 
     case 'config:areas': {
       const c = await session.salvarConfig({ areas: p.areas, escolheu: true })
@@ -177,7 +179,7 @@ export async function handle(
       for (const pasta of pastasDasAreas(c.areas)) {
         await session.vault.criarPasta(pasta)
       }
-      return c
+      return projetarConfigParaRenderer(c)
     }
 
     case 'dev:folders':
@@ -186,7 +188,7 @@ export async function handle(
     case 'dev:remove-folder': {
       // Só tira da lista de autorização — o app nunca apaga pasta de código.
       const restantes = session.config.pastasDev.filter(r => r !== p.raiz)
-      return session.salvarConfig({ pastasDev: restantes })
+      return projetarConfigParaRenderer(await session.salvarConfig({ pastasDev: restantes }))
     }
 
     case 'dev:tree':

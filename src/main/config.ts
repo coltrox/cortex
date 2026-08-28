@@ -122,3 +122,23 @@ export async function lerConfig(caminho: string): Promise<Config> {
 export async function gravarConfig(caminho: string, c: Config): Promise<void> {
   await writeFile(caminho, `${JSON.stringify(c, null, 2)}\n`, 'utf8')
 }
+
+/** O que o renderer pode enxergar da config, e nada mais. */
+export type ConfigParaRenderer = { areas: string[]; pastasDev: string[]; escolheu: boolean }
+
+/**
+ * Recorte de `Config` para atravessar a fronteira IPC até o renderer.
+ *
+ * Lista branca campo a campo, na mesma disciplina que `montarCardapio` usa
+ * para o que sobe para a nuvem: quem chama nunca repassa `Config` inteiro
+ * para `vault:state`, `vault:pick`, `vault:create`, o evento `vault:aberto`
+ * ou `config:get`. `vaultId` e, principalmente, `nuvem` (que carrega a chave
+ * do Supabase em texto puro) não têm por que cruzar esse canal — o renderer
+ * é entrada hostil neste projeto, e o mesmo vale ao contrário: ele não
+ * recebe o que não precisa. O id do vault e se a nuvem está configurada
+ * saem só por `nuvem:estado`, que já é um recorte explícito próprio; a
+ * chave em si não sai por canal nenhum.
+ */
+export function projetarConfigParaRenderer(c: Config): ConfigParaRenderer {
+  return { areas: c.areas, pastasDev: c.pastasDev, escolheu: c.escolheu }
+}

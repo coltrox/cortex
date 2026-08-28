@@ -415,4 +415,25 @@ describe('canais da nuvem', () => {
     await expect(handle(session, 'nuvem:sincronizar', {}))
       .rejects.toThrow(/nuvem não configurada/)
   })
+
+  // A chave só devia sair pelo canal que a recebe de volta em texto (nenhum,
+  // hoje); nenhum outro canal que devolve config pode carregá-la de carona.
+  // `config:get`, `config:areas` e `dev:remove-folder` também devolvem
+  // config — os três passam por `projetarConfigParaRenderer`, e este teste
+  // falha se qualquer um deles vazar a chave ou o vaultId no JSON serializado.
+  it('nenhum canal que devolve config deixa a chave da nuvem vazar para o renderer', async () => {
+    const chaveFicticia = 'chave-secreta-jamais-deve-vazar'
+    await handle(session, 'nuvem:credenciais', { url: 'https://x.supabase.co', chave: chaveFicticia })
+
+    const viaConfigGet = await handle(session, 'config:get', {})
+    const viaConfigAreas = await handle(session, 'config:areas', { areas: ['vida'] })
+    const viaDevRemove = await handle(session, 'dev:remove-folder', { raiz: '/nao-existe' })
+
+    for (const payload of [viaConfigGet, viaConfigAreas, viaDevRemove]) {
+      const serializado = JSON.stringify(payload)
+      expect(serializado).not.toContain(chaveFicticia)
+      expect(serializado).not.toContain('nuvem')
+      expect(Object.keys(payload as object)).not.toContain('vaultId')
+    }
+  })
 })

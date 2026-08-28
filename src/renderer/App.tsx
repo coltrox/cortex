@@ -9,6 +9,7 @@ import {
   IconeConhecimento, IconeFinancas, IconeCalendario
 } from './icons'
 import { Abertura, ModalAreas } from './components/Abertura'
+import { Confirmar } from './components/Confirmar'
 import { Nuvem } from './components/Nuvem'
 import { Paleta } from './components/Paleta'
 import { Calendario } from './components/Calendario'
@@ -43,6 +44,11 @@ function IconeNuvem({ size = 18 }: { size?: number }) {
   )
 }
 
+// A cada 2 minutos: 3 rodadas seguidas rejeitando são 4-6 minutos de nuvem
+// fora do ar. Uma falha isolada (rede tremeu por um instante) não passa
+// disso — só uma falha que se repete acende o indicador.
+const LIMIAR_ALERTA_SYNC = 3
+
 const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactElement }[] = [
   { id: 'hoje',         nome: 'Hoje',    Icone: IconeHoje },
   { id: 'conhecimento', nome: 'Estudos', Icone: IconeConhecimento },
@@ -65,6 +71,11 @@ export function App() {
   const [excluindo, setExcluindo] = useState<NoteComCampos | null>(null)
   const [ajustandoAreas, setAjustandoAreas] = useState(false)
   const [nuvem, setNuvem] = useState(false)
+  // Quantas rodadas automáticas seguidas falharam (rejeitaram a promise —
+  // credencial ausente/inválida, chave revogada, DNS que não resolve mais).
+  // Zera a cada rodada que sequer conclui, mesmo pulada por concorrência: o
+  // que importa aqui não é "achou eventos", é "conseguiu falar com a nuvem".
+  const [falhasSincSeguidas, setFalhasSincSeguidas] = useState(0)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -81,12 +92,18 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [v])
 
-  // Puxa ao abrir o vault e a cada 2 minutos. Falha de rede é silenciosa: a
-  // próxima rodada resolve, e um aviso a cada perda de sinal seria ruído.
+  // Puxa ao abrir o vault e a cada 2 minutos. Uma falha isolada continua
+  // silenciosa — rede caiu por um instante, a próxima rodada resolve, e um
+  // aviso a cada soluço seria ruído. O que não pode ficar mudo é uma falha
+  // que SE REPETE: credencial errada ou chave revogada faz toda rodada
+  // rejeitar, e sem sinal nenhum o usuário só percebe abrindo a aba Nuvem por
+  // acaso. `falhasSincSeguidas` conta isso; o indicador na aba usa o valor.
   useEffect(() => {
     if (!v.root) return
     const puxar = (): void => {
-      void window.vaultApi.invoke('nuvem:sincronizar', {}).catch(() => {})
+      void window.vaultApi.invoke('nuvem:sincronizar', {})
+        .then(() => setFalhasSincSeguidas(0))
+        .catch(() => setFalhasSincSeguidas(n => n + 1))
     }
     puxar()
     const t = setInterval(puxar, 120000)
@@ -209,10 +226,17 @@ export function App() {
           </button>
           <button
             className="rail-item rail-rodape"
-            title="Nuvem"
+            title={
+              falhasSincSeguidas >= LIMIAR_ALERTA_SYNC
+                ? 'Nuvem — sincronização automática não está conseguindo falar com o banco'
+                : 'Nuvem'
+            }
             onClick={() => setNuvem(true)}
           >
             <IconeNuvem />
+            {falhasSincSeguidas >= LIMIAR_ALERTA_SYNC && (
+              <span className="rail-alerta" aria-hidden="true" />
+            )}
             <span>Nuvem</span>
           </button>
         </nav>
@@ -369,41 +393,12 @@ export function App() {
         />
       )}
 
-      {nuvem && <Nuvem aoFechar={() => setNuvem(false)} />}
+      {nuvem && (
+        <Nuvem
+          aoFechar={() => setNuvem(false)}
+          sincronizacaoAutomaticaFalhando={falhasSincSeguidas >= LIMIAR_ALERTA_SYNC}
+        />
+      )}
     </>
-  )
-}
-
-/**
- * Confirmação para ação sem volta.
- *
- * Apagar um `.md` é irreversível — não existe lixeira no vault. Um clique
- * errado no × de uma linha não pode custar uma nota.
- */
-function Confirmar({ titulo, texto, rotulo, perigo, aoConfirmar, aoFechar }: {
-  titulo: string
-  texto: string
-  rotulo: string
-  perigo?: boolean
-  aoConfirmar: () => void
-  aoFechar: () => void
-}) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') aoFechar() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [aoFechar])
-
-  return (
-    <div className="paleta-fundo" onClick={aoFechar}>
-      <div className="form estreito" onClick={e => e.stopPropagation()}>
-        <div className="form-topo">{titulo}</div>
-        <div className="form-corpo"><p className="confirmar-texto">{texto}</p></div>
-        <div className="form-rodape">
-          <button className="btn-fantasma" onClick={aoFechar}>Cancelar</button>
-          <button className={perigo ? 'btn perigo' : 'btn'} onClick={aoConfirmar}>{rotulo}</button>
-        </div>
-      </div>
-    </div>
   )
 }
