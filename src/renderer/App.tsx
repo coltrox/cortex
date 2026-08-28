@@ -9,6 +9,8 @@ import {
   IconeConhecimento, IconeFinancas, IconeCalendario
 } from './icons'
 import { Abertura, ModalAreas } from './components/Abertura'
+import { Confirmar } from './components/Confirmar'
+import { Nuvem } from './components/Nuvem'
 import { Paleta } from './components/Paleta'
 import { Calendario } from './components/Calendario'
 import { NotaPainel } from './components/NotaPainel'
@@ -32,6 +34,21 @@ function IconeAreas({ size = 18 }: { size?: number }) {
   )
 }
 
+/** Nuvem do rodapé do rail — abre a aba de credenciais e sincronização. */
+function IconeNuvem({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19h11z" />
+    </svg>
+  )
+}
+
+// A cada 2 minutos: 3 rodadas seguidas rejeitando são 4-6 minutos de nuvem
+// fora do ar. Uma falha isolada (rede tremeu por um instante) não passa
+// disso — só uma falha que se repete acende o indicador.
+const LIMIAR_ALERTA_SYNC = 3
+
 const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactElement }[] = [
   { id: 'hoje',         nome: 'Hoje',    Icone: IconeHoje },
   { id: 'conhecimento', nome: 'Estudos', Icone: IconeConhecimento },
@@ -53,6 +70,12 @@ export function App() {
   const [modal, setModal] = useState<{ id: string; ctx?: Record<string, unknown> } | null>(null)
   const [excluindo, setExcluindo] = useState<NoteComCampos | null>(null)
   const [ajustandoAreas, setAjustandoAreas] = useState(false)
+  const [nuvem, setNuvem] = useState(false)
+  // Quantas rodadas automáticas seguidas falharam (rejeitaram a promise —
+  // credencial ausente/inválida, chave revogada, DNS que não resolve mais).
+  // Zera a cada rodada que sequer conclui, mesmo pulada por concorrência: o
+  // que importa aqui não é "achou eventos", é "conseguiu falar com a nuvem".
+  const [falhasSincSeguidas, setFalhasSincSeguidas] = useState(0)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -68,6 +91,44 @@ export function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [v])
+
+  // Puxa ao abrir o vault e a cada 2 minutos. Uma falha isolada continua
+  // silenciosa — rede caiu por um instante, a próxima rodada resolve, e um
+  // aviso a cada soluço seria ruído. O que não pode ficar mudo é uma falha
+  // que SE REPETE: credencial errada ou chave revogada faz toda rodada
+  // rejeitar, e sem sinal nenhum o usuário só percebe abrindo a aba Nuvem por
+  // acaso. `falhasSincSeguidas` conta isso; o indicador na aba usa o valor.
+  useEffect(() => {
+    if (!v.root) return
+    const puxar = (): void => {
+      void window.vaultApi.invoke('nuvem:sincronizar', {})
+        .then(() => setFalhasSincSeguidas(0))
+        .catch(() => setFalhasSincSeguidas(n => n + 1))
+    }
+    puxar()
+    const t = setInterval(puxar, 120000)
+    return () => clearInterval(t)
+  }, [v.root])
+
+  // Republica o cardápio quando a estrutura muda — criar um treino no Cortex
+  // tem que fazer ele aparecer no celular sem ninguém apertar nada.
+  //
+  // A espera de 5 segundos existe porque `v.notas` muda a cada gravação do
+  // watcher: digitar o nome de um treino dispararia uma publicação por tecla.
+  // E a assinatura evita republicar quando mudou outra coisa qualquer do
+  // vault — um gasto lançado não mexe no cardápio.
+  const assinaturaCardapio = v.notas
+    .filter(n => n.tipo === 'treino-modelo' || n.tipo === 'suplemento' || n.tipo === 'plano')
+    .map(n => `${n.path}:${n.mtime}`)
+    .join('|')
+
+  useEffect(() => {
+    if (!v.root || !assinaturaCardapio) return
+    const t = setTimeout(() => {
+      void window.vaultApi.invoke('nuvem:publicar', {}).catch(() => {})
+    }, 5000)
+    return () => clearTimeout(t)
+  }, [v.root, assinaturaCardapio])
 
   // Abertura: escolher a pasta e, depois, as áreas. `escolheu` distingue
   // "marquei todas" de "nunca passei por aqui".
@@ -162,6 +223,21 @@ export function App() {
           >
             <IconeAreas />
             <span>Áreas</span>
+          </button>
+          <button
+            className="rail-item rail-rodape"
+            title={
+              falhasSincSeguidas >= LIMIAR_ALERTA_SYNC
+                ? 'Nuvem — sincronização automática não está conseguindo falar com o banco'
+                : 'Nuvem'
+            }
+            onClick={() => setNuvem(true)}
+          >
+            <IconeNuvem />
+            {falhasSincSeguidas >= LIMIAR_ALERTA_SYNC && (
+              <span className="rail-alerta" aria-hidden="true" />
+            )}
+            <span>Nuvem</span>
           </button>
         </nav>
 
@@ -316,40 +392,13 @@ export function App() {
           aoFechar={() => setExcluindo(null)}
         />
       )}
+
+      {nuvem && (
+        <Nuvem
+          aoFechar={() => setNuvem(false)}
+          sincronizacaoAutomaticaFalhando={falhasSincSeguidas >= LIMIAR_ALERTA_SYNC}
+        />
+      )}
     </>
-  )
-}
-
-/**
- * Confirmação para ação sem volta.
- *
- * Apagar um `.md` é irreversível — não existe lixeira no vault. Um clique
- * errado no × de uma linha não pode custar uma nota.
- */
-function Confirmar({ titulo, texto, rotulo, perigo, aoConfirmar, aoFechar }: {
-  titulo: string
-  texto: string
-  rotulo: string
-  perigo?: boolean
-  aoConfirmar: () => void
-  aoFechar: () => void
-}) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') aoFechar() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [aoFechar])
-
-  return (
-    <div className="paleta-fundo" onClick={aoFechar}>
-      <div className="form estreito" onClick={e => e.stopPropagation()}>
-        <div className="form-topo">{titulo}</div>
-        <div className="form-corpo"><p className="confirmar-texto">{texto}</p></div>
-        <div className="form-rodape">
-          <button className="btn-fantasma" onClick={aoFechar}>Cancelar</button>
-          <button className={perigo ? 'btn perigo' : 'btn'} onClick={aoConfirmar}>{rotulo}</button>
-        </div>
-      </div>
-    </div>
   )
 }

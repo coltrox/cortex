@@ -283,7 +283,36 @@ Substituir o `return` de `normalizarConfig` por:
   return { areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem }
 ```
 
-- [ ] **Passo 4: persistir o id gerado**
+- [ ] **Passo 4: fazer o vault novo nascer com id**
+
+`lerConfig` devolve `{ ...CONFIG_PADRAO }` no `catch`, sem passar por
+`normalizarConfig` — e `CONFIG_PADRAO.vaultId` é `''`. Um vault novo (sem
+`config.json`) nasceria sem id. Trocar o `catch` por:
+
+```ts
+  } catch {
+    // Ausente ou ilegível: o vault abre com tudo ligado. Passa por
+    // `normalizarConfig` — e não pelo padrão cru — porque é ela que gera o
+    // vaultId; devolver a constante deixaria o vault novo sem identificador,
+    // e a captura rápida nasceria quebrada.
+    return normalizarConfig({})
+  }
+```
+
+Acrescentar o teste correspondente em `config.test.ts`:
+
+```ts
+  it('vault sem config.json nasce com vaultId', async () => {
+    const c = await lerConfig(join(dir, 'nao-existe.json'))
+    expect(c.vaultId).toMatch(/^[0-9a-f]{8}-/)
+  })
+```
+
+Isso torna falso o teste existente `devolve o padrão quando o arquivo não
+existe`, que compara com `CONFIG_PADRAO` — ajustá-lo para
+`toMatchObject({ areas: IDS_AREAS, pastasDev: [], escolheu: false })`.
+
+- [ ] **Passo 5: persistir o id gerado**
 
 Em `src/main/session.ts`, dentro de `open`, logo após `this.config = await lerConfig(this.configPath)`:
 
@@ -296,12 +325,12 @@ Em `src/main/session.ts`, dentro de `open`, logo após `this.config = await lerC
 
 `existsSync` já está importado de `node:fs` em `session.ts`; acrescentar `gravarConfig` ao import de `./config`.
 
-- [ ] **Passo 5: rodar tudo**
+- [ ] **Passo 6: rodar tudo**
 
 Rodar: `npx vitest run && npx tsc --noEmit`
 Esperado: PASS. Os testes existentes de `config.test.ts` que comparam o objeto inteiro com `toEqual` vão falhar por causa dos campos novos — corrigir cada um para incluir `vaultId: expect.any(String)` e `nuvem: null`.
 
-- [ ] **Passo 6: commitar**
+- [ ] **Passo 7: commitar**
 
 ```bash
 git add src/main/config.ts src/main/config.test.ts src/main/session.ts

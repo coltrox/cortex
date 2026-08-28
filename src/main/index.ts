@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises'
 import { Session } from './session'
 import { registerIpc } from './ipc/handlers'
+import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 
 const session = new Session()
 let win: BrowserWindow | null = null
@@ -38,11 +39,19 @@ function avisarMudanca(rel: string): void {
   win?.webContents.send('vault:changed', rel)
 }
 
-/** Abre a sessão e memoriza. Devolve o estado que o renderer espera. */
-async function abrirVault(root: string): Promise<{ root: string; config: unknown }> {
+/**
+ * Abre a sessão e memoriza. Devolve o estado que o renderer espera.
+ *
+ * `config` é sempre o recorte de `projetarConfigParaRenderer`, nunca
+ * `session.config` inteiro — este é um dos quatro pontos que mandam config
+ * pro renderer (junto de `vault:state` e o evento `vault:aberto`), e
+ * `vaultId`/`nuvem` (que carrega a chave da nuvem) não têm por que atravessar
+ * esse canal.
+ */
+async function abrirVault(root: string): Promise<{ root: string; config: ConfigParaRenderer }> {
   await session.open(root, avisarMudanca)
   await lembrarVault(session.vault.root)
-  return { root: session.vault.root, config: session.config }
+  return { root: session.vault.root, config: projetarConfigParaRenderer(session.config) }
 }
 
 function createWindow(): void {
@@ -82,7 +91,7 @@ function createWindow(): void {
  */
 
 ipcMain.handle('vault:state', async () => {
-  if (session.isOpen) return { root: session.vault.root, config: session.config }
+  if (session.isOpen) return { root: session.vault.root, config: projetarConfigParaRenderer(session.config) }
   return { root: null, config: null }
 })
 
@@ -235,7 +244,9 @@ app.whenReady().then(async () => {
   if (lembrado) {
     try {
       await session.open(lembrado, avisarMudanca)
-      win?.webContents.send('vault:aberto', { root: session.vault.root, config: session.config })
+      win?.webContents.send('vault:aberto', {
+        root: session.vault.root, config: projetarConfigParaRenderer(session.config)
+      })
     } catch {
       // Pasta apagada, drive desconectado, permissão negada: cai na abertura.
     }

@@ -387,3 +387,61 @@ describe('dev — confinamento pela lista autorizada', () => {
     await expect(handle(session, 'dev:tree', { raiz: root, sub: '' })).rejects.toThrow(/autorizada/)
   })
 })
+
+describe('canais da nuvem', () => {
+  it('estado devolve o id do vault e diz que nao ha credencial', async () => {
+    const e = await handle(session, 'nuvem:estado', {}) as
+      { vaultId: string; configurada: boolean }
+    expect(e.vaultId).toMatch(/^[0-9a-f]{8}-/)
+    expect(e.configurada).toBe(false)
+  })
+
+  it('guarda as credenciais', async () => {
+    const e = await handle(session, 'nuvem:credenciais', {
+      url: 'https://x.supabase.co', chave: 'chave-longa-o-suficiente'
+    }) as { configurada: boolean }
+    expect(e.configurada).toBe(true)
+    expect(session.config.nuvem?.url).toBe('https://x.supabase.co')
+  })
+
+  // A URL alimenta fetch no processo principal — http:// mandaria a chave do
+  // Supabase em texto puro nos cabeçalhos da rede.
+  it('recusa url http:// nas credenciais da nuvem', async () => {
+    await expect(handle(session, 'nuvem:credenciais', {
+      url: 'http://x.supabase.co', chave: 'chave-longa-o-suficiente'
+    })).rejects.toThrow(/https/i)
+  })
+
+  it('gerar id novo troca o id', async () => {
+    const antes = session.config.vaultId
+    const e = await handle(session, 'nuvem:novo-id', {}) as { vaultId: string }
+    expect(e.vaultId).not.toBe(antes)
+    expect(session.config.vaultId).toBe(e.vaultId)
+  })
+
+  it('sincronizar sem credencial falha com mensagem clara, nao com stack', async () => {
+    await expect(handle(session, 'nuvem:sincronizar', {}))
+      .rejects.toThrow(/nuvem não configurada/)
+  })
+
+  // A chave só devia sair pelo canal que a recebe de volta em texto (nenhum,
+  // hoje); nenhum outro canal que devolve config pode carregá-la de carona.
+  // `config:get`, `config:areas` e `dev:remove-folder` também devolvem
+  // config — os três passam por `projetarConfigParaRenderer`, e este teste
+  // falha se qualquer um deles vazar a chave ou o vaultId no JSON serializado.
+  it('nenhum canal que devolve config deixa a chave da nuvem vazar para o renderer', async () => {
+    const chaveFicticia = 'chave-secreta-jamais-deve-vazar'
+    await handle(session, 'nuvem:credenciais', { url: 'https://x.supabase.co', chave: chaveFicticia })
+
+    const viaConfigGet = await handle(session, 'config:get', {})
+    const viaConfigAreas = await handle(session, 'config:areas', { areas: ['vida'] })
+    const viaDevRemove = await handle(session, 'dev:remove-folder', { raiz: '/nao-existe' })
+
+    for (const payload of [viaConfigGet, viaConfigAreas, viaDevRemove]) {
+      const serializado = JSON.stringify(payload)
+      expect(serializado).not.toContain(chaveFicticia)
+      expect(serializado).not.toContain('nuvem')
+      expect(Object.keys(payload as object)).not.toContain('vaultId')
+    }
+  })
+})

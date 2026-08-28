@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { access, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Session, VaultRootMissingError } from './session'
@@ -64,5 +64,64 @@ describe('Session.open — não deve vazar o handle do db se algo lançar antes 
     await expect(stat(dbPath)).rejects.toThrow()
 
     spy.mockRestore()
+  })
+})
+
+describe('Session.open — vaultId estável entre aberturas (achado da revisão da Task 2)', () => {
+  // O bug original comparava `existsSync(configPath)`, não o id em si: um
+  // config.json que já existe (antigo, sem vaultId, ou corrompido) fazia a
+  // gravação ser pulada, e cada abertura inventava um id novo — orfanando o
+  // celular. Os três casos abaixo cobrem os cenários que esse proxy errado
+  // deixava passar, mais o caso que já funcionava.
+
+  it('config.json pré-existente sem vaultId ganha um e mantém o mesmo id na próxima abertura', async () => {
+    const dir = join(root, '.vault')
+    await mkdir(dir, { recursive: true })
+    const configPath = join(dir, 'config.json')
+    await writeFile(configPath, JSON.stringify({ areas: ['vida'], pastasDev: [], escolheu: true }), 'utf8')
+
+    await session.open(root)
+    const primeiro = session.config.vaultId
+    expect(primeiro).toMatch(/^[0-9a-f]{8}-/)
+
+    // A prova de que não ficou só em memória: o arquivo tem o mesmo id.
+    const gravado = JSON.parse(await readFile(configPath, 'utf8')) as { vaultId?: string }
+    expect(gravado.vaultId).toBe(primeiro)
+
+    await session.close()
+    await session.open(root)
+    expect(session.config.vaultId).toBe(primeiro)
+  })
+
+  it('config.json corrompido ganha vaultId estável entre aberturas', async () => {
+    const dir = join(root, '.vault')
+    await mkdir(dir, { recursive: true })
+    const configPath = join(dir, 'config.json')
+    await writeFile(configPath, '{ "areas": ["vida"', 'utf8')
+
+    await session.open(root)
+    const primeiro = session.config.vaultId
+    expect(primeiro).toMatch(/^[0-9a-f]{8}-/)
+
+    const gravado = JSON.parse(await readFile(configPath, 'utf8')) as { vaultId?: string }
+    expect(gravado.vaultId).toBe(primeiro)
+
+    await session.close()
+    await session.open(root)
+    expect(session.config.vaultId).toBe(primeiro)
+  })
+
+  it('vault sem config.json nenhum nasce com id e persiste (caso que já funcionava)', async () => {
+    await session.open(root)
+    const primeiro = session.config.vaultId
+    expect(primeiro).toMatch(/^[0-9a-f]{8}-/)
+
+    const configPath = join(root, '.vault', 'config.json')
+    const gravado = JSON.parse(await readFile(configPath, 'utf8')) as { vaultId?: string }
+    expect(gravado.vaultId).toBe(primeiro)
+
+    await session.close()
+    await session.open(root)
+    expect(session.config.vaultId).toBe(primeiro)
   })
 })

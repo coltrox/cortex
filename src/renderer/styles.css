@@ -66,6 +66,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 .rail-item {
+  position: relative;
   width: 52px;
   padding: 8px 0 6px;
   border: 0;
@@ -77,6 +78,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
   align-items: center;
   gap: 4px;
   transition: background 160ms, color 160ms;
+}
+
+/* Sincronização automática falhando de forma persistente (Nuvem) — discreto
+   de propósito: uma falha isolada não acende isto, só quem se repete. */
+.rail-alerta {
+  position: absolute;
+  top: 6px;
+  right: 11px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pale-red);
 }
 
 .rail-item:hover:not(:disabled) { background: rgba(0,0,0,.04); color: var(--text); }

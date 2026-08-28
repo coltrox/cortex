@@ -102,7 +102,25 @@ export const IPC_SCHEMAS = {
   }).strict(),
   'links:backlinks': z.object({ path: caminho }).strict(),
   'links:outlinks': z.object({ path: caminho }).strict(),
-  'links:broken': z.object({}).strict()
+  'links:broken': z.object({}).strict(),
+
+  // Canais da captura rápida: id do vault, credenciais do Supabase, puxar
+  // eventos e publicar o cardápio. Ver `Sincronizador`/`ClienteNuvem`.
+  'nuvem:estado': z.object({}).strict(),
+  'nuvem:credenciais': z.object({
+    // Só https: esta URL alimenta `fetch` no processo principal, e um
+    // `http://` mandaria a chave do Supabase em texto puro nos cabeçalhos da
+    // rede — basta alguém colar o endereço errado, sem precisar de ataque
+    // nenhum de fora.
+    url: z.string().url().max(500)
+      .refine(u => u.toLowerCase().startsWith('https://'), {
+        message: 'url deve começar com https:// — http:// mandaria a chave do Supabase sem criptografia'
+      }),
+    chave: z.string().min(10).max(2000)
+  }).strict(),
+  'nuvem:novo-id': z.object({}).strict(),
+  'nuvem:sincronizar': z.object({}).strict(),
+  'nuvem:publicar': z.object({}).strict()
 } as const
 
 export type IpcChannel = keyof typeof IPC_SCHEMAS

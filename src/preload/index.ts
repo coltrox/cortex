@@ -1,10 +1,13 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcChannel, IpcPayload } from '../shared/ipc'
-
-export type EstadoVault = {
-  root: string | null
-  config: { areas: string[]; pastasDev: string[]; escolheu: boolean } | null
-}
+// Reexportado de `shared/types.ts`, e não redeclarado aqui: duas cópias do
+// mesmo formato são exatamente o tipo de duplicação que deixou o processo
+// principal mandar `Config` inteira (com a chave da nuvem) para um canal
+// tipado como se levasse só `areas`/`pastasDev`/`escolheu` — o tipo "batia"
+// porque cada lado tinha o seu, não porque alguém garantisse que eram o
+// mesmo. Ver `projetarConfigParaRenderer` em `main/config.ts`.
+import type { EstadoVault } from '../shared/types'
+export type { EstadoVault }
 
 const api = {
   invoke<C extends IpcChannel>(canal: C, payload: IpcPayload<C>): Promise<unknown> {
