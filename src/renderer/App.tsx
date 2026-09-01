@@ -8,7 +8,9 @@ import {
   IconeHoje, IconeVida, IconeSaude, IconeDev,
   IconeConhecimento, IconeFinancas, IconeCalendario
 } from './icons'
-import { Abertura, ModalAreas } from './components/Abertura'
+import { Abertura } from './components/Abertura'
+import { Configuracoes } from './components/Configuracoes'
+import { Tranca } from './components/Tranca'
 import { Confirmar } from './components/Confirmar'
 import { Nuvem } from './components/Nuvem'
 import { Paleta } from './components/Paleta'
@@ -23,23 +25,13 @@ import { LenteEstudos } from './components/LenteEstudos'
 import { LenteGrana } from './components/LenteGrana'
 import { LenteDev } from './components/LenteDev'
 
-/** Engrenagem do rodapé do rail — reabre a escolha de áreas. */
-function IconeAreas({ size = 18 }: { size?: number }) {
+/** Engrenagem do rodapé do rail — abre as Configurações. */
+function IconeConfig({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  )
-}
-
-/** Nuvem do rodapé do rail — abre a aba de credenciais e sincronização. */
-function IconeNuvem({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19h11z" />
     </svg>
   )
 }
@@ -69,8 +61,31 @@ export function App() {
   const [lancando, setLancando] = useState<{ item: string; dia: string } | null>(null)
   const [modal, setModal] = useState<{ id: string; ctx?: Record<string, unknown> } | null>(null)
   const [excluindo, setExcluindo] = useState<NoteComCampos | null>(null)
-  const [ajustandoAreas, setAjustandoAreas] = useState(false)
+  const [configurando, setConfigurando] = useState(false)
   const [nuvem, setNuvem] = useState(false)
+  /**
+   * Qual painel trancado está aberto agora — no máximo um, e só enquanto ele
+   * estiver na tela.
+   *
+   * Guardar o id da lente, e não um booleano, é o que faz sair e voltar pedir
+   * a senha de novo: a lente muda, este valor deixa de casar, e a tranca
+   * reaparece sozinha. Nunca guarde isto no localStorage nem numa lista de
+   * "já destrancados" — seria a tranca deixando de trancar.
+   */
+  const [destrancado, setDestrancado] = useState<string | null>(null)
+
+  /*
+   * Sair do painel tranca de novo.
+   *
+   * Sem isto, destrancar a Vida uma vez a deixava aberta ate fechar o app:
+   * `destrancado` continuava valendo 'vida' enquanto o usuario passeava por
+   * outras lentes, e voltar nao pedia nada. O efeito limpa assim que a lente
+   * atual deixa de ser a destrancada -- que e o momento exato em que a pessoa
+   * saiu.
+   */
+  useEffect(() => {
+    if (destrancado !== null && v.lente !== destrancado) setDestrancado(null)
+  }, [v.lente, destrancado])
   // Quantas rodadas automáticas seguidas falharam (rejeitaram a promise —
   // credencial ausente/inválida, chave revogada, DNS que não resolve mais).
   // Zera a cada rodada que sequer conclui, mesmo pulada por concorrência: o
@@ -162,6 +177,14 @@ export function App() {
   }
 
   function view(): ReactElement {
+    // A tranca substitui o painel, e não fica por cima dele: por cima, o
+    // conteúdo continuaria montado no DOM e bastaria remover o elemento pelo
+    // devtools para ler tudo.
+    if (v.config.paineisTrancados.includes(v.lente) && destrancado !== v.lente) {
+      const nome = LENTES.find(l => l.id === v.lente)?.nome ?? 'Este painel'
+      return <Tranca nome={nome} aoDestrancar={() => setDestrancado(v.lente)} />
+    }
+
     const comuns = { notas: v.notas, sub: v.sub, hoje, ...acoes }
     switch (v.lente) {
       case 'hoje':         return <LenteHoje {...comuns} />
@@ -218,26 +241,18 @@ export function App() {
           ))}
           <button
             className="rail-item rail-rodape"
-            title="Escolher quais áreas aparecem"
-            onClick={() => setAjustandoAreas(true)}
-          >
-            <IconeAreas />
-            <span>Áreas</span>
-          </button>
-          <button
-            className="rail-item rail-rodape"
             title={
               falhasSincSeguidas >= LIMIAR_ALERTA_SYNC
-                ? 'Nuvem — sincronização automática não está conseguindo falar com o banco'
-                : 'Nuvem'
+                ? 'Configurações — a sincronização com o celular está falhando'
+                : 'Configurações'
             }
-            onClick={() => setNuvem(true)}
+            onClick={() => setConfigurando(true)}
           >
-            <IconeNuvem />
+            <IconeConfig />
             {falhasSincSeguidas >= LIMIAR_ALERTA_SYNC && (
               <span className="rail-alerta" aria-hidden="true" />
             )}
-            <span>Nuvem</span>
+            <span>Configurações</span>
           </button>
         </nav>
 
@@ -374,11 +389,14 @@ export function App() {
         />
       )}
 
-      {ajustandoAreas && (
-        <ModalAreas
-          areasAtuais={v.config.areas}
-          aoSalvar={areas => void v.salvarAreas(areas)}
-          aoFechar={() => setAjustandoAreas(false)}
+      {configurando && (
+        <Configuracoes
+          config={v.config}
+          aoSalvarAreas={areas => void v.salvarAreas(areas)}
+          aoTrocarConfig={v.trocarConfig}
+          aoAbrirNuvem={() => setNuvem(true)}
+          aoFechar={() => setConfigurando(false)}
+          sincronizacaoFalhando={falhasSincSeguidas >= LIMIAR_ALERTA_SYNC}
         />
       )}
 

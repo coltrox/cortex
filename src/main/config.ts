@@ -29,6 +29,38 @@ export type Config = {
   vaultId: string
   /** Credenciais do Supabase. `null` enquanto a nuvem não foi configurada. */
   nuvem: { url: string; chave: string } | null
+  /**
+   * O segredo da senha dos painéis, no formato de `senha.ts`. `null` = sem senha.
+   *
+   * É o resultado de um scrypt com sal, nunca a senha. Mora aqui, dentro do
+   * vault, e não no userData do Electron, para que zipar a pasta e abrir noutra
+   * máquina continue pedindo a mesma senha — e não abra sozinho.
+   */
+  /**
+   * Onde o app do celular está publicado — ex.: `https://cortex.vercel.app`.
+   *
+   * Serve só para o QR: com ele, o QR vira um link que a câmera do celular
+   * abre sozinha, já com o id no endereço. Sem ele, o QR carrega o id cru e
+   * a pessoa cola à mão. Vazio é um estado normal, não um erro.
+   */
+  enderecoApp: string
+  /**
+   * O envelope da chave-mestra da cifra. `null` = nada cifrado ainda.
+   *
+   * Nasce quando o primeiro painel e trancado, e e reembrulhado a cada troca
+   * de senha -- e por isso que trocar a senha nao recifra o vault inteiro.
+   * Ver `cifra.ts`.
+   */
+  cofre: { sal: string; chaveEnvelopada: string } | null
+  senha: string | null
+  /**
+   * Áreas que exigem a senha para abrir.
+   *
+   * Invariante mantida por `normalizarConfig`: sem `senha`, esta lista é
+   * sempre vazia. Um painel trancado sem senha cadastrada seria um painel que
+   * ninguém consegue abrir, inclusive o dono.
+   */
+  paineisTrancados: string[]
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -57,8 +89,49 @@ export const AREAS = [
 
 export const IDS_AREAS: string[] = AREAS.map(a => a.id)
 
+/**
+ * Pastas que cada área ocupa no vault.
+ *
+ * Serve para duas coisas: criar as pastas quando a área é ligada, e saber o
+ * que cifrar quando o painel é trancado. Mora aqui, e não em `ipc/handlers`,
+ * porque `session.ts` também precisa — e session importando de handlers
+ * fecharia um ciclo.
+ */
+export const PASTAS_POR_AREA: Record<string, string[]> = {
+  vida: ['Vida', 'Vida/Documentos', 'Vida/Contas'],
+  saude: ['Saude', 'Saude/Treinos', 'Saude/Dieta'],
+  dev: ['Dev', 'Dev/Projetos', 'Dev/Seguranca'],
+  conhecimento: ['Estudos', 'Estudos/Conteudos', 'Estudos/Provas', 'Estudos/Redacoes'],
+  financas: ['Grana'],
+  calendario: []
+}
+
+/** Diário e anexos existem sempre: são o lastro de qualquer área. */
+export const PASTAS_SEMPRE = ['Diario', 'Anexos']
+
+export function pastasDasAreas(areas: string[]): string[] {
+  const out = new Set(PASTAS_SEMPRE)
+  for (const a of areas) for (const p of PASTAS_POR_AREA[a] ?? []) out.add(p)
+  return [...out]
+}
+
+/**
+ * As pastas que um conjunto de painéis trancados protege.
+ *
+ * Diferente de `pastasDasAreas`: NÃO inclui Diario nem Anexos. Cifrar o
+ * diário porque a Vida está trancada esconderia junto o registro de treino e
+ * de gasto do mesmo dia — o diário é compartilhado por todas as áreas, e
+ * pertence a nenhuma.
+ */
+export function pastasProtegidas(paineis: string[]): string[] {
+  const out = new Set<string>()
+  for (const a of paineis) for (const p of PASTAS_POR_AREA[a] ?? []) out.add(p)
+  return [...out]
+}
+
 export const CONFIG_PADRAO: Config = {
-  areas: [...IDS_AREAS], pastasDev: [], escolheu: false, vaultId: '', nuvem: null
+  areas: [...IDS_AREAS], pastasDev: [], escolheu: false, vaultId: '', nuvem: null,
+  senha: null, paineisTrancados: [], enderecoApp: '', cofre: null
 }
 
 /**
@@ -85,7 +158,46 @@ export function normalizarConfig(bruto: unknown): Config {
     ? { url: n.url, chave: n.chave }
     : null
 
-  return { areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem }
+  // Só reconhece um segredo com a marca do formato de `senha.ts`. Qualquer
+  // outra coisa no campo — inclusive uma senha em texto puro que alguém tenha
+  // escrito à mão achando que bastaria — vale como "sem senha".
+  const senha = typeof o.senha === 'string' && o.senha.startsWith('scrypt$') ? o.senha : null
+
+  // Sem senha, nenhum painel fica trancado. Um painel trancado sem senha
+  // cadastrada seria um painel que ninguém abre, nem o dono.
+  const paineisTrancados = senha && Array.isArray(o.paineisTrancados)
+    ? [...new Set(o.paineisTrancados.filter(
+        (a): a is string => typeof a === 'string' && IDS_AREAS.includes(a)))]
+    : []
+
+  // Só https, e só um endereço de verdade. Um `javascript:` ou um `file:`
+  // aqui viraria o conteúdo de um QR que alguém aponta a câmera e abre.
+  let enderecoApp = ''
+  if (typeof o.enderecoApp === 'string' && o.enderecoApp !== '') {
+    try {
+      const u = new URL(o.enderecoApp)
+      if (u.protocol === 'https:') {
+        let limpo = o.enderecoApp
+        while (limpo.endsWith('/')) limpo = limpo.slice(0, -1)
+        enderecoApp = limpo
+      }
+    } catch {
+      enderecoApp = ''
+    }
+  }
+
+  // Sem senha nao ha como abrir o cofre, entao guardar o envelope so
+  // esconderia a chave de todo mundo, para sempre. Ele cai junto.
+  const co = o.cofre as { sal?: unknown; chaveEnvelopada?: unknown } | undefined
+  const cofre = senha && co && typeof co.sal === 'string' && co.sal !== ''
+    && typeof co.chaveEnvelopada === 'string' && co.chaveEnvelopada !== ''
+    ? { sal: co.sal, chaveEnvelopada: co.chaveEnvelopada }
+    : null
+
+  return {
+    areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem,
+    senha, paineisTrancados, enderecoApp, cofre
+  }
 }
 
 /**
@@ -124,7 +236,15 @@ export async function gravarConfig(caminho: string, c: Config): Promise<void> {
 }
 
 /** O que o renderer pode enxergar da config, e nada mais. */
-export type ConfigParaRenderer = { areas: string[]; pastasDev: string[]; escolheu: boolean }
+export type ConfigParaRenderer = {
+  areas: string[]
+  pastasDev: string[]
+  escolheu: boolean
+  /** Quais painéis pedem senha — a tela precisa saber para desenhar a tranca. */
+  paineisTrancados: string[]
+  /** Se existe senha cadastrada. O segredo em si nunca cruza esta fronteira. */
+  temSenha: boolean
+}
 
 /**
  * Recorte de `Config` para atravessar a fronteira IPC até o renderer.
@@ -140,5 +260,14 @@ export type ConfigParaRenderer = { areas: string[]; pastasDev: string[]; escolhe
  * chave em si não sai por canal nenhum.
  */
 export function projetarConfigParaRenderer(c: Config): ConfigParaRenderer {
-  return { areas: c.areas, pastasDev: c.pastasDev, escolheu: c.escolheu }
+  return {
+    areas: c.areas,
+    pastasDev: c.pastasDev,
+    escolheu: c.escolheu,
+    paineisTrancados: c.paineisTrancados,
+    // Booleano, nunca o segredo: o renderer precisa saber SE há senha para
+    // desenhar "criar" ou "trocar", e nada além disso. Conferir a senha é
+    // trabalho do processo principal.
+    temSenha: c.senha !== null
+  }
 }

@@ -38,7 +38,12 @@ alter table cardapio enable row level security;
 create or replace function tipos_validos() returns text[]
 language sql immutable as $$
   select array['suplemento','refeicao_plano','refeicao_extra','gasto',
-               'sessao','cardio','medida','peso','anotacao']
+               'sessao','cardio','medida','peso','anotacao',
+               -- Agenda e estudos: os que mexem numa nota existente, ou criam
+               -- uma. Precisam casar com TIPOS_EVENTO em src/shared/eventos.ts
+               -- e ter um caso em planejar.ts; faltar num dos tres faz o
+               -- evento sumir em silencio.
+               'prova_estudada','compromisso','compromisso_cancelado']
 $$;
 
 create or replace function registrar_evento(
@@ -103,7 +108,11 @@ begin
              coalesce(el->'detalhe', '{}'::jsonb) as detalhe,
              pos
       from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb)) with ordinality as bruto(el, pos)
-      where el->>'especie' in ('treino','suplemento','refeicao')
+      -- Lista branca de especies, e nao "aceita qualquer coisa": o Cortex e
+      -- quem decide o que publica, mas o banco nao tem por que confiar nisso.
+      -- Precisa casar com ESPECIES_CARDAPIO em src/shared/eventos.ts.
+      where el->>'especie' in ('treino','suplemento','refeicao',
+                               'prova','compromisso','tarefa')
         and coalesce(el->>'nome','') <> ''
     ) item
     order by item.especie, item.nome, item.pos desc

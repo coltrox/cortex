@@ -157,3 +157,106 @@ describe('planejar', () => {
     expect(ops).toEqual([])
   })
 })
+
+/*
+ * Agenda e estudos.
+ *
+ * Os dois de marcar recebem o caminho que o proprio Cortex publicou. O que
+ * estes testes protegem e a guarda de tipo: o caminho vem de fora, e sem ela
+ * um evento escreveria em qualquer nota do vault.
+ */
+describe('planejar — agenda e estudos', () => {
+  it('prova estudada vira marcacao na nota da prova', () => {
+    expect(planejar({
+      tipo: 'prova_estudada', dia: '2026-08-28',
+      dados: { path: 'Estudos/Provas/ENEM.md' }
+    })).toEqual([{
+      acao: 'marcar', path: 'Estudos/Provas/ENEM.md',
+      tiposPermitidos: ['prova', 'simulado'],
+      campos: { estudado: true, estudado_em: '2026-08-28' }
+    }])
+  })
+
+  it('cancelar compromisso marca, nao apaga', () => {
+    // Um toque errado no onibus nao pode sumir com o arquivo.
+    const ops = planejar({
+      tipo: 'compromisso_cancelado', dia: '2026-08-28',
+      dados: { path: 'Agenda/Dentista.md' }
+    })
+    expect(ops).toEqual([{
+      acao: 'marcar', path: 'Agenda/Dentista.md',
+      tiposPermitidos: ['evento'],
+      campos: { cancelado: true, cancelado_em: '2026-08-28' }
+    }])
+  })
+
+  it('marcar sem caminho nao produz operacao nenhuma', () => {
+    expect(planejar({ tipo: 'prova_estudada', dia: '2026-08-28', dados: {} })).toEqual([])
+    expect(planejar({ tipo: 'compromisso_cancelado', dia: '2026-08-28', dados: {} })).toEqual([])
+  })
+
+  it('caminho que nao e texto nao vira operacao', () => {
+    // String(['a','b']) junta com virgula e produziria um caminho inventado.
+    expect(planejar({
+      tipo: 'prova_estudada', dia: '2026-08-28', dados: { path: ['a', 'b'] }
+    })).toEqual([])
+  })
+
+  it('compromisso novo cai na Agenda com a data que veio', () => {
+    const ops = planejar({
+      tipo: 'compromisso', dia: '2026-08-28',
+      dados: { titulo: 'Dentista', data: '2026-09-10', hora: '14:00', local: 'Centro' }
+    })
+    expect(ops).toEqual([{
+      acao: 'nota', tipo: 'evento', seExistir: 'criarOutro',
+      path: 'Agenda/Dentista.md',
+      frontmatter: {
+        tipo: 'evento', title: 'Dentista', date: '2026-09-10',
+        hora: '14:00', local: 'Centro'
+      }
+    }])
+  })
+
+  it('compromisso sem data cai no dia do evento', () => {
+    const ops = planejar({ tipo: 'compromisso', dia: '2026-08-28', dados: { titulo: 'Reuniao' } })
+    expect((ops[0] as any).frontmatter.date).toBe('2026-08-28')
+  })
+
+  it('compromisso sem titulo nao vira nota', () => {
+    expect(planejar({ tipo: 'compromisso', dia: '2026-08-28', dados: { titulo: '  ' } })).toEqual([])
+  })
+
+  it('o evento nao escolhe o tipo da nota', () => {
+    // `tipo` decide o que a nota E para o app inteiro; um evento vindo do
+    // banco nao pode espalhar `dados.tipo` por cima e virar uma senha.
+    const ops = planejar({
+      tipo: 'compromisso', dia: '2026-08-28',
+      dados: { titulo: 'Reuniao', tipo: 'senha', title: 'outro', date: '1999-01-01' }
+    })
+    const fm = (ops[0] as any).frontmatter
+    expect(fm.tipo).toBe('evento')
+    expect(fm.title).toBe('Reuniao')
+    expect(fm.date).toBe('2026-08-28')
+  })
+
+  it('nao deixa campo de transporte virar campo da nota', () => {
+    const ops = planejar({
+      tipo: 'compromisso', dia: '2026-08-28',
+      dados: { titulo: 'Reuniao', path: 'Vida/Contas/Nubank.md' }
+    })
+    const fm = (ops[0] as any).frontmatter
+    expect(fm.path).toBeUndefined()
+    expect(fm.titulo).toBeUndefined()
+    expect(fm.data).toBeUndefined()
+  })
+
+  it('barra no titulo nao escapa da pasta Agenda', () => {
+    const ops = planejar({
+      tipo: 'compromisso', dia: '2026-08-28', dados: { titulo: '../../fora' }
+    })
+    // As barras viram tracos, entao o caminho nao sobe pasta nenhuma: ele
+    // continua sendo um nome de arquivo unico dentro de Agenda/.
+    expect((ops[0] as any).path).toBe('Agenda/..-..-fora.md')
+    expect((ops[0] as any).path.split('/')).toHaveLength(2)
+  })
+})

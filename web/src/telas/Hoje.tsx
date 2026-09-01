@@ -82,8 +82,9 @@ export function Hoje(p: {
           <Botao aoClicar={() => p.irPara('cardio')}>Cardio</Botao>
           <Botao aoClicar={() => p.irPara('medidas')}>Peso e medidas</Botao>
           <Botao aoClicar={() => p.irPara('gasto')}>Gasto</Botao>
+          <Botao aoClicar={() => p.irPara('anotacao')}>Anotação</Botao>
+          <Botao aoClicar={() => p.irPara('agenda')}>Chegando</Botao>
         </div>
-        <Botao aoClicar={() => p.irPara('anotacao')}>Anotação</Botao>
       </div>
     </>
   )

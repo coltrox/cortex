@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { ErroTrancado } from '../cofre'
 import { basename } from 'node:path'
 import type { Db } from './db'
 import type { Vault } from '../vault/vault'
@@ -77,20 +78,36 @@ export class Indexer {
     resolveLinks(this.db)
   }
 
-  async syncAll(): Promise<{ indexed: number; removed: number; skipped: number }> {
+  async syncAll(): Promise<{
+    indexed: number; removed: number; skipped: number
+    /** Arquivos de painel trancado que ficaram fora do indice desta rodada. */
+    trancados: number
+  }> {
     const onDisk = await this.vault.listMarkdown()
     const known = new Map(
       (this.db.prepare('SELECT path,mtime,size FROM notes').all() as any[])
         .map(r => [r.path as string, r])
     )
 
-    let indexed = 0, skipped = 0
+    let indexed = 0, skipped = 0, trancados = 0
     for (const rel of onDisk) {
       const prev = known.get(rel)
       const { mtimeMs, size } = await this.vault.stat(rel)
       if (prev && prev.mtime === mtimeMs && prev.size === size) { skipped++; continue }
-      await this.indexFile(rel)
-      indexed++
+      try {
+        await this.indexFile(rel)
+        indexed++
+      } catch (err) {
+        // Arquivo de painel trancado com o cofre fechado: pular e seguir. O
+        // vault precisa abrir mesmo com um painel trancado -- travar aqui
+        // faria a senha de UM painel impedir o app inteiro de iniciar. Ele
+        // entra no indice na primeira vez que o painel for aberto.
+        //
+        // So este erro: qualquer outro sobe, porque disco com defeito nao
+        // pode ser engolido junto.
+        if (err instanceof ErroTrancado) { trancados++; continue }
+        throw err
+      }
     }
 
     let removed = 0
@@ -101,6 +118,8 @@ export class Indexer {
 
     resolveLinks(this.db)
 
-    return { indexed, removed, skipped }
+    // `trancados` sai no retorno em vez de virar so um contador esquecido:
+    // e o numero que explica por que uma busca nao acha uma nota que existe.
+    return { indexed, removed, skipped, trancados }
   }
 }

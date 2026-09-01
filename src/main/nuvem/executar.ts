@@ -132,6 +132,31 @@ export async function executar(
         break
       }
 
+      case 'marcar': {
+        // Nunca cria. Se a nota sumiu, a operação não faz nada: criar aqui
+        // ressuscitaria, como arquivo vazio, algo que o dono apagou no
+        // computador.
+        if (!(await vault.exists(op.path))) {
+          console.error(`[cortex] evento do celular aponta para nota que não existe: ${op.path}`)
+          break
+        }
+        const raw = await vault.read(op.path)
+        const tipo = parseFrontmatter(raw).frontmatter.tipo
+        // A guarda que separa esta operação das outras: o caminho vem de
+        // fora. Sem conferir o tipo, um evento marcaria `cancelado: true`
+        // em qualquer nota do vault — um documento, uma senha, um projeto.
+        if (typeof tipo !== 'string' || !op.tiposPermitidos.includes(tipo)) {
+          console.error(
+            `[cortex] evento do celular tentou marcar ${op.path} (tipo ${String(tipo)}), ` +
+            `mas só ${op.tiposPermitidos.join('/')} podem ser marcados`
+          )
+          break
+        }
+        await vault.writeAtomic(op.path, patchFrontmatter(raw, op.campos))
+        await indexarSemFalhar(indexer, op.path)
+        break
+      }
+
       case 'nota-campos': {
         const raw = await lerOuVazio(vault, op.path)
         // `op.tipo` depois do spread de `op.campos`: quem decide o `tipo`

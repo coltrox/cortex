@@ -1,12 +1,21 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, session as sessaoEletron } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell, session as sessaoEletron } from 'electron'
 import { join, resolve, basename } from 'node:path'
 import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises'
 import { Session } from './session'
 import { registerIpc } from './ipc/handlers'
+import { Processos, scriptsDoProjeto } from './dev/processos'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 
 const session = new Session()
+
+/**
+ * Os `npm run` que o Cortex esta rodando.
+ *
+ * Fica no modulo, e nao na sessao: um servidor de desenvolvimento nao deve
+ * morrer porque o usuario trocou de vault. Ele morre quando o app fecha.
+ */
+const processos = new Processos()
 let win: BrowserWindow | null = null
 
 /**
@@ -55,6 +64,19 @@ async function abrirVault(root: string): Promise<{ root: string; config: ConfigP
 }
 
 function createWindow(): void {
+  /*
+   * Fora a barra de menu do Electron (File, Edit, View, Window).
+   *
+   * Ela vem de graça e não pertence a este app: o Cortex não abre arquivo
+   * por menu, não tem Recortar/Colar de aplicação, e "View > Toggle
+   * Developer Tools" num app pessoal empacotado é só ruído na tela.
+   *
+   * Só no app empacotado. Em desenvolvimento a barra fica, porque é dela que
+   * vêm o Ctrl+R para recarregar e o atalho do devtools — tirá-la ali
+   * custaria uma hora por dia de `npm run dev` fechado e aberto de novo.
+   */
+  if (app.isPackaged) Menu.setApplicationMenu(null)
+
   win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -205,6 +227,74 @@ ipcMain.handle('dev:terminal', async (_e, payload: unknown) => {
   return { cwd: basename(cwd) }
 })
 
+/** Os scripts do package.json daquele projeto. Lista vazia se nao houver. */
+ipcMain.handle('dev:scripts', async (_e, payload: unknown) => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { raiz?: unknown; sub?: unknown }
+  if (typeof p.raiz !== 'string') throw new Error('raiz inválida')
+  const cwd = session.pastasDev.resolver(p.raiz, typeof p.sub === 'string' ? p.sub : '')
+  return { scripts: await scriptsDoProjeto(cwd) }
+})
+
+/**
+ * Roda um script do projeto dentro do app.
+ *
+ * O renderer manda o NOME do script; `Processos.iniciar` recusa qualquer um
+ * que nao esteja no package.json. Nunca um comando livre.
+ */
+ipcMain.handle('dev:rodar', async (_e, payload: unknown) => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { raiz?: unknown; sub?: unknown; script?: unknown }
+  if (typeof p.raiz !== 'string') throw new Error('raiz inválida')
+  if (typeof p.script !== 'string' || p.script === '') throw new Error('script inválido')
+  const cwd = session.pastasDev.resolver(p.raiz, typeof p.sub === 'string' ? p.sub : '')
+  return processos.iniciar(p.raiz, cwd, p.script)
+})
+
+ipcMain.handle('dev:parar', async (_e, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown }
+  if (typeof p.id !== 'string') throw new Error('id inválido')
+  processos.parar(p.id)
+  return { ok: true }
+})
+
+ipcMain.handle('dev:processos', async () => ({ processos: processos.listar() }))
+
+ipcMain.handle('dev:saida', async (_e, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown }
+  if (typeof p.id !== 'string') throw new Error('id inválido')
+  return { linhas: processos.saida(p.id) }
+})
+
+ipcMain.handle('dev:limpar-encerrados', async () => {
+  processos.limparEncerrados()
+  return { processos: processos.listar() }
+})
+
+/**
+ * Abre a pasta do projeto no VS Code.
+ *
+ * `code` e um .cmd no Windows, por isso o shell. O caminho vai como
+ * argumento separado -- concatena-lo numa string deixaria um projeto com
+ * espaco ou aspas no nome virar comando.
+ */
+ipcMain.handle('dev:vscode', async (_e, payload: unknown) => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { raiz?: unknown; sub?: unknown }
+  if (typeof p.raiz !== 'string') throw new Error('raiz inválida')
+  const alvo = session.pastasDev.resolver(p.raiz, typeof p.sub === 'string' ? p.sub : '')
+  const filho = spawn('code', [alvo], {
+    shell: process.platform === 'win32', detached: true, stdio: 'ignore', windowsHide: true
+  })
+  filho.unref()
+  return new Promise(resolve => {
+    // `code` nao instalado e o caso comum, e o erro so aparece de forma
+    // assincrona. Sem esta espera curta, a tela diria "abrindo" para sempre.
+    filho.on('error', () => resolve({ ok: false, motivo: 'VS Code não encontrado no PATH' }))
+    setTimeout(() => resolve({ ok: true }), 400)
+  })
+})
+
 /** Abre a pasta no explorador de arquivos do sistema. */
 ipcMain.handle('dev:reveal', async (_e, payload: unknown) => {
   if (!session.isOpen) throw new Error('nenhum vault aberto')
@@ -214,6 +304,11 @@ ipcMain.handle('dev:reveal', async (_e, payload: unknown) => {
   await shell.openPath(alvo)
   return { ok: true }
 })
+
+// Fechar o app tem que levar junto o que ele iniciou: sem isto, um
+// `npm run dev` fica vivo segurando a porta, e a unica forma de perceber e
+// pelo gerenciador de tarefas.
+app.on('before-quit', () => processos.pararTudo())
 
 app.whenReady().then(async () => {
   // Em produção o renderer é um arquivo local e não deve poder buscar nada na

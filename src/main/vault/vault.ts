@@ -1,4 +1,5 @@
 import { readFile, writeFile, rename, mkdir, stat, readdir, rm } from 'node:fs/promises'
+import type { Cofre } from '../cofre'
 import { join, resolve, relative, dirname, sep, isAbsolute } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { VaultRootMissingError } from './errors'
@@ -38,7 +39,33 @@ export class Vault {
     return out
   }
 
+  /**
+   * O cofre dos painéis trancados, quando existe.
+   *
+   * Fica aqui, e não num decorador em volta, porque `read`/`writeAtomic` são
+   * o ponto ÚNICO por onde o app inteiro lê e grava nota — inclusive o
+   * indexador. Uma camada por fora deixaria de fora quem chamasse o Vault
+   * direto, e seria só questão de tempo até alguém gravar texto puro dentro
+   * de uma pasta cifrada.
+   */
+  private cofre: Cofre | null = null
+
+  usarCofre(cofre: Cofre | null): void {
+    this.cofre = cofre
+  }
+
   async read(rel: string): Promise<string> {
+    const bruto = await readFile(this.toAbsolute(rel), 'utf8')
+    return this.cofre ? this.cofre.paraLer(bruto) : bruto
+  }
+
+  /**
+   * O conteúdo como está no disco, sem decifrar.
+   *
+   * Só para a conversão de pastas (cifrar/decifrar em lote), que precisa
+   * enxergar o estado real de cada arquivo. Ninguém mais deveria chamar isto.
+   */
+  async readBruto(rel: string): Promise<string> {
     return readFile(this.toAbsolute(rel), 'utf8')
   }
 
@@ -52,6 +79,10 @@ export class Vault {
    */
   async writeAtomic(rel: string, content: string): Promise<void> {
     const abs = this.toAbsolute(rel)
+    // Antes de qualquer coisa: se este caminho é protegido e o cofre está
+    // fechado, isto lança e nada é gravado. Gravar texto puro numa pasta
+    // cifrada decifraria o vault sem ninguém pedir, e em silêncio.
+    const paraDisco = this.cofre ? this.cofre.paraGravar(rel, content) : content
 
     // A raiz precisa existir e ser um diretório *antes* de qualquer mkdir.
     // `mkdir(dir, { recursive: true })` cria todos os ancestrais que
@@ -73,7 +104,7 @@ export class Vault {
     // idempotente.
     await mkdir(dirname(abs), { recursive: true })
     const tmp = `${abs}.${process.pid}.${randomUUID()}.tmp`
-    await writeFile(tmp, content, 'utf8')
+    await writeFile(tmp, paraDisco, 'utf8')
     try {
       await rename(tmp, abs)
     } catch (err) {

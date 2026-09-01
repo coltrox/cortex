@@ -849,7 +849,19 @@ kbd {
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0,0,0,.10);
   overflow: hidden;
+
+  /* Coluna com teto de altura, e nao um bloco solto.
+     Sem isto, um formulario mais alto que a janela ficava com metade
+     inalcancavel: overflow hidden cortava o resto e nada rolava. Foi o que
+     aconteceu com Configuracoes numa janela de 720px de altura -- a senha,
+     os paineis trancados e o botao do celular nao existiam na tela.
+     O topo e o rodape ficam fixos; quem rola e o corpo. */
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
 }
+
+.form-topo, .form-rodape { flex: none; }
 
 .form-topo {
   padding: 15px 20px;
@@ -859,7 +871,16 @@ kbd {
   border-bottom: 1px solid var(--border);
 }
 
-.form-corpo { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.form-corpo {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* min-height zero e o que permite um filho flex encolher abaixo do
+     proprio conteudo; sem ele o overflow nao chega a valer de nada. */
+  min-height: 0;
+  overflow-y: auto;
+}
 
 .form-campo { display: flex; flex-direction: column; gap: 5px; }
 
@@ -1401,3 +1422,249 @@ kbd {
 /* Engrenagem no pé do rail: acessível, mas nunca no caminho das lentes. */
 .rail-rodape { margin-top: auto; opacity: .62; }
 .rail-rodape:hover { opacity: 1; }
+
+/* ---------- Configurações ---------- */
+
+.config-corpo { display: flex; flex-direction: column; gap: 4px; }
+
+.config-bloco {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+.config-bloco:last-child { border-bottom: none; }
+.config-bloco h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--text);
+}
+.config-bloco .btn,
+.config-bloco .btn-fantasma { margin-top: 10px; }
+
+.config-botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.campo-linha { display: block; margin-top: 10px; }
+.campo-linha span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 4px;
+}
+.campo-linha input {
+  width: 100%;
+  padding: 8px 10px;
+  font: 14px/1.4 var(--sans);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+}
+.campo-linha input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.config-paineis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px 12px;
+  margin-top: 4px;
+}
+.config-painel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.config-erro {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--pale-red-bg);
+  color: var(--pale-red);
+}
+.config-recado {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--pale-grn-bg);
+  color: var(--pale-grn);
+}
+.config-alerta { color: var(--pale-red); }
+
+/* ---------- Tranca de painel ---------- */
+
+/* Ela ocupa o lugar do painel, e não fica por cima dele: por cima, o conteúdo
+   continuaria montado no DOM e bastaria remover o elemento pelo devtools. */
+.tranca {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding: 32px 16px;
+}
+.tranca-caixa {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--text-2);
+}
+.tranca-caixa h2 {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tranca-caixa p { margin: 0; font-size: 13px; }
+.tranca-caixa input {
+  width: 100%;
+  padding: 9px 11px;
+  font: 15px/1.4 var(--sans);
+  text-align: center;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+}
+.tranca-caixa input:focus { outline: none; border-color: var(--accent); }
+.tranca-caixa .btn { width: 100%; }
+.tranca-erro {
+  margin: 0;
+  font-size: 13px;
+  color: var(--pale-red);
+}
+
+/* ---------- QR de conexão do celular ---------- */
+
+.qr-bloco {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.qr {
+  flex: none;
+  border-radius: 6px;
+  /* O QR precisa de contraste real: em tema escuro, herdar o fundo do painel
+     faria muitos leitores desistirem. Ele carrega o próprio branco. */
+  background: #FFFFFF;
+}
+.qr-texto { flex: 1 1 240px; min-width: 220px; }
+.qr-texto strong { display: block; font-size: 14px; margin-bottom: 4px; }
+.qr-texto code {
+  font: 12px var(--mono);
+  padding: 1px 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* O aviso que precisa ser lido antes de ligar a cifra: perder a senha é
+   perder o conteúdo, e uma dica cinza como as outras não diz isso. */
+.config-atencao {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--pale-yel-bg);
+  color: var(--pale-yel);
+}
+
+/* ---------- Rodar o projeto de dentro do app ---------- */
+
+.rodar {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rodar-botoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.rodar-lista { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.rodar-aba {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  font: 12px var(--mono);
+  cursor: pointer;
+}
+.rodar-aba.ativa { color: var(--text); border-color: var(--border-strong); }
+.rodar-aba em { font-style: normal; color: var(--text-3); }
+.rodar-ponto {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-3);
+}
+/* Verde só enquanto está de pé: é o estado que a pessoa procura na tela. */
+.rodar-ponto.vivo { background: var(--pale-grn); }
+
+.rodar-saida {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.rodar-saida-topo {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--border);
+  min-height: 34px;
+}
+.rodar-url { font: 12px var(--mono); color: var(--accent); }
+.rodar-linhas {
+  margin: 0;
+  padding: 10px;
+  max-height: 220px;
+  overflow: auto;
+  background: var(--surface);
+  color: var(--text-2);
+  font: 12px/1.6 var(--mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---------- Editor de código com numeração ---------- */
+
+.codigo-caixa {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+}
+/* A calha rola junto com o texto: ela não tem barra própria, quem manda é a
+   rolagem do textarea, espelhada por JS. */
+.codigo-calha {
+  flex: none;
+  padding: 12px 8px 12px 12px;
+  text-align: right;
+  color: var(--text-3);
+  background: var(--surface-sunk);
+  border-right: 1px solid var(--border);
+  font: 13px/1.6 var(--mono);
+  user-select: none;
+  overflow: hidden;
+}
+.codigo-caixa .editor.codigo {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  resize: none;
+  font: 13px/1.6 var(--mono);
+  tab-size: 2;
+}

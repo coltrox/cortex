@@ -11,8 +11,17 @@ import type { ClienteNuvem } from './cliente'
 const JANELA_DIAS_PADRAO = 30
 const RETENCAO_DIAS_PADRAO = 90
 
-/** Os únicos tipos de nota que `montarCardapio` usa — ver `publicar()` abaixo. */
-const TIPOS_CARDAPIO = ['treino-modelo', 'suplemento', 'plano'] as const
+/**
+ * Os únicos tipos de nota que `montarCardapio` usa — ver `publicar()`.
+ *
+ * Nenhum tipo de Vida entra nesta lista, e não é por esquecimento: documento,
+ * senha, conta e compra ficam no computador. Acrescentar um deles aqui faz o
+ * teste de vazamento de `cardapio.test.ts` quebrar, que é o combinado.
+ */
+const TIPOS_CARDAPIO = [
+  'treino-modelo', 'suplemento', 'plano',
+  'prova', 'simulado', 'evento', 'tarefa'
+] as const
 
 /**
  * Vaults com uma sincronização em andamento agora mesmo, por raiz absoluta.
@@ -60,7 +69,9 @@ export class Sincronizador {
     private readonly session: Session,
     private readonly cliente: ClienteNuvem,
     private readonly janelaDias: number = JANELA_DIAS_PADRAO,
-    private readonly retencaoDias: number = RETENCAO_DIAS_PADRAO
+    private readonly retencaoDias: number = RETENCAO_DIAS_PADRAO,
+    /** Injetável só para o teste da janela do cardápio não depender do relógio. */
+    private readonly agora: () => Date = () => new Date()
   ) {
     // A segurança do dedupe depende desta desigualdade: `Recebidos.podar`
     // esquece um id depois de `retencaoDias`, e `listarEventos` busca até
@@ -196,6 +207,17 @@ export class Sincronizador {
     return { aplicados, ignorados, falhas, pulado: false }
   }
 
+  /**
+   * O dia de hoje no fuso local, injetável para o teste não depender do
+   * relógio da máquina. Nunca `toISOString()`: num fuso negativo ele devolve
+   * o dia seguinte à noite, e a janela do cardápio andaria um dia sozinha.
+   */
+  private hoje(): string {
+    const d = this.agora()
+    const dois = (n: number): string => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}`
+  }
+
   async publicar(): Promise<number> {
     // `montarCardapio` só usa três tipos ('treino-modelo', 'suplemento',
     // 'plano'); `listNotesWithFields` já aceita filtrar por `tipo` (só um por
@@ -204,6 +226,6 @@ export class Sincronizador {
     // do processo de filtragem. `montarCardapio` continua sendo quem decide
     // o que publica; isto só reduz o que passa por perto dela.
     const notas = TIPOS_CARDAPIO.flatMap(tipo => listNotesWithFields(this.session.db, { tipo }))
-    return this.cliente.publicarCardapio(montarCardapio(notas))
+    return this.cliente.publicarCardapio(montarCardapio(notas, this.hoje()))
   }
 }

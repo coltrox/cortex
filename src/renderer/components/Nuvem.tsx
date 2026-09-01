@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Confirmar } from './Confirmar'
+import { Qr, conteudoDoQr } from './Qr'
 
 /**
  * Configuração da captura rápida.
@@ -8,7 +9,12 @@ import { Confirmar } from './Confirmar'
  * de gerar um novo existe para o dia em que ele vazar num print — e o aviso
  * diz o que acontece, para ninguém clicar sem saber.
  */
-type Estado = { vaultId: string; configurada: boolean; url: string | null }
+type Estado = {
+  vaultId: string
+  configurada: boolean
+  url: string | null
+  enderecoApp: string
+}
 
 export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
   aoFechar: () => void
@@ -22,6 +28,7 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
 }) {
   const [estado, setEstado] = useState<Estado | null>(null)
   const [url, setUrl] = useState('')
+  const [endereco, setEndereco] = useState('')
   const [chave, setChave] = useState('')
   const [aviso, setAviso] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
@@ -35,6 +42,7 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
     const e = await window.vaultApi.invoke('nuvem:estado', {}) as Estado
     setEstado(e)
     setUrl(e.url ?? '')
+    setEndereco(e.enderecoApp)
   }
   useEffect(() => { void carregar() }, [])
 
@@ -64,7 +72,7 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
     <>
       <div className="paleta-fundo" onClick={aoFechar}>
         <div className="form largo" onClick={e => e.stopPropagation()}>
-          <div className="form-topo">Nuvem — captura rápida</div>
+          <div className="form-topo">Celular</div>
 
           <div className="form-corpo">
             {sincronizacaoAutomaticaFalhando && (
@@ -88,6 +96,43 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
                 e quem vir o ID também consegue. Se vazar, gere um novo.
               </span>
             </label>
+
+            <div className="qr-bloco">
+              <Qr conteudo={conteudoDoQr(estado.vaultId, estado.enderecoApp)} />
+              <div className="qr-texto">
+                <strong>Aponte a câmera do celular</strong>
+                {estado.enderecoApp ? (
+                  <p className="form-dica">
+                    A câmera abre o app já conectado a este vault. O ID viaja
+                    depois do <code>#</code>, que o navegador não manda para o
+                    servidor — ele não aparece em log de acesso nenhum.
+                  </p>
+                ) : (
+                  <p className="form-dica">
+                    Sem o endereço do app abaixo, o QR carrega só o ID: dá para
+                    ler e colar à mão, mas não abre nada sozinho.
+                  </p>
+                )}
+                <label className="form-campo">
+                  <span className="form-rotulo">Endereço do app do celular</span>
+                  <span className="form-senha">
+                    <input value={endereco} placeholder="https://cortex.vercel.app"
+                      onChange={e => setEndereco(e.target.value)} />
+                    <button className="btn-fantasma" disabled={ocupado}
+                      onClick={() => void fazer(async () => {
+                        const r = await window.vaultApi.invoke('nuvem:endereco', {
+                          endereco
+                        }) as { enderecoApp: string }
+                        return r.enderecoApp
+                          ? 'Endereço salvo. O QR agora abre o app sozinho.'
+                          : 'Endereço vazio ou fora do formato https:// — o QR volta a carregar só o ID.'
+                      })}>
+                      salvar
+                    </button>
+                  </span>
+                </label>
+              </div>
+            </div>
 
             <div className="form-linha">
               <label className="form-campo">

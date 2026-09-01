@@ -103,3 +103,34 @@ body {
 .rodape button.ativo { color: var(--azul); }
 
 .nota { color: var(--fraco); font-size: 14px; margin: 4px 0 12px; }
+
+/* ---------- Lista do que está chegando ---------- */
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--painel);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+}
+.item.feito { opacity: .5; }
+.item-texto { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.item-texto strong { font-weight: 600; }
+.item-texto small { color: var(--fraco); }
+.item-acao {
+  flex: none;
+  min-height: 40px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  color: var(--azul);
+  font-size: 14px;
+  cursor: pointer;
+}
+.item-acao.perigo { color: var(--vermelho); }
+.item-acao:disabled { color: var(--fraco); cursor: default; }

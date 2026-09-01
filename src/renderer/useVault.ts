@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { NoteComCampos } from './tipos'
+import type { ConfigVault } from '../shared/types'
 import { subPadrao } from './subnav'
 import { FORMULARIOS } from './formularios'
 
@@ -8,7 +9,8 @@ export type Lente =
 
 export type Link = { dst: string; resolvedPath: string | null; line: number }
 export type Backlink = { path: string; title: string; line: number }
-export type Config = { areas: string[]; pastasDev: string[]; escolheu: boolean }
+/** Apelido de `ConfigVault`, que é onde este formato é definido. */
+export type Config = ConfigVault
 export type EntradaDev = { nome: string; rel: string; pasta: boolean; tamanho: number; editavel: boolean }
 
 /** Agrupa por pasta de primeiro nível — a raiz vira um grupo próprio. */
@@ -31,7 +33,9 @@ export function nomeArquivo(s: string): string {
 
 export function useVault() {
   const [root, setRoot] = useState<string | null>(null)
-  const [config, setConfig] = useState<Config>({ areas: [], pastasDev: [], escolheu: false })
+  const [config, setConfig] = useState<Config>({
+    areas: [], pastasDev: [], escolheu: false, paineisTrancados: [], temSenha: false
+  })
   const [notas, setNotas] = useState<NoteComCampos[]>([])
   const [pastas, setPastas] = useState<string[]>([])
   const [lente, setLenteBruta] = useState<Lente>('hoje')
@@ -365,7 +369,7 @@ export function useVault() {
     aberta, conteudo, setConteudo, editando, setEditando,
     sujo: conteudo !== salvo,
     saindo, entrando,
-    escolher, criarVault, salvarAreas,
+    escolher, criarVault, salvarAreas, trocarConfig: setConfig,
     abrir, abrirPorNome, abrirLink, fechar, salvar,
     criar, alterar, excluir, mover, criarPasta, lancar, marcarNoDia,
     autorizarPasta, autorizarArrastadas, removerPasta,

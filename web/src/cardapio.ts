@@ -1,9 +1,13 @@
-import type { ItemCardapio } from '@compartilhado/eventos'
+import { ESPECIES_CARDAPIO, type ItemCardapio } from '@compartilhado/eventos'
 import type { Guardado } from './guardado'
 
 const CHAVE = 'cortex.cardapio'
 
-const ESPECIES = ['treino', 'suplemento', 'refeicao'] as const
+// Vem do contrato compartilhado, e nao de uma copia local. Havia tres listas
+// iguais deste conjunto -- aqui, em nuvem.ts e no schema.sql -- e acrescentar
+// uma especie nova sem lembrar das tres a fazia sumir em silencio no meio do
+// caminho. Foi exatamente o que aconteceu com prova/compromisso/tarefa.
+const ESPECIES = ESPECIES_CARDAPIO
 
 /**
  * Os ids de dia da semana do Cortex, na ordem de `Date.getDay()`.
@@ -98,4 +102,60 @@ export function exerciciosDoTreino(t: ItemCardapio): ExercicioDoModelo[] {
     out.push(item)
   }
   return out
+}
+
+export function provas(c: Cardapio): ItemCardapio[] {
+  return porData(c.itens.filter(i => i.especie === 'prova'), 'data')
+}
+
+export function compromissos(c: Cardapio): ItemCardapio[] {
+  return porData(c.itens.filter(i => i.especie === 'compromisso'), 'data')
+}
+
+export function tarefas(c: Cardapio): ItemCardapio[] {
+  return porData(c.itens.filter(i => i.especie === 'tarefa'), 'prazo')
+}
+
+/**
+ * Ordena pela data, como texto.
+ *
+ * `YYYY-MM-DD` ordena igual em texto e no tempo, então não é preciso
+ * construir um Date por item só para comparar — e construir Date a partir de
+ * texto é justamente onde o fuso costuma entrar sem ser convidado.
+ */
+function porData(itens: ItemCardapio[], campo: string): ItemCardapio[] {
+  return [...itens].sort((a, b) => {
+    const x = typeof a.detalhe[campo] === 'string' ? (a.detalhe[campo] as string) : '9999'
+    const y = typeof b.detalhe[campo] === 'string' ? (b.detalhe[campo] as string) : '9999'
+    return x < y ? -1 : x > y ? 1 : a.nome.localeCompare(b.nome)
+  })
+}
+
+/** O caminho da nota, que é como o celular devolve a referência ao Cortex. */
+export function caminhoDe(i: ItemCardapio): string {
+  return typeof i.detalhe.path === 'string' ? i.detalhe.path : ''
+}
+
+/** A data de um item, seja ela `data` (prova, compromisso) ou `prazo` (tarefa). */
+export function dataDe(i: ItemCardapio): string {
+  const v = i.detalhe.data ?? i.detalhe.prazo
+  return typeof v === 'string' ? v : ''
+}
+
+/**
+ * Quantos dias faltam, em texto curto para caber no celular.
+ *
+ * Faz a conta em dias de calendário, não em milissegundos: com milissegundos,
+ * uma prova às 8h de amanhã "falta 0 dias" às 23h de hoje, e a tela mentiria.
+ */
+export function faltam(data: string, hoje: string): string {
+  if (!data) return ''
+  const dias = Math.round(
+    (Date.parse(`${data}T00:00:00`) - Date.parse(`${hoje}T00:00:00`)) / 86_400_000
+  )
+  if (Number.isNaN(dias)) return ''
+  if (dias === 0) return 'hoje'
+  if (dias === 1) return 'amanhã'
+  if (dias === -1) return 'ontem'
+  return dias > 0 ? `em ${dias} dias` : `há ${-dias} dias`
 }

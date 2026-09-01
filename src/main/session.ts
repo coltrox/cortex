@@ -7,7 +7,11 @@ import { VaultWatcher } from './vault/watcher'
 import { VaultRootMissingError } from './vault/errors'
 import { openIndex, SCHEMA_VERSION, type Db } from './index/db'
 import { Indexer } from './index/indexer'
-import { lerConfig, gravarConfig, normalizarConfig, vaultIdBruto, CONFIG_PADRAO, type Config } from './config'
+import { Cofre } from './cofre'
+import {
+  lerConfig, gravarConfig, normalizarConfig, vaultIdBruto, CONFIG_PADRAO,
+  pastasProtegidas, type Config
+} from './config'
 import { PastasDev } from './dev/pastas'
 
 export { VaultRootMissingError }
@@ -48,6 +52,13 @@ async function openOrRebuildIndex(dbPath: string): Promise<Db> {
 
 export class Session {
   vault!: Vault
+  /**
+   * A chave-mestra enquanto o app esta aberto, e quais pastas ela protege.
+   *
+   * Vive na sessao, e nao num modulo, porque some junto com o vault fechado:
+   * trocar de vault nao pode deixar a chave do anterior para tras.
+   */
+  cofre = new Cofre()
   db!: Db
   indexer!: Indexer
   /**
@@ -70,6 +81,9 @@ export class Session {
   async open(root: string, onChange: (rel: string) => void = () => {}): Promise<void> {
     await this.close()
     this.vault = new Vault(root)
+    // Cofre novo a cada abertura: fechado, sem chave. So a senha o abre.
+    this.cofre = new Cofre()
+    this.vault.usarCofre(this.cofre)
 
     // A raiz precisa existir e ser um diretório *antes* de qualquer mkdir.
     // `mkdir(dir, { recursive: true })` cria todos os ancestrais que faltarem,
@@ -93,6 +107,11 @@ export class Session {
     this.configPath = join(dir, 'config.json')
     const idAntes = await vaultIdBruto(this.configPath)
     this.config = await lerConfig(this.configPath)
+    // O cofre precisa saber quais pastas protege ANTES da primeira escrita,
+    // mesmo continuando fechado. Sem isto, uma gravacao numa pasta trancada
+    // logo apos abrir o vault passaria batida e poria texto puro por cima de
+    // um arquivo cifrado -- decifrando o vault sem ninguem pedir.
+    this.cofre.definirPastas(pastasProtegidas(this.config.paineisTrancados))
 
     // `lerConfig`/`normalizarConfig` geram um vaultId novo sempre que o que
     // está no disco falta ou é inválido — isso vale tanto para um vault sem
@@ -134,6 +153,8 @@ export class Session {
    */
   async salvarConfig(mudanca: Partial<Config>): Promise<Config> {
     this.config = normalizarConfig({ ...this.config, ...mudanca })
+    // A lista de paineis trancados pode ter mudado nesta gravacao.
+    this.cofre.definirPastas(pastasProtegidas(this.config.paineisTrancados))
     await gravarConfig(this.configPath, this.config)
     return this.config
   }

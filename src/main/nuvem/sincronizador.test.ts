@@ -274,3 +274,99 @@ describe('Sincronizador', () => {
     expect(textos.some(md => md.includes('Segunda anotacao'))).toBe(true)
   })
 })
+
+/*
+ * A operacao `marcar`, ponta a ponta.
+ *
+ * Ela e a unica que escreve numa nota escolhida por um caminho vindo de fora.
+ * O que estes testes protegem e a guarda de tipo: sem ela, um evento marcaria
+ * qualquer nota do vault -- um documento, uma senha, um projeto.
+ */
+describe('marcar nota existente', () => {
+  const ler = async (path: string) =>
+    parseFrontmatter(await session.vault.read(path)).frontmatter
+
+  it('marca a prova como estudada', async () => {
+    await session.vault.writeAtomic(
+      'Estudos/Provas/ENEM.md', '---\ntipo: prova\ndate: 2026-09-10\n---\n\n## O que cai\n'
+    )
+    await sinc(new ClienteFalso([
+      ev('e1', 'prova_estudada', { path: 'Estudos/Provas/ENEM.md' })
+    ])).sincronizar()
+
+    const fm = await ler('Estudos/Provas/ENEM.md')
+    expect(fm.estudado).toBe(true)
+    expect(fm.estudado_em).toBe('2026-08-27')
+    // O resto da nota continua de pe.
+    expect(fm.date).toBe('2026-09-10')
+    expect(await session.vault.read('Estudos/Provas/ENEM.md')).toContain('## O que cai')
+  })
+
+  it('cancela o compromisso sem apagar o arquivo', async () => {
+    await session.vault.writeAtomic('Agenda/Dentista.md', '---\ntipo: evento\ndate: 2026-08-30\n---\n')
+    await sinc(new ClienteFalso([
+      ev('e1', 'compromisso_cancelado', { path: 'Agenda/Dentista.md' })
+    ])).sincronizar()
+
+    expect(await session.vault.exists('Agenda/Dentista.md')).toBe(true)
+    expect((await ler('Agenda/Dentista.md')).cancelado).toBe(true)
+  })
+
+  it('NAO marca nota de outro tipo, mesmo com o caminho certo', async () => {
+    // O caminho vem do celular. Sem a guarda de tipo, este evento escreveria
+    // `cancelado: true` dentro da nota de senha do Pedro.
+    await session.vault.writeAtomic(
+      'Vida/Contas/Gmail.md', '---\ntipo: senha\nusuario: pedro\n---\n'
+    )
+    const r = await sinc(new ClienteFalso([
+      ev('e1', 'compromisso_cancelado', { path: 'Vida/Contas/Gmail.md' })
+    ])).sincronizar()
+
+    const fm = await ler('Vida/Contas/Gmail.md')
+    expect(fm.cancelado).toBeUndefined()
+    expect(fm.tipo).toBe('senha')
+    expect(fm.usuario).toBe('pedro')
+    // O evento conta como aplicado: repetir a tentativa nao adianta, e
+    // deixa-lo pendente faria o sincronizador reprocessa-lo para sempre.
+    expect(r.aplicados).toBe(1)
+  })
+
+  it('prova_estudada tambem nao escapa do tipo permitido', async () => {
+    await session.vault.writeAtomic('Vida/Documentos/RG.md', '---\ntipo: documento\n---\n')
+    await sinc(new ClienteFalso([
+      ev('e1', 'prova_estudada', { path: 'Vida/Documentos/RG.md' })
+    ])).sincronizar()
+    expect((await ler('Vida/Documentos/RG.md')).estudado).toBeUndefined()
+  })
+
+  it('nota que nao existe nao e criada', async () => {
+    // Criar aqui ressuscitaria, como arquivo vazio, algo que o dono apagou.
+    await sinc(new ClienteFalso([
+      ev('e1', 'compromisso_cancelado', { path: 'Agenda/Sumiu.md' })
+    ])).sincronizar()
+    expect(await session.vault.exists('Agenda/Sumiu.md')).toBe(false)
+  })
+
+  it('compromisso novo vindo do celular vira nota na Agenda', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'compromisso', { titulo: 'Dentista', data: '2026-09-10', hora: '14:00' })
+    ])).sincronizar()
+
+    expect(await session.vault.exists('Agenda/Dentista.md')).toBe(true)
+    const fm = await ler('Agenda/Dentista.md')
+    expect(fm.tipo).toBe('evento')
+    expect(fm.date).toBe('2026-09-10')
+    expect(fm.hora).toBe('14:00')
+  })
+
+  it('dois compromissos de mesmo nome viram dois arquivos', async () => {
+    // Mesclar apagaria a data do primeiro.
+    await sinc(new ClienteFalso([
+      ev('e1', 'compromisso', { titulo: 'Dentista', data: '2026-09-10' }),
+      ev('e2', 'compromisso', { titulo: 'Dentista', data: '2026-10-10' })
+    ])).sincronizar()
+
+    expect(await session.vault.exists('Agenda/Dentista.md')).toBe(true)
+    expect(await session.vault.exists('Agenda/Dentista (2).md')).toBe(true)
+  })
+})

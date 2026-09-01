@@ -10,7 +10,10 @@ import { z } from 'zod'
 
 export const TIPOS_EVENTO = [
   'suplemento', 'refeicao_plano', 'refeicao_extra', 'gasto',
-  'sessao', 'cardio', 'medida', 'peso', 'anotacao'
+  'sessao', 'cardio', 'medida', 'peso', 'anotacao',
+  // Agenda e estudos: os três que mexem numa nota que já existe, ou criam
+  // uma. Os de cima só acrescentam ao diário do dia.
+  'prova_estudada', 'compromisso', 'compromisso_cancelado'
 ] as const
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number]
@@ -26,9 +29,26 @@ export const EVENTO_SCHEMA = z.object({
 
 export type Evento = z.infer<typeof EVENTO_SCHEMA>
 
-/** Um item do cardápio: o que existe, nunca o que foi feito. */
+/**
+ * As espécies que o Cortex publica.
+ *
+ * `treino`, `suplemento` e `refeicao` são catálogo: o que existe, nunca o
+ * que foi feito. `prova`, `compromisso` e `tarefa` são o que está chegando
+ * — o celular precisa vê-los para poder marcar, cancelar ou dizer que
+ * estudou.
+ *
+ * Nada de Vida entra aqui. Documentos, senhas e contas ficam no computador,
+ * e `cardapio.test.ts` falha se algum deles aparecer no que sobe.
+ */
+export const ESPECIES_CARDAPIO = [
+  'treino', 'suplemento', 'refeicao', 'prova', 'compromisso', 'tarefa'
+] as const
+
+export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]
+
+/** Um item do cardápio. `detalhe.path` é como o celular devolve a referência. */
 export type ItemCardapio = {
-  especie: 'treino' | 'suplemento' | 'refeicao'
+  especie: EspecieCardapio
   nome: string
   detalhe: Record<string, unknown>
 }

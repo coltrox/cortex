@@ -153,3 +153,44 @@ export function eventoPeso(peso: number, dia: string = diaLocal()): Evento {
 export function eventoAnotacao(conteudo: string, dia: string = diaLocal()): Evento {
   return validarEvento({ tipo: 'anotacao', dia, dados: { texto: texto(conteudo, 'texto') } })
 }
+
+/*
+ * Agenda e estudos.
+ *
+ * Os dois de marcar mandam o `path` que o próprio Cortex publicou no
+ * cardápio, e não o título: dois compromissos "Dentista" em semanas
+ * diferentes têm o mesmo título e caminhos diferentes, e casar por título
+ * cancelaria o errado.
+ */
+
+export function eventoProvaEstudada(path: string, dia: string = diaLocal()): Evento {
+  return validarEvento({ tipo: 'prova_estudada', dia, dados: { path: texto(path, 'prova') } })
+}
+
+export function eventoCompromissoCancelado(path: string, dia: string = diaLocal()): Evento {
+  return validarEvento({
+    tipo: 'compromisso_cancelado', dia, dados: { path: texto(path, 'compromisso') }
+  })
+}
+
+export function eventoCompromisso(
+  titulo: string,
+  data: string,
+  extras: { hora?: string; local?: string } = {},
+  dia: string = diaLocal()
+): Evento {
+  // A data do compromisso não é a de hoje: marcar no celular um dentista de
+  // semana que vem tem de cair na semana que vem.
+  const quando = data.trim() || dia
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(quando)) throw new Error('data precisa ser AAAA-MM-DD')
+  return validarEvento({
+    tipo: 'compromisso',
+    dia,
+    dados: comValor({
+      titulo: texto(titulo, 'o quê'),
+      data: quando,
+      hora: extras.hora?.trim(),
+      local: extras.local?.trim()
+    })
+  })
+}

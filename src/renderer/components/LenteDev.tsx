@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState, type DragEvent } from 'react'
+import { PainelRodar } from './PainelRodar'
+import { EditorCodigo } from './EditorCodigo'
 import type { EntradaDev } from '../useVault'
 import { Secao, Titulo, Linha, Vazio, txt, type PropsLente } from './base'
 
@@ -324,14 +326,16 @@ function Codigo({
               })}
             </div>
             <div className="dev-acoes">
-              <button className="btn" onClick={() => aoTerminal(raiz, pastaAtual)}>
-                Abrir terminal aqui
+              <button className="btn-fantasma" onClick={() => aoTerminal(raiz, pastaAtual)}>
+                Terminal do sistema
               </button>
               <button className="btn-fantasma" onClick={() => aoRevelar(raiz, pastaAtual)}>
                 Abrir no Explorer
               </button>
             </div>
           </div>
+
+          <PainelRodar raiz={raiz} sub={pastaAtual} />
 
           <div className="dev-corpo">
             <div className="dev-arvore">
@@ -371,17 +375,10 @@ function Codigo({
                       </button>
                     </span>
                   </div>
-                  <textarea
-                    className="editor codigo"
-                    value={texto}
-                    spellCheck={false}
-                    onChange={e => setTexto(e.target.value)}
-                    onKeyDown={e => {
-                      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-                        e.preventDefault()
-                        void salvar()
-                      }
-                    }}
+                  <EditorCodigo
+                    valor={texto}
+                    aoMudar={setTexto}
+                    aoSalvar={() => void salvar()}
                   />
                 </>
               )}

@@ -27,6 +27,23 @@ export type Operacao =
     }
   /** Cria a nota se faltar e mescla campos — usado por peso e medida. */
   | { acao: 'nota-campos'; tipo: string; path: string; campos: Record<string, unknown> }
+  /**
+   * Marca campos numa nota que JÁ existe — "estudei esta prova", "cancelei
+   * este compromisso".
+   *
+   * `tiposPermitidos` é a guarda que separa esta operação das outras: o
+   * caminho vem de fora, do celular, e sem ela um evento poderia escrever
+   * `cancelado: true` em qualquer nota do vault — inclusive numa que não
+   * tem nada a ver com agenda. O executor confere o `tipo` da nota no disco
+   * antes de tocar nela, e ignora quando não bate.
+   *
+   * Nunca cria: se a nota sumiu, a operação não faz nada. Criar aqui
+   * ressuscitaria, como nota vazia, algo que o dono apagou no computador.
+   */
+  | {
+      acao: 'marcar'; path: string
+      tiposPermitidos: string[]; campos: Record<string, unknown>
+    }
 
 /** Higieniza um título para virar nome de arquivo, igual ao renderer faz. */
 const nomeArquivo = (s: string): string =>
@@ -101,6 +118,58 @@ export function planejar(evento: Evento): Operacao[] {
         path: `Saude/medida-${dia}.md`,
         campos: comValor({ ...dados, tipo: 'medida', date: dia })
       }]
+
+    /*
+     * Os três da agenda e dos estudos.
+     *
+     * Os dois de marcar recebem o `path` que o próprio Cortex publicou no
+     * cardápio, e não o título: dois compromissos chamados "Dentista" em
+     * semanas diferentes têm títulos iguais e caminhos diferentes, e casar
+     * por título cancelaria o errado.
+     */
+    case 'prova_estudada': {
+      const path = txt(dados.path)
+      if (!path) return []
+      return [{
+        acao: 'marcar', path,
+        tiposPermitidos: ['prova', 'simulado'],
+        campos: { estudado: true, estudado_em: dia }
+      }]
+    }
+
+    case 'compromisso_cancelado': {
+      const path = txt(dados.path)
+      if (!path) return []
+      // Marca, não apaga: um toque errado no ônibus não pode sumir com o
+      // arquivo, e desfazer é destrabalhar um campo no computador.
+      return [{
+        acao: 'marcar', path,
+        tiposPermitidos: ['evento'],
+        campos: { cancelado: true, cancelado_em: dia }
+      }]
+    }
+
+    case 'compromisso': {
+      const titulo = txt(dados.titulo).trim()
+      if (!titulo) return []
+      // A data do compromisso é a que veio, não a de hoje: marcar no celular
+      // um dentista de semana que vem tem de cair na semana que vem.
+      const data = txt(dados.data) || dia
+      // 'criarOutro': dois compromissos de mesmo nome em datas diferentes são
+      // dois compromissos. Mesclar apagaria a data do primeiro.
+      return [{
+        acao: 'nota', tipo: 'evento', seExistir: 'criarOutro',
+        path: `Agenda/${nomeArquivo(titulo)}.md`,
+        frontmatter: comValor({
+          ...dados,
+          // tipo/title/date depois do spread pelo mesmo motivo do caso
+          // `cardio`: um evento externo não escolhe o que a nota É.
+          tipo: 'evento', title: titulo, date: data,
+          // `path` e `titulo` são de transporte, não campos da nota.
+          path: undefined, titulo: undefined, data: undefined
+        })
+      }]
+    }
 
     case 'anotacao': {
       const texto = txt(dados.texto).trim()
