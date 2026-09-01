@@ -225,7 +225,7 @@ export function App() {
 
   return (
     <>
-      <div className={subs ? 'shell com-subnav' : 'shell so-lente'}>
+      <div className={subs ? 'shell com-subnav' : 'shell so-lente'} data-lente={v.lente}>
         <nav className="rail">
           {visiveis.map(({ id, nome, Icone }) => (
             <button

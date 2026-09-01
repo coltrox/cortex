@@ -1668,3 +1668,203 @@ kbd {
   font: 13px/1.6 var(--mono);
   tab-size: 2;
 }
+
+/* ============================================================
+   Identidade por área
+   ============================================================
+
+   Cada lente tem uma cor. Ela não é enfeite: é o que faz olhar de relance
+   para a tela e saber onde se está, sem ler o título. A cor entra por
+   variáveis no `.shell[data-lente]`, então tudo que está dentro — cartões,
+   seções, rail, gráficos — a pega sozinho, sem uma regra por lente para
+   cada componente.
+
+   Os tons são dessaturados de propósito. O app é para ficar aberto o dia
+   inteiro, e cor forte em área grande cansa; ela aparece em traço fino,
+   número e marcador. */
+
+.shell {
+  --acento:      #4A4A4A;
+  --acento-bg:   #F2F2F1;
+  --acento-fino: #DEDEDC;
+}
+
+.shell[data-lente="hoje"]         { --acento: #3F5E7A; --acento-bg: #EDF2F7; --acento-fino: #D2DFEA; }
+.shell[data-lente="vida"]         { --acento: #A65E44; --acento-bg: #FAEFEA; --acento-fino: #EDD6CB; }
+.shell[data-lente="saude"]        { --acento: #3E7C5A; --acento-bg: #EBF4EE; --acento-fino: #CFE3D6; }
+.shell[data-lente="conhecimento"] { --acento: #4A55A8; --acento-bg: #EEEFFA; --acento-fino: #D5D8F0; }
+.shell[data-lente="financas"]     { --acento: #8A6A1F; --acento-bg: #FAF4E4; --acento-fino: #EBDDB8; }
+.shell[data-lente="dev"]          { --acento: #6E4E9C; --acento-bg: #F3EEFA; --acento-fino: #DED2EF; }
+.shell[data-lente="calendario"]   { --acento: #A3436B; --acento-bg: #FBEBF1; --acento-fino: #EFCEDC; }
+
+/* ---------- Rail: a área atual acende ---------- */
+
+.rail-item[aria-current="true"] {
+  color: var(--acento);
+  background: var(--acento-bg);
+}
+/* Barra à esquerda em vez de fundo cheio: o rail é estreito, e uma faixa
+   inteira colorida ali vira um bloco de cor sem informação. */
+.rail-item[aria-current="true"]::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 8px; bottom: 8px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--acento);
+}
+.rail-item { position: relative; }
+
+/* ---------- Título da lente ---------- */
+
+.lente-titulo { position: relative; }
+/* Um traço curto sob o título, na cor da área. Substitui a necessidade de
+   colorir o próprio texto, que prejudicaria a leitura. */
+.lente-titulo::after {
+  content: '';
+  display: block;
+  width: 34px;
+  height: 3px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: var(--acento);
+}
+
+/* ---------- Cartões de número ---------- */
+
+.cartoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 10px;
+  margin-top: 26px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.cartao {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px 18px;
+  overflow: hidden;
+  transition: border-color .15s ease;
+}
+.cartao:hover { border-color: var(--acento-fino); }
+/* Fio de cor no topo: identifica a área sem tingir o cartão inteiro, que
+   deixaria o número menos legível. */
+.cartao::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 2px;
+  background: var(--acento);
+  opacity: .55;
+}
+
+.cartao-valor {
+  font-family: var(--serif);
+  font-size: 30px;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+  margin-top: 8px;
+}
+/* O traço de "sem dado" não pode ter o mesmo peso de um número de verdade —
+   senão a tela parece cheia quando está vazia. */
+.cartao-valor:has(+ .cartao-nota:empty), .cartao-valor { color: var(--text); }
+
+.cartao-rotulo { color: var(--text-3); }
+
+/* ---------- Seções ---------- */
+
+.secao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 38px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+}
+/* Marcador quadrado na cor da área, no lugar de só um texto cinza solto. */
+.secao::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--acento);
+}
+
+/* ---------- Estado vazio ---------- */
+
+.vazio {
+  padding: 12px 0 12px 14px;
+  font-size: 13px;
+  color: var(--text-3);
+  /* Sem caixa: um bloco preenchido para dizer "nao ha nada" pesa mais na
+     tela do que o conteudo que existe, e o olho vai para o vazio. Uma barra
+     fina na cor da area basta para o texto nao ficar solto. */
+  border-left: 2px solid var(--acento-fino);
+}
+
+/* ---------- Gráficos acompanham a área ---------- */
+
+.serie { color: var(--acento); }
+.barra-cheia { background: var(--acento); }
+.progresso-cheio { background: var(--acento); }
+
+/* ---------- Tranca com a cara da área ---------- */
+
+.tranca-caixa {
+  max-width: 320px;
+  padding: 28px 26px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .05);
+  gap: 12px;
+}
+/* O cadeado ganha a cor da área e um disco atrás: sem isso ele fica um risco
+   cinza perdido no meio da tela. */
+.tranca-caixa > svg {
+  width: 42px;
+  height: 42px;
+  padding: 9px;
+  border-radius: 50%;
+  color: var(--acento);
+  background: var(--acento-bg);
+}
+.tranca-caixa h2 { font-family: var(--serif); font-size: 19px; }
+.tranca-caixa input { text-align: center; letter-spacing: .18em; }
+.tranca-caixa input:focus { border-color: var(--acento); }
+
+/* ---------- Cabeçalho de seção com ação ---------- */
+
+/* A linha da seção passa a ser da FILEIRA, não do texto. Antes o texto
+   carregava a borda e o botão ficava solto acima dela, desalinhado — dava a
+   impressão de que o botão pertencia à seção anterior. */
+.secao-linha {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 38px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.secao-linha .secao {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  border-bottom: none;
+}
+.secao-linha .btn,
+.secao-linha .btn-add,
+.secao-linha .btn-fantasma {
+  flex: none;
+  align-self: center;
+  margin: 0;
+}
+.secao-linha .secao-total { align-self: center; }

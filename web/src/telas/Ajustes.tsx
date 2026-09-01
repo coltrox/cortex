@@ -46,7 +46,10 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
           aoMudar={v => { setId(v); setSalvo(false) }}
           dica="3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f607"
         />
-        <Botao tipo="principal" aoClicar={() => void salvar()}>Salvar</Botao>
+        <div className="grade">
+          <Botao tipo="principal" aoClicar={() => void salvar()}>Salvar</Botao>
+          <Botao aoClicar={() => p.irPara('lerqr')}>Ler QR</Botao>
+        </div>
 
         <h2>Cardápio</h2>
         <p className="nota">

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { NoteComCampos } from '../tipos'
 import {
   Cartao, Secao, Titulo, Linha, ListaNotas, Prazo, Vazio, Progresso, Check,
-  num, txt, porData, type PropsLente
+  num, txt, porData, dataCurta, type PropsLente
 } from './base'
 import { diasAte, rotuloPrazo } from '../subnav'
 
@@ -81,14 +81,14 @@ export function LenteEstudos({
               nota={`${conteudos.filter(c => c.campos.prioridade === true).length} na reta final`} />
             <Cartao
               rotulo="Próxima prova"
-              valor={futuras[0]?.date ?? '—'}
+              valor={dataCurta(futuras[0]?.date, hoje)}
               nota={futuras[0] ? rotuloPrazo(diasAte(futuras[0].date as string, hoje)) : undefined}
               tom={futuras[0] && diasAte(futuras[0].date as string, hoje) <= 7 ? 'alerta' : undefined}
             />
             <Cartao
               rotulo="Último simulado"
               valor={pctUltimo === null ? (ultimoSimulado ? String(num(ultimoSimulado.campos.acertos)) : '—') : `${pctUltimo}%`}
-              nota={ultimoSimulado?.date ?? undefined}
+              nota={ultimoSimulado?.date ? dataCurta(ultimoSimulado.date, hoje) : undefined}
             />
             <Cartao rotulo="Tarefas abertas" valor={String(abertas.length)} />
           </div>
@@ -189,7 +189,7 @@ export function LenteEstudos({
                 return (
                   <Linha key={s.path} aoAbrir={() => aoAbrir(s.path)}
                     aoEditar={() => aoEditar(s)} aoExcluir={() => aoExcluir(s)}>
-                    <span className="linha-data">{s.date ?? '—'}</span>
+                    <span className="linha-data">{dataCurta(s.date, hoje)}</span>
                     <span className="linha-titulo">{s.title}</span>
                     {txt(s.campos.materia) && <span className="tipo">{txt(s.campos.materia)}</span>}
                     <span className="linha-valor">{t ? `${a}/${t}` : `${a} acertos`}</span>

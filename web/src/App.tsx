@@ -13,10 +13,11 @@ import { Anotacao } from './telas/Anotacao'
 import { Agenda } from './telas/Agenda'
 import { Compromisso } from './telas/Compromisso'
 import { Ajustes } from './telas/Ajustes'
+import { LerQr } from './telas/LerQr'
 
 export type Tela =
   | 'hoje' | 'agenda' | 'compromisso' | 'treino' | 'cardio'
-  | 'medidas' | 'gasto' | 'anotacao' | 'ajustes'
+  | 'medidas' | 'gasto' | 'anotacao' | 'ajustes' | 'lerqr'
 
 /**
  * O id que a câmera trouxe no endereço, gravado antes de qualquer tela abrir.
@@ -72,6 +73,16 @@ export function App() {
       {tela === 'gasto' && <Gasto envio={envio} irPara={setTela} />}
       {tela === 'anotacao' && <Anotacao envio={envio} irPara={setTela} />}
       {tela === 'ajustes' && <Ajustes cardapio={cardapio} irPara={setTela} />}
+      {tela === 'lerqr' && (
+        <LerQr
+          aoLer={id => {
+            gravarVaultId(guardadoDoNavegador, id)
+            setTela('ajustes')
+            void cardapio.atualizar()
+          }}
+          aoFechar={() => setTela('ajustes')}
+        />
+      )}
 
       <nav className="rodape">
         <button className={tela === 'hoje' ? 'ativo' : ''} onClick={() => setTela('hoje')}>
