@@ -25,6 +25,7 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
     }
   }
 
+  const quantos = p.cardapio.cardapio.itens.length
   const quando = p.cardapio.cardapio.atualizadoEm
   return (
     <>
@@ -32,12 +33,29 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
 
       {!atual && (
         <Aviso>
-          Cole o id do vault. Ele aparece no Cortex, em Configurações, na aba Nuvem.
+          Cole o id do vault, ou leia o QR. Ele está no Cortex, em Configurações → Celular.
         </Aviso>
       )}
       {erro && <Aviso grave aoFechar={() => setErro(null)}>{erro}</Aviso>}
-      {salvo && !erro && !p.cardapio.erro && <Aviso>Id salvo.</Aviso>}
+      {/*
+        * A resposta que a pessoa espera depois de colar o ID ou ler o QR:
+        * conectou, ou não conectou. "Id salvo" nao respondia isso -- salvar um
+        * texto num campo nao prova que existe um Cortex do outro lado.
+        *
+        * O que prova e ter vindo dado. Com id errado e com id certo sem nada
+        * publicado o banco responde igual (lista vazia), entao o caso vazio
+        * nomeia as duas possibilidades em vez de acusar a errada.
+        */}
       {p.cardapio.erro && <Aviso grave>{p.cardapio.erro}</Aviso>}
+      {!p.cardapio.erro && atual && quantos > 0 && (
+        <Aviso>
+          Conectado ao seu Cortex. {quantos} {quantos === 1 ? 'item' : 'itens'} chegaram —
+          treinos, dieta e agenda já estão nas outras telas.
+        </Aviso>
+      )}
+      {!p.cardapio.erro && salvo && quantos === 0 && !p.cardapio.buscando && (
+        <Aviso>ID salvo. Buscando seus dados…</Aviso>
+      )}
 
       <div className="secao">
         <Campo
@@ -46,7 +64,10 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
           aoMudar={v => { setId(v); setSalvo(false) }}
           dica="3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f607"
         />
-        <Botao tipo="principal" aoClicar={() => void salvar()}>Salvar</Botao>
+        <div className="grade">
+          <Botao tipo="principal" aoClicar={() => void salvar()}>Salvar</Botao>
+          <Botao aoClicar={() => p.irPara('lerqr')}>Ler QR</Botao>
+        </div>
 
         <h2>Cardápio</h2>
         <p className="nota">
@@ -54,7 +75,7 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
           {quando && ` · atualizado em ${new Date(quando).toLocaleString('pt-BR')}`}
         </p>
         <Botao aoClicar={() => void p.cardapio.atualizar()} desligado={p.cardapio.buscando}>
-          {p.cardapio.buscando ? 'buscando…' : 'Buscar cardápio agora'}
+          {p.cardapio.buscando ? 'buscando…' : 'Buscar meus dados agora'}
         </Botao>
       </div>
     </>

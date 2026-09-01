@@ -40,6 +40,20 @@ export type Evento = z.infer<typeof EVENTO_SCHEMA>
  * Nada de Vida entra aqui. Documentos, senhas e contas ficam no computador,
  * e `cardapio.test.ts` falha se algum deles aparecer no que sobe.
  */
+/**
+ * Os tipos de NOTA que alimentam o cardápio.
+ *
+ * Diferente de `ESPECIES_CARDAPIO`, que é o que sai publicado: aqui é o que o
+ * Cortex lê do vault para montar aquilo. Mora no contrato compartilhado
+ * porque três lugares precisam concordar, e já divergiram uma vez —
+ * `App.tsx` observava só três destes tipos, e o resultado era que criar uma
+ * prova ou um compromisso no Cortex não republicava nada: o celular só via a
+ * novidade quando, por acaso, um treino fosse editado depois.
+ */
+export const TIPOS_NOTA_CARDAPIO = [
+  'treino-modelo', 'suplemento', 'plano', 'prova', 'simulado', 'evento', 'tarefa'
+] as const
+
 export const ESPECIES_CARDAPIO = [
   'treino', 'suplemento', 'refeicao', 'prova', 'compromisso', 'tarefa'
 ] as const

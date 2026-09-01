@@ -35,7 +35,7 @@ export function Agenda(p: {
   const vazio = ps.length === 0 && cs.length === 0 && ts.length === 0
 
   return (
-    <>
+    <div className="tela agenda">
       <Cabecalho titulo="Chegando" aoVoltar={() => p.irPara('hoje')} />
       {p.cardapio.erro && <Aviso>{p.cardapio.erro}</Aviso>}
 
@@ -112,6 +112,6 @@ export function Agenda(p: {
           </div>
         ))}
       </div>
-    </>
+    </div>
   )
 }

@@ -419,9 +419,9 @@ describe('canais da nuvem', () => {
     expect(session.config.vaultId).toBe(e.vaultId)
   })
 
-  it('sincronizar sem credencial falha com mensagem clara, nao com stack', async () => {
+  it('sincronizar sem credencial no build falha com mensagem clara, nao com stack', async () => {
     await expect(handle(session, 'nuvem:sincronizar', {}))
-      .rejects.toThrow(/nuvem não configurada/)
+      .rejects.toThrow(/sem credencial do Supabase/)
   })
 
   // A chave só devia sair pelo canal que a recebe de volta em texto (nenhum,

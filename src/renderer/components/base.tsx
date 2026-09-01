@@ -13,6 +13,28 @@ import { diasAte, urgencia, rotuloPrazo } from '../subnav'
 export const nf = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 export const moeda = (v: number): string => `R$ ${nf.format(v)}`
 
+/**
+ * Data ISO em forma legivel: `2026-11-08` vira `8 nov`.
+ *
+ * Cartao de numero mostra numero; uma data ISO ali e a maquina falando com
+ * ela mesma. O ano so aparece quando nao e o corrente -- num painel do dia a
+ * dia ele e ruido, mas escondê-lo sempre faria "8 nov" de 2027 parecer deste
+ * ano.
+ *
+ * Monta a data com os campos separados, e nao `new Date(iso)`, que interpreta
+ * a string como UTC e volta um dia atras em fuso negativo.
+ */
+export function dataCurta(iso: string | null | undefined, hoje?: string): string {
+  if (!iso) return '—'
+  const [a, m, d] = iso.split('-').map(Number)
+  if (!a || !m || !d) return iso
+  const data = new Date(a, m - 1, d)
+  if (Number.isNaN(data.getTime())) return iso
+  const mes = data.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  const anoAtual = hoje ? Number(hoje.slice(0, 4)) : new Date().getFullYear()
+  return a === anoAtual ? `${d} ${mes}` : `${d} ${mes} ${a}`
+}
+
 // Os helpers de leitura moram em `dados.ts`, que é testado. Reexportar daqui
 // evita que existam duas versões de `num()` divergindo em silêncio.
 export { num, txt, lista, textos } from '../dados'

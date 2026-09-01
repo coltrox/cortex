@@ -71,8 +71,8 @@ export function Hoje(p: {
 
         {vazio && !p.cardapio.erro && (
           <p className="nota">
-            Nada no cardápio ainda. Publique o cardápio no Cortex, na aba Nuvem,
-            e puxe de novo em Ajustes.
+            Nada no cardápio ainda. Cadastre suplementos e um plano de dieta no
+            Cortex — eles aparecem aqui sozinhos.
           </p>
         )}
 

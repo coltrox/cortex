@@ -14,12 +14,20 @@ import { criarCofre, abrirCofre, reenvelopar } from '../cifra'
 import { converterPastas } from '../converter'
 import { criarSegredo, conferirSenha } from '../senha'
 import { ClienteNuvem } from '../nuvem/cliente'
+import { credencialDe } from '../nuvem/credencial'
 import { Sincronizador } from '../nuvem/sincronizador'
 
 /** Monta o sincronizador na hora. Sem credencial, falha com mensagem legível. */
 function sincronizadorDe(session: Session): Sincronizador {
-  const cred = session.config.nuvem
-  if (!cred) throw new Error('nuvem não configurada — cole a URL e a chave na aba Nuvem')
+  const cred = credencialDe(session.config)
+  // Sem credencial no build nem no config: o app segue funcionando inteiro,
+  // só sem celular. A mensagem diz o que fazer a quem compilou o app, porque
+  // não há tela onde o usuário possa consertar isso.
+  if (!cred) {
+    throw new Error(
+      'este build saiu sem credencial do Supabase — preencha o .env da raiz e recompile'
+    )
+  }
   return new Sincronizador(session, new ClienteNuvem(cred, session.config.vaultId))
 }
 
@@ -361,8 +369,7 @@ export async function handle(
     case 'nuvem:estado':
       return {
         vaultId: session.config.vaultId,
-        configurada: session.config.nuvem !== null,
-        url: session.config.nuvem?.url ?? null,
+        configurada: credencialDe(session.config) !== null,
         enderecoApp: session.config.enderecoApp
       }
 

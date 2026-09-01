@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import {
   Cartao, Secao, Titulo, Linha, Barras, Vazio, Progresso,
-  moeda, num, txt, porData, type PropsLente
+  moeda, num, txt, porData, type PropsLente,
+  dataCurta
 } from './base'
 import {
   extrairTransacoes, porCategoria, saldoPorquinho, ehSangria, type Transacao
@@ -224,7 +225,7 @@ export function LenteGrana({
                 return (
                   <Linha key={m.path} aoAbrir={() => aoAbrir(m.path)}
                     aoEditar={() => aoEditar(m)} aoExcluir={() => aoExcluir(m)}>
-                    <span className="linha-data">{m.date ?? '—'}</span>
+                    <span className="linha-data">{dataCurta(m.date, hoje)}</span>
                     <span className="seta" data-d={sangria ? 'saida' : 'entrada'}>{sangria ? '↓' : '↑'}</span>
                     <span className="linha-titulo">
                       {m.title}

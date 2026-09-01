@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import type { Session } from '../session'
 import { listNotesWithFields } from '../index/queries'
 import { montarCardapio } from './cardapio'
+import { TIPOS_NOTA_CARDAPIO } from '../../shared/eventos'
 import { planejar } from './planejar'
 import { executar } from './executar'
 import { Recebidos } from './recebidos'
@@ -18,10 +19,7 @@ const RETENCAO_DIAS_PADRAO = 90
  * senha, conta e compra ficam no computador. Acrescentar um deles aqui faz o
  * teste de vazamento de `cardapio.test.ts` quebrar, que é o combinado.
  */
-const TIPOS_CARDAPIO = [
-  'treino-modelo', 'suplemento', 'plano',
-  'prova', 'simulado', 'evento', 'tarefa'
-] as const
+const TIPOS_CARDAPIO = TIPOS_NOTA_CARDAPIO
 
 /**
  * Vaults com uma sincronização em andamento agora mesmo, por raiz absoluta.
