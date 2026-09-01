@@ -135,9 +135,15 @@ function BlocoSenha({ config, aoTrocarConfig }: {
       <h3>Senha para acessar painéis</h3>
       <p className="form-dica">
         Trancar um painel faz o Cortex pedir a senha toda vez que você entra
-        nele — inclusive ao voltar depois de sair. Isto é uma tranca de tela:
-        o vault continua em markdown legível no disco, e quem abrir a pasta
-        pelo Explorer lê tudo. A cifra dos painéis trancados vem depois.
+        nele — inclusive ao voltar depois de sair. E as notas daquelas pastas
+        ficam <strong>cifradas no disco</strong>: o Explorer, o Obsidian e o
+        bloco de notas param de conseguir lê-las.
+      </p>
+      <p className="form-dica config-atencao">
+        Não existe recuperação. Se você esquecer esta senha, o conteúdo dos
+        painéis trancados se perde — é o que criptografia significa. O Cortex
+        passa a ser o único jeito de abrir essas pastas, inclusive num backup
+        zipado.
       </p>
 
       {config.temSenha && (

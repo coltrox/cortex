@@ -1551,3 +1551,99 @@ kbd {
   border: 1px solid var(--border);
   border-radius: 4px;
 }
+
+/* O aviso que precisa ser lido antes de ligar a cifra: perder a senha é
+   perder o conteúdo, e uma dica cinza como as outras não diz isso. */
+.config-atencao {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--pale-yel-bg);
+  color: var(--pale-yel);
+}
+
+/* ---------- Rodar o projeto de dentro do app ---------- */
+
+.rodar {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rodar-botoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.rodar-lista { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.rodar-aba {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  font: 12px var(--mono);
+  cursor: pointer;
+}
+.rodar-aba.ativa { color: var(--text); border-color: var(--border-strong); }
+.rodar-aba em { font-style: normal; color: var(--text-3); }
+.rodar-ponto {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-3);
+}
+/* Verde só enquanto está de pé: é o estado que a pessoa procura na tela. */
+.rodar-ponto.vivo { background: var(--pale-grn); }
+
+.rodar-saida {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.rodar-saida-topo {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--border);
+  min-height: 34px;
+}
+.rodar-url { font: 12px var(--mono); color: var(--accent); }
+.rodar-linhas {
+  margin: 0;
+  padding: 10px;
+  max-height: 220px;
+  overflow: auto;
+  background: var(--surface);
+  color: var(--text-2);
+  font: 12px/1.6 var(--mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---------- Editor de código com numeração ---------- */
+
+.codigo-caixa {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+}
+/* A calha rola junto com o texto: ela não tem barra própria, quem manda é a
+   rolagem do textarea, espelhada por JS. */
+.codigo-calha {
+  flex: none;
+  padding: 12px 8px 12px 12px;
+  text-align: right;
+  color: var(--text-3);
+  background: var(--surface-sunk);
+  border-right: 1px solid var(--border);
+  font: 13px/1.6 var(--mono);
+  user-select: none;
+  overflow: hidden;
+}
+.codigo-caixa .editor.codigo {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  resize: none;
+  font: 13px/1.6 var(--mono);
+  tab-size: 2;
+}

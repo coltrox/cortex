@@ -1,3 +1,4 @@
+import type { ProcessoInfo } from '../shared/types'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcChannel, IpcPayload } from '../shared/ipc'
 // Reexportado de `shared/types.ts`, e não redeclarado aqui: duas cópias do
@@ -48,6 +49,36 @@ const api = {
   },
   abrirNoExplorador(raiz: string, sub = ''): Promise<{ ok: true }> {
     return ipcRenderer.invoke('dev:reveal', { raiz, sub })
+  },
+
+  /*
+   * Rodar o projeto de dentro do app.
+   *
+   * Canais privilegiados, como os de cima: eles nao passam pelo `invoke`
+   * generico porque nao sao operacao de nota, e por isso nao tem schema em
+   * shared/ipc.ts -- a validacao deles vive no processo principal, que e onde
+   * o caminho e resolvido contra a lista de pastas autorizadas.
+   */
+  scriptsDoProjeto(raiz: string, sub = ''): Promise<{ scripts: string[] }> {
+    return ipcRenderer.invoke('dev:scripts', { raiz, sub })
+  },
+  rodarScript(raiz: string, script: string, sub = ''): Promise<ProcessoInfo> {
+    return ipcRenderer.invoke('dev:rodar', { raiz, script, sub })
+  },
+  pararProcesso(id: string): Promise<{ ok: true }> {
+    return ipcRenderer.invoke('dev:parar', { id })
+  },
+  listarProcessos(): Promise<{ processos: ProcessoInfo[] }> {
+    return ipcRenderer.invoke('dev:processos')
+  },
+  saidaDoProcesso(id: string): Promise<{ linhas: string[] }> {
+    return ipcRenderer.invoke('dev:saida', { id })
+  },
+  limparEncerrados(): Promise<{ processos: ProcessoInfo[] }> {
+    return ipcRenderer.invoke('dev:limpar-encerrados')
+  },
+  abrirNoVsCode(raiz: string, sub = ''): Promise<{ ok: boolean; motivo?: string }> {
+    return ipcRenderer.invoke('dev:vscode', { raiz, sub })
   },
 
   onVaultChange(cb: (rel: string) => void): () => void {

@@ -58,6 +58,23 @@ export type ConfigVault = {
 /** O que os canais privilegiados devolvem sobre o vault aberto. */
 export type EstadoVault = { root: string | null; config: ConfigVault | null }
 
+/**
+ * Um `npm run` que o Cortex esta rodando.
+ *
+ * Declarado aqui, e nao importado de main/dev/processos, porque este arquivo
+ * e a fronteira compartilhada: o renderer nao deve importar nada de `main`.
+ */
+export type ProcessoInfo = {
+  id: string
+  raiz: string
+  script: string
+  pid: number | null
+  /** O endereco que o servidor imprimiu ao subir, quando imprimiu. */
+  url: string | null
+  /** `null` enquanto roda; o codigo de saida depois que termina. */
+  saiu: number | null
+}
+
 declare global {
   interface Window {
     vaultApi: {
@@ -70,6 +87,15 @@ declare global {
       autorizarPastaArrastada(caminho: string): Promise<string[]>
       abrirTerminal(raiz: string, sub?: string): Promise<{ cwd: string }>
       abrirNoExplorador(raiz: string, sub?: string): Promise<{ ok: true }>
+
+      /* Rodar o projeto de dentro do app. Ver main/dev/processos.ts. */
+      scriptsDoProjeto(raiz: string, sub?: string): Promise<{ scripts: string[] }>
+      rodarScript(raiz: string, script: string, sub?: string): Promise<ProcessoInfo>
+      pararProcesso(id: string): Promise<{ ok: true }>
+      listarProcessos(): Promise<{ processos: ProcessoInfo[] }>
+      saidaDoProcesso(id: string): Promise<{ linhas: string[] }>
+      limparEncerrados(): Promise<{ processos: ProcessoInfo[] }>
+      abrirNoVsCode(raiz: string, sub?: string): Promise<{ ok: boolean; motivo?: string }>
       onVaultChange(cb: (rel: string) => void): () => void
       onVaultAberto(cb: (e: EstadoVault) => void): () => void
     }
