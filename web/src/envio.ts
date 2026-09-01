@@ -117,8 +117,11 @@ export function useCardapio(): UsoDoCardapio {
       setCardapio(lerCardapio(guardadoDoNavegador))
       // Cardápio vazio quase sempre é id errado, ou Cortex que ainda não
       // publicou. Dizer isso é melhor do que mostrar uma tela em branco.
+      // A distincao honesta: com id errado e com id certo sem nada publicado o
+      // banco responde igual, lista vazia. Entao a mensagem nomeia as duas
+      // possibilidades em vez de afirmar a errada com seguranca.
       setErro(itens.length === 0
-        ? 'O cardápio veio vazio. Confira o id do vault — ele está no Cortex, em Configurações → Celular.'
+        ? 'Não veio nada com esse ID. Ou ele está errado, ou o Cortex ainda não subiu seus dados — confira o ID no Cortex, em Configurações → Celular.'
         : null)
     } catch {
       // Sem rede: fica com o que já estava guardado, em silêncio.

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { NoteComCampos } from '../index/queries'
 import { montarCardapio } from './cardapio'
+import { TIPOS_NOTA_CARDAPIO } from '../../shared/eventos'
 
 /**
  * Data fixa em vez do relogio: um teste que muda de resultado conforme o dia
@@ -290,5 +291,40 @@ describe('o que esta chegando', () => {
   it('nota sem data nao entra -- nao da para saber se esta chegando', () => {
     const semData = nota({ path: 'x.md', title: 'Sem data', tipo: 'prova', date: null })
     expect(montarCardapio([semData], HOJE_3)).toEqual([])
+  })
+})
+
+describe('a lista de tipos que alimenta o cardapio', () => {
+  it('cobre todo tipo de nota que montarCardapio le', () => {
+    // Este teste existe por um defeito real: App.tsx observava so tres destes
+    // tipos para decidir republicar, entao criar uma prova ou um compromisso
+    // no Cortex nao mandava nada para o celular -- a novidade so aparecia
+    // quando, por acaso, um treino fosse editado depois. Agora ha uma lista
+    // so, e ela precisa continuar cobrindo tudo que a funcao consulta.
+    expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
+      'evento', 'plano', 'prova', 'simulado', 'suplemento', 'tarefa', 'treino-modelo'
+    ])
+  })
+
+  it('cada tipo da lista consegue virar item', () => {
+    const HOJE = '2026-09-01'
+    const porTipo: Record<string, unknown> = {
+      'treino-modelo': nota({ path: 'a.md', title: 'T', tipo: 'treino-modelo' }),
+      suplemento: nota({ path: 'b.md', title: 'S', tipo: 'suplemento' }),
+      prova: nota({ path: 'c.md', title: 'P', tipo: 'prova', date: '2026-09-10' }),
+      simulado: nota({ path: 'd.md', title: 'Si', tipo: 'simulado', date: '2026-09-10' }),
+      evento: nota({ path: 'e.md', title: 'E', tipo: 'evento', date: '2026-09-10' }),
+      tarefa: nota({ path: 'f.md', title: 'Ta', tipo: 'tarefa', date: '2026-09-10' })
+    }
+    for (const [tipo, n] of Object.entries(porTipo)) {
+      const c = montarCardapio([n as never], HOJE)
+      expect(c.length, tipo + ' nao virou item').toBeGreaterThan(0)
+    }
+    // `plano` e a excecao: ele nao vira item, ele fornece as refeicoes.
+    const comPlano = montarCardapio([nota({
+      path: 'g.md', title: 'Plano', tipo: 'plano',
+      campos: { ativo: true, refeicoes: [{ nome: 'Cafe', hora: '07:00' }] }
+    })], HOJE)
+    expect(comPlano.map(i => i.especie)).toEqual(['refeicao'])
   })
 })

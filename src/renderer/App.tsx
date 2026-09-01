@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useVault, type Lente } from './useVault'
+import { TIPOS_NOTA_CARDAPIO } from '../shared/eventos'
 import type { NoteComCampos } from './tipos'
 import { hojeISO } from './tipos'
 import { SUBS } from './subnav'
@@ -133,7 +134,7 @@ export function App() {
   // E a assinatura evita republicar quando mudou outra coisa qualquer do
   // vault — um gasto lançado não mexe no cardápio.
   const assinaturaCardapio = v.notas
-    .filter(n => n.tipo === 'treino-modelo' || n.tipo === 'suplemento' || n.tipo === 'plano')
+    .filter(n => (TIPOS_NOTA_CARDAPIO as readonly string[]).includes(n.tipo))
     .map(n => `${n.path}:${n.mtime}`)
     .join('|')
 

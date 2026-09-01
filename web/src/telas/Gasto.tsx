@@ -24,7 +24,7 @@ export function Gasto(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela)
   }
 
   return (
-    <>
+    <div className="tela grana">
       <Cabecalho titulo={saiu ? 'Gasto' : 'Entrada'} aoVoltar={() => p.irPara('hoje')} />
       {erro && <Aviso grave aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="secao">
@@ -50,6 +50,6 @@ export function Gasto(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela)
           {saiu ? 'Registrar gasto' : 'Registrar entrada'}
         </Botao>
       </div>
-    </>
+    </div>
   )
 }

@@ -25,6 +25,7 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
     }
   }
 
+  const quantos = p.cardapio.cardapio.itens.length
   const quando = p.cardapio.cardapio.atualizadoEm
   return (
     <>
@@ -36,8 +37,25 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
         </Aviso>
       )}
       {erro && <Aviso grave aoFechar={() => setErro(null)}>{erro}</Aviso>}
-      {salvo && !erro && !p.cardapio.erro && <Aviso>Id salvo.</Aviso>}
+      {/*
+        * A resposta que a pessoa espera depois de colar o ID ou ler o QR:
+        * conectou, ou não conectou. "Id salvo" nao respondia isso -- salvar um
+        * texto num campo nao prova que existe um Cortex do outro lado.
+        *
+        * O que prova e ter vindo dado. Com id errado e com id certo sem nada
+        * publicado o banco responde igual (lista vazia), entao o caso vazio
+        * nomeia as duas possibilidades em vez de acusar a errada.
+        */}
       {p.cardapio.erro && <Aviso grave>{p.cardapio.erro}</Aviso>}
+      {!p.cardapio.erro && atual && quantos > 0 && (
+        <Aviso>
+          Conectado ao seu Cortex. {quantos} {quantos === 1 ? 'item' : 'itens'} chegaram —
+          treinos, dieta e agenda já estão nas outras telas.
+        </Aviso>
+      )}
+      {!p.cardapio.erro && salvo && quantos === 0 && !p.cardapio.buscando && (
+        <Aviso>ID salvo. Buscando seus dados…</Aviso>
+      )}
 
       <div className="secao">
         <Campo
@@ -57,7 +75,7 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
           {quando && ` · atualizado em ${new Date(quando).toLocaleString('pt-BR')}`}
         </p>
         <Botao aoClicar={() => void p.cardapio.atualizar()} desligado={p.cardapio.buscando}>
-          {p.cardapio.buscando ? 'buscando…' : 'Buscar cardápio agora'}
+          {p.cardapio.buscando ? 'buscando…' : 'Buscar meus dados agora'}
         </Botao>
       </div>
     </>
