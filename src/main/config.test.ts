@@ -48,14 +48,14 @@ describe('lerConfig', () => {
   })
 
   it('le de volta o que gravou', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [] })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '' })
     expect(await lerConfig(arq)).toEqual({
-      areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: expect.any(String), nuvem: null, senha: null, paineisTrancados: []
+      areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: expect.any(String), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: ''
     })
   })
 
   it('grava JSON legivel por humano', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: [], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [] })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: [], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '' })
     expect(await readFile(arq, 'utf8')).toContain('\n  "areas"')
   })
 
@@ -160,5 +160,46 @@ describe('projetarConfigParaRenderer', () => {
     // offline, e o renderer nao tem uso nenhum para ele.
     expect(serializado).not.toContain(segredoFicticio)
     expect(serializado).not.toContain('scrypt')
+  })
+})
+
+describe('endereco do app do celular', () => {
+  it('vazio por padrao — e um estado normal, nao um erro', () => {
+    expect(normalizarConfig({}).enderecoApp).toBe('')
+  })
+
+  it('aceita https', () => {
+    expect(normalizarConfig({ enderecoApp: 'https://cortex.vercel.app' }).enderecoApp)
+      .toBe('https://cortex.vercel.app')
+  })
+
+  it('tira a barra do fim, para o QR nao virar // no meio do link', () => {
+    expect(normalizarConfig({ enderecoApp: 'https://cortex.vercel.app/' }).enderecoApp)
+      .toBe('https://cortex.vercel.app')
+  })
+
+  it('recusa o que nao for https', () => {
+    // O conteudo deste campo vira um QR que alguem aponta a camera e abre.
+    for (const ruim of [
+      'http://cortex.vercel.app',
+      'javascript:alert(1)',
+      'file:///C:/Windows',
+      'nao e url nenhuma',
+      'data:text/html,<script>x</script>'
+    ]) {
+      expect(normalizarConfig({ enderecoApp: ruim }).enderecoApp).toBe('')
+    }
+  })
+
+  it('valor que nao e texto vira vazio', () => {
+    expect(normalizarConfig({ enderecoApp: 42 }).enderecoApp).toBe('')
+    expect(normalizarConfig({ enderecoApp: ['https://x.com'] }).enderecoApp).toBe('')
+  })
+
+  it('o endereco nao entra na projecao para o renderer', () => {
+    // Ele sai por `nuvem:estado`, que ja e um recorte proprio -- a projecao
+    // continua sendo a lista branca minima.
+    const c = normalizarConfig({ enderecoApp: 'https://cortex.vercel.app' })
+    expect(Object.keys(projetarConfigParaRenderer(c))).not.toContain('enderecoApp')
   })
 })

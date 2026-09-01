@@ -1521,3 +1521,33 @@ kbd {
   font-size: 13px;
   color: var(--pale-red);
 }
+
+/* ---------- QR de conexão do celular ---------- */
+
+.qr-bloco {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.qr {
+  flex: none;
+  border-radius: 6px;
+  /* O QR precisa de contraste real: em tema escuro, herdar o fundo do painel
+     faria muitos leitores desistirem. Ele carrega o próprio branco. */
+  background: #FFFFFF;
+}
+.qr-texto { flex: 1 1 240px; min-width: 220px; }
+.qr-texto strong { display: block; font-size: 14px; margin-bottom: 4px; }
+.qr-texto code {
+  font: 12px var(--mono);
+  padding: 1px 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}

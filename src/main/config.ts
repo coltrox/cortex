@@ -36,6 +36,14 @@ export type Config = {
    * vault, e não no userData do Electron, para que zipar a pasta e abrir noutra
    * máquina continue pedindo a mesma senha — e não abra sozinho.
    */
+  /**
+   * Onde o app do celular está publicado — ex.: `https://cortex.vercel.app`.
+   *
+   * Serve só para o QR: com ele, o QR vira um link que a câmera do celular
+   * abre sozinha, já com o id no endereço. Sem ele, o QR carrega o id cru e
+   * a pessoa cola à mão. Vazio é um estado normal, não um erro.
+   */
+  enderecoApp: string
   senha: string | null
   /**
    * Áreas que exigem a senha para abrir.
@@ -75,7 +83,7 @@ export const IDS_AREAS: string[] = AREAS.map(a => a.id)
 
 export const CONFIG_PADRAO: Config = {
   areas: [...IDS_AREAS], pastasDev: [], escolheu: false, vaultId: '', nuvem: null,
-  senha: null, paineisTrancados: []
+  senha: null, paineisTrancados: [], enderecoApp: ''
 }
 
 /**
@@ -114,7 +122,26 @@ export function normalizarConfig(bruto: unknown): Config {
         (a): a is string => typeof a === 'string' && IDS_AREAS.includes(a)))]
     : []
 
-  return { areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem, senha, paineisTrancados }
+  // Só https, e só um endereço de verdade. Um `javascript:` ou um `file:`
+  // aqui viraria o conteúdo de um QR que alguém aponta a câmera e abre.
+  let enderecoApp = ''
+  if (typeof o.enderecoApp === 'string' && o.enderecoApp !== '') {
+    try {
+      const u = new URL(o.enderecoApp)
+      if (u.protocol === 'https:') {
+        let limpo = o.enderecoApp
+        while (limpo.endsWith('/')) limpo = limpo.slice(0, -1)
+        enderecoApp = limpo
+      }
+    } catch {
+      enderecoApp = ''
+    }
+  }
+
+  return {
+    areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem,
+    senha, paineisTrancados, enderecoApp
+  }
 }
 
 /**

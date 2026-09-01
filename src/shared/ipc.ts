@@ -133,6 +133,8 @@ export const IPC_SCHEMAS = {
     chave: z.string().min(10).max(2000)
   }).strict(),
   'nuvem:novo-id': z.object({}).strict(),
+  // Vazio limpa o endereço; o main recusa o que não for https.
+  'nuvem:endereco': z.object({ endereco: z.string().max(300) }).strict(),
   'nuvem:sincronizar': z.object({}).strict(),
   'nuvem:publicar': z.object({}).strict()
 } as const

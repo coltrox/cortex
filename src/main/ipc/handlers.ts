@@ -265,8 +265,16 @@ export async function handle(
       return {
         vaultId: session.config.vaultId,
         configurada: session.config.nuvem !== null,
-        url: session.config.nuvem?.url ?? null
+        url: session.config.nuvem?.url ?? null,
+        enderecoApp: session.config.enderecoApp
       }
+
+    case 'nuvem:endereco': {
+      // `normalizarConfig` é quem recusa o que não for https — gravar aqui e
+      // reler de lá garante que a regra viva num lugar só.
+      const c = await session.salvarConfig({ enderecoApp: p.endereco })
+      return { enderecoApp: c.enderecoApp }
+    }
 
     case 'nuvem:credenciais': {
       const c = await session.salvarConfig({ nuvem: { url: p.url, chave: p.chave } })
