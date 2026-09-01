@@ -38,7 +38,12 @@ alter table cardapio enable row level security;
 create or replace function tipos_validos() returns text[]
 language sql immutable as $$
   select array['suplemento','refeicao_plano','refeicao_extra','gasto',
-               'sessao','cardio','medida','peso','anotacao']
+               'sessao','cardio','medida','peso','anotacao',
+               -- Agenda e estudos: os que mexem numa nota existente, ou criam
+               -- uma. Precisam casar com TIPOS_EVENTO em src/shared/eventos.ts
+               -- e ter um caso em planejar.ts; faltar num dos tres faz o
+               -- evento sumir em silencio.
+               'prova_estudada','compromisso','compromisso_cancelado']
 $$;
 
 create or replace function registrar_evento(

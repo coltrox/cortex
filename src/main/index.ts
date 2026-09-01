@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, session as sessaoEletron } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell, session as sessaoEletron } from 'electron'
 import { join, resolve, basename } from 'node:path'
 import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises'
@@ -55,6 +55,19 @@ async function abrirVault(root: string): Promise<{ root: string; config: ConfigP
 }
 
 function createWindow(): void {
+  /*
+   * Fora a barra de menu do Electron (File, Edit, View, Window).
+   *
+   * Ela vem de graça e não pertence a este app: o Cortex não abre arquivo
+   * por menu, não tem Recortar/Colar de aplicação, e "View > Toggle
+   * Developer Tools" num app pessoal empacotado é só ruído na tela.
+   *
+   * Só no app empacotado. Em desenvolvimento a barra fica, porque é dela que
+   * vêm o Ctrl+R para recarregar e o atalho do devtools — tirá-la ali
+   * custaria uma hora por dia de `npm run dev` fechado e aberto de novo.
+   */
+  if (app.isPackaged) Menu.setApplicationMenu(null)
+
   win = new BrowserWindow({
     width: 1280,
     height: 820,
