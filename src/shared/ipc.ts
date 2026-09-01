@@ -86,6 +86,20 @@ export const IPC_SCHEMAS = {
   'config:get': z.object({}).strict(),
   'config:areas': z.object({ areas: z.array(z.string().max(32)).max(32) }).strict(),
 
+  // A senha dos painéis. O teto de 256 existe porque scrypt custa tempo
+  // proporcional ao que recebe, e o renderer é entrada hostil: sem limite,
+  // uma senha de megabytes travaria o processo principal.
+  'senha:definir': z.object({
+    atual: z.string().max(256).nullable(),
+    nova: z.string().max(256)
+  }).strict(),
+  'senha:conferir': z.object({ senha: z.string().max(256) }).strict(),
+  'senha:remover': z.object({ atual: z.string().max(256) }).strict(),
+  'senha:paineis': z.object({
+    atual: z.string().max(256),
+    paineis: z.array(z.string().max(32)).max(32)
+  }).strict(),
+
   'dev:folders': z.object({}).strict(),
   'dev:remove-folder': z.object({ raiz: raizDev }).strict(),
   'dev:tree': z.object({ raiz: raizDev, sub: relDev.default('') }).strict(),

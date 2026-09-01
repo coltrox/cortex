@@ -445,3 +445,124 @@ describe('canais da nuvem', () => {
     }
   })
 })
+
+/*
+ * A senha dos painéis.
+ *
+ * O que estes testes protegem: cada caminho que poderia destrancar um painel
+ * sem conhecer a senha. São quatro, e todos já foram bugs em algum programa —
+ * trocar a senha sem a antiga, mudar a lista de painéis sem senha, remover a
+ * senha sem senha, e a lista de trancados sobreviver à remoção da senha.
+ */
+describe('senha dos painéis', () => {
+  const criar = (nova: string) => handle(session, 'senha:definir', { atual: null, nova })
+
+  it('começa sem senha e sem painel trancado', async () => {
+    const c = await handle(session, 'config:get', {}) as any
+    expect(c.temSenha).toBe(false)
+    expect(c.paineisTrancados).toEqual([])
+  })
+
+  it('cria a senha e a projeção só diz que ela existe', async () => {
+    const c = await criar('abacaxi') as any
+    expect(c.temSenha).toBe(true)
+    expect(JSON.stringify(c)).not.toContain('abacaxi')
+    expect(JSON.stringify(c)).not.toContain('scrypt')
+  })
+
+  it('confere a senha certa e recusa a errada', async () => {
+    await criar('abacaxi')
+    expect(await handle(session, 'senha:conferir', { senha: 'abacaxi' })).toBe(true)
+    expect(await handle(session, 'senha:conferir', { senha: 'abacaxo' })).toBe(false)
+  })
+
+  it('sem senha cadastrada, conferir nunca devolve true', async () => {
+    // Responder true aqui abriria qualquer painel que estivesse na lista.
+    expect(await handle(session, 'senha:conferir', { senha: '' })).toBe(false)
+    expect(await handle(session, 'senha:conferir', { senha: 'qualquer' })).toBe(false)
+  })
+
+  it('trocar a senha exige a senha atual', async () => {
+    await criar('abacaxi')
+    await expect(
+      handle(session, 'senha:definir', { atual: null, nova: 'invasor' })
+    ).rejects.toThrow(/atual/i)
+    await expect(
+      handle(session, 'senha:definir', { atual: 'errada', nova: 'invasor' })
+    ).rejects.toThrow(/atual/i)
+    expect(await handle(session, 'senha:conferir', { senha: 'abacaxi' })).toBe(true)
+  })
+
+  it('troca a senha com a atual correta', async () => {
+    await criar('abacaxi')
+    await handle(session, 'senha:definir', { atual: 'abacaxi', nova: 'melancia' })
+    expect(await handle(session, 'senha:conferir', { senha: 'melancia' })).toBe(true)
+    expect(await handle(session, 'senha:conferir', { senha: 'abacaxi' })).toBe(false)
+  })
+
+  it('recusa senha curta demais', async () => {
+    await expect(criar('ab')).rejects.toThrow()
+  })
+
+  it('trancar painel exige a senha', async () => {
+    await criar('abacaxi')
+    await expect(
+      handle(session, 'senha:paineis', { atual: 'errada', paineis: ['vida'] })
+    ).rejects.toThrow(/incorreta/i)
+    const c = await handle(session, 'config:get', {}) as any
+    expect(c.paineisTrancados).toEqual([])
+  })
+
+  it('tranca os painéis com a senha correta', async () => {
+    await criar('abacaxi')
+    const c = await handle(session, 'senha:paineis', {
+      atual: 'abacaxi', paineis: ['vida', 'financas']
+    }) as any
+    expect(c.paineisTrancados).toEqual(['vida', 'financas'])
+  })
+
+  it('descarta id de área que não existe', async () => {
+    await criar('abacaxi')
+    const c = await handle(session, 'senha:paineis', {
+      atual: 'abacaxi', paineis: ['vida', 'foguete']
+    }) as any
+    expect(c.paineisTrancados).toEqual(['vida'])
+  })
+
+  it('não dá para trancar painel antes de criar a senha', async () => {
+    // Senão o painel ficaria trancado sem chave nenhuma, nem para o dono.
+    await expect(
+      handle(session, 'senha:paineis', { atual: '', paineis: ['vida'] })
+    ).rejects.toThrow(/crie uma senha/i)
+  })
+
+  it('remover a senha exige a senha', async () => {
+    await criar('abacaxi')
+    await expect(
+      handle(session, 'senha:remover', { atual: 'errada' })
+    ).rejects.toThrow(/incorreta/i)
+    expect(await handle(session, 'senha:conferir', { senha: 'abacaxi' })).toBe(true)
+  })
+
+  it('remover a senha destranca todos os painéis junto', async () => {
+    await criar('abacaxi')
+    await handle(session, 'senha:paineis', { atual: 'abacaxi', paineis: ['vida', 'dev'] })
+    const c = await handle(session, 'senha:remover', { atual: 'abacaxi' }) as any
+    expect(c.temSenha).toBe(false)
+    // Manter a lista deixaria painéis trancados sem chave nenhuma.
+    expect(c.paineisTrancados).toEqual([])
+  })
+
+  it('a senha sobrevive a fechar e reabrir o vault', async () => {
+    // Ela mora no config.json, dentro do vault: zipar a pasta e abrir noutra
+    // máquina precisa continuar pedindo a mesma senha.
+    await criar('abacaxi')
+    await handle(session, 'senha:paineis', { atual: 'abacaxi', paineis: ['vida'] })
+    await session.close()
+    session = new Session()
+    await session.open(root)
+    expect(await handle(session, 'senha:conferir', { senha: 'abacaxi' })).toBe(true)
+    const c = await handle(session, 'config:get', {}) as any
+    expect(c.paineisTrancados).toEqual(['vida'])
+  })
+})

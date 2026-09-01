@@ -1401,3 +1401,123 @@ kbd {
 /* Engrenagem no pé do rail: acessível, mas nunca no caminho das lentes. */
 .rail-rodape { margin-top: auto; opacity: .62; }
 .rail-rodape:hover { opacity: 1; }
+
+/* ---------- Configurações ---------- */
+
+.config-corpo { display: flex; flex-direction: column; gap: 4px; }
+
+.config-bloco {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+.config-bloco:last-child { border-bottom: none; }
+.config-bloco h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--text);
+}
+.config-bloco .btn,
+.config-bloco .btn-fantasma { margin-top: 10px; }
+
+.config-botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.campo-linha { display: block; margin-top: 10px; }
+.campo-linha span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 4px;
+}
+.campo-linha input {
+  width: 100%;
+  padding: 8px 10px;
+  font: 14px/1.4 var(--sans);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+}
+.campo-linha input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.config-paineis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px 12px;
+  margin-top: 4px;
+}
+.config-painel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.config-erro {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--pale-red-bg);
+  color: var(--pale-red);
+}
+.config-recado {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--pale-grn-bg);
+  color: var(--pale-grn);
+}
+.config-alerta { color: var(--pale-red); }
+
+/* ---------- Tranca de painel ---------- */
+
+/* Ela ocupa o lugar do painel, e não fica por cima dele: por cima, o conteúdo
+   continuaria montado no DOM e bastaria remover o elemento pelo devtools. */
+.tranca {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding: 32px 16px;
+}
+.tranca-caixa {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--text-2);
+}
+.tranca-caixa h2 {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tranca-caixa p { margin: 0; font-size: 13px; }
+.tranca-caixa input {
+  width: 100%;
+  padding: 9px 11px;
+  font: 15px/1.4 var(--sans);
+  text-align: center;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+}
+.tranca-caixa input:focus { outline: none; border-color: var(--accent); }
+.tranca-caixa .btn { width: 100%; }
+.tranca-erro {
+  margin: 0;
+  font-size: 13px;
+  color: var(--pale-red);
+}

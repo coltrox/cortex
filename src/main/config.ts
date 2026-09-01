@@ -29,6 +29,22 @@ export type Config = {
   vaultId: string
   /** Credenciais do Supabase. `null` enquanto a nuvem não foi configurada. */
   nuvem: { url: string; chave: string } | null
+  /**
+   * O segredo da senha dos painéis, no formato de `senha.ts`. `null` = sem senha.
+   *
+   * É o resultado de um scrypt com sal, nunca a senha. Mora aqui, dentro do
+   * vault, e não no userData do Electron, para que zipar a pasta e abrir noutra
+   * máquina continue pedindo a mesma senha — e não abra sozinho.
+   */
+  senha: string | null
+  /**
+   * Áreas que exigem a senha para abrir.
+   *
+   * Invariante mantida por `normalizarConfig`: sem `senha`, esta lista é
+   * sempre vazia. Um painel trancado sem senha cadastrada seria um painel que
+   * ninguém consegue abrir, inclusive o dono.
+   */
+  paineisTrancados: string[]
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -58,7 +74,8 @@ export const AREAS = [
 export const IDS_AREAS: string[] = AREAS.map(a => a.id)
 
 export const CONFIG_PADRAO: Config = {
-  areas: [...IDS_AREAS], pastasDev: [], escolheu: false, vaultId: '', nuvem: null
+  areas: [...IDS_AREAS], pastasDev: [], escolheu: false, vaultId: '', nuvem: null,
+  senha: null, paineisTrancados: []
 }
 
 /**
@@ -85,7 +102,19 @@ export function normalizarConfig(bruto: unknown): Config {
     ? { url: n.url, chave: n.chave }
     : null
 
-  return { areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem }
+  // Só reconhece um segredo com a marca do formato de `senha.ts`. Qualquer
+  // outra coisa no campo — inclusive uma senha em texto puro que alguém tenha
+  // escrito à mão achando que bastaria — vale como "sem senha".
+  const senha = typeof o.senha === 'string' && o.senha.startsWith('scrypt$') ? o.senha : null
+
+  // Sem senha, nenhum painel fica trancado. Um painel trancado sem senha
+  // cadastrada seria um painel que ninguém abre, nem o dono.
+  const paineisTrancados = senha && Array.isArray(o.paineisTrancados)
+    ? [...new Set(o.paineisTrancados.filter(
+        (a): a is string => typeof a === 'string' && IDS_AREAS.includes(a)))]
+    : []
+
+  return { areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem, senha, paineisTrancados }
 }
 
 /**
@@ -124,7 +153,15 @@ export async function gravarConfig(caminho: string, c: Config): Promise<void> {
 }
 
 /** O que o renderer pode enxergar da config, e nada mais. */
-export type ConfigParaRenderer = { areas: string[]; pastasDev: string[]; escolheu: boolean }
+export type ConfigParaRenderer = {
+  areas: string[]
+  pastasDev: string[]
+  escolheu: boolean
+  /** Quais painéis pedem senha — a tela precisa saber para desenhar a tranca. */
+  paineisTrancados: string[]
+  /** Se existe senha cadastrada. O segredo em si nunca cruza esta fronteira. */
+  temSenha: boolean
+}
 
 /**
  * Recorte de `Config` para atravessar a fronteira IPC até o renderer.
@@ -140,5 +177,14 @@ export type ConfigParaRenderer = { areas: string[]; pastasDev: string[]; escolhe
  * chave em si não sai por canal nenhum.
  */
 export function projetarConfigParaRenderer(c: Config): ConfigParaRenderer {
-  return { areas: c.areas, pastasDev: c.pastasDev, escolheu: c.escolheu }
+  return {
+    areas: c.areas,
+    pastasDev: c.pastasDev,
+    escolheu: c.escolheu,
+    paineisTrancados: c.paineisTrancados,
+    // Booleano, nunca o segredo: o renderer precisa saber SE há senha para
+    // desenhar "criar" ou "trocar", e nada além disso. Conferir a senha é
+    // trabalho do processo principal.
+    temSenha: c.senha !== null
+  }
 }

@@ -34,8 +34,26 @@ export interface NoteRow {
   parseError: string | null
 }
 
-/** Config do vault, como o renderer a enxerga. Espelha `main/config.ts`. */
-export type ConfigVault = { areas: string[]; pastasDev: string[]; escolheu: boolean }
+/**
+ * Config do vault como o renderer a enxerga. Espelha `ConfigParaRenderer`
+ * de `main/config.ts`, e é a definição única deste formato — o renderer
+ * apelida esta, não redeclara outra.
+ *
+ * Repare no que NÃO está aqui: `vaultId`, as credenciais da nuvem e o
+ * segredo da senha. Eles vivem no processo principal e não atravessam a
+ * fronteira. Acrescentar um campo aqui sem acrescentá-lo à lista branca de
+ * `projetarConfigParaRenderer` não faz nada; acrescentar nos dois é uma
+ * decisão de segurança, não um detalhe de tipo.
+ */
+export type ConfigVault = {
+  areas: string[]
+  pastasDev: string[]
+  escolheu: boolean
+  /** Quais painéis pedem a senha para abrir. */
+  paineisTrancados: string[]
+  /** Se existe senha cadastrada. O segredo em si nunca cruza a fronteira. */
+  temSenha: boolean
+}
 
 /** O que os canais privilegiados devolvem sobre o vault aberto. */
 export type EstadoVault = { root: string | null; config: ConfigVault | null }

@@ -6,7 +6,8 @@ import {
 } from '../index/queries'
 import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
 import { resolveLinks } from '../index/resolver'
-import { novoVaultId, projetarConfigParaRenderer } from '../config'
+import { novoVaultId, projetarConfigParaRenderer, IDS_AREAS } from '../config'
+import { criarSegredo, conferirSenha } from '../senha'
 import { ClienteNuvem } from '../nuvem/cliente'
 import { Sincronizador } from '../nuvem/sincronizador'
 
@@ -180,6 +181,58 @@ export async function handle(
         await session.vault.criarPasta(pasta)
       }
       return projetarConfigParaRenderer(c)
+    }
+
+    /*
+     * A senha dos painéis.
+     *
+     * Toda a conferência acontece aqui, no processo principal. O renderer
+     * nunca recebe o segredo — nem para comparar — porque ele é entrada
+     * hostil neste projeto: qualquer coisa que ele possa ler, uma página
+     * comprometida também pode.
+     *
+     * Lembrete honesto para quem mexer nisto depois: enquanto a cifra dos
+     * painéis trancados não existir, esta é uma tranca de TELA. O vault
+     * continua em markdown legível no disco.
+     */
+    case 'senha:definir': {
+      // Trocar a senha exige a senha atual. Sem isso, quem senta na máquina
+      // com um painel aberto redefine a senha e destranca o resto.
+      if (session.config.senha !== null) {
+        if (p.atual === null || !conferirSenha(p.atual, session.config.senha)) {
+          throw new Error('senha atual incorreta')
+        }
+      }
+      // criarSegredo recusa senha curta demais, e a mensagem vai para a tela.
+      const senha = criarSegredo(p.nova)
+      return projetarConfigParaRenderer(await session.salvarConfig({ senha }))
+    }
+
+    case 'senha:conferir':
+      // Sem senha cadastrada não há o que conferir, e responder true aqui
+      // abriria qualquer painel que estivesse na lista por engano.
+      return session.config.senha !== null && conferirSenha(p.senha, session.config.senha)
+
+    case 'senha:remover': {
+      if (session.config.senha === null) return projetarConfigParaRenderer(session.config)
+      if (!conferirSenha(p.atual, session.config.senha)) throw new Error('senha incorreta')
+      // Tirar a senha destranca todos os painéis junto: manter a lista
+      // deixaria painéis trancados sem chave nenhuma.
+      return projetarConfigParaRenderer(
+        await session.salvarConfig({ senha: null, paineisTrancados: [] })
+      )
+    }
+
+    case 'senha:paineis': {
+      // Mudar a lista é destrancar por outro caminho — pede a senha igual.
+      if (session.config.senha === null) throw new Error('crie uma senha antes de trancar painéis')
+      if (!conferirSenha(p.atual, session.config.senha)) throw new Error('senha incorreta')
+      // Filtra por tipo E por area conhecida: o renderer e entrada hostil, e
+      // um id fora de IDS_AREAS trancaria um painel que nao existe.
+      const paineis = [...new Set((p.paineis as unknown[]).filter(
+        (x): x is string => typeof x === 'string' && IDS_AREAS.includes(x)
+      ))]
+      return projetarConfigParaRenderer(await session.salvarConfig({ paineisTrancados: paineis }))
     }
 
     case 'dev:folders':
