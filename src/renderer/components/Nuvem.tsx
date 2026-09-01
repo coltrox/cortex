@@ -72,7 +72,7 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
     <>
       <div className="paleta-fundo" onClick={aoFechar}>
         <div className="form largo" onClick={e => e.stopPropagation()}>
-          <div className="form-topo">Nuvem — captura rápida</div>
+          <div className="form-topo">Celular</div>
 
           <div className="form-corpo">
             {sincronizacaoAutomaticaFalhando && (

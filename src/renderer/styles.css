@@ -849,7 +849,19 @@ kbd {
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0,0,0,.10);
   overflow: hidden;
+
+  /* Coluna com teto de altura, e nao um bloco solto.
+     Sem isto, um formulario mais alto que a janela ficava com metade
+     inalcancavel: overflow hidden cortava o resto e nada rolava. Foi o que
+     aconteceu com Configuracoes numa janela de 720px de altura -- a senha,
+     os paineis trancados e o botao do celular nao existiam na tela.
+     O topo e o rodape ficam fixos; quem rola e o corpo. */
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
 }
+
+.form-topo, .form-rodape { flex: none; }
 
 .form-topo {
   padding: 15px 20px;
@@ -859,7 +871,16 @@ kbd {
   border-bottom: 1px solid var(--border);
 }
 
-.form-corpo { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.form-corpo {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* min-height zero e o que permite um filho flex encolher abaixo do
+     proprio conteudo; sem ele o overflow nao chega a valer de nada. */
+  min-height: 0;
+  overflow-y: auto;
+}
 
 .form-campo { display: flex; flex-direction: column; gap: 5px; }
 

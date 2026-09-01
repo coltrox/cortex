@@ -73,6 +73,19 @@ export function App() {
    * "já destrancados" — seria a tranca deixando de trancar.
    */
   const [destrancado, setDestrancado] = useState<string | null>(null)
+
+  /*
+   * Sair do painel tranca de novo.
+   *
+   * Sem isto, destrancar a Vida uma vez a deixava aberta ate fechar o app:
+   * `destrancado` continuava valendo 'vida' enquanto o usuario passeava por
+   * outras lentes, e voltar nao pedia nada. O efeito limpa assim que a lente
+   * atual deixa de ser a destrancada -- que e o momento exato em que a pessoa
+   * saiu.
+   */
+  useEffect(() => {
+    if (destrancado !== null && v.lente !== destrancado) setDestrancado(null)
+  }, [v.lente, destrancado])
   // Quantas rodadas automáticas seguidas falharam (rejeitaram a promise —
   // credencial ausente/inválida, chave revogada, DNS que não resolve mais).
   // Zera a cada rodada que sequer conclui, mesmo pulada por concorrência: o
