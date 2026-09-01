@@ -44,6 +44,14 @@ export type Config = {
    * a pessoa cola à mão. Vazio é um estado normal, não um erro.
    */
   enderecoApp: string
+  /**
+   * O envelope da chave-mestra da cifra. `null` = nada cifrado ainda.
+   *
+   * Nasce quando o primeiro painel e trancado, e e reembrulhado a cada troca
+   * de senha -- e por isso que trocar a senha nao recifra o vault inteiro.
+   * Ver `cifra.ts`.
+   */
+  cofre: { sal: string; chaveEnvelopada: string } | null
   senha: string | null
   /**
    * Áreas que exigem a senha para abrir.
@@ -81,9 +89,49 @@ export const AREAS = [
 
 export const IDS_AREAS: string[] = AREAS.map(a => a.id)
 
+/**
+ * Pastas que cada área ocupa no vault.
+ *
+ * Serve para duas coisas: criar as pastas quando a área é ligada, e saber o
+ * que cifrar quando o painel é trancado. Mora aqui, e não em `ipc/handlers`,
+ * porque `session.ts` também precisa — e session importando de handlers
+ * fecharia um ciclo.
+ */
+export const PASTAS_POR_AREA: Record<string, string[]> = {
+  vida: ['Vida', 'Vida/Documentos', 'Vida/Contas'],
+  saude: ['Saude', 'Saude/Treinos', 'Saude/Dieta'],
+  dev: ['Dev', 'Dev/Projetos', 'Dev/Seguranca'],
+  conhecimento: ['Estudos', 'Estudos/Conteudos', 'Estudos/Provas', 'Estudos/Redacoes'],
+  financas: ['Grana'],
+  calendario: []
+}
+
+/** Diário e anexos existem sempre: são o lastro de qualquer área. */
+export const PASTAS_SEMPRE = ['Diario', 'Anexos']
+
+export function pastasDasAreas(areas: string[]): string[] {
+  const out = new Set(PASTAS_SEMPRE)
+  for (const a of areas) for (const p of PASTAS_POR_AREA[a] ?? []) out.add(p)
+  return [...out]
+}
+
+/**
+ * As pastas que um conjunto de painéis trancados protege.
+ *
+ * Diferente de `pastasDasAreas`: NÃO inclui Diario nem Anexos. Cifrar o
+ * diário porque a Vida está trancada esconderia junto o registro de treino e
+ * de gasto do mesmo dia — o diário é compartilhado por todas as áreas, e
+ * pertence a nenhuma.
+ */
+export function pastasProtegidas(paineis: string[]): string[] {
+  const out = new Set<string>()
+  for (const a of paineis) for (const p of PASTAS_POR_AREA[a] ?? []) out.add(p)
+  return [...out]
+}
+
 export const CONFIG_PADRAO: Config = {
   areas: [...IDS_AREAS], pastasDev: [], escolheu: false, vaultId: '', nuvem: null,
-  senha: null, paineisTrancados: [], enderecoApp: ''
+  senha: null, paineisTrancados: [], enderecoApp: '', cofre: null
 }
 
 /**
@@ -138,9 +186,17 @@ export function normalizarConfig(bruto: unknown): Config {
     }
   }
 
+  // Sem senha nao ha como abrir o cofre, entao guardar o envelope so
+  // esconderia a chave de todo mundo, para sempre. Ele cai junto.
+  const co = o.cofre as { sal?: unknown; chaveEnvelopada?: unknown } | undefined
+  const cofre = senha && co && typeof co.sal === 'string' && co.sal !== ''
+    && typeof co.chaveEnvelopada === 'string' && co.chaveEnvelopada !== ''
+    ? { sal: co.sal, chaveEnvelopada: co.chaveEnvelopada }
+    : null
+
   return {
     areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem,
-    senha, paineisTrancados, enderecoApp
+    senha, paineisTrancados, enderecoApp, cofre
   }
 }
 

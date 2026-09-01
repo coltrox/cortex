@@ -6,7 +6,12 @@ import {
 } from '../index/queries'
 import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
 import { resolveLinks } from '../index/resolver'
-import { novoVaultId, projetarConfigParaRenderer, IDS_AREAS } from '../config'
+import {
+  novoVaultId, projetarConfigParaRenderer, IDS_AREAS,
+  pastasDasAreas, pastasProtegidas
+} from '../config'
+import { criarCofre, abrirCofre, reenvelopar } from '../cifra'
+import { converterPastas } from '../converter'
 import { criarSegredo, conferirSenha } from '../senha'
 import { ClienteNuvem } from '../nuvem/cliente'
 import { Sincronizador } from '../nuvem/sincronizador'
@@ -30,23 +35,24 @@ function sincronizadorDe(session: Session): Sincronizador {
  */
 const filasPorSessao = new WeakMap<Session, Map<string, Promise<unknown>>>()
 
-/** Pastas que cada área quer ver existindo no vault. */
-const PASTAS_POR_AREA: Record<string, string[]> = {
-  vida: ['Vida', 'Vida/Documentos', 'Vida/Contas'],
-  saude: ['Saude', 'Saude/Treinos', 'Saude/Dieta'],
-  dev: ['Dev', 'Dev/Projetos', 'Dev/Seguranca'],
-  conhecimento: ['Estudos', 'Estudos/Conteudos', 'Estudos/Provas', 'Estudos/Redacoes'],
-  financas: ['Grana'],
-  calendario: []
-}
+// `pastasDasAreas` e `pastasProtegidas` moram em ../config: session.ts
+// tambem precisa delas, e session importando daqui fecharia um ciclo. O
+// reexport mantem quem ja importava daqui funcionando.
+export { pastasDasAreas } from '../config'
 
-/** Diário e anexos existem sempre: são o lastro de qualquer área. */
-const PASTAS_SEMPRE = ['Diario', 'Anexos']
-
-export function pastasDasAreas(areas: string[]): string[] {
-  const out = new Set(PASTAS_SEMPRE)
-  for (const a of areas) for (const p of PASTAS_POR_AREA[a] ?? []) out.add(p)
-  return [...out]
+/**
+ * Abre o cofre com a senha, ou lanca.
+ *
+ * Todo caminho que mexe na cifra passa por aqui: e o unico lugar onde a chave
+ * mestra e materializada, e ela nunca sai desta funcao a nao ser para dentro
+ * do `Cofre` da sessao.
+ */
+function abrirCofreDaSessao(session: Session, senha: string): Buffer {
+  if (!session.config.cofre) throw new Error('nao ha cofre neste vault')
+  const chave = abrirCofre(senha, session.config.cofre)
+  if (!chave) throw new Error('senha incorreta')
+  session.cofre.destrancar(chave)
+  return chave
 }
 
 function serializarPorCaminho<T>(
@@ -196,43 +202,134 @@ export async function handle(
      * continua em markdown legível no disco.
      */
     case 'senha:definir': {
-      // Trocar a senha exige a senha atual. Sem isso, quem senta na máquina
+      // Trocar a senha exige a senha atual. Sem isso, quem senta na maquina
       // com um painel aberto redefine a senha e destranca o resto.
-      if (session.config.senha !== null) {
+      let cofre = session.config.cofre
+      let chave: Buffer
+
+      if (session.config.senha === null) {
+        // Primeira senha do vault: cofre novo, chave nova.
+        const novo = criarCofre(p.nova)
+        cofre = novo.cofre
+        chave = novo.chave
+      } else {
         if (p.atual === null || !conferirSenha(p.atual, session.config.senha)) {
           throw new Error('senha atual incorreta')
         }
+        if (cofre) {
+          const atual = abrirCofre(p.atual, cofre)
+          // A senha confere mas o cofre nao abre: o envelope esta corrompido.
+          // Seguir daqui reembrulharia lixo e deixaria o conteudo cifrado
+          // ilegivel para sempre -- e nao ha recuperacao.
+          if (!atual) {
+            throw new Error(
+              'a senha confere, mas o cofre da cifra nao abriu — o config.json ' +
+              'pode estar corrompido. A senha NAO foi trocada.'
+            )
+          }
+          // Reembrulha a chave-mestra com a senha nova, em vez de recifrar o
+          // vault: e o ponto inteiro do envelope (ver cifra.ts). Uma escrita,
+          // nao milhares.
+          chave = atual
+          cofre = reenvelopar(atual, p.nova)
+        } else {
+          const novo = criarCofre(p.nova)
+          cofre = novo.cofre
+          chave = novo.chave
+        }
       }
-      // criarSegredo recusa senha curta demais, e a mensagem vai para a tela.
+
       const senha = criarSegredo(p.nova)
-      return projetarConfigParaRenderer(await session.salvarConfig({ senha }))
+      session.cofre.destrancar(chave)
+      session.cofre.definirPastas(pastasProtegidas(session.config.paineisTrancados))
+      return projetarConfigParaRenderer(await session.salvarConfig({ senha, cofre }))
     }
 
-    case 'senha:conferir':
-      // Sem senha cadastrada não há o que conferir, e responder true aqui
+    case 'senha:conferir': {
+      // Sem senha cadastrada nao ha o que conferir, e responder true aqui
       // abriria qualquer painel que estivesse na lista por engano.
-      return session.config.senha !== null && conferirSenha(p.senha, session.config.senha)
+      if (session.config.senha === null) return false
+      if (!conferirSenha(p.senha, session.config.senha)) return false
+      // Conferir a senha e o mesmo gesto que abrir o cofre: e assim que o
+      // painel cifrado passa a ser legivel enquanto ele estiver na tela.
+      if (session.config.cofre) {
+        const chave = abrirCofre(p.senha, session.config.cofre)
+        if (chave) session.cofre.destrancar(chave)
+      }
+      session.cofre.definirPastas(pastasProtegidas(session.config.paineisTrancados))
+      return true
+    }
 
     case 'senha:remover': {
       if (session.config.senha === null) return projetarConfigParaRenderer(session.config)
       if (!conferirSenha(p.atual, session.config.senha)) throw new Error('senha incorreta')
-      // Tirar a senha destranca todos os painéis junto: manter a lista
-      // deixaria painéis trancados sem chave nenhuma.
+
+      // Decifra tudo ANTES de jogar a chave fora. Na ordem inversa, o
+      // conteudo ficaria ilegivel para sempre -- e nao ha recuperacao.
+      const antes = pastasProtegidas(session.config.paineisTrancados)
+      if (session.config.cofre && antes.length > 0) {
+        abrirCofreDaSessao(session, p.atual)
+        session.cofre.definirPastas([])
+        const r = await converterPastas(session.vault, session.indexer, session.cofre, antes)
+        if (r.falhas.length > 0) {
+          // Parar aqui, com a chave ainda guardada, e o unico jeito de o
+          // Pedro poder tentar de novo. Apagar o cofre agora deixaria esses
+          // arquivos ilegiveis para sempre.
+          throw new Error(
+            `${r.falhas.length} arquivo(s) nao puderam ser decifrados; a senha NAO foi ` +
+            `removida. Primeiro: ${r.falhas[0].path} (${r.falhas[0].motivo})`
+          )
+        }
+      }
+      session.cofre.trancar()
+      session.cofre.definirPastas([])
+      // Tirar a senha destranca todos os paineis junto: manter a lista
+      // deixaria paineis trancados sem chave nenhuma.
       return projetarConfigParaRenderer(
-        await session.salvarConfig({ senha: null, paineisTrancados: [] })
+        await session.salvarConfig({ senha: null, paineisTrancados: [], cofre: null })
       )
     }
 
     case 'senha:paineis': {
-      // Mudar a lista é destrancar por outro caminho — pede a senha igual.
+      // Mudar a lista e destrancar por outro caminho -- pede a senha igual.
       if (session.config.senha === null) throw new Error('crie uma senha antes de trancar painéis')
       if (!conferirSenha(p.atual, session.config.senha)) throw new Error('senha incorreta')
+
       // Filtra por tipo E por area conhecida: o renderer e entrada hostil, e
       // um id fora de IDS_AREAS trancaria um painel que nao existe.
       const paineis = [...new Set((p.paineis as unknown[]).filter(
         (x): x is string => typeof x === 'string' && IDS_AREAS.includes(x)
       ))]
-      return projetarConfigParaRenderer(await session.salvarConfig({ paineisTrancados: paineis }))
+
+      const antes = pastasProtegidas(session.config.paineisTrancados)
+      const depois = pastasProtegidas(paineis)
+
+      // Um vault que nunca teve painel trancado ainda nao tem cofre.
+      let cofre = session.config.cofre
+      if (!cofre && depois.length > 0) {
+        const novo = criarCofre(p.atual)
+        cofre = novo.cofre
+        session.cofre.destrancar(novo.chave)
+      } else if (cofre) {
+        abrirCofreDaSessao(session, p.atual)
+      }
+
+      // O cofre aponta para o estado FINAL antes de converter: e o que faz a
+      // conversao ser "ler e gravar de volta" nos dois sentidos (converter.ts).
+      session.cofre.definirPastas(depois)
+      const afetadas = [...new Set([...antes, ...depois])]
+      const r = afetadas.length > 0
+        ? await converterPastas(session.vault, session.indexer, session.cofre, afetadas)
+        : { convertidos: 0, intactos: 0, falhas: [] }
+
+      const salvo = await session.salvarConfig({ paineisTrancados: paineis, cofre })
+      if (r.falhas.length > 0) {
+        // A config ja foi salva: o estado em disco e misto, e misto e um
+        // estado valido (paraLer decide por arquivo). Repetir a operacao
+        // termina o servico -- por isso e aviso, nao excecao.
+        console.error('[cortex] falhas ao converter paineis:', r.falhas)
+      }
+      return projetarConfigParaRenderer(salvo)
     }
 
     case 'dev:folders':

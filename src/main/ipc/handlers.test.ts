@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
@@ -564,5 +564,111 @@ describe('senha dos painéis', () => {
     expect(await handle(session, 'senha:conferir', { senha: 'abacaxi' })).toBe(true)
     const c = await handle(session, 'config:get', {}) as any
     expect(c.paineisTrancados).toEqual(['vida'])
+  })
+})
+
+/*
+ * A cifra dos paineis trancados.
+ *
+ * Painel trancado e painel cifrado -- o mesmo interruptor. Estes testes olham
+ * os BYTES no disco, e nao o que o app devolve: e a unica forma de provar que
+ * o conteudo de fato deixou de ser legivel por fora.
+ */
+describe('cifra dos paineis trancados', () => {
+  const NOTA = '---\ntipo: senha\nusuario: pedro\n---\n\nSenha do banco: 1234\n'
+  const noDisco = (rel: string) => readFile(join(root, rel), 'utf8')
+
+  const comSenhaETrancado = async (paineis: string[]) => {
+    await handle(session, 'senha:definir', { atual: null, nova: 'abacaxi' })
+    await handle(session, 'note:write', { path: 'Vida/Contas/Gmail.md', content: NOTA })
+    await handle(session, 'note:write', { path: 'Saude/Treinos/Push.md', content: '# push' })
+    return handle(session, 'senha:paineis', { atual: 'abacaxi', paineis })
+  }
+
+  it('trancar a Vida deixa o arquivo ilegivel no disco', async () => {
+    await comSenhaETrancado(['vida'])
+    const bruto = await noDisco('Vida/Contas/Gmail.md')
+    expect(bruto.startsWith('CORTEX-CIFRADO-1')).toBe(true)
+    expect(bruto).not.toContain('Senha do banco')
+    expect(bruto).not.toContain('pedro')
+  })
+
+  it('o app continua lendo o conteudo enquanto a sessao esta aberta', async () => {
+    await comSenhaETrancado(['vida'])
+    const r = await handle(session, 'note:read', { path: 'Vida/Contas/Gmail.md' }) as { content: string }
+    expect(r.content).toBe(NOTA)
+  })
+
+  it('painel destrancado nao e tocado', async () => {
+    await comSenhaETrancado(['vida'])
+    expect(await noDisco('Saude/Treinos/Push.md')).toBe('# push')
+  })
+
+  it('destrancar o painel devolve o arquivo a texto puro', async () => {
+    await comSenhaETrancado(['vida'])
+    await handle(session, 'senha:paineis', { atual: 'abacaxi', paineis: [] })
+    expect(await noDisco('Vida/Contas/Gmail.md')).toBe(NOTA)
+  })
+
+  it('remover a senha decifra tudo antes de jogar a chave fora', async () => {
+    // Na ordem inversa o conteudo ficaria ilegivel para sempre.
+    await comSenhaETrancado(['vida'])
+    await handle(session, 'senha:remover', { atual: 'abacaxi' })
+    expect(await noDisco('Vida/Contas/Gmail.md')).toBe(NOTA)
+    const c = await handle(session, 'config:get', {}) as any
+    expect(c.temSenha).toBe(false)
+  })
+
+  it('trocar a senha nao recifra o vault, e o conteudo continua abrindo', async () => {
+    await comSenhaETrancado(['vida'])
+    const antes = await noDisco('Vida/Contas/Gmail.md')
+    await handle(session, 'senha:definir', { atual: 'abacaxi', nova: 'melancia' })
+    // Bytes identicos: nenhum arquivo foi reescrito.
+    expect(await noDisco('Vida/Contas/Gmail.md')).toBe(antes)
+    const r = await handle(session, 'note:read', { path: 'Vida/Contas/Gmail.md' }) as { content: string }
+    expect(r.content).toBe(NOTA)
+  })
+
+  it('depois de reabrir o vault, a nota trancada nao abre sem a senha', async () => {
+    await comSenhaETrancado(['vida'])
+    await session.close()
+    session = new Session()
+    await session.open(root)
+
+    await expect(
+      handle(session, 'note:read', { path: 'Vida/Contas/Gmail.md' })
+    ).rejects.toThrow(/trancado/i)
+  })
+
+  it('a senha certa abre o painel na sessao nova', async () => {
+    await comSenhaETrancado(['vida'])
+    await session.close()
+    session = new Session()
+    await session.open(root)
+
+    expect(await handle(session, 'senha:conferir', { senha: 'melancia' })).toBe(false)
+    expect(await handle(session, 'senha:conferir', { senha: 'abacaxi' })).toBe(true)
+    const r = await handle(session, 'note:read', { path: 'Vida/Contas/Gmail.md' }) as { content: string }
+    expect(r.content).toBe(NOTA)
+  })
+
+  it('nao grava texto puro por cima de arquivo cifrado com o cofre fechado', async () => {
+    // O pior defeito possivel neste desenho: uma escrita logo apos abrir o
+    // vault decifraria a nota sem ninguem pedir, e em silencio.
+    await comSenhaETrancado(['vida'])
+    await session.close()
+    session = new Session()
+    await session.open(root)
+
+    await expect(
+      handle(session, 'note:write', { path: 'Vida/Contas/Gmail.md', content: 'invasao' })
+    ).rejects.toThrow(/trancada/i)
+    expect((await noDisco('Vida/Contas/Gmail.md')).startsWith('CORTEX-CIFRADO-1')).toBe(true)
+  })
+
+  it('sem painel trancado, nada e cifrado', async () => {
+    await handle(session, 'senha:definir', { atual: null, nova: 'abacaxi' })
+    await handle(session, 'note:write', { path: 'Vida/Contas/Gmail.md', content: NOTA })
+    expect(await noDisco('Vida/Contas/Gmail.md')).toBe(NOTA)
   })
 })

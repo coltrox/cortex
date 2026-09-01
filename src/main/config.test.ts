@@ -48,14 +48,14 @@ describe('lerConfig', () => {
   })
 
   it('le de volta o que gravou', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '' })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '', cofre: null })
     expect(await lerConfig(arq)).toEqual({
-      areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: expect.any(String), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: ''
+      areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: expect.any(String), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '', cofre: null
     })
   })
 
   it('grava JSON legivel por humano', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: [], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '' })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: [], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '', cofre: null })
     expect(await readFile(arq, 'utf8')).toContain('\n  "areas"')
   })
 
