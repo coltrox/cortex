@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
-  eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao
+  eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
+  eventoProvaEstudada, eventoCompromisso, eventoCompromissoCancelado
 } from './montar'
 
 const DIA = '2026-08-28'
@@ -123,5 +124,48 @@ describe('construtores de evento', () => {
 
   it('corta espaço em volta do texto', () => {
     expect(eventoSuplemento('  Creatina  ', DIA).dados.nome).toBe('Creatina')
+  })
+})
+
+describe('agenda e estudos', () => {
+  const DIA2 = '2026-08-28'
+
+  it('prova estudada manda o caminho, nao o titulo', () => {
+    // Dois compromissos "Dentista" em semanas diferentes tem o mesmo titulo e
+    // caminhos diferentes; casar por titulo marcaria o errado.
+    expect(eventoProvaEstudada('Estudos/Provas/ENEM.md', DIA2)).toEqual({
+      tipo: 'prova_estudada', dia: DIA2, dados: { path: 'Estudos/Provas/ENEM.md' }
+    })
+  })
+
+  it('cancelar compromisso manda o caminho', () => {
+    expect(eventoCompromissoCancelado('Agenda/Dentista.md', DIA2).dados)
+      .toEqual({ path: 'Agenda/Dentista.md' })
+  })
+
+  it('caminho vazio nao vira evento', () => {
+    expect(() => eventoProvaEstudada('   ', DIA2)).toThrow()
+    expect(() => eventoCompromissoCancelado('', DIA2)).toThrow()
+  })
+
+  it('compromisso novo leva a data escolhida, nao a de hoje', () => {
+    expect(eventoCompromisso('Dentista', '2026-09-10', { hora: '14:00' }, DIA2)).toEqual({
+      tipo: 'compromisso', dia: DIA2,
+      dados: { titulo: 'Dentista', data: '2026-09-10', hora: '14:00' }
+    })
+  })
+
+  it('compromisso sem data cai no dia de hoje', () => {
+    expect(eventoCompromisso('Reuniao', '', {}, DIA2).dados).toEqual({
+      titulo: 'Reuniao', data: DIA2
+    })
+  })
+
+  it('recusa data fora do formato', () => {
+    expect(() => eventoCompromisso('X', '10/09/2026', {}, DIA2)).toThrow()
+  })
+
+  it('recusa compromisso sem titulo', () => {
+    expect(() => eventoCompromisso('  ', '2026-09-10', {}, DIA2)).toThrow()
   })
 })

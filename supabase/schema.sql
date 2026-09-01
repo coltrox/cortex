@@ -108,7 +108,11 @@ begin
              coalesce(el->'detalhe', '{}'::jsonb) as detalhe,
              pos
       from jsonb_array_elements(coalesce(p_itens, '[]'::jsonb)) with ordinality as bruto(el, pos)
-      where el->>'especie' in ('treino','suplemento','refeicao')
+      -- Lista branca de especies, e nao "aceita qualquer coisa": o Cortex e
+      -- quem decide o que publica, mas o banco nao tem por que confiar nisso.
+      -- Precisa casar com ESPECIES_CARDAPIO em src/shared/eventos.ts.
+      where el->>'especie' in ('treino','suplemento','refeicao',
+                               'prova','compromisso','tarefa')
         and coalesce(el->>'nome','') <> ''
     ) item
     order by item.especie, item.nome, item.pos desc

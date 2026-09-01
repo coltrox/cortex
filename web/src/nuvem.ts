@@ -1,11 +1,14 @@
-import { validarEvento, type Evento, type ItemCardapio } from '@compartilhado/eventos'
+import {
+  validarEvento, ESPECIES_CARDAPIO, type Evento, type ItemCardapio
+} from '@compartilhado/eventos'
 import { ErroDeDado, ErroDeRede } from './erros'
 
 export type Credencial = { url: string; chave: string }
 
 const TIMEOUT_MS = 15_000
 
-const ESPECIES = ['treino', 'suplemento', 'refeicao'] as const
+/** Do contrato compartilhado — ver o comentário em `cardapio.ts`. */
+const ESPECIES = ESPECIES_CARDAPIO
 
 /**
  * Conversa com as funções RPC do Supabase.

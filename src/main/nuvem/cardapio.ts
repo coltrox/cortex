@@ -2,6 +2,18 @@ import type { ItemCardapio } from '../../shared/eventos'
 import type { NoteComCampos } from '../index/queries'
 import { txt, num, lista, listaDeTexto, comValor } from './util'
 
+/*
+ * Nota para quem acrescentar uma espécie nova aqui.
+ *
+ * A mesma lista existe em quatro lugares, e faltar em qualquer um deles faz a
+ * espécie sumir em silêncio no meio do caminho:
+ *   1. ESPECIES_CARDAPIO em src/shared/eventos.ts   (a definição)
+ *   2. TIPOS_CARDAPIO em ./sincronizador.ts          (o que é lido do índice)
+ *   3. publicar_cardapio em supabase/schema.sql      (a lista branca do banco)
+ *   4. esta função                                   (o que vira item)
+ * O app web já não tem cópia própria: ele importa a de (1).
+ */
+
 /**
  * O que o Cortex publica — e nada além.
  *

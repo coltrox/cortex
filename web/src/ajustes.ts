@@ -26,3 +26,19 @@ export function gravarVaultId(g: Guardado, id: string): void {
   if (!ehIdDeVault(id)) throw new Error('id do vault inválido')
   g.gravar(CHAVE, id.trim().toLowerCase())
 }
+
+/**
+ * O id que veio no fragmento do endereço, quando a câmera abriu o QR.
+ *
+ * Formato: `#id=<uuid>`. Fragmento, e não query, porque fragmento não é
+ * enviado ao servidor — o id não entra em log de acesso nenhum.
+ *
+ * Devolve `null` para qualquer coisa que não seja um id válido; o fragmento
+ * é entrada de fora como outra qualquer, e um link forjado não vai apontar
+ * este celular para o vault de terceiro sem passar pela mesma validação.
+ */
+export function idDoFragmento(hash: string): string | null {
+  const limpo = hash.startsWith('#') ? hash.slice(1) : hash
+  const par = new URLSearchParams(limpo).get('id')
+  return par && ehIdDeVault(par) ? par.trim().toLowerCase() : null
+}
