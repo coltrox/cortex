@@ -1868,3 +1868,29 @@ kbd {
   margin: 0;
 }
 .secao-linha .secao-total { align-self: center; }
+
+/* ---------- Modais centrados, e largos quando pedem largura ---------- */
+
+/* O overlay ancorava em `padding-top: 14vh` com os itens no topo. Um modal de
+   88vh comecava aos 14 e terminava aos 102: cortado embaixo, sem rolagem
+   possivel, porque quem rola e o corpo do formulario e nao a tela. Centrar
+   resolve para qualquer altura. */
+.paleta-fundo {
+  align-items: center;
+  padding: 4vh 16px;
+}
+
+/* A paleta de busca e a excecao: ela e um campo de comando, e campo de
+   comando fica no alto, onde o olho ja esta. */
+.paleta-fundo > .paleta {
+  margin-top: 6vh;
+  margin-bottom: auto;
+}
+
+.form { max-height: 92vh; }
+
+/* `.largo` nao alargava nada: o `width: min(460px, 84vw)` do `.form` vencia o
+   `max-width: 720px`, e Configuracoes ficava numa coluna estreita e altissima.
+   Com a largura de verdade, as areas cabem em duas colunas folgadas e o modal
+   encolhe quase pela metade. */
+.form.largo { width: min(720px, 92vw); max-width: none; }

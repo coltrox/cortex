@@ -79,7 +79,19 @@ export function suplementosDoDia(c: Cardapio, dia: string): ItemCardapio[] {
 }
 
 export function refeicoesDoPlano(c: Cardapio): ItemCardapio[] {
-  return c.itens.filter(i => i.especie === 'refeicao')
+  // Na ordem do dia, nao na ordem em que o banco devolveu: o almoco aparecer
+  // antes do cafe faz a pessoa procurar na lista o que deveria estar na
+  // frente dela. `HH:MM` ordena igual em texto e no relogio.
+  //
+  // Refeicao sem hora vai para o fim, e nao para o comeco: sem hora marcada
+  // ela e o extra, nao a primeira do dia.
+  return c.itens
+    .filter(i => i.especie === 'refeicao')
+    .sort((x, y) => {
+      const a = typeof x.detalhe.hora === 'string' && x.detalhe.hora !== '' ? x.detalhe.hora : '99:99'
+      const b = typeof y.detalhe.hora === 'string' && y.detalhe.hora !== '' ? y.detalhe.hora : '99:99'
+      return a < b ? -1 : a > b ? 1 : x.nome.localeCompare(y.nome)
+    })
 }
 
 export function treinos(c: Cardapio): ItemCardapio[] {

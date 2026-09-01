@@ -32,7 +32,7 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
 
       {!atual && (
         <Aviso>
-          Cole o id do vault. Ele aparece no Cortex, em Configurações, na aba Nuvem.
+          Cole o id do vault, ou leia o QR. Ele está no Cortex, em Configurações → Celular.
         </Aviso>
       )}
       {erro && <Aviso grave aoFechar={() => setErro(null)}>{erro}</Aviso>}

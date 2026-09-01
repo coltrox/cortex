@@ -90,6 +90,21 @@ export const AREAS = [
 export const IDS_AREAS: string[] = AREAS.map(a => a.id)
 
 /**
+ * Onde o app do celular esta publicado.
+ *
+ * Vem preenchido para o QR ja nascer como link -- sem endereco, o QR carrega
+ * o id cru, a camera do celular so mostra o texto, e a pessoa tem de copiar a
+ * mao. Com o link, a camera abre o app ja conectado.
+ *
+ * Deixar o campo em branco volta para este valor, em vez de esvaziar. Nao ha
+ * como distinguir "apaguei de proposito" de "nunca preenchi" num campo de
+ * texto, e entre as duas leituras a que serve e a que mantem o QR util. Quem
+ * hospedar noutro lugar troca o endereco; quem quiser o id cru precisa de uma
+ * linha de codigo, e isso e aceitavel num app de uma pessoa so.
+ */
+export const ENDERECO_APP_PADRAO = 'https://cortex-wapp.vercel.app'
+
+/**
  * Pastas que cada área ocupa no vault.
  *
  * Serve para duas coisas: criar as pastas quando a área é ligada, e saber o
@@ -131,7 +146,7 @@ export function pastasProtegidas(paineis: string[]): string[] {
 
 export const CONFIG_PADRAO: Config = {
   areas: [...IDS_AREAS], pastasDev: [], escolheu: false, vaultId: '', nuvem: null,
-  senha: null, paineisTrancados: [], enderecoApp: '', cofre: null
+  senha: null, paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null
 }
 
 /**
@@ -172,7 +187,8 @@ export function normalizarConfig(bruto: unknown): Config {
 
   // Só https, e só um endereço de verdade. Um `javascript:` ou um `file:`
   // aqui viraria o conteúdo de um QR que alguém aponta a câmera e abre.
-  let enderecoApp = ''
+  // Ausente ou em branco cai no padrao; ver ENDERECO_APP_PADRAO.
+  let enderecoApp = ENDERECO_APP_PADRAO
   if (typeof o.enderecoApp === 'string' && o.enderecoApp !== '') {
     try {
       const u = new URL(o.enderecoApp)
@@ -180,9 +196,14 @@ export function normalizarConfig(bruto: unknown): Config {
         let limpo = o.enderecoApp
         while (limpo.endsWith('/')) limpo = limpo.slice(0, -1)
         enderecoApp = limpo
+      } else {
+        enderecoApp = ENDERECO_APP_PADRAO
       }
     } catch {
-      enderecoApp = ''
+      // Nao e https, ou nem e URL: volta ao padrao em vez de sumir. Um
+      // endereco torto aqui viraria um QR que a camera abre e nao leva a
+      // lugar nenhum.
+      enderecoApp = ENDERECO_APP_PADRAO
     }
   }
 

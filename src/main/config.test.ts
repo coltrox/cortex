@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   lerConfig, gravarConfig, normalizarConfig, novoVaultId, IDS_AREAS, projetarConfigParaRenderer
-} from './config'
+, ENDERECO_APP_PADRAO } from './config'
 
 let dir: string, arq: string
 
@@ -48,14 +48,14 @@ describe('lerConfig', () => {
   })
 
   it('le de volta o que gravou', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '', cofre: null })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null })
     expect(await lerConfig(arq)).toEqual({
-      areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: expect.any(String), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '', cofre: null
+      areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: expect.any(String), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null
     })
   })
 
   it('grava JSON legivel por humano', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: [], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: '', cofre: null })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: [], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null })
     expect(await readFile(arq, 'utf8')).toContain('\n  "areas"')
   })
 
@@ -164,21 +164,27 @@ describe('projetarConfigParaRenderer', () => {
 })
 
 describe('endereco do app do celular', () => {
-  it('vazio por padrao — e um estado normal, nao um erro', () => {
-    expect(normalizarConfig({}).enderecoApp).toBe('')
+  it('ja vem preenchido, para o QR nascer como link', () => {
+    // Sem endereco o QR carrega o id cru: a camera mostra o texto e a pessoa
+    // copia a mao, em vez de o app abrir ja conectado.
+    expect(normalizarConfig({}).enderecoApp).toBe(ENDERECO_APP_PADRAO)
   })
 
-  it('aceita https', () => {
-    expect(normalizarConfig({ enderecoApp: 'https://cortex.vercel.app' }).enderecoApp)
-      .toBe('https://cortex.vercel.app')
+  it('aceita outro https', () => {
+    expect(normalizarConfig({ enderecoApp: 'https://outro.vercel.app' }).enderecoApp)
+      .toBe('https://outro.vercel.app')
   })
 
   it('tira a barra do fim, para o QR nao virar // no meio do link', () => {
-    expect(normalizarConfig({ enderecoApp: 'https://cortex.vercel.app/' }).enderecoApp)
-      .toBe('https://cortex.vercel.app')
+    expect(normalizarConfig({ enderecoApp: 'https://outro.vercel.app/' }).enderecoApp)
+      .toBe('https://outro.vercel.app')
   })
 
-  it('recusa o que nao for https', () => {
+  it('em branco volta ao padrao em vez de esvaziar', () => {
+    expect(normalizarConfig({ enderecoApp: '' }).enderecoApp).toBe(ENDERECO_APP_PADRAO)
+  })
+
+  it('o que nao for https volta ao padrao', () => {
     // O conteudo deste campo vira um QR que alguem aponta a camera e abre.
     for (const ruim of [
       'http://cortex.vercel.app',
@@ -187,19 +193,20 @@ describe('endereco do app do celular', () => {
       'nao e url nenhuma',
       'data:text/html,<script>x</script>'
     ]) {
-      expect(normalizarConfig({ enderecoApp: ruim }).enderecoApp).toBe('')
+      expect(normalizarConfig({ enderecoApp: ruim }).enderecoApp).toBe(ENDERECO_APP_PADRAO)
     }
   })
 
-  it('valor que nao e texto vira vazio', () => {
-    expect(normalizarConfig({ enderecoApp: 42 }).enderecoApp).toBe('')
-    expect(normalizarConfig({ enderecoApp: ['https://x.com'] }).enderecoApp).toBe('')
+  it('valor que nao e texto volta ao padrao', () => {
+    expect(normalizarConfig({ enderecoApp: 42 }).enderecoApp).toBe(ENDERECO_APP_PADRAO)
+    expect(normalizarConfig({ enderecoApp: ['https://x.com'] }).enderecoApp)
+      .toBe(ENDERECO_APP_PADRAO)
   })
 
   it('o endereco nao entra na projecao para o renderer', () => {
     // Ele sai por `nuvem:estado`, que ja e um recorte proprio -- a projecao
     // continua sendo a lista branca minima.
-    const c = normalizarConfig({ enderecoApp: 'https://cortex.vercel.app' })
+    const c = normalizarConfig({ enderecoApp: 'https://outro.vercel.app' })
     expect(Object.keys(projetarConfigParaRenderer(c))).not.toContain('enderecoApp')
   })
 })

@@ -25,7 +25,7 @@ export function Treino(p: {
         <Cabecalho titulo="Treino" aoVoltar={() => p.irPara('hoje')} />
         {modelos.length === 0 && (
           <Aviso>
-            Nenhum treino no cardápio. Publique o cardápio no Cortex, na aba Nuvem.
+            Nenhum treino no cardápio. Cadastre um treino no Cortex — ele aparece aqui sozinho.
           </Aviso>
         )}
         <div className="secao">

@@ -27,9 +27,7 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
   sincronizacaoAutomaticaFalhando?: boolean
 }) {
   const [estado, setEstado] = useState<Estado | null>(null)
-  const [url, setUrl] = useState('')
   const [endereco, setEndereco] = useState('')
-  const [chave, setChave] = useState('')
   const [aviso, setAviso] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
   // Trocar o id é irreversível — revoga TODOS os celulares já colados com o
@@ -41,7 +39,6 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
   const carregar = async (): Promise<void> => {
     const e = await window.vaultApi.invoke('nuvem:estado', {}) as Estado
     setEstado(e)
-    setUrl(e.url ?? '')
     setEndereco(e.enderecoApp)
   }
   useEffect(() => { void carregar() }, [])
@@ -77,8 +74,9 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
           <div className="form-corpo">
             {sincronizacaoAutomaticaFalhando && (
               <div className="aviso">
-                A sincronização automática está falhando repetidamente — confira a URL e a
-                chave abaixo, ou clique em "Sincronizar agora" para ver a mensagem completa.
+                A sincronização com o celular está falhando há alguns minutos. Costuma ser
+                internet fora do ar; se persistir, pode ser o banco. Ela tenta sozinha de
+                novo a cada dois minutos — não há nada a apertar aqui.
               </div>
             )}
 
@@ -116,7 +114,7 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
                 <label className="form-campo">
                   <span className="form-rotulo">Endereço do app do celular</span>
                   <span className="form-senha">
-                    <input value={endereco} placeholder="https://cortex.vercel.app"
+                    <input value={endereco} placeholder="https://cortex-wapp.vercel.app"
                       onChange={e => setEndereco(e.target.value)} />
                     <button className="btn-fantasma" disabled={ocupado}
                       onClick={() => void fazer(async () => {
@@ -134,19 +132,6 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
               </div>
             </div>
 
-            <div className="form-linha">
-              <label className="form-campo">
-                <span className="form-rotulo">URL do projeto Supabase</span>
-                <input value={url} placeholder="https://xxx.supabase.co"
-                  onChange={e => setUrl(e.target.value)} />
-              </label>
-              <label className="form-campo">
-                <span className="form-rotulo">Chave anon</span>
-                <input value={chave} placeholder={estado.configurada ? '(guardada)' : ''}
-                  onChange={e => setChave(e.target.value)} />
-              </label>
-            </div>
-
             {aviso && <div className="aviso">{aviso}</div>}
           </div>
 
@@ -155,34 +140,7 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
               Gerar ID novo
             </button>
 
-            <button className="btn-fantasma" disabled={ocupado} onClick={() => void fazer(async () => {
-              const r = await window.vaultApi.invoke('nuvem:publicar', {}) as { itens: number }
-              return `${r.itens} itens do cardápio publicados.`
-            })}>Publicar cardápio</button>
-
-            <button className="btn-fantasma" disabled={ocupado} onClick={() => void fazer(async () => {
-              const r = await window.vaultApi.invoke('nuvem:sincronizar', {}) as
-                { aplicados: number; ignorados: number; falhas: number; pulado: boolean }
-              // `pulado: true` quer dizer que esta rodada nem chegou a rodar —
-              // já havia outra em andamento (o timer de 2 minutos, por exemplo)
-              // para o mesmo vault, e esta desistiu. Sem distinguir os dois
-              // casos, "0 registros novos" pareceria "está tudo em dia" quando
-              // na verdade o clique não fez nada e a rodada real ainda está em
-              // curso.
-              if (r.pulado) {
-                return 'Já havia uma sincronização em andamento — aguarde e tente de novo.'
-              }
-              const falha = r.falhas > 0 ? `, ${r.falhas} falharam` : ''
-              return `${r.aplicados} registros novos, ${r.ignorados} já aplicados antes${falha}.`
-            })}>Sincronizar agora</button>
-
-            <button className="btn" disabled={ocupado || !url || (!chave && !estado.configurada)}
-              onClick={() => void fazer(async () => {
-                await window.vaultApi.invoke('nuvem:credenciais', { url, chave })
-                setChave('')
-                return 'Credenciais salvas.'
-              })}>Salvar</button>
-          </div>
+</div>
         </div>
       </div>
 

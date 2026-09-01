@@ -67,15 +67,15 @@ function createWindow(): void {
   /*
    * Fora a barra de menu do Electron (File, Edit, View, Window).
    *
-   * Ela vem de graça e não pertence a este app: o Cortex não abre arquivo
-   * por menu, não tem Recortar/Colar de aplicação, e "View > Toggle
-   * Developer Tools" num app pessoal empacotado é só ruído na tela.
+   * Ela vem de graça e não pertence a este app: o Cortex não abre arquivo por
+   * menu e não tem Recortar/Colar de aplicação.
    *
-   * Só no app empacotado. Em desenvolvimento a barra fica, porque é dela que
-   * vêm o Ctrl+R para recarregar e o atalho do devtools — tirá-la ali
-   * custaria uma hora por dia de `npm run dev` fechado e aberto de novo.
+   * Sai SEMPRE, inclusive em desenvolvimento — antes ela ficava ali só para
+   * dar Ctrl+R e devtools, o que fazia a tela de quem programa ser diferente
+   * da tela de quem usa. Os dois atalhos são registrados à mão logo abaixo,
+   * então nada se perde.
    */
-  if (app.isPackaged) Menu.setApplicationMenu(null)
+  Menu.setApplicationMenu(null)
 
   win = new BrowserWindow({
     width: 1280,
@@ -91,6 +91,28 @@ function createWindow(): void {
       sandbox: true
     }
   })
+
+  /*
+   * Os dois atalhos que a barra de menu dava, agora sem a barra.
+   *
+   * Só fora do app empacotado: recarregar a janela no meio do uso normal
+   * descartaria o que estivesse sendo escrito, e devtools num app pessoal é
+   * porta aberta para colar código que alguém mandou pelo WhatsApp.
+   */
+  if (!app.isPackaged) {
+    win.webContents.on('before-input-event', (evento, entrada) => {
+      if (entrada.type !== 'keyDown') return
+      const ctrl = entrada.control || entrada.meta
+      if (ctrl && entrada.key.toLowerCase() === 'r') {
+        evento.preventDefault()
+        win?.webContents.reload()
+      }
+      if (entrada.key === 'F12' || (ctrl && entrada.shift && entrada.key.toLowerCase() === 'i')) {
+        evento.preventDefault()
+        win?.webContents.toggleDevTools()
+      }
+    })
+  }
 
   // Nada nesta janela pode navegar para fora nem abrir janela nova: o app é
   // local, e um link clicado dentro de uma nota abre no navegador do sistema.

@@ -173,3 +173,42 @@ describe('agenda no celular', () => {
     expect(faltam('nao e data', HOJE)).toBe('')
   })
 })
+
+describe('ordem das refeicoes', () => {
+  const c = (itens: { nome: string; hora?: string }[]) => ({
+    atualizadoEm: null,
+    itens: itens.map(i => ({
+      especie: 'refeicao' as const,
+      nome: i.nome,
+      detalhe: i.hora ? { hora: i.hora } : {}
+    }))
+  })
+
+  it('segue o relogio, nao a ordem do banco', () => {
+    // O almoco aparecer antes do cafe faz a pessoa procurar na lista o que
+    // deveria estar na frente dela.
+    const r = refeicoesDoPlano(c([
+      { nome: 'Almoco', hora: '12:30' },
+      { nome: 'Cafe', hora: '07:00' },
+      { nome: 'Janta', hora: '20:00' }
+    ]))
+    expect(r.map(x => x.nome)).toEqual(['Cafe', 'Almoco', 'Janta'])
+  })
+
+  it('sem hora vai para o fim', () => {
+    // Sem hora marcada ela e o extra, nao a primeira do dia.
+    const r = refeicoesDoPlano(c([
+      { nome: 'Ceia' },
+      { nome: 'Cafe', hora: '07:00' }
+    ]))
+    expect(r.map(x => x.nome)).toEqual(['Cafe', 'Ceia'])
+  })
+
+  it('mesma hora desempata pelo nome, para a ordem nao dancar', () => {
+    const r = refeicoesDoPlano(c([
+      { nome: 'Lanche B', hora: '15:00' },
+      { nome: 'Lanche A', hora: '15:00' }
+    ]))
+    expect(r.map(x => x.nome)).toEqual(['Lanche A', 'Lanche B'])
+  })
+})
