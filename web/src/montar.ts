@@ -179,8 +179,20 @@ export function eventoPeso(peso: number, dia: string = diaLocal()): Evento {
   return validarEvento({ tipo: 'peso', dia, dados: { peso: numero(peso, 'peso') } })
 }
 
-export function eventoAnotacao(conteudo: string, dia: string = diaLocal()): Evento {
-  return validarEvento({ tipo: 'anotacao', dia, dados: { texto: texto(conteudo, 'texto') } })
+/**
+ * Uma anotação, com ou sem prioridade.
+ *
+ * `prioridade` só viaja quando é verdadeira, como todo booleano deste app:
+ * `prioridade: false` no frontmatter é uma linha que ninguém lê e que ainda
+ * assim aparece em toda nota.
+ */
+export function eventoAnotacao(
+  conteudo: string, dia: string = diaLocal(), prioridade = false
+): Evento {
+  return validarEvento({
+    tipo: 'anotacao', dia,
+    dados: comValor({ texto: texto(conteudo, 'texto'), prioridade: prioridade || undefined })
+  })
 }
 
 /*

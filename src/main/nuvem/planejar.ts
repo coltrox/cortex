@@ -279,7 +279,13 @@ export function planejar(evento: Evento): Operacao[] {
       return [{
         acao: 'nota', tipo: 'anotacao', seExistir: 'criarOutro',
         path: `Vida/${nomeArquivo(titulo)}.md`,
-        frontmatter: { tipo: 'anotacao', date: dia, titulo, texto }
+        // `prioridade` só entra quando é verdadeira — `comValor` tira o
+        // `undefined`. Uma anotação comum não carrega `prioridade: false`
+        // no frontmatter: é uma linha que ninguém lê em toda nota do vault.
+        frontmatter: comValor({
+          tipo: 'anotacao', date: dia, titulo, texto,
+          prioridade: dados.prioridade === true ? true : undefined
+        })
       }]
     }
 

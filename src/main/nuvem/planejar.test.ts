@@ -113,6 +113,23 @@ describe('planejar', () => {
     })
   })
 
+  it('anotacao com prioridade grava a marca; sem ela, o campo nem existe', () => {
+    const [comMarca] = planejar(ev('anotacao', { texto: 'Ligar pro dentista', prioridade: true }))
+    expect(comMarca).toMatchObject({ frontmatter: { prioridade: true } })
+
+    // `comValor` tira o `undefined`: uma anotacao comum nao carrega
+    // `prioridade: false` no frontmatter -- e uma linha que ninguem le.
+    const [semMarca] = planejar(ev('anotacao', { texto: 'Dormi mal' }))
+    expect((semMarca as { frontmatter: Record<string, unknown> }).frontmatter)
+      .not.toHaveProperty('prioridade')
+
+    // Qualquer coisa que nao seja `true` nao marca -- inclusive a string
+    // "true", que e o que um cliente torto mandaria.
+    const [comTexto] = planejar(ev('anotacao', { texto: 'Nada', prioridade: 'true' }))
+    expect((comTexto as { frontmatter: Record<string, unknown> }).frontmatter)
+      .not.toHaveProperty('prioridade')
+  })
+
   it('anotacao nunca mescla — duas anotacoes diferentes nao podem se apagar', () => {
     const [op1] = planejar(ev('anotacao', { texto: 'Lembrar de pagar conta de luz' }))
     const [op2] = planejar(ev('anotacao', { texto: 'Lembrar de pagar conta do cartão' }, '2026-08-28'))

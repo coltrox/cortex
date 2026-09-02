@@ -141,14 +141,41 @@ export function Treino(p: {
   // perdido só por causa disso.
   const temDado = sessao.itens.some(e => e.feitas.some(s => s.reps != null || s.carga != null))
 
+  /**
+   * Sai do treino sem registrar nada.
+   *
+   * Confirma antes porque o que se perde é o que foi digitado até aqui, e não
+   * há desfazer — mas só quando há algo a perder: quem abriu o treino errado e
+   * ainda não anotou nada não precisa de uma pergunta no caminho.
+   */
+  const cancelar = (): void => {
+    if (temDado && !window.confirm('Sair sem registrar? O que você anotou se perde.')) return
+    encerrar()
+  }
+
+  /**
+   * Fecha a sessão e sai — apagando do disco AGORA, não pelo efeito.
+   *
+   * O efeito que grava `sessao` roda em quem continua montado. Aqui a tela
+   * muda no mesmo instante, o `Treino` desmonta, e o efeito do valor novo
+   * (`null`) nunca chega a rodar: a sessão ficava no `localStorage` e voltava
+   * inteira na próxima vez que alguém abrisse o treino. Valia tanto para
+   * cancelar quanto para registrar — um treino já registrado reaparecia como
+   * se estivesse em andamento.
+   */
+  const encerrar = (): void => {
+    gravarSessao(null)
+    setSessao(null)
+    p.irPara('hoje')
+  }
+
   const enviar = (): void => {
     try {
       const lista: ExercicioFeito[] = sessao.itens.map(e => ({ nome: e.nome, feitas: e.feitas }))
       p.envio.registrar(eventoSessao(sessao.modelo, lista, diaLocal()))
       // A sessão sai do disco só depois que o evento entrou na fila — e a
       // fila já sabe esperar a rede voltar.
-      setSessao(null)
-      p.irPara('hoje')
+      encerrar()
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'não deu para registrar')
     }
@@ -268,19 +295,15 @@ export function Treino(p: {
             }}>
             + exercício
           </button>
-          <button className="btn-mini" type="button"
-            onClick={() => {
-              if (window.confirm('Apagar este treino sem registrar?')) {
-                setSessao(null)
-                p.irPara('hoje')
-              }
-            }}>
-            descartar
-          </button>
         </div>
       </div>
 
-      <div className="acao-fixa">
+      <div className="acao-fixa acao-fixa-par">
+        {/* Cancelar mora aqui, ao lado de registrar, porque quem abriu o
+            treino errado quer sair agora — e no fim da lista de exercícios
+            este botão estaria a uma tela inteira de rolagem. As duas saídas
+            da sessão ficam juntas, que é onde a pessoa olha ao terminar. */}
+        <Botao tipo="perigo" aoClicar={cancelar}>Cancelar</Botao>
         <Botao tipo="principal" aoClicar={enviar} desligado={!temDado}>
           Registrar treino
         </Botao>
