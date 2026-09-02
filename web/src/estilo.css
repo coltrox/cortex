@@ -333,7 +333,16 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 .seta{ flex:none; color:var(--txt-3); }
 
 /* item de lista com ação à direita */
-.item-acao{ align-items:center; cursor:default; }
+/* A linha da agenda: conteúdo em cima, botões embaixo.
+   Ao lado eles cabiam enquanto eram dois. A prova passou a ter três —
+   estudei, editar, excluir — e três botões ao lado deixariam ~110px de
+   largura para o título num aparelho de 375px. Embaixo, cada um fica com um
+   alvo de toque inteiro e o título fica com a linha toda. Compromisso segue a
+   mesma forma mesmo cabendo de lado: duas seções vizinhas com layouts
+   diferentes leem-se como defeito, não como decisão. */
+.item-acao{ flex-direction:column; align-items:stretch; cursor:default; }
+.item-acoes{ display:flex; gap:var(--e2); }
+.item-acoes .acao-lado{ flex:1; }
 /* Aqui a linha de detalhe quebra, e não corta.
    `.item-meta` é `nowrap` com reticências no resto do app, e isso serve
    enquanto a linha é curta. Nas linhas da agenda ela é a mais longa que

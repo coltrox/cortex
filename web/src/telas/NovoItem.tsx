@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  diaLocal, eventoCompromisso, eventoCompromissoEditado, eventoProvaNova, eventoTarefaNova
+  diaLocal, eventoCompromisso, eventoItemEditado, eventoProvaNova, eventoTarefaNova
 } from '../montar'
 import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
 import type { useEnvio } from '../envio'
@@ -9,13 +9,21 @@ import type { Tela } from '../App'
 /** O que se pode marcar do celular na agenda. */
 export type TipoNovo = 'compromisso' | 'prova' | 'tarefa'
 
-/** O compromisso que a tela abre preenchido, quando é edição e não criação. */
-export type EdicaoCompromisso = {
+/**
+ * O item que a tela abre preenchido, quando é edição e não criação.
+ *
+ * Vale para os três: compromisso, prova e tarefa. Quais campos aparecem quem
+ * decide é a `FORMA` do tipo, abaixo — uma prova mostra matéria e não mostra
+ * hora, e o objeto carrega todos porque quem preenche é a lista, que não sabe
+ * qual tipo está mandando.
+ */
+export type EdicaoItem = {
   path: string
   titulo: string
   data: string
   hora: string
   local: string
+  materia: string
 }
 
 /**
@@ -27,6 +35,7 @@ export type EdicaoCompromisso = {
  */
 const FORMA: Record<TipoNovo, {
   titulo: string
+  tituloEdicao: string
   rotuloNome: string
   dicaNome: string
   rotuloData: string
@@ -35,15 +44,18 @@ const FORMA: Record<TipoNovo, {
   temMateria: boolean
 }> = {
   compromisso: {
-    titulo: 'Novo compromisso', rotuloNome: 'O quê', dicaNome: 'Dentista',
+    titulo: 'Novo compromisso', tituloEdicao: 'Mudar compromisso',
+    rotuloNome: 'O quê', dicaNome: 'Dentista',
     rotuloData: 'Quando', temHora: true, temLocal: true, temMateria: false
   },
   prova: {
-    titulo: 'Nova prova', rotuloNome: 'Qual prova', dicaNome: 'P1 de física',
+    titulo: 'Nova prova', tituloEdicao: 'Mudar prova',
+    rotuloNome: 'Qual prova', dicaNome: 'P1 de física',
     rotuloData: 'Quando', temHora: false, temLocal: true, temMateria: true
   },
   tarefa: {
-    titulo: 'Nova tarefa', rotuloNome: 'O quê', dicaNome: 'Trabalho de história',
+    titulo: 'Nova tarefa', tituloEdicao: 'Mudar tarefa',
+    rotuloNome: 'O quê', dicaNome: 'Trabalho de história',
     rotuloData: 'Prazo', temHora: false, temLocal: false, temMateria: true
   }
 }
@@ -51,7 +63,7 @@ const FORMA: Record<TipoNovo, {
 export function NovoItem(p: {
   envio: ReturnType<typeof useEnvio>
   tipo: TipoNovo
-  editando?: EdicaoCompromisso | null
+  editando?: EdicaoItem | null
   irPara: (t: Tela) => void
 }) {
   const e = p.editando
@@ -63,14 +75,16 @@ export function NovoItem(p: {
   const [data, setData] = useState(e?.data || diaLocal())
   const [hora, setHora] = useState(e?.hora ?? '')
   const [local, setLocal] = useState(e?.local ?? '')
-  const [materia, setMateria] = useState('')
+  const [materia, setMateria] = useState(e?.materia ?? '')
   const [erro, setErro] = useState<string | null>(null)
 
   const enviar = (): void => {
     try {
       const hoje = diaLocal()
       if (e) {
-        p.envio.registrar(eventoCompromissoEditado(e.path, { titulo, data, hora, local }, hoje))
+        p.envio.registrar(eventoItemEditado(
+          e.path, { titulo, data, hora, local, materia }, hoje
+        ))
       } else if (p.tipo === 'prova') {
         p.envio.registrar(eventoProvaNova(titulo, data, { materia, local }, hoje))
       } else if (p.tipo === 'tarefa') {
@@ -89,7 +103,7 @@ export function NovoItem(p: {
   return (
     <div className="tema-agenda">
       <Cabecalho
-        titulo={e ? 'Mudar compromisso' : f.titulo}
+        titulo={e ? f.tituloEdicao : f.titulo}
         aoVoltar={() => p.irPara('agenda')}
       />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
@@ -105,7 +119,9 @@ export function NovoItem(p: {
           <Campo rotulo={f.rotuloData} tipo="date" valor={data} aoMudar={setData} />
         )}
 
-        {f.temMateria && !e && (
+        {/* Sem `&& !e`: a matéria agora também é editável, e escondê-la na
+            edição fazia trocar a matéria de uma prova exigir o computador. */}
+        {f.temMateria && (
           <Campo rotulo="Matéria" valor={materia} aoMudar={setMateria} dica="física" />
         )}
         {f.temLocal && (

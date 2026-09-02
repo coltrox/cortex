@@ -202,6 +202,31 @@ describe('planejar — agenda e estudos', () => {
     expect(ops[0]).toMatchObject({ campos: { estudado: true } })
   })
 
+  it('editar alcanca prova e tarefa, e nao so compromisso', () => {
+    // A lista e a MESMA de `item_apagado`: sao os quatro tipos que o celular
+    // ja pode criar e apagar. Poder editar um deles nao alcanca nada que
+    // apagar ja nao alcancasse.
+    const ops = planejar({
+      tipo: 'compromisso_editado', dia: '2026-08-28',
+      dados: { path: 'Estudos/Provas/ENEM.md', materia: 'fisica', data: '2026-09-12' }
+    })
+    expect(ops).toEqual([{
+      acao: 'marcar', path: 'Estudos/Provas/ENEM.md',
+      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa'],
+      campos: { date: '2026-09-12', materia: 'fisica' }
+    }])
+  })
+
+  it('editar nao escreve `tipo`, nem que o evento mande', () => {
+    // A lista branca campo a campo, e nao um spread de `dados`: com spread,
+    // um evento reescreveria `tipo` e a prova viraria outra coisa.
+    const ops = planejar({
+      tipo: 'compromisso_editado', dia: '2026-08-28',
+      dados: { path: 'Agenda/Dentista.md', titulo: 'Dentista', tipo: 'senha', usuario: 'x' }
+    })
+    expect(Object.keys((ops[0] as { campos: Record<string, unknown> }).campos)).toEqual(['title'])
+  })
+
   it('apagar um item da agenda apaga a nota', () => {
     // Mudou de "marcar cancelado" para apagar de verdade: foi o que o dono
     // pediu. O que segura um toque errado passa a ser a confirmacao na tela.

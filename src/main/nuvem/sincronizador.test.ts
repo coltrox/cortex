@@ -323,6 +323,26 @@ describe('marcar nota existente', () => {
     expect(await session.vault.read('Estudos/Provas/ENEM.md')).toContain('## O que cai')
   })
 
+  it('editar do celular alcanca a nota da prova', async () => {
+    await session.vault.writeAtomic(
+      'Estudos/Provas/ENEM.md',
+      '---\ntipo: prova\ntitle: ENEM\ndate: 2026-09-10\nmateria: geral\n---\n\n## O que cai\n'
+    )
+    await sinc(new ClienteFalso([
+      ev('e1', 'compromisso_editado', {
+        path: 'Estudos/Provas/ENEM.md', data: '2026-09-12', materia: 'fisica'
+      })
+    ])).sincronizar()
+
+    const fm = await ler('Estudos/Provas/ENEM.md')
+    expect(fm.date).toBe('2026-09-12')
+    expect(fm.materia).toBe('fisica')
+    // O que nao veio no evento fica como estava.
+    expect(fm.title).toBe('ENEM')
+    expect(fm.tipo).toBe('prova')
+    expect(await session.vault.read('Estudos/Provas/ENEM.md')).toContain('## O que cai')
+  })
+
   it('apagar do celular apaga o arquivo do vault', async () => {
     await session.vault.writeAtomic('Agenda/Dentista.md', '---\ntipo: evento\n---\n')
     await sinc(new ClienteFalso([

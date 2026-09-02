@@ -166,6 +166,18 @@ export function planejar(evento: Evento): Operacao[] {
       return [{ acao: 'apagar', path, tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa'] }]
     }
 
+    /*
+     * Edita um item da agenda ou dos estudos.
+     *
+     * O nome do tipo diz "compromisso" por história: ele nasceu quando só
+     * compromisso era editável, e mudá-lo agora obrigaria a rodar o SQL do
+     * Supabase de novo (`tipos_validos()`) para não ganhar nada — o evento faz
+     * exatamente a mesma coisa, só que também em prova, simulado e tarefa.
+     *
+     * A lista de tipos é a MESMA de `item_apagado`, e não uma lista mais
+     * frouxa: são os quatro que o celular já pode criar e apagar. Poder editar
+     * um deles não alcança nada que apagar já não alcançasse.
+     */
     case 'compromisso_editado': {
       const path = txt(dados.path)
       if (!path) return []
@@ -175,10 +187,15 @@ export function planejar(evento: Evento): Operacao[] {
         title: txt(dados.titulo).trim(),
         date: txt(dados.data).trim(),
         hora: txt(dados.hora).trim(),
-        local: txt(dados.local).trim()
+        local: txt(dados.local).trim(),
+        materia: txt(dados.materia).trim()
       })
       if (Object.keys(campos).length === 0) return []
-      return [{ acao: 'marcar', path, tiposPermitidos: ['evento'], campos }]
+      return [{
+        acao: 'marcar', path,
+        tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa'],
+        campos
+      }]
     }
 
     case 'compromisso': {

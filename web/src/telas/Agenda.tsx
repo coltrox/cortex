@@ -6,7 +6,8 @@ import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
-import type { EdicaoCompromisso, TipoNovo } from './NovoItem'
+import type { ItemCardapio } from '@compartilhado/eventos'
+import type { EdicaoItem, TipoNovo } from './NovoItem'
 
 /**
  * O que está chegando.
@@ -20,11 +21,23 @@ export function Agenda(p: {
   envio: ReturnType<typeof useEnvio>
   cardapio: UsoDoCardapio
   irPara: (t: Tela) => void
-  aoEditar: (c: EdicaoCompromisso) => void
+  aoEditar: (tipo: TipoNovo, item: EdicaoItem) => void
   aoMarcar: (t: TipoNovo) => void
 }) {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
+
+  const txt = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+  /** O que a tela de edição precisa para abrir preenchida. */
+  const paraEditar = (i: ItemCardapio): EdicaoItem => ({
+    path: caminhoDe(i),
+    titulo: i.nome,
+    data: dataDe(i),
+    hora: txt(i.detalhe.hora),
+    local: txt(i.detalhe.local),
+    materia: txt(i.detalhe.materia)
+  })
 
   const marcar = (chave: string, montar: () => ReturnType<typeof eventoProvaEstudada>): void => {
     marcarFeito(guardadoDoNavegador, dia, chave)
@@ -90,10 +103,12 @@ export function Agenda(p: {
         {ps.length > 0 && <Secao nome="Provas" />}
         {ps.map(i => {
           const path = caminhoDe(i)
+          const apagada = feitos.includes(`apagar:${path}`)
           const feito = !feitos.includes(`nao-prova:${path}`)
             && (i.detalhe.estudado === true || feitos.includes(`prova:${path}`))
           return (
-            <div className={`item item-acao ${feito ? 'item-feito' : ''}`} key={path || i.nome}>
+            <div className={`item item-acao ${feito || apagada ? 'item-feito' : ''}`}
+              key={path || i.nome}>
               <div className="item-corpo">
                 <div className="item-nome">{i.nome}</div>
                 <div className="item-meta">
@@ -103,16 +118,37 @@ export function Agenda(p: {
                   ]} />
                 </div>
               </div>
-              <button
-                className={`acao-lado ${feito ? 'acao-feita' : ''}`}
-                type="button"
-                // Sem `disabled` quando feito: é o mesmo botão que desmarca.
-                disabled={path === ''}
-                aria-pressed={feito}
-                onClick={() => alternarEstudei(path, feito)}
-              >
-                {feito ? 'estudei ✓' : 'estudei'}
-              </button>
+              <div className="item-acoes">
+                <button
+                  className={`acao-lado ${feito ? 'acao-feita' : ''}`}
+                  type="button"
+                  // Sem `disabled` quando feito: é o mesmo botão que desmarca.
+                  disabled={apagada || path === ''}
+                  aria-pressed={feito}
+                  onClick={() => alternarEstudei(path, feito)}
+                >
+                  {feito ? 'estudei ✓' : 'estudei'}
+                </button>
+                <button
+                  className="acao-lado"
+                  type="button"
+                  disabled={apagada || path === ''}
+                  onClick={() => p.aoEditar('prova', paraEditar(i))}
+                >
+                  editar
+                </button>
+                <button
+                  className="acao-lado acao-destrutiva"
+                  type="button"
+                  disabled={apagada || path === ''}
+                  onClick={() => {
+                    if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
+                    marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+                  }}
+                >
+                  {apagada ? 'excluída' : 'excluir'}
+                </button>
+              </div>
             </div>
           )
         })}
@@ -121,8 +157,6 @@ export function Agenda(p: {
         {cs.map(i => {
           const path = caminhoDe(i)
           const apagado = feitos.includes(`apagar:${path}`)
-          const texto = (k: string): string =>
-            typeof i.detalhe[k] === 'string' ? (i.detalhe[k] as string) : ''
           return (
             <div className={`item item-acao ${apagado ? 'item-feito' : ''}`}
               key={path || i.nome}>
@@ -137,33 +171,29 @@ export function Agenda(p: {
               </div>
               {/* Editar antes de excluir: mudar de horário é o que mais
                   acontece, e cancelar é a saída. */}
-              <button
-                className="acao-lado"
-                type="button"
-                disabled={apagado || path === ''}
-                onClick={() => p.aoEditar({
-                  path,
-                  titulo: i.nome,
-                  data: dataDe(i),
-                  hora: texto('hora'),
-                  local: texto('local')
-                })}
-              >
-                editar
-              </button>
-              <button
-                className="acao-lado acao-destrutiva"
-                type="button"
-                disabled={apagado || path === ''}
-                onClick={() => {
-                  // Confirmar aqui e o que substitui o "marcar cancelado" de
-                  // antes: apagar no vault nao tem desfazer pelo celular.
-                  if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
-                  marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
-                }}
-              >
-                {apagado ? 'excluído' : 'excluir'}
-              </button>
+              <div className="item-acoes">
+                <button
+                  className="acao-lado"
+                  type="button"
+                  disabled={apagado || path === ''}
+                  onClick={() => p.aoEditar('compromisso', paraEditar(i))}
+                >
+                  editar
+                </button>
+                <button
+                  className="acao-lado acao-destrutiva"
+                  type="button"
+                  disabled={apagado || path === ''}
+                  onClick={() => {
+                    // Confirmar aqui e o que substitui o "marcar cancelado" de
+                    // antes: apagar no vault nao tem desfazer pelo celular.
+                    if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
+                    marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+                  }}
+                >
+                  {apagado ? 'excluído' : 'excluir'}
+                </button>
+              </div>
             </div>
           )
         })}

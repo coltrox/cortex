@@ -223,18 +223,26 @@ export function eventoItemApagado(path: string, dia: string = diaLocal()): Event
   })
 }
 
-/** Muda um compromisso que já existe. Só os campos preenchidos são tocados. */
-export function eventoCompromissoEditado(
+/**
+ * Muda um item que já existe — compromisso, prova ou tarefa.
+ *
+ * Só os campos preenchidos são tocados. O tipo no fio continua
+ * `compromisso_editado`: ele nasceu quando só compromisso era editável, e
+ * rebatizá-lo obrigaria a rodar o SQL do Supabase de novo sem mudar nada do
+ * que ele faz.
+ */
+export function eventoItemEditado(
   path: string,
-  campos: { titulo?: string; data?: string; hora?: string; local?: string },
+  campos: { titulo?: string; data?: string; hora?: string; local?: string; materia?: string },
   dia: string = diaLocal()
 ): Evento {
   const dados = comValor({
-    path: texto(path, 'compromisso'),
+    path: texto(path, 'item'),
     titulo: campos.titulo?.trim(),
     data: campos.data?.trim(),
     hora: campos.hora?.trim(),
-    local: campos.local?.trim()
+    local: campos.local?.trim(),
+    materia: campos.materia?.trim()
   })
   // Só `path` significa "nada a mudar" — e um evento que não muda nada é
   // uma escrita à toa no vault.

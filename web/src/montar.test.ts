@@ -3,7 +3,7 @@ import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
   eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
   eventoProvaEstudada, eventoCompromisso, eventoItemApagado, eventoPorquinho,
-  eventoProvaNova, eventoTarefaNova
+  eventoProvaNova, eventoTarefaNova, eventoItemEditado
 } from './montar'
 
 const DIA = '2026-08-28'
@@ -176,6 +176,24 @@ describe('agenda e estudos', () => {
   it('apagar item manda o caminho', () => {
     expect(eventoItemApagado('Agenda/Dentista.md', DIA2).dados)
       .toEqual({ path: 'Agenda/Dentista.md' })
+  })
+
+  it('editar leva so o que foi preenchido', () => {
+    // Campo vazio nao viaja: mandar `local: ''` apagaria o local que estava
+    // na nota, e quem so mudou a data nao pediu isso.
+    expect(eventoItemEditado(
+      'Estudos/Provas/P1.md', { data: '2026-09-12', materia: 'fisica', local: '' }, DIA2
+    )).toEqual({
+      tipo: 'compromisso_editado', dia: DIA2,
+      dados: { path: 'Estudos/Provas/P1.md', data: '2026-09-12', materia: 'fisica' }
+    })
+  })
+
+  it('editar sem mudar nada nao vira evento', () => {
+    // So o caminho significa "nada a mudar", e isso seria uma escrita a toa
+    // no vault -- que ainda por cima republicaria o cardapio inteiro.
+    expect(() => eventoItemEditado('Agenda/Dentista.md', {}, DIA2)).toThrow()
+    expect(() => eventoItemEditado('Agenda/Dentista.md', { titulo: '  ' }, DIA2)).toThrow()
   })
 
   it('caminho vazio nao vira evento', () => {

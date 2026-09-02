@@ -12,7 +12,7 @@ import { Medidas } from './telas/Medidas'
 import { Gasto } from './telas/Gasto'
 import { Anotacao } from './telas/Anotacao'
 import { Agenda } from './telas/Agenda'
-import { NovoItem, type EdicaoCompromisso, type TipoNovo } from './telas/NovoItem'
+import { NovoItem, type EdicaoItem, type TipoNovo } from './telas/NovoItem'
 import { Porquinho } from './telas/Porquinho'
 import { Ajustes } from './telas/Ajustes'
 import { LerQr } from './telas/LerQr'
@@ -93,13 +93,13 @@ export function App() {
   const envio = useEnvio()
   const cardapio = useCardapio()
   /**
-   * O compromisso que a tela de edicao vai abrir preenchido.
+   * O item que a tela de edicao vai abrir preenchido.
    *
    * Mora aqui, e nao dentro de `NovoItem`, porque quem escolhe e a tela
    * de Chegando: passar por cima do App e o unico caminho entre as duas sem
    * inventar um roteador.
    */
-  const [editando, setEditando] = useState<EdicaoCompromisso | null>(null)
+  const [editando, setEditando] = useState<EdicaoItem | null>(null)
   /** Qual chip da agenda foi tocado — compromisso, prova ou tarefa. */
   const [novoTipo, setNovoTipo] = useState<TipoNovo>('compromisso')
 
@@ -121,7 +121,7 @@ export function App() {
           envio={envio}
           cardapio={cardapio}
           irPara={setTela}
-          aoEditar={c => { setEditando(c); setNovoTipo('compromisso'); setTela('novo') }}
+          aoEditar={(t, i) => { setEditando(i); setNovoTipo(t); setTela('novo') }}
           aoMarcar={t => { setEditando(null); setNovoTipo(t); setTela('novo') }}
         />
       )}
