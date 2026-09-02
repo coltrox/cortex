@@ -302,6 +302,47 @@ describe('marcar nota existente', () => {
     expect(await session.vault.read('Estudos/Provas/ENEM.md')).toContain('## O que cai')
   })
 
+  it('desmarcar apaga os campos, e nao grava estudado: false', async () => {
+    await session.vault.writeAtomic(
+      'Estudos/Provas/ENEM.md',
+      '---\ntipo: prova\ndate: 2026-09-10\nestudado: true\nestudado_em: 2026-08-27\n---\n\n## O que cai\n'
+    )
+    await sinc(new ClienteFalso([
+      ev('e1', 'prova_estudada', { path: 'Estudos/Provas/ENEM.md', estudado: false })
+    ])).sincronizar()
+
+    const fm = await ler('Estudos/Provas/ENEM.md')
+    // Ausentes, e nao `false`: a nota volta a ser a de quem nunca estudou. Uma
+    // data de quando NAO se estudou nao quer dizer nada, e `montarCardapio` so
+    // publica `estudado` quando ele e exatamente `true` -- entao deixar
+    // `false` ali dentro seria lixo que ninguem le.
+    expect(fm.estudado).toBeUndefined()
+    expect(fm.estudado_em).toBeUndefined()
+    // O resto da nota continua de pe.
+    expect(fm.date).toBe('2026-09-10')
+    expect(await session.vault.read('Estudos/Provas/ENEM.md')).toContain('## O que cai')
+  })
+
+  it('editar do celular alcanca a nota da prova', async () => {
+    await session.vault.writeAtomic(
+      'Estudos/Provas/ENEM.md',
+      '---\ntipo: prova\ntitle: ENEM\ndate: 2026-09-10\nmateria: geral\n---\n\n## O que cai\n'
+    )
+    await sinc(new ClienteFalso([
+      ev('e1', 'compromisso_editado', {
+        path: 'Estudos/Provas/ENEM.md', data: '2026-09-12', materia: 'fisica'
+      })
+    ])).sincronizar()
+
+    const fm = await ler('Estudos/Provas/ENEM.md')
+    expect(fm.date).toBe('2026-09-12')
+    expect(fm.materia).toBe('fisica')
+    // O que nao veio no evento fica como estava.
+    expect(fm.title).toBe('ENEM')
+    expect(fm.tipo).toBe('prova')
+    expect(await session.vault.read('Estudos/Provas/ENEM.md')).toContain('## O que cai')
+  })
+
   it('apagar do celular apaga o arquivo do vault', async () => {
     await session.vault.writeAtomic('Agenda/Dentista.md', '---\ntipo: evento\n---\n')
     await sinc(new ClienteFalso([

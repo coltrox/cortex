@@ -155,6 +155,33 @@ export function dataDe(i: ItemCardapio): string {
 }
 
 /**
+ * A data em si, curta.
+ *
+ * `faltam()` responde "quando", mas não responde "que dia" — e para marcar
+ * algo na cabeça, ou conferir contra o que está escrito no caderno, é a data
+ * que serve. As duas aparecem juntas: "12 set · em 3 dias".
+ *
+ * O `Date` é montado a partir dos campos separados, nunca de `new Date(iso)`:
+ * a string ISO é lida como UTC, e num fuso negativo isso volta um dia — a
+ * prova de segunda apareceria como domingo.
+ *
+ * Mesmo formato do Cortex (`dataCurta` em `src/renderer/components/base.tsx`).
+ * Duas telas do mesmo sistema escrevendo a mesma data de jeitos diferentes é
+ * o tipo de detalhe que faz a pessoa desconfiar de qual das duas está certa.
+ */
+export function dataCurta(iso: string, hoje: string): string {
+  if (!iso) return ''
+  const [a, m, d] = iso.split('-').map(Number)
+  if (!a || !m || !d) return iso
+  const data = new Date(a, m - 1, d)
+  if (Number.isNaN(data.getTime())) return iso
+  const mes = data.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  // O ano só aparece quando não é o corrente: repetir "2026" em toda linha
+  // gasta espaço de tela sem dizer nada.
+  return a === Number(hoje.slice(0, 4)) ? `${d} ${mes}` : `${d} ${mes} ${a}`
+}
+
+/**
  * Quantos dias faltam, em texto curto para caber no celular.
  *
  * Faz a conta em dias de calendário, não em milissegundos: com milissegundos,

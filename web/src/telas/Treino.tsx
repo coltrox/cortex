@@ -8,7 +8,17 @@ import type { Tela } from '../App'
 
 const CHAVE = 'cortex.treino'
 
-type Exercicio = { nome: string; presc: string; feitas: SerieFeita[] }
+/**
+ * `feito` é o botão de concluir, e não uma dedução do que foi digitado.
+ *
+ * Antes ele era `feitas.some(...)`: digitar as repetições da PRIMEIRA série
+ * já riscava o exercício inteiro e o dava por encerrado, quando na verdade
+ * faltavam três séries. Quem decide que acabou é quem está treinando.
+ *
+ * Opcional porque uma sessão guardada antes desta mudança não tem o campo —
+ * e ausente vale como "não concluído", que é o estado certo para retomar.
+ */
+type Exercicio = { nome: string; presc: string; feitas: SerieFeita[]; feito?: boolean }
 type Sessao = { modelo: string; itens: Exercicio[] }
 
 /**
@@ -125,7 +135,11 @@ export function Treino(p: {
       })
     }))
 
-  const cheias = sessao.itens.filter(e => e.feitas.some(s => s.reps != null || s.carga != null))
+  const concluidos = sessao.itens.filter(e => e.feito === true)
+  // Ter o que registrar é outra pergunta: alguém pode anotar as séries todas e
+  // sair sem apertar concluir em nenhum exercício, e esse treino não pode ser
+  // perdido só por causa disso.
+  const temDado = sessao.itens.some(e => e.feitas.some(s => s.reps != null || s.carga != null))
 
   const enviar = (): void => {
     try {
@@ -140,7 +154,7 @@ export function Treino(p: {
     }
   }
 
-  const porcento = sessao.itens.length ? (cheias.length / sessao.itens.length) * 100 : 0
+  const porcento = sessao.itens.length ? (concluidos.length / sessao.itens.length) * 100 : 0
 
   return (
     <div className="tema-treino">
@@ -149,7 +163,7 @@ export function Treino(p: {
         // Voltar não descarta o treino: ele fica no disco e a tela reabre onde
         // parou. Sair de vez é registrar, ou descartar lá embaixo.
         aoVoltar={() => p.irPara('hoje')}
-        direita={<span className="contador-serie">{cheias.length}/{sessao.itens.length}</span>}
+        direita={<span className="contador-serie">{concluidos.length}/{sessao.itens.length}</span>}
       />
 
       <div className="progresso"><i style={{ width: `${porcento}%` }} /></div>
@@ -159,7 +173,7 @@ export function Treino(p: {
       <div className="bloco">
         <div className="lista">
           {sessao.itens.map((e, i) => {
-            const feito = e.feitas.some(s => s.reps != null || s.carga != null)
+            const feito = e.feito === true
             return (
               <div className={`cartao-exercicio ${feito ? 'exercicio-feito' : ''}`}
                 key={`${e.nome}-${i}`}>
@@ -223,6 +237,18 @@ export function Treino(p: {
                     }))}>
                     + série
                   </button>
+                  {/* Concluir é um interruptor: apertou por engano, aperta de
+                      novo. Nada é enviado aqui — isto é o andamento do treino
+                      na tela, e o que vai para o vault é o que foi digitado
+                      nas séries, no botão de registrar lá embaixo. */}
+                  <button
+                    className={`btn-mini ${feito ? 'btn-mini-ligado' : ''}`}
+                    type="button"
+                    aria-pressed={feito}
+                    onClick={() => mexer(i, x => ({ ...x, feito: !x.feito }))}
+                  >
+                    {feito ? '✓ concluído' : 'concluir'}
+                  </button>
                 </div>
               </div>
             )
@@ -255,7 +281,7 @@ export function Treino(p: {
       </div>
 
       <div className="acao-fixa">
-        <Botao tipo="principal" aoClicar={enviar} desligado={cheias.length === 0}>
+        <Botao tipo="principal" aoClicar={enviar} desligado={!temDado}>
           Registrar treino
         </Botao>
       </div>

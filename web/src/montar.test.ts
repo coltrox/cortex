@@ -3,7 +3,7 @@ import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
   eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
   eventoProvaEstudada, eventoCompromisso, eventoItemApagado, eventoPorquinho,
-  eventoProvaNova, eventoTarefaNova
+  eventoProvaNova, eventoTarefaNova, eventoItemEditado
 } from './montar'
 
 const DIA = '2026-08-28'
@@ -160,13 +160,40 @@ describe('agenda e estudos', () => {
     // Dois compromissos "Dentista" em semanas diferentes tem o mesmo titulo e
     // caminhos diferentes; casar por titulo marcaria o errado.
     expect(eventoProvaEstudada('Estudos/Provas/ENEM.md', DIA2)).toEqual({
-      tipo: 'prova_estudada', dia: DIA2, dados: { path: 'Estudos/Provas/ENEM.md' }
+      tipo: 'prova_estudada', dia: DIA2,
+      dados: { path: 'Estudos/Provas/ENEM.md', estudado: true }
     })
+  })
+
+  it('o mesmo evento desmarca, com estudado false', () => {
+    // Apertar de novo em "estudei" desfaz. Vai no mesmo tipo de evento em vez
+    // de um tipo novo: um tipo novo precisaria entrar tambem em
+    // `tipos_validos()`, no banco, e isso exige rodar o SQL de novo.
+    expect(eventoProvaEstudada('Estudos/Provas/ENEM.md', DIA2, false).dados)
+      .toEqual({ path: 'Estudos/Provas/ENEM.md', estudado: false })
   })
 
   it('apagar item manda o caminho', () => {
     expect(eventoItemApagado('Agenda/Dentista.md', DIA2).dados)
       .toEqual({ path: 'Agenda/Dentista.md' })
+  })
+
+  it('editar leva so o que foi preenchido', () => {
+    // Campo vazio nao viaja: mandar `local: ''` apagaria o local que estava
+    // na nota, e quem so mudou a data nao pediu isso.
+    expect(eventoItemEditado(
+      'Estudos/Provas/P1.md', { data: '2026-09-12', materia: 'fisica', local: '' }, DIA2
+    )).toEqual({
+      tipo: 'compromisso_editado', dia: DIA2,
+      dados: { path: 'Estudos/Provas/P1.md', data: '2026-09-12', materia: 'fisica' }
+    })
+  })
+
+  it('editar sem mudar nada nao vira evento', () => {
+    // So o caminho significa "nada a mudar", e isso seria uma escrita a toa
+    // no vault -- que ainda por cima republicaria o cardapio inteiro.
+    expect(() => eventoItemEditado('Agenda/Dentista.md', {}, DIA2)).toThrow()
+    expect(() => eventoItemEditado('Agenda/Dentista.md', { titulo: '  ' }, DIA2)).toThrow()
   })
 
   it('caminho vazio nao vira evento', () => {

@@ -192,8 +192,21 @@ export function eventoAnotacao(conteudo: string, dia: string = diaLocal()): Even
  * cancelaria o errado.
  */
 
-export function eventoProvaEstudada(path: string, dia: string = diaLocal()): Evento {
-  return validarEvento({ tipo: 'prova_estudada', dia, dados: { path: texto(path, 'prova') } })
+/**
+ * Marca — ou desmarca — uma prova como estudada.
+ *
+ * `estudado: false` desfaz. Ele viaja dentro do mesmo tipo de evento em vez de
+ * um tipo novo, e isso é de propósito: um tipo novo precisaria entrar em
+ * `TIPOS_EVENTO`, em `planejar.ts` e na lista `tipos_validos()` do banco — e
+ * a última exige rodar o SQL de novo no Supabase. Marcar e desmarcar são a
+ * mesma frase com o sinal trocado; não são dois assuntos.
+ */
+export function eventoProvaEstudada(
+  path: string, dia: string = diaLocal(), estudado = true
+): Evento {
+  return validarEvento({
+    tipo: 'prova_estudada', dia, dados: { path: texto(path, 'prova'), estudado }
+  })
 }
 
 /**
@@ -210,18 +223,26 @@ export function eventoItemApagado(path: string, dia: string = diaLocal()): Event
   })
 }
 
-/** Muda um compromisso que já existe. Só os campos preenchidos são tocados. */
-export function eventoCompromissoEditado(
+/**
+ * Muda um item que já existe — compromisso, prova ou tarefa.
+ *
+ * Só os campos preenchidos são tocados. O tipo no fio continua
+ * `compromisso_editado`: ele nasceu quando só compromisso era editável, e
+ * rebatizá-lo obrigaria a rodar o SQL do Supabase de novo sem mudar nada do
+ * que ele faz.
+ */
+export function eventoItemEditado(
   path: string,
-  campos: { titulo?: string; data?: string; hora?: string; local?: string },
+  campos: { titulo?: string; data?: string; hora?: string; local?: string; materia?: string },
   dia: string = diaLocal()
 ): Evento {
   const dados = comValor({
-    path: texto(path, 'compromisso'),
+    path: texto(path, 'item'),
     titulo: campos.titulo?.trim(),
     data: campos.data?.trim(),
     hora: campos.hora?.trim(),
-    local: campos.local?.trim()
+    local: campos.local?.trim(),
+    materia: campos.materia?.trim()
   })
   // Só `path` significa "nada a mudar" — e um evento que não muda nada é
   // uma escrita à toa no vault.

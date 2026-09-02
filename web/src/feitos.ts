@@ -38,3 +38,17 @@ export function marcarFeito(g: Guardado, dia: string, chave: string): void {
   // Só o dia informado sobrevive à gravação — é a poda dos dias antigos.
   g.gravar(CHAVE, JSON.stringify({ [dia]: [...atual, chave] }))
 }
+
+/**
+ * Desfaz uma marcação.
+ *
+ * Existe porque "estudei" virou um interruptor: apertar de novo desmarca. Sem
+ * isto, o evento de desmarcar sairia para o Cortex e a tela continuaria
+ * mostrando o check até o cardápio voltar do banco — e o toque seguinte não
+ * teria efeito nenhum, porque o botão já se daria por marcado.
+ */
+export function desmarcarFeito(g: Guardado, dia: string, chave: string): void {
+  const atual = jaFeitos(g, dia)
+  if (!atual.includes(chave)) return
+  g.gravar(CHAVE, JSON.stringify({ [dia]: atual.filter(x => x !== chave) }))
+}

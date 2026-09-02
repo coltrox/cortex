@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoProvaEstudada, eventoItemApagado } from '../montar'
-import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam } from '../cardapio'
-import { jaFeitos, marcarFeito } from '../feitos'
+import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta } from '../cardapio'
+import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
-import type { EdicaoCompromisso, TipoNovo } from './NovoItem'
+import type { ItemCardapio } from '@compartilhado/eventos'
+import type { EdicaoItem, TipoNovo } from './NovoItem'
 
 /**
  * O que está chegando.
@@ -20,16 +21,82 @@ export function Agenda(p: {
   envio: ReturnType<typeof useEnvio>
   cardapio: UsoDoCardapio
   irPara: (t: Tela) => void
-  aoEditar: (c: EdicaoCompromisso) => void
+  aoEditar: (tipo: TipoNovo, item: EdicaoItem) => void
   aoMarcar: (t: TipoNovo) => void
 }) {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
 
+  const txt = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+  /** O que a tela de edição precisa para abrir preenchida. */
+  const paraEditar = (i: ItemCardapio): EdicaoItem => ({
+    path: caminhoDe(i),
+    titulo: i.nome,
+    data: dataDe(i),
+    hora: txt(i.detalhe.hora),
+    local: txt(i.detalhe.local),
+    materia: txt(i.detalhe.materia)
+  })
+
+  /*
+   * As marcas locais valem só até o Cortex confirmar.
+   *
+   * Elas existem para cobrir o intervalo entre o toque e o cardápio voltar do
+   * banco. Depois disso passam a atrapalhar: marquei "não estudei" no celular
+   * hoje, o Cortex confirmou, e mais tarde marquei a prova como estudada NO
+   * COMPUTADOR — a chave velha faria este celular continuar mostrando "não
+   * estudei" até a virada do dia, contra o que o vault diz.
+   *
+   * Então, assim que o cardápio chega dizendo a mesma coisa que a marca local,
+   * a marca é apagada. O que sobra é sempre "pendente de confirmação", nunca
+   * uma segunda fonte da verdade concorrendo com o vault.
+   */
+  useEffect(() => {
+    const atuais = jaFeitos(guardadoDoNavegador, dia)
+    let mexeu = false
+    for (const i of provas(p.cardapio.cardapio)) {
+      const path = caminhoDe(i)
+      if (!path) continue
+      const confirmado = i.detalhe.estudado === true ? `prova:${path}` : `nao-prova:${path}`
+      if (atuais.includes(confirmado)) {
+        desmarcarFeito(guardadoDoNavegador, dia, confirmado)
+        mexeu = true
+      }
+    }
+    if (mexeu) setFeitos(jaFeitos(guardadoDoNavegador, dia))
+    // `feitos` fora das dependências de propósito: o efeito lê do disco, não
+    // do estado, e listá-lo faria ele rodar de novo por causa da própria
+    // limpeza que acabou de fazer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.cardapio.cardapio, dia])
+
   const marcar = (chave: string, montar: () => ReturnType<typeof eventoProvaEstudada>): void => {
     marcarFeito(guardadoDoNavegador, dia, chave)
     setFeitos(jaFeitos(guardadoDoNavegador, dia))
     p.envio.registrar(montar())
+  }
+
+  /**
+   * "Estudei" é um interruptor: apertar de novo desfaz.
+   *
+   * A chave `nao-prova:…` existe porque quem diz se a prova foi estudada é o
+   * cardápio, e ele só volta a dizer a verdade depois que o Cortex republicar.
+   * Sem essa marca de "desfiz", a tela continuaria com o check nesse intervalo
+   * e o toque seguinte não faria nada — o botão já se daria por marcado.
+   */
+  const alternarEstudei = (path: string, estava: boolean): void => {
+    const chave = `prova:${path}`
+    const anti = `nao-${chave}`
+    if (estava) {
+      marcarFeito(guardadoDoNavegador, dia, anti)
+      desmarcarFeito(guardadoDoNavegador, dia, chave)
+    } else {
+      marcarFeito(guardadoDoNavegador, dia, chave)
+      desmarcarFeito(guardadoDoNavegador, dia, anti)
+    }
+    setFeitos(jaFeitos(guardadoDoNavegador, dia))
+    p.envio.registrar(eventoProvaEstudada(path, dia, !estava))
   }
 
   const ps = provas(p.cardapio.cardapio)
@@ -68,23 +135,52 @@ export function Agenda(p: {
         {ps.length > 0 && <Secao nome="Provas" />}
         {ps.map(i => {
           const path = caminhoDe(i)
-          const feito = i.detalhe.estudado === true || feitos.includes(`prova:${path}`)
+          const apagada = feitos.includes(`apagar:${path}`)
+          const feito = !feitos.includes(`nao-prova:${path}`)
+            && (i.detalhe.estudado === true || feitos.includes(`prova:${path}`))
           return (
-            <div className={`item item-acao ${feito ? 'item-feito' : ''}`} key={path || i.nome}>
+            <div className={`item item-acao ${feito || apagada ? 'item-feito' : ''}`}
+              key={path || i.nome}>
               <div className="item-corpo">
                 <div className="item-nome">{i.nome}</div>
                 <div className="item-meta">
-                  <Detalhe partes={[faltam(dataDe(i), dia), i.detalhe.materia, i.detalhe.local]} />
+                  <Detalhe partes={[
+                    dataCurta(dataDe(i), dia), faltam(dataDe(i), dia),
+                    i.detalhe.materia, i.detalhe.local
+                  ]} />
                 </div>
               </div>
-              <button
-                className={`acao-lado ${feito ? 'acao-feita' : ''}`}
-                type="button"
-                disabled={feito || path === ''}
-                onClick={() => marcar(`prova:${path}`, () => eventoProvaEstudada(path, dia))}
-              >
-                {feito ? 'estudei ✓' : 'estudei'}
-              </button>
+              <div className="item-acoes">
+                <button
+                  className={`acao-lado ${feito ? 'acao-feita' : ''}`}
+                  type="button"
+                  // Sem `disabled` quando feito: é o mesmo botão que desmarca.
+                  disabled={apagada || path === ''}
+                  aria-pressed={feito}
+                  onClick={() => alternarEstudei(path, feito)}
+                >
+                  {feito ? 'estudei ✓' : 'estudei'}
+                </button>
+                <button
+                  className="acao-lado"
+                  type="button"
+                  disabled={apagada || path === ''}
+                  onClick={() => p.aoEditar('prova', paraEditar(i))}
+                >
+                  editar
+                </button>
+                <button
+                  className="acao-lado acao-destrutiva"
+                  type="button"
+                  disabled={apagada || path === ''}
+                  onClick={() => {
+                    if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
+                    marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+                  }}
+                >
+                  {apagada ? 'excluída' : 'excluir'}
+                </button>
+              </div>
             </div>
           )
         })}
@@ -93,46 +189,43 @@ export function Agenda(p: {
         {cs.map(i => {
           const path = caminhoDe(i)
           const apagado = feitos.includes(`apagar:${path}`)
-          const texto = (k: string): string =>
-            typeof i.detalhe[k] === 'string' ? (i.detalhe[k] as string) : ''
           return (
             <div className={`item item-acao ${apagado ? 'item-feito' : ''}`}
               key={path || i.nome}>
               <div className="item-corpo">
                 <div className="item-nome">{i.nome}</div>
                 <div className="item-meta">
-                  <Detalhe partes={[faltam(dataDe(i), dia), i.detalhe.hora, i.detalhe.local]} />
+                  <Detalhe partes={[
+                    dataCurta(dataDe(i), dia), faltam(dataDe(i), dia),
+                    i.detalhe.hora, i.detalhe.local
+                  ]} />
                 </div>
               </div>
               {/* Editar antes de excluir: mudar de horário é o que mais
                   acontece, e cancelar é a saída. */}
-              <button
-                className="acao-lado"
-                type="button"
-                disabled={apagado || path === ''}
-                onClick={() => p.aoEditar({
-                  path,
-                  titulo: i.nome,
-                  data: dataDe(i),
-                  hora: texto('hora'),
-                  local: texto('local')
-                })}
-              >
-                editar
-              </button>
-              <button
-                className="acao-lado acao-destrutiva"
-                type="button"
-                disabled={apagado || path === ''}
-                onClick={() => {
-                  // Confirmar aqui e o que substitui o "marcar cancelado" de
-                  // antes: apagar no vault nao tem desfazer pelo celular.
-                  if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
-                  marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
-                }}
-              >
-                {apagado ? 'excluído' : 'excluir'}
-              </button>
+              <div className="item-acoes">
+                <button
+                  className="acao-lado"
+                  type="button"
+                  disabled={apagado || path === ''}
+                  onClick={() => p.aoEditar('compromisso', paraEditar(i))}
+                >
+                  editar
+                </button>
+                <button
+                  className="acao-lado acao-destrutiva"
+                  type="button"
+                  disabled={apagado || path === ''}
+                  onClick={() => {
+                    // Confirmar aqui e o que substitui o "marcar cancelado" de
+                    // antes: apagar no vault nao tem desfazer pelo celular.
+                    if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
+                    marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+                  }}
+                >
+                  {apagado ? 'excluído' : 'excluir'}
+                </button>
+              </div>
             </div>
           )
         })}
@@ -143,7 +236,9 @@ export function Agenda(p: {
             <div className="item-corpo">
               <div className="item-nome">{i.nome}</div>
               <div className="item-meta">
-                <Detalhe partes={[faltam(dataDe(i), dia), i.detalhe.materia]} />
+                <Detalhe partes={[
+                  dataCurta(dataDe(i), dia), faltam(dataDe(i), dia), i.detalhe.materia
+                ]} />
               </div>
             </div>
           </div>
