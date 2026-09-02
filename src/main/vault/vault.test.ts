@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, rm, mkdir, writeFile, readFile, readdir, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Vault } from './vault'
+import { Vault, comRepeticao } from './vault'
 import { VaultRootMissingError } from './errors'
 
 let root: string
@@ -122,5 +122,87 @@ describe('Vault', () => {
     const s = await vault.stat('a.md')
     expect(s.size).toBe(3)
     expect(s.mtimeMs).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * A repeticao das operacoes de arquivo.
+ *
+ * Existe por um defeito medido: a suite falhava uma vez a cada algumas
+ * centenas de execucoes, sempre numa gravacao atomica em diretorio temporario
+ * sob escrita concorrente. No Windows, `rename` e `unlink` sao recusados na
+ * hora enquanto outro processo mantem o arquivo aberto -- antivirus, previa do
+ * Explorer, o indexador do proprio Cortex lendo no mesmo instante.
+ *
+ * As tentativas e a espera sao injetadas: provar isto prendendo um arquivo de
+ * verdade seria lento e nao daria para reproduzir em outra maquina.
+ */
+describe('comRepeticao', () => {
+  const preso = (codigo: string): NodeJS.ErrnoException =>
+    Object.assign(new Error(`falso ${codigo}`), { code: codigo })
+
+  const semDormir = async (): Promise<void> => {}
+
+  it('devolve na primeira, sem esperar, quando da certo', async () => {
+    const esperas: number[] = []
+    const r = await comRepeticao(async () => 'pronto', [10, 20], async ms => { esperas.push(ms) })
+    expect(r).toBe('pronto')
+    // O caminho comum e o de sempre: nenhuma espera no meio.
+    expect(esperas).toEqual([])
+  })
+
+  it('repete enquanto o arquivo estiver preso, e entrega quando soltar', async () => {
+    // EPERM duas vezes e depois sucesso: exatamente o que um antivirus
+    // varrendo o arquivo recem-escrito produz.
+    let tentativas = 0
+    const r = await comRepeticao(async () => {
+      tentativas++
+      if (tentativas < 3) throw preso('EPERM')
+      return 'renomeado'
+    }, [1, 2, 3], semDormir)
+
+    expect(r).toBe('renomeado')
+    expect(tentativas).toBe(3)
+  })
+
+  it('espera cada vez mais entre as tentativas', async () => {
+    // Sem o intervalo crescendo, cinco tentativas num piscar de olhos batem
+    // todas dentro da mesma varredura e nenhuma delas encontra o arquivo livre.
+    const esperas: number[] = []
+    await expect(comRepeticao(
+      async () => { throw preso('EBUSY') },
+      [10, 20, 40],
+      async ms => { esperas.push(ms) }
+    )).rejects.toThrow('falso EBUSY')
+    expect(esperas).toEqual([10, 20, 40])
+  })
+
+  it('desiste com o erro ORIGINAL, e nao com um resumo', async () => {
+    // A mensagem do sistema diz qual e o problema. Troca-la por "falhou 4
+    // vezes" apagaria a unica informacao util para quem for diagnosticar.
+    await expect(comRepeticao(
+      async () => { throw preso('EACCES') }, [1], semDormir
+    )).rejects.toThrow('falso EACCES')
+  })
+
+  it('nao repete o que repetir nao conserta', async () => {
+    // ENOENT e ENOSPC nao melhoram com tempo: repetir so atrasa o erro certo.
+    for (const codigo of ['ENOENT', 'ENOSPC']) {
+      let tentativas = 0
+      await expect(comRepeticao(async () => {
+        tentativas++
+        throw preso(codigo)
+      }, [1, 2], semDormir)).rejects.toThrow(`falso ${codigo}`)
+      expect(tentativas).toBe(1)
+    }
+  })
+
+  it('erro sem codigo nenhum sobe na hora', async () => {
+    let tentativas = 0
+    await expect(comRepeticao(async () => {
+      tentativas++
+      throw new Error('defeito de programacao')
+    }, [1, 2], semDormir)).rejects.toThrow('defeito de programacao')
+    expect(tentativas).toBe(1)
   })
 })

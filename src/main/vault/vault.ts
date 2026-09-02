@@ -106,8 +106,10 @@ export class Vault {
     const tmp = `${abs}.${process.pid}.${randomUUID()}.tmp`
     await writeFile(tmp, paraDisco, 'utf8')
     try {
-      await rename(tmp, abs)
+      await comRepeticao(() => rename(tmp, abs))
     } catch (err) {
+      // Só aqui o temporário é removido: entre as tentativas ele precisa
+      // continuar existindo, senão a repetição renomearia o que já não há.
       await rm(tmp, { force: true })
       throw err
     }
@@ -119,7 +121,7 @@ export class Vault {
    * virar erro na cara do usuário.
    */
   async remover(rel: string): Promise<void> {
-    await rm(this.toAbsolute(rel), { force: true })
+    await comRepeticao(() => rm(this.toAbsolute(rel), { force: true }))
   }
 
   /**
@@ -141,7 +143,7 @@ export class Vault {
     }
     if (ocupado) throw new Error(`já existe uma nota em ${para}`)
     await mkdir(dirname(destino), { recursive: true })
-    await rename(origem, destino)
+    await comRepeticao(() => rename(origem, destino))
   }
 
   /** Todas as pastas do vault, em POSIX, relativas à raiz. Ordenadas. */
@@ -171,5 +173,60 @@ export class Vault {
 
   async exists(rel: string): Promise<boolean> {
     try { await stat(this.toAbsolute(rel)); return true } catch { return false }
+  }
+}
+
+/**
+ * Os erros que dizem "o arquivo está preso AGORA", e não "não dá".
+ *
+ * No Windows um `rename` ou um `unlink` falha enquanto qualquer outro
+ * processo mantém o arquivo aberto — antivírus varrendo o que acabou de ser
+ * escrito, a pré-visualização do Explorer, um editor com a nota aberta, o
+ * indexador do próprio Cortex lendo no mesmo instante. O sistema não enfileira
+ * o pedido: ele recusa na hora, e quem chamou recebe EPERM, EBUSY ou EACCES.
+ *
+ * ENOENT e ENOSPC ficam de fora de propósito. Repetir "o arquivo não existe"
+ * ou "o disco está cheio" só atrasa o erro certo em algumas centenas de
+ * milissegundos.
+ */
+const PRESO = new Set(['EPERM', 'EBUSY', 'EACCES'])
+
+/** As esperas entre as tentativas, em ms. Somam ~150 ms no pior caso. */
+const ESPERAS = [10, 20, 40, 80]
+
+const dormir = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
+
+/**
+ * Repete uma operação de arquivo enquanto ela falhar por estar presa.
+ *
+ * Existe por um defeito medido: a suíte falhava uma vez a cada algumas
+ * centenas de execuções, sempre numa gravação atômica em diretório
+ * temporário sob escrita concorrente. O mesmo acontece em uso real, e aí
+ * custa mais caro — é o registro de treino que não salva porque o antivírus
+ * escolheu justo aquele arquivo para varrer.
+ *
+ * A janela é curta de propósito: quem segura um `.md` o solta em dezenas de
+ * milissegundos. Esperar mais mascararia um arquivo travado de verdade, que
+ * é uma informação que a pessoa precisa receber.
+ *
+ * `tentar` e `esperar` são injetáveis só para o teste — sem isso, provar a
+ * repetição exigiria prender um arquivo de verdade e dormir 150 ms.
+ */
+export async function comRepeticao<T>(
+  operacao: () => Promise<T>,
+  esperas: number[] = ESPERAS,
+  esperar: (ms: number) => Promise<void> = dormir
+): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await operacao()
+    } catch (err) {
+      const codigo = (err as NodeJS.ErrnoException)?.code
+      // Última tentativa, ou erro que repetir não conserta: sobe como veio.
+      // A mensagem original importa — trocá-la por "falhou 5 vezes" apagaria
+      // qual era o problema.
+      if (i >= esperas.length || !codigo || !PRESO.has(codigo)) throw err
+      await esperar(esperas[i])
+    }
   }
 }
