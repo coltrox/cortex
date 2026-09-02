@@ -16,9 +16,15 @@ import { criarSegredo, conferirSenha } from '../senha'
 import { ClienteNuvem } from '../nuvem/cliente'
 import { credencialDe } from '../nuvem/credencial'
 import { Sincronizador } from '../nuvem/sincronizador'
+import { tocarCampainha, religarCampainha } from '../nuvem/campainha'
 
-/** Monta o sincronizador na hora. Sem credencial, falha com mensagem legível. */
-function sincronizadorDe(session: Session): Sincronizador {
+/**
+ * Monta o sincronizador na hora. Sem credencial, falha com mensagem legível.
+ *
+ * Exportada porque `index.ts` também precisa dela: é ele quem ouve a campainha
+ * do celular e puxa os eventos na hora, sem passar por IPC nenhum.
+ */
+export function sincronizadorDe(session: Session): Sincronizador {
   const cred = credencialDe(session.config)
   // Sem credencial no build nem no config: o app segue funcionando inteiro,
   // só sem celular. A mensagem diz o que fazer a quem compilou o app, porque
@@ -389,14 +395,20 @@ export async function handle(
       // Trocar o id é o que revoga um celular cujo id vazou. Nada é apagado:
       // os eventos antigos simplesmente deixam de ser buscados.
       const c = await session.salvarConfig({ vaultId: novoVaultId() })
+      religarCampainha(c)
       return { vaultId: c.vaultId }
     }
 
     case 'nuvem:sincronizar':
       return sincronizadorDe(session).sincronizar()
 
-    case 'nuvem:publicar':
-      return { itens: await sincronizadorDe(session).publicar() }
+    case 'nuvem:publicar': {
+      const itens = await sincronizadorDe(session).publicar()
+      // Toca só depois de o banco confirmar: avisar antes faria o celular
+      // buscar o cardápio velho e concluir que não mudou nada.
+      tocarCampainha('cardapio')
+      return { itens }
+    }
 
     default: {
       // Guarda de exaustividade: se um canal novo for acrescentado a IPC_SCHEMAS

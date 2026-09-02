@@ -129,8 +129,11 @@ export function App() {
   // Republica o cardápio quando a estrutura muda — criar um treino no Cortex
   // tem que fazer ele aparecer no celular sem ninguém apertar nada.
   //
-  // A espera de 5 segundos existe porque `v.notas` muda a cada gravação do
-  // watcher: digitar o nome de um treino dispararia uma publicação por tecla.
+  // A espera existe porque `v.notas` muda a cada gravação do watcher: digitar
+  // o nome de um treino dispararia uma publicação por tecla. Um segundo e
+  // meio ainda junta a rajada de um salvamento inteiro, e é curto o bastante
+  // para que criar um compromisso aqui e olhar o celular pareça imediato — a
+  // campainha avisa o celular no instante em que a publicação volta do banco.
   // E a assinatura evita republicar quando mudou outra coisa qualquer do
   // vault — um gasto lançado não mexe no cardápio.
   const assinaturaCardapio = v.notas
@@ -142,7 +145,7 @@ export function App() {
     if (!v.root || !assinaturaCardapio) return
     const t = setTimeout(() => {
       void window.vaultApi.invoke('nuvem:publicar', {}).catch(() => {})
-    }, 5000)
+    }, 1500)
     return () => clearTimeout(t)
   }, [v.root, assinaturaCardapio])
 

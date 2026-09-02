@@ -21,8 +21,9 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
   /**
    * A sincronização automática (timer de 2 minutos, em `App.tsx`) está
    * rejeitando de forma repetida — credencial errada, chave revogada, o que
-   * for. Mostra o aviso assim que a aba abre, sem esperar o usuário clicar
-   * em "Sincronizar agora" para descobrir sozinho o que já se sabia.
+   * for. O aviso aparece assim que este painel abre: não há mais botão nenhum
+   * para apertar, então este é o único lugar onde uma falha teimosa pode ser
+   * dita a quem usa.
    */
   sincronizacaoAutomaticaFalhando?: boolean
 }) {
@@ -139,8 +140,7 @@ export function Nuvem({ aoFechar, sincronizacaoAutomaticaFalhando }: {
             <button className="btn-fantasma" disabled={ocupado} onClick={() => setConfirmandoNovoId(true)}>
               Gerar ID novo
             </button>
-
-</div>
+          </div>
         </div>
       </div>
 
