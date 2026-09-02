@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoProvaEstudada, eventoItemApagado } from '../montar'
-import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam } from '../cardapio'
-import { jaFeitos, marcarFeito } from '../feitos'
+import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta } from '../cardapio'
+import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -30,6 +30,28 @@ export function Agenda(p: {
     marcarFeito(guardadoDoNavegador, dia, chave)
     setFeitos(jaFeitos(guardadoDoNavegador, dia))
     p.envio.registrar(montar())
+  }
+
+  /**
+   * "Estudei" é um interruptor: apertar de novo desfaz.
+   *
+   * A chave `nao-prova:…` existe porque quem diz se a prova foi estudada é o
+   * cardápio, e ele só volta a dizer a verdade depois que o Cortex republicar.
+   * Sem essa marca de "desfiz", a tela continuaria com o check nesse intervalo
+   * e o toque seguinte não faria nada — o botão já se daria por marcado.
+   */
+  const alternarEstudei = (path: string, estava: boolean): void => {
+    const chave = `prova:${path}`
+    const anti = `nao-${chave}`
+    if (estava) {
+      marcarFeito(guardadoDoNavegador, dia, anti)
+      desmarcarFeito(guardadoDoNavegador, dia, chave)
+    } else {
+      marcarFeito(guardadoDoNavegador, dia, chave)
+      desmarcarFeito(guardadoDoNavegador, dia, anti)
+    }
+    setFeitos(jaFeitos(guardadoDoNavegador, dia))
+    p.envio.registrar(eventoProvaEstudada(path, dia, !estava))
   }
 
   const ps = provas(p.cardapio.cardapio)
@@ -68,20 +90,26 @@ export function Agenda(p: {
         {ps.length > 0 && <Secao nome="Provas" />}
         {ps.map(i => {
           const path = caminhoDe(i)
-          const feito = i.detalhe.estudado === true || feitos.includes(`prova:${path}`)
+          const feito = !feitos.includes(`nao-prova:${path}`)
+            && (i.detalhe.estudado === true || feitos.includes(`prova:${path}`))
           return (
             <div className={`item item-acao ${feito ? 'item-feito' : ''}`} key={path || i.nome}>
               <div className="item-corpo">
                 <div className="item-nome">{i.nome}</div>
                 <div className="item-meta">
-                  <Detalhe partes={[faltam(dataDe(i), dia), i.detalhe.materia, i.detalhe.local]} />
+                  <Detalhe partes={[
+                    dataCurta(dataDe(i), dia), faltam(dataDe(i), dia),
+                    i.detalhe.materia, i.detalhe.local
+                  ]} />
                 </div>
               </div>
               <button
                 className={`acao-lado ${feito ? 'acao-feita' : ''}`}
                 type="button"
-                disabled={feito || path === ''}
-                onClick={() => marcar(`prova:${path}`, () => eventoProvaEstudada(path, dia))}
+                // Sem `disabled` quando feito: é o mesmo botão que desmarca.
+                disabled={path === ''}
+                aria-pressed={feito}
+                onClick={() => alternarEstudei(path, feito)}
               >
                 {feito ? 'estudei ✓' : 'estudei'}
               </button>
@@ -101,7 +129,10 @@ export function Agenda(p: {
               <div className="item-corpo">
                 <div className="item-nome">{i.nome}</div>
                 <div className="item-meta">
-                  <Detalhe partes={[faltam(dataDe(i), dia), i.detalhe.hora, i.detalhe.local]} />
+                  <Detalhe partes={[
+                    dataCurta(dataDe(i), dia), faltam(dataDe(i), dia),
+                    i.detalhe.hora, i.detalhe.local
+                  ]} />
                 </div>
               </div>
               {/* Editar antes de excluir: mudar de horário é o que mais
@@ -143,7 +174,9 @@ export function Agenda(p: {
             <div className="item-corpo">
               <div className="item-nome">{i.nome}</div>
               <div className="item-meta">
-                <Detalhe partes={[faltam(dataDe(i), dia), i.detalhe.materia]} />
+                <Detalhe partes={[
+                  dataCurta(dataDe(i), dia), faltam(dataDe(i), dia), i.detalhe.materia
+                ]} />
               </div>
             </div>
           </div>

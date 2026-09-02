@@ -3,9 +3,9 @@ import { guardadoDeMemoria } from './guardado'
 import {
   lerCardapio, gravarCardapio, diaDaSemana,
   suplementosDoDia, refeicoesDoPlano, treinos, exerciciosDoTreino,
-  provas, compromissos, tarefas, caminhoDe, dataDe, faltam
+  provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta
 } from './cardapio'
-import { jaFeitos, marcarFeito } from './feitos'
+import { jaFeitos, marcarFeito, desmarcarFeito } from './feitos'
 import type { ItemCardapio } from '@compartilhado/eventos'
 
 const ITENS: ItemCardapio[] = [
@@ -210,5 +210,64 @@ describe('ordem das refeicoes', () => {
       { nome: 'Lanche A', hora: '15:00' }
     ]))
     expect(r.map(x => x.nome)).toEqual(['Lanche A', 'Lanche B'])
+  })
+})
+
+describe('a data em si', () => {
+  const HOJE = '2026-09-02'
+
+  it('mostra dia e mes, sem o ano quando e o ano corrente', () => {
+    expect(dataCurta('2026-09-12', HOJE)).toBe('12 set')
+  })
+
+  it('mostra o ano quando e outro', () => {
+    expect(dataCurta('2027-01-05', HOJE)).toBe('5 jan 2027')
+  })
+
+  it('nao anda um dia para tras em fuso negativo', () => {
+    // A armadilha: `new Date('2026-09-12')` e lido como UTC, e as 21h de
+    // Brasilia isso ainda e dia 11 no relogio local. Por isso o Date e
+    // montado a partir dos campos separados, nunca da string inteira.
+    expect(dataCurta('2026-09-12', HOJE).startsWith('12 ')).toBe(true)
+    expect(dataCurta('2026-01-01', HOJE)).toBe('1 jan')
+  })
+
+  it('data vazia ou torta nao inventa nada', () => {
+    expect(dataCurta('', HOJE)).toBe('')
+    expect(dataCurta('amanha', HOJE)).toBe('amanha')
+  })
+
+  it('anda junto com faltam, sem se contradizer', () => {
+    // As duas aparecem lado a lado na tela: "12 set - em 10 dias".
+    expect(dataCurta('2026-09-03', HOJE)).toBe('3 set')
+    expect(faltam('2026-09-03', HOJE)).toBe('amanhã')
+  })
+})
+
+describe('desmarcar o que foi marcado', () => {
+  const DIA = '2026-09-02'
+
+  it('tira a chave e deixa as outras', () => {
+    const g = guardadoDeMemoria()
+    marcarFeito(g, DIA, 'prova:A.md')
+    marcarFeito(g, DIA, 'prova:B.md')
+    desmarcarFeito(g, DIA, 'prova:A.md')
+    expect(jaFeitos(g, DIA)).toEqual(['prova:B.md'])
+  })
+
+  it('desmarcar o que nao esta marcado nao faz nada', () => {
+    const g = guardadoDeMemoria()
+    marcarFeito(g, DIA, 'prova:A.md')
+    desmarcarFeito(g, DIA, 'prova:Z.md')
+    expect(jaFeitos(g, DIA)).toEqual(['prova:A.md'])
+  })
+
+  it('marcar de novo depois de desmarcar volta a valer', () => {
+    // O ciclo que o botao "estudei" faz: marca, desfaz, marca.
+    const g = guardadoDeMemoria()
+    marcarFeito(g, DIA, 'prova:A.md')
+    desmarcarFeito(g, DIA, 'prova:A.md')
+    marcarFeito(g, DIA, 'prova:A.md')
+    expect(jaFeitos(g, DIA)).toEqual(['prova:A.md'])
   })
 })

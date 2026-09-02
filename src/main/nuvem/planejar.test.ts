@@ -177,6 +177,31 @@ describe('planejar — agenda e estudos', () => {
     }])
   })
 
+  it('estudado false desmarca, apagando os dois campos', () => {
+    // `null` apaga a chave do frontmatter (ver patchFrontmatter). Desmarcar
+    // devolve a nota ao estado de quem nunca estudou, em vez de deixar
+    // `estudado: false` e uma data de quando NAO estudou.
+    expect(planejar({
+      tipo: 'prova_estudada', dia: '2026-08-28',
+      dados: { path: 'Estudos/Provas/ENEM.md', estudado: false }
+    })).toEqual([{
+      acao: 'marcar', path: 'Estudos/Provas/ENEM.md',
+      tiposPermitidos: ['prova', 'simulado'],
+      campos: { estudado: null, estudado_em: null }
+    }])
+  })
+
+  it('sem o campo estudado, marca -- e nao desmarca', () => {
+    // Um evento gravado por uma versao anterior do app do celular nao carrega
+    // `estudado`. Ele esperou na fila sem sinal e chega agora; tratar a
+    // ausencia como "false" desmarcaria uma prova que a pessoa marcou.
+    const ops = planejar({
+      tipo: 'prova_estudada', dia: '2026-08-28',
+      dados: { path: 'Estudos/Provas/ENEM.md' }
+    })
+    expect(ops[0]).toMatchObject({ campos: { estudado: true } })
+  })
+
   it('apagar um item da agenda apaga a nota', () => {
     // Mudou de "marcar cancelado" para apagar de verdade: foi o que o dono
     // pediu. O que segura um toque errado passa a ser a confirmacao na tela.

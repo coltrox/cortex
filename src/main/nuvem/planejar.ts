@@ -139,10 +139,20 @@ export function planejar(evento: Evento): Operacao[] {
     case 'prova_estudada': {
       const path = txt(dados.path)
       if (!path) return []
+      // Ausente quer dizer "marcou": é como o app mandava antes, e um evento
+      // desses parado na fila do celular desde antes não pode virar uma
+      // desmarcação ao ser aplicado.
+      const estudado = dados.estudado !== false
       return [{
         acao: 'marcar', path,
         tiposPermitidos: ['prova', 'simulado'],
-        campos: { estudado: true, estudado_em: dia }
+        // `null` apaga a chave do frontmatter (ver `patchFrontmatter`), e é o
+        // que se quer aqui: desmarcar devolve a nota ao estado de quem nunca
+        // estudou, em vez de deixar `estudado: false` e uma data de quando
+        // não estudou — que não quer dizer nada.
+        campos: estudado
+          ? { estudado: true, estudado_em: dia }
+          : { estudado: null, estudado_em: null }
       }]
     }
 

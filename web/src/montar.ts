@@ -192,8 +192,21 @@ export function eventoAnotacao(conteudo: string, dia: string = diaLocal()): Even
  * cancelaria o errado.
  */
 
-export function eventoProvaEstudada(path: string, dia: string = diaLocal()): Evento {
-  return validarEvento({ tipo: 'prova_estudada', dia, dados: { path: texto(path, 'prova') } })
+/**
+ * Marca — ou desmarca — uma prova como estudada.
+ *
+ * `estudado: false` desfaz. Ele viaja dentro do mesmo tipo de evento em vez de
+ * um tipo novo, e isso é de propósito: um tipo novo precisaria entrar em
+ * `TIPOS_EVENTO`, em `planejar.ts` e na lista `tipos_validos()` do banco — e
+ * a última exige rodar o SQL de novo no Supabase. Marcar e desmarcar são a
+ * mesma frase com o sinal trocado; não são dois assuntos.
+ */
+export function eventoProvaEstudada(
+  path: string, dia: string = diaLocal(), estudado = true
+): Evento {
+  return validarEvento({
+    tipo: 'prova_estudada', dia, dados: { path: texto(path, 'prova'), estudado }
+  })
 }
 
 /**

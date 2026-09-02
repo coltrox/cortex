@@ -334,6 +334,21 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 
 /* item de lista com ação à direita */
 .item-acao{ align-items:center; cursor:default; }
+/* Aqui a linha de detalhe quebra, e não corta.
+   `.item-meta` é `nowrap` com reticências no resto do app, e isso serve
+   enquanto a linha é curta. Nas linhas da agenda ela é a mais longa que
+   existe — data, quanto falta, hora e local — e ainda divide a largura com
+   dois botões: "3 set · amanhã · 14:00 · C…" comia justamente o local, que é
+   o que faz sair de casa na hora certa.
+
+   Flex, e não `white-space: normal`: quebrando por palavra a linha partia no
+   meio de cada pedaço ("3 / set", "em 9 / dias"), que se lê pior do que a
+   reticência. Como flex, cada pedaço que o `Detalhe` monta é um item e desce
+   inteiro para a linha de baixo. */
+.item-acao .item-meta{
+  display:flex; flex-wrap:wrap; align-items:baseline;
+  white-space:normal; overflow:visible;
+}
 .acao-lado{
   flex:none; min-height:var(--toque); padding:0 var(--e3);
   display:inline-flex; align-items:center; justify-content:center;
@@ -531,6 +546,16 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   color:var(--txt-2); font:600 13px/1 var(--fonte); cursor:pointer;
 }
 .btn-mini:active{ border-color:var(--acento); color:var(--acento); }
+
+/* O botão de concluir, ligado. Borda cheia em vez de tracejada: tracejado é a
+   convenção de "acrescentar" que o "+ série" ao lado usa, e concluído não é
+   um convite, é um estado. A cor forte também é o que mantém este botão
+   legível dentro do cartão concluído, que inteiro fica a meia opacidade. */
+.btn-mini-ligado{
+  border-style:solid;
+  border-color:var(--ok);
+  color:var(--ok);
+}
 
 .exercicio-cabeca{ display:flex; align-items:flex-start; gap:var(--e2); }
 .exercicio-cabeca .exercicio-topo{ flex:1; min-width:0; }

@@ -160,8 +160,17 @@ describe('agenda e estudos', () => {
     // Dois compromissos "Dentista" em semanas diferentes tem o mesmo titulo e
     // caminhos diferentes; casar por titulo marcaria o errado.
     expect(eventoProvaEstudada('Estudos/Provas/ENEM.md', DIA2)).toEqual({
-      tipo: 'prova_estudada', dia: DIA2, dados: { path: 'Estudos/Provas/ENEM.md' }
+      tipo: 'prova_estudada', dia: DIA2,
+      dados: { path: 'Estudos/Provas/ENEM.md', estudado: true }
     })
+  })
+
+  it('o mesmo evento desmarca, com estudado false', () => {
+    // Apertar de novo em "estudei" desfaz. Vai no mesmo tipo de evento em vez
+    // de um tipo novo: um tipo novo precisaria entrar tambem em
+    // `tipos_validos()`, no banco, e isso exige rodar o SQL de novo.
+    expect(eventoProvaEstudada('Estudos/Provas/ENEM.md', DIA2, false).dados)
+      .toEqual({ path: 'Estudos/Provas/ENEM.md', estudado: false })
   })
 
   it('apagar item manda o caminho', () => {
