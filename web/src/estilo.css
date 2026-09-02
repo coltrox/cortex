@@ -291,6 +291,12 @@ body{
 /* ─────────────── 6. CAMPOS ─────────────── */
 
 .campo{ display:block; margin-bottom:var(--e3); }
+/* Um campo logo abaixo de um botão precisa de ar.
+   `.campo` só tem margem embaixo, então o rótulo em maiúsculas encostava na
+   borda do botão de cima e os dois viravam um bloco só — era o "encavalado"
+   da tela de conectar, onde "Ler QR com a câmera" e "ou cole o id à mão" são
+   duas alternativas, e alternativas coladas parecem uma coisa só. */
+.btn + .campo{ margin-top:var(--e5); }
 .campo-rotulo{ display:block; font:600 12px/1 var(--fonte); letter-spacing:.06em;
   text-transform:uppercase; color:var(--txt-3); margin:0 0 var(--e2); padding-left:2px; }
 /* 16px é o piso: abaixo disso o Safari dá zoom ao focar o input */
