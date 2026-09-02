@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { AREAS, SeletorAreas } from './Abertura'
+import { SeletorAreas } from './Abertura'
+import { ProtecaoSenha } from './ProtecaoSenha'
 import type { Config } from '../useVault'
 
 /**
@@ -49,7 +50,7 @@ export function Configuracoes({
             </button>
           </section>
 
-          <BlocoSenha config={config} aoTrocarConfig={aoTrocarConfig} />
+          <ProtecaoSenha config={config} aoTrocarConfig={aoTrocarConfig} />
 
           <section className="config-bloco">
             <h3>Celular</h3>
@@ -69,140 +70,5 @@ export function Configuracoes({
         </div>
       </div>
     </div>
-  )
-}
-
-/**
- * A senha dos painéis.
- *
- * Duas operações que parecem uma: criar/trocar a senha, e escolher quais
- * painéis ela tranca. As duas pedem a senha atual quando já existe uma —
- * senão quem senta na máquina com um painel aberto destranca o resto.
- */
-function BlocoSenha({ config, aoTrocarConfig }: {
-  config: Config
-  aoTrocarConfig: (c: Config) => void
-}) {
-  const [atual, setAtual] = useState('')
-  const [nova, setNova] = useState('')
-  const [repetida, setRepetida] = useState('')
-  const [trancados, setTrancados] = useState<string[]>(config.paineisTrancados)
-  const [erro, setErro] = useState<string | null>(null)
-  const [recado, setRecado] = useState<string | null>(null)
-
-  const limpar = (): void => { setAtual(''); setNova(''); setRepetida('') }
-
-  const definir = async (): Promise<void> => {
-    setErro(null); setRecado(null)
-    if (nova !== repetida) { setErro('as duas senhas não são iguais'); return }
-    try {
-      const c = await window.vaultApi.invoke('senha:definir', {
-        atual: config.temSenha ? atual : null, nova
-      }) as Config
-      aoTrocarConfig(c); limpar()
-      setRecado(config.temSenha ? 'Senha trocada.' : 'Senha criada.')
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'não deu para salvar a senha')
-    }
-  }
-
-  const salvarPaineis = async (): Promise<void> => {
-    setErro(null); setRecado(null)
-    try {
-      const c = await window.vaultApi.invoke('senha:paineis', {
-        atual, paineis: trancados
-      }) as Config
-      aoTrocarConfig(c); limpar()
-      setRecado('Painéis trancados atualizados.')
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'não deu para salvar')
-    }
-  }
-
-  const remover = async (): Promise<void> => {
-    setErro(null); setRecado(null)
-    try {
-      const c = await window.vaultApi.invoke('senha:remover', { atual }) as Config
-      aoTrocarConfig(c); setTrancados([]); limpar()
-      setRecado('Senha removida. Nenhum painel está trancado.')
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'não deu para remover')
-    }
-  }
-
-  return (
-    <section className="config-bloco">
-      <h3>Senha para acessar painéis</h3>
-      <p className="form-dica">
-        Trancar um painel faz o Cortex pedir a senha toda vez que você entra
-        nele — inclusive ao voltar depois de sair. E as notas daquelas pastas
-        ficam <strong>cifradas no disco</strong>: o Explorer, o Obsidian e o
-        bloco de notas param de conseguir lê-las.
-      </p>
-      <p className="form-dica config-atencao">
-        Não existe recuperação. Se você esquecer esta senha, o conteúdo dos
-        painéis trancados se perde — é o que criptografia significa. O Cortex
-        passa a ser o único jeito de abrir essas pastas, inclusive num backup
-        zipado.
-      </p>
-
-      {config.temSenha && (
-        <label className="campo-linha">
-          <span>Senha atual</span>
-          <input type="password" value={atual} onChange={e => setAtual(e.target.value)}
-            autoComplete="current-password" />
-        </label>
-      )}
-
-      <label className="campo-linha">
-        <span>{config.temSenha ? 'Nova senha' : 'Criar senha'}</span>
-        <input type="password" value={nova} onChange={e => setNova(e.target.value)}
-          autoComplete="new-password" />
-      </label>
-      <label className="campo-linha">
-        <span>Repetir</span>
-        <input type="password" value={repetida} onChange={e => setRepetida(e.target.value)}
-          autoComplete="new-password" />
-      </label>
-
-      <div className="config-botoes">
-        <button className="btn" onClick={() => void definir()} disabled={nova === ''}>
-          {config.temSenha ? 'Trocar senha' : 'Criar senha'}
-        </button>
-        {config.temSenha && (
-          <button className="btn-fantasma" onClick={() => void remover()} disabled={atual === ''}>
-            Remover senha
-          </button>
-        )}
-      </div>
-
-      {config.temSenha && (
-        <>
-          <p className="form-dica">Quais painéis pedem a senha:</p>
-          <div className="config-paineis">
-            {AREAS.map(a => (
-              <label key={a.id} className="config-painel">
-                <input
-                  type="checkbox"
-                  checked={trancados.includes(a.id)}
-                  onChange={() => setTrancados(t =>
-                    t.includes(a.id) ? t.filter(x => x !== a.id) : [...t, a.id])}
-                />
-                <span>{a.nome}</span>
-              </label>
-            ))}
-          </div>
-          <button className="btn" onClick={() => void salvarPaineis()} disabled={atual === ''}>
-            Salvar painéis trancados
-          </button>
-          {atual === '' && (
-            <p className="form-dica">Digite a senha atual acima para poder salvar.</p>
-          )}
-        </>
-      )}
-
-      {erro && <p className="config-erro">{erro}</p>}
-      {recado && <p className="config-recado">{recado}</p>}
-    </section>
   )
 }

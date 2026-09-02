@@ -186,7 +186,7 @@ export function App() {
     // devtools para ler tudo.
     if (v.config.paineisTrancados.includes(v.lente) && destrancado !== v.lente) {
       const nome = LENTES.find(l => l.id === v.lente)?.nome ?? 'Este painel'
-      return <Tranca nome={nome} aoDestrancar={() => setDestrancado(v.lente)} />
+      return <Tranca nome={nome} dica={v.config.dicaSenha} aoDestrancar={() => setDestrancado(v.lente)} />
     }
 
     const comuns = { notas: v.notas, sub: v.sub, hoje, ...acoes }

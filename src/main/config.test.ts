@@ -48,14 +48,14 @@ describe('lerConfig', () => {
   })
 
   it('le de volta o que gravou', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, dicaSenha: '', paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null })
     expect(await lerConfig(arq)).toEqual({
-      areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: expect.any(String), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null
+      areas: ['dev'], pastasDev: ['/x'], escolheu: true, vaultId: expect.any(String), nuvem: null, senha: null, dicaSenha: '', paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null
     })
   })
 
   it('grava JSON legivel por humano', async () => {
-    await gravarConfig(arq, { areas: ['dev'], pastasDev: [], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null })
+    await gravarConfig(arq, { areas: ['dev'], pastasDev: [], escolheu: true, vaultId: novoVaultId(), nuvem: null, senha: null, dicaSenha: '', paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null })
     expect(await readFile(arq, 'utf8')).toContain('\n  "areas"')
   })
 
@@ -120,6 +120,7 @@ describe('projetarConfigParaRenderer', () => {
     vaultId: novoVaultId(),
     nuvem: { url: 'https://x.supabase.co', chave: chaveFicticia },
     senha: segredoFicticio,
+    dicaSenha: 'rua da minha avo',
     paineisTrancados: ['vida', 'financas']
   })
 
@@ -132,11 +133,16 @@ describe('projetarConfigParaRenderer', () => {
       pastasDev: ['/projetos/x'],
       escolheu: true,
       paineisTrancados: ['vida', 'financas'],
-      temSenha: true
+      temSenha: true,
+      // A dica atravessa de proposito: ela nasceu para ser lida na tela do
+      // cadeado, e e o unico socorro que existe -- nao ha recuperacao. O que
+      // nao atravessa e o hash em `senha`, conferido logo abaixo.
+      dicaSenha: 'rua da minha avo'
     })
     expect(Object.keys(p)).not.toContain('vaultId')
     expect(Object.keys(p)).not.toContain('nuvem')
     expect(Object.keys(p)).not.toContain('senha')
+    expect(p.dicaSenha).not.toContain('scrypt')
   })
 
   it('a projecao confirma que existe senha sem entregar o segredo', () => {

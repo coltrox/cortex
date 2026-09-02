@@ -53,6 +53,14 @@ export type ConfigVault = {
   paineisTrancados: string[]
   /** Se existe senha cadastrada. O segredo em si nunca cruza a fronteira. */
   temSenha: boolean
+  /**
+   * A frase de lembrete da senha.
+   *
+   * Esta atravessa, ao contrário do hash: ela nasceu para ser lida por quem
+   * está diante do cadeado, e é o único socorro que existe — não há
+   * recuperação. Vazia quando não há senha.
+   */
+  dicaSenha: string
 }
 
 /** O que os canais privilegiados devolvem sobre o vault aberto. */

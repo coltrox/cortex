@@ -22,8 +22,41 @@ import { randomUUID } from 'node:crypto'
 /** Quantas linhas de saída ficam guardadas por processo. */
 const TETO_LINHAS = 400
 
-/** Detecta o endereço que um servidor de desenvolvimento imprime ao subir. */
-const RE_URL = /https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?[^\s"']*/i
+/**
+ * Tira os códigos de cor da saída.
+ *
+ * O painel mostra texto — não é um emulador de terminal —, então uma sequência
+ * de cor apareceria literalmente na tela. Pior: o Vite pinta o NÚMERO DA PORTA
+ * em negrito, e o escape cai no meio do endereço:
+ *
+ *     http://localhost:<ESC>[1m5173<ESC>[22m/
+ *
+ * Sem limpar antes, `RE_URL` casa até o primeiro espaço e o link fica com
+ * bytes de escape grudados — clicar nele não abre nada. Era o "link todo
+ * bugado". Limpar aqui, e não no renderer, mantém guardado o mesmo texto que
+ * a tela mostra e que a busca do endereço lê.
+ *
+ * Montadas com `new RegExp` a partir de string: um `` literal dentro de
+ * uma expressão regular some com facilidade ao editar o arquivo, e um escape
+ * perdido aqui transforma a limpeza numa função que não limpa nada.
+ *
+ * Cobre as duas famílias que aparecem na prática: CSI (cor, cursor) e OSC
+ * (título de janela, links de terminal), esta terminada por BEL ou ESC\.
+ */
+const RE_OSC = new RegExp('\\u001b\\][^\\u0007]*(?:\\u0007|\\u001b\\\\)', 'g')
+const RE_CSI = new RegExp('\\u001b\\[[0-9;?]*[ -/]*[@-~]', 'g')
+
+export function semCores(linha: string): string {
+  return linha.replace(RE_OSC, '').replace(RE_CSI, '')
+}
+
+/**
+ * Detecta o endereço que um servidor de desenvolvimento imprime ao subir.
+ *
+ * `<` e `>` fora do casamento junto com aspas: alguns servidores imprimem o
+ * endereço entre sinais de menor e maior, e eles entrariam no link.
+ */
+const RE_URL = /https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?[^\s"'<>]*/i
 
 export type ProcessoInfo = {
   id: string
@@ -87,7 +120,10 @@ export class Processos {
     p.pid = filho.pid ?? null
 
     const engolir = (b: Buffer | string): void => {
-      for (const linha of String(b).split(/\r?\n/)) {
+      for (const bruta of String(b).split(/\r?\n/)) {
+        // Limpa ANTES de guardar e antes de procurar o endereço: o painel
+        // mostra estas mesmas linhas, e a busca do link lê o mesmo texto.
+        const linha = semCores(bruta).replace(/\r/g, '').trimEnd()
         if (linha === '') continue
         p.linhas.push(linha)
         // Anel: um servidor de desenvolvimento rodando o dia inteiro imprime

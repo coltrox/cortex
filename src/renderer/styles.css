@@ -1498,6 +1498,18 @@ kbd {
 }
 .config-alerta { color: var(--pale-red); }
 
+/* O rótulo do passo — "Passo 1 de 3 · Qual área proteger".
+   Proteger uma área virou um caminho, e sem dizer em que ponto dele a pessoa
+   está, três telas parecidas viram uma só confusa. */
+.config-passo {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
 /* ---------- Tranca de painel ---------- */
 
 /* Ela ocupa o lugar do painel, e não fica por cima dele: por cima, o conteúdo
@@ -1542,6 +1554,16 @@ kbd {
   font-size: 13px;
   color: var(--pale-red);
 }
+
+/* A frase de lembrete, dentro do cadeado.
+   É o único socorro que existe — não há recuperação —, então ela precisa ser
+   lida antes de a pessoa começar a tentar senhas. Discreta, mas presente. */
+.tranca-dica {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.tranca-dica span { color: var(--text-2); font-style: italic; }
 
 /* ---------- QR de conexão do celular ---------- */
 

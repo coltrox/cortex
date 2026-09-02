@@ -54,6 +54,17 @@ export type Config = {
   cofre: { sal: string; chaveEnvelopada: string } | null
   senha: string | null
   /**
+   * A frase que lembra a senha, mostrada na tranca.
+   *
+   * Não é segredo — nasceu para ser lida por quem está diante do cadeado, e
+   * é o único socorro que existe: não há recuperação, e sem ela uma senha
+   * esquecida leva o conteúdo junto. Por isso ela atravessa para o renderer,
+   * ao contrário do hash em `senha`.
+   *
+   * Cabe a quem escreve não transformá-la na própria senha. A tela avisa.
+   */
+  dicaSenha: string
+  /**
    * Áreas que exigem a senha para abrir.
    *
    * Invariante mantida por `normalizarConfig`: sem `senha`, esta lista é
@@ -146,7 +157,7 @@ export function pastasProtegidas(paineis: string[]): string[] {
 
 export const CONFIG_PADRAO: Config = {
   areas: [...IDS_AREAS], pastasDev: [], escolheu: false, vaultId: '', nuvem: null,
-  senha: null, paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null
+  senha: null, dicaSenha: '', paineisTrancados: [], enderecoApp: ENDERECO_APP_PADRAO, cofre: null
 }
 
 /**
@@ -177,6 +188,14 @@ export function normalizarConfig(bruto: unknown): Config {
   // outra coisa no campo — inclusive uma senha em texto puro que alguém tenha
   // escrito à mão achando que bastaria — vale como "sem senha".
   const senha = typeof o.senha === 'string' && o.senha.startsWith('scrypt$') ? o.senha : null
+
+  // Sem senha não há dica: uma frase de lembrete pendurada num vault sem
+  // cadeado só entrega o que a pessoa pensou ao escolher a senha antiga.
+  // O teto de 200 é o mesmo da tela — um texto enorme aqui viraria um
+  // parágrafo dentro do cadeado.
+  const dicaSenha = senha && typeof o.dicaSenha === 'string'
+    ? o.dicaSenha.slice(0, 200)
+    : ''
 
   // Sem senha, nenhum painel fica trancado. Um painel trancado sem senha
   // cadastrada seria um painel que ninguém abre, nem o dono.
@@ -217,7 +236,7 @@ export function normalizarConfig(bruto: unknown): Config {
 
   return {
     areas, pastasDev, escolheu: o.escolheu === true, vaultId, nuvem,
-    senha, paineisTrancados, enderecoApp, cofre
+    senha, dicaSenha, paineisTrancados, enderecoApp, cofre
   }
 }
 
@@ -265,6 +284,11 @@ export type ConfigParaRenderer = {
   paineisTrancados: string[]
   /** Se existe senha cadastrada. O segredo em si nunca cruza esta fronteira. */
   temSenha: boolean
+  /**
+   * A frase de lembrete. Atravessa, ao contrário do hash: ela nasceu para ser
+   * lida por quem está diante do cadeado, e é o único socorro que existe.
+   */
+  dicaSenha: string
 }
 
 /**
@@ -289,6 +313,7 @@ export function projetarConfigParaRenderer(c: Config): ConfigParaRenderer {
     // Booleano, nunca o segredo: o renderer precisa saber SE há senha para
     // desenhar "criar" ou "trocar", e nada além disso. Conferir a senha é
     // trabalho do processo principal.
-    temSenha: c.senha !== null
+    temSenha: c.senha !== null,
+    dicaSenha: c.dicaSenha
   }
 }

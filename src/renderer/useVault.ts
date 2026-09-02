@@ -34,7 +34,8 @@ export function nomeArquivo(s: string): string {
 export function useVault() {
   const [root, setRoot] = useState<string | null>(null)
   const [config, setConfig] = useState<Config>({
-    areas: [], pastasDev: [], escolheu: false, paineisTrancados: [], temSenha: false
+    areas: [], pastasDev: [], escolheu: false, paineisTrancados: [], temSenha: false,
+    dicaSenha: ''
   })
   const [notas, setNotas] = useState<NoteComCampos[]>([])
   const [pastas, setPastas] = useState<string[]>([])
