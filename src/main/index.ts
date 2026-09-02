@@ -194,26 +194,50 @@ ipcMain.handle('vault:pick', async () => {
   return abrirVault(r.filePaths[0])
 })
 
-ipcMain.handle('vault:create', async () => {
-  const r = await dialog.showSaveDialog({
-    title: 'Criar um vault novo',
-    defaultPath: join(app.getPath('desktop'), 'Cortex'),
-    buttonLabel: 'Criar vault',
-    properties: ['createDirectory']
-  })
-  if (r.canceled || !r.filePath) return null
+/**
+ * Onde moram os vaults que o app cria.
+ *
+ * `userData` é a pasta do próprio Cortex, por usuário — e NÃO a pasta onde o
+ * app foi instalado. A diferença importa: o desinstalador do NSIS apaga o
+ * diretório de instalação inteiro, e uma atualização reinstala por cima. Um
+ * vault ali dentro morreria numa desinstalação, sem aviso e sem desfazer.
+ * `userData` sobrevive às duas (ver `deleteAppDataOnUninstall: false` no
+ * electron-builder.yml).
+ *
+ * Também não é mais o Desktop, que era o padrão do diálogo: aceitar o padrão
+ * plantou um vault por cima de uma pasta `Cortex` que já tinha outra coisa
+ * dentro.
+ */
+function pastaDosVaults(): string {
+  return join(app.getPath('userData'), 'vaults')
+}
 
-  // `showSaveDialog` devolve um caminho que pode já existir como arquivo —
-  // criar um vault por cima de um arquivo daria um erro obscuro lá na frente.
-  try {
-    const s = await stat(r.filePath)
-    if (!s.isDirectory()) throw new Error('já existe um arquivo com esse nome')
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') throw err
+/**
+ * O primeiro nome livre dentro de `vaults`.
+ *
+ * Criar não pode cair num vault que já existe: quem clicou em criar quer um
+ * vault novo, e reaproveitar a pasta misturaria as notas dos dois.
+ */
+async function nomeDeVaultLivre(base: string): Promise<string> {
+  for (let n = 1; n < 100; n++) {
+    const alvo = join(pastaDosVaults(), n === 1 ? base : `${base} ${n}`)
+    try {
+      await stat(alvo)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return alvo
+      throw err
+    }
   }
+  throw new Error('há vaults demais nesta pasta — apague os que não usa')
+}
 
-  await mkdir(r.filePath, { recursive: true })
-  return abrirVault(r.filePath)
+ipcMain.handle('vault:create', async () => {
+  // Sem diálogo: clicar em criar cria. O caminho continua nascendo aqui no
+  // processo principal, e não do renderer — é a mesma garantia que o diálogo
+  // nativo dava, sem obrigar ninguém a escolher uma pasta.
+  const alvo = await nomeDeVaultLivre('Cortex')
+  await mkdir(alvo, { recursive: true })
+  return abrirVault(alvo)
 })
 
 ipcMain.handle('dev:add-folder', async () => {

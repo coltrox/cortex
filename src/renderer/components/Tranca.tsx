@@ -11,8 +11,16 @@ import { useEffect, useRef, useState } from 'react'
  * A conferência acontece no processo principal. Este componente manda a
  * senha e recebe um sim ou não — ele nunca vê o segredo guardado.
  */
-export function Tranca({ nome, aoDestrancar }: {
+export function Tranca({ nome, dica, aoDestrancar }: {
   nome: string
+  /**
+   * A frase que o dono escreveu para lembrar a senha.
+   *
+   * Aparece aqui porque é aqui que ela serve — e é o único socorro que
+   * existe: não há recuperação, e uma senha esquecida leva o conteúdo junto.
+   * Quem chega a esta tela sem lembrar a senha não tem para onde ir.
+   */
+  dica?: string
   aoDestrancar: () => void
 }) {
   const [senha, setSenha] = useState('')
@@ -53,6 +61,7 @@ export function Tranca({ nome, aoDestrancar }: {
         </svg>
         <h2>{nome} está trancado</h2>
         <p>Digite a senha para abrir.</p>
+        {dica && <p className="tranca-dica">Sua dica: <span>{dica}</span></p>}
         <input
           ref={campo}
           type="password"

@@ -91,7 +91,10 @@ export const IPC_SCHEMAS = {
   // uma senha de megabytes travaria o processo principal.
   'senha:definir': z.object({
     atual: z.string().max(256).nullable(),
-    nova: z.string().max(256)
+    nova: z.string().max(256),
+    // A frase de lembrete. Teto menor que o da senha porque ela é MOSTRADA:
+    // um texto de 256 caracteres viraria um parágrafo dentro do cadeado.
+    dica: z.string().max(200)
   }).strict(),
   'senha:conferir': z.object({ senha: z.string().max(256) }).strict(),
   'senha:remover': z.object({ atual: z.string().max(256) }).strict(),

@@ -256,7 +256,12 @@ export async function handle(
       const senha = criarSegredo(p.nova)
       session.cofre.destrancar(chave)
       session.cofre.definirPastas(pastasProtegidas(session.config.paineisTrancados))
-      return projetarConfigParaRenderer(await session.salvarConfig({ senha, cofre }))
+      // A dica anda junto com a senha, sempre: ela lembra ESTA senha, e
+      // deixar a frase antiga colada numa senha nova é pior do que não ter
+      // dica nenhuma — ela apontaria para o segredo errado.
+      return projetarConfigParaRenderer(
+        await session.salvarConfig({ senha, cofre, dicaSenha: p.dica.trim() })
+      )
     }
 
     case 'senha:conferir': {
@@ -299,8 +304,12 @@ export async function handle(
       session.cofre.definirPastas([])
       // Tirar a senha destranca todos os paineis junto: manter a lista
       // deixaria paineis trancados sem chave nenhuma.
+      // A dica sai junto: uma frase de lembrete pendurada num vault sem
+      // cadeado só entrega o que a pessoa pensou ao escolher a senha.
       return projetarConfigParaRenderer(
-        await session.salvarConfig({ senha: null, paineisTrancados: [], cofre: null })
+        await session.salvarConfig({
+          senha: null, paineisTrancados: [], cofre: null, dicaSenha: ''
+        })
       )
     }
 

@@ -455,7 +455,7 @@ describe('canais da nuvem', () => {
  * senha sem senha, e a lista de trancados sobreviver à remoção da senha.
  */
 describe('senha dos painéis', () => {
-  const criar = (nova: string) => handle(session, 'senha:definir', { atual: null, nova })
+  const criar = (nova: string) => handle(session, 'senha:definir', { atual: null, nova, dica: 'lembrete de teste' })
 
   it('começa sem senha e sem painel trancado', async () => {
     const c = await handle(session, 'config:get', {}) as any
@@ -485,17 +485,17 @@ describe('senha dos painéis', () => {
   it('trocar a senha exige a senha atual', async () => {
     await criar('abacaxi')
     await expect(
-      handle(session, 'senha:definir', { atual: null, nova: 'invasor' })
+      handle(session, 'senha:definir', { atual: null, nova: 'invasor' , dica: 'lembrete de teste'})
     ).rejects.toThrow(/atual/i)
     await expect(
-      handle(session, 'senha:definir', { atual: 'errada', nova: 'invasor' })
+      handle(session, 'senha:definir', { atual: 'errada', nova: 'invasor' , dica: 'lembrete de teste'})
     ).rejects.toThrow(/atual/i)
     expect(await handle(session, 'senha:conferir', { senha: 'abacaxi' })).toBe(true)
   })
 
   it('troca a senha com a atual correta', async () => {
     await criar('abacaxi')
-    await handle(session, 'senha:definir', { atual: 'abacaxi', nova: 'melancia' })
+    await handle(session, 'senha:definir', { atual: 'abacaxi', nova: 'melancia' , dica: 'lembrete de teste'})
     expect(await handle(session, 'senha:conferir', { senha: 'melancia' })).toBe(true)
     expect(await handle(session, 'senha:conferir', { senha: 'abacaxi' })).toBe(false)
   })
@@ -579,7 +579,7 @@ describe('cifra dos paineis trancados', () => {
   const noDisco = (rel: string) => readFile(join(root, rel), 'utf8')
 
   const comSenhaETrancado = async (paineis: string[]) => {
-    await handle(session, 'senha:definir', { atual: null, nova: 'abacaxi' })
+    await handle(session, 'senha:definir', { atual: null, nova: 'abacaxi' , dica: 'lembrete de teste'})
     await handle(session, 'note:write', { path: 'Vida/Contas/Gmail.md', content: NOTA })
     await handle(session, 'note:write', { path: 'Saude/Treinos/Push.md', content: '# push' })
     return handle(session, 'senha:paineis', { atual: 'abacaxi', paineis })
@@ -622,7 +622,7 @@ describe('cifra dos paineis trancados', () => {
   it('trocar a senha nao recifra o vault, e o conteudo continua abrindo', async () => {
     await comSenhaETrancado(['vida'])
     const antes = await noDisco('Vida/Contas/Gmail.md')
-    await handle(session, 'senha:definir', { atual: 'abacaxi', nova: 'melancia' })
+    await handle(session, 'senha:definir', { atual: 'abacaxi', nova: 'melancia' , dica: 'lembrete de teste'})
     // Bytes identicos: nenhum arquivo foi reescrito.
     expect(await noDisco('Vida/Contas/Gmail.md')).toBe(antes)
     const r = await handle(session, 'note:read', { path: 'Vida/Contas/Gmail.md' }) as { content: string }
@@ -667,7 +667,7 @@ describe('cifra dos paineis trancados', () => {
   })
 
   it('sem painel trancado, nada e cifrado', async () => {
-    await handle(session, 'senha:definir', { atual: null, nova: 'abacaxi' })
+    await handle(session, 'senha:definir', { atual: null, nova: 'abacaxi' , dica: 'lembrete de teste'})
     await handle(session, 'note:write', { path: 'Vida/Contas/Gmail.md', content: NOTA })
     expect(await noDisco('Vida/Contas/Gmail.md')).toBe(NOTA)
   })

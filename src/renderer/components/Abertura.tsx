@@ -68,8 +68,9 @@ export function Abertura({
             <button className="btn-fantasma grande" onClick={aoEscolher}>Já tenho uma pasta</button>
           </div>
           <p className="abertura-rodape">
-            Criar abre uma janela para escolher onde — o padrão é uma pasta
-            {' '}<code>Cortex</code> na sua área de trabalho.
+            Criar já monta o vault na pasta do Cortex, sem perguntar onde.
+            {' '}<b>Já tenho uma pasta</b> é para apontar um vault que já
+            existe — inclusive um cofre do Obsidian.
           </p>
         </div>
       </div>
