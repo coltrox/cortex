@@ -177,22 +177,31 @@ describe('planejar — agenda e estudos', () => {
     }])
   })
 
-  it('cancelar compromisso marca, nao apaga', () => {
-    // Um toque errado no onibus nao pode sumir com o arquivo.
-    const ops = planejar({
-      tipo: 'compromisso_cancelado', dia: '2026-08-28',
+  it('apagar um item da agenda apaga a nota', () => {
+    // Mudou de "marcar cancelado" para apagar de verdade: foi o que o dono
+    // pediu. O que segura um toque errado passa a ser a confirmacao na tela.
+    expect(planejar({
+      tipo: 'item_apagado', dia: '2026-08-28',
       dados: { path: 'Agenda/Dentista.md' }
-    })
-    expect(ops).toEqual([{
-      acao: 'marcar', path: 'Agenda/Dentista.md',
-      tiposPermitidos: ['evento'],
-      campos: { cancelado: true, cancelado_em: '2026-08-28' }
+    })).toEqual([{
+      acao: 'apagar', path: 'Agenda/Dentista.md',
+      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa']
     }])
+  })
+
+  it('apagar nao alcanca nota que nao seja de agenda ou estudos', () => {
+    // A lista de tipos e o que impede este evento de chegar num documento ou
+    // numa senha. Ela viaja com a operacao e o executor a confere no disco.
+    const ops = planejar({
+      tipo: 'item_apagado', dia: '2026-08-28', dados: { path: 'Vida/Contas/Gmail.md' }
+    })
+    expect((ops[0] as any).tiposPermitidos).not.toContain('senha')
+    expect((ops[0] as any).tiposPermitidos).not.toContain('documento')
   })
 
   it('marcar sem caminho nao produz operacao nenhuma', () => {
     expect(planejar({ tipo: 'prova_estudada', dia: '2026-08-28', dados: {} })).toEqual([])
-    expect(planejar({ tipo: 'compromisso_cancelado', dia: '2026-08-28', dados: {} })).toEqual([])
+    expect(planejar({ tipo: 'item_apagado', dia: '2026-08-28', dados: {} })).toEqual([])
   })
 
   it('caminho que nao e texto nao vira operacao', () => {

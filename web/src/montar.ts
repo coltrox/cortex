@@ -196,9 +196,17 @@ export function eventoProvaEstudada(path: string, dia: string = diaLocal()): Eve
   return validarEvento({ tipo: 'prova_estudada', dia, dados: { path: texto(path, 'prova') } })
 }
 
-export function eventoCompromissoCancelado(path: string, dia: string = diaLocal()): Evento {
+/**
+ * Apaga um item da agenda ou dos estudos.
+ *
+ * Apaga mesmo, no vault. Antes isto marcava `cancelado: true`; mudou porque
+ * foi o que o dono pediu. O que segura um toque errado passa a ser a
+ * confirmação na tela — e a lista de tipos que o Cortex confere no disco, que
+ * impede este evento de alcançar um documento ou uma senha.
+ */
+export function eventoItemApagado(path: string, dia: string = diaLocal()): Evento {
   return validarEvento({
-    tipo: 'compromisso_cancelado', dia, dados: { path: texto(path, 'compromisso') }
+    tipo: 'item_apagado', dia, dados: { path: texto(path, 'item') }
   })
 }
 

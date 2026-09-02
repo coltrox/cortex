@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
   eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
-  eventoProvaEstudada, eventoCompromisso, eventoCompromissoCancelado, eventoPorquinho,
+  eventoProvaEstudada, eventoCompromisso, eventoItemApagado, eventoPorquinho,
   eventoProvaNova, eventoTarefaNova
 } from './montar'
 
@@ -164,14 +164,14 @@ describe('agenda e estudos', () => {
     })
   })
 
-  it('cancelar compromisso manda o caminho', () => {
-    expect(eventoCompromissoCancelado('Agenda/Dentista.md', DIA2).dados)
+  it('apagar item manda o caminho', () => {
+    expect(eventoItemApagado('Agenda/Dentista.md', DIA2).dados)
       .toEqual({ path: 'Agenda/Dentista.md' })
   })
 
   it('caminho vazio nao vira evento', () => {
     expect(() => eventoProvaEstudada('   ', DIA2)).toThrow()
-    expect(() => eventoCompromissoCancelado('', DIA2)).toThrow()
+    expect(() => eventoItemApagado('', DIA2)).toThrow()
   })
 
   it('compromisso novo leva a data escolhida, nao a de hoje', () => {

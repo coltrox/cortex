@@ -302,32 +302,51 @@ describe('marcar nota existente', () => {
     expect(await session.vault.read('Estudos/Provas/ENEM.md')).toContain('## O que cai')
   })
 
-  it('cancela o compromisso sem apagar o arquivo', async () => {
-    await session.vault.writeAtomic('Agenda/Dentista.md', '---\ntipo: evento\ndate: 2026-08-30\n---\n')
+  it('apagar do celular apaga o arquivo do vault', async () => {
+    await session.vault.writeAtomic('Agenda/Dentista.md', '---\ntipo: evento\n---\n')
     await sinc(new ClienteFalso([
-      ev('e1', 'compromisso_cancelado', { path: 'Agenda/Dentista.md' })
+      ev('e1', 'item_apagado', { path: 'Agenda/Dentista.md' })
     ])).sincronizar()
 
-    expect(await session.vault.exists('Agenda/Dentista.md')).toBe(true)
-    expect((await ler('Agenda/Dentista.md')).cancelado).toBe(true)
+    expect(await session.vault.exists('Agenda/Dentista.md')).toBe(false)
   })
 
-  it('NAO marca nota de outro tipo, mesmo com o caminho certo', async () => {
-    // O caminho vem do celular. Sem a guarda de tipo, este evento escreveria
-    // `cancelado: true` dentro da nota de senha do Pedro.
-    await session.vault.writeAtomic(
-      'Vida/Contas/Gmail.md', '---\ntipo: senha\nusuario: pedro\n---\n'
-    )
+  it('apagar NAO alcanca nota de outro tipo, mesmo com o caminho certo', async () => {
+    // A guarda que mais importa aqui: o caminho vem do celular, e sem
+    // conferir o tipo no disco este evento apagaria a nota de senha.
+    await session.vault.writeAtomic('Vida/Contas/Gmail.md', '---\ntipo: senha\nusuario: pedro\n---\n')
+    await sinc(new ClienteFalso([
+      ev('e1', 'item_apagado', { path: 'Vida/Contas/Gmail.md' })
+    ])).sincronizar()
+
+    expect(await session.vault.exists('Vida/Contas/Gmail.md')).toBe(true)
+    expect((await ler('Vida/Contas/Gmail.md')).usuario).toBe('pedro')
+  })
+
+  it('apagar duas vezes o mesmo item nao e erro', async () => {
+    // Um evento reprocessado e o caso normal, nao a excecao.
+    await session.vault.writeAtomic('Agenda/X.md', '---\ntipo: evento\n---\n')
     const r = await sinc(new ClienteFalso([
-      ev('e1', 'compromisso_cancelado', { path: 'Vida/Contas/Gmail.md' })
+      ev('e1', 'item_apagado', { path: 'Agenda/X.md' }),
+      ev('e2', 'item_apagado', { path: 'Agenda/X.md' })
+    ])).sincronizar()
+    expect(r.aplicados).toBe(2)
+    expect(await session.vault.exists('Agenda/X.md')).toBe(false)
+  })
+
+  it('editar NAO alcanca nota de outro tipo, mesmo com o caminho certo', async () => {
+    // Sem a guarda de tipo, este evento escreveria dentro da nota de senha.
+    await session.vault.writeAtomic('Vida/Contas/Gmail.md', '---\ntipo: senha\nusuario: pedro\n---\n')
+    const r = await sinc(new ClienteFalso([
+      ev('e1', 'compromisso_editado', { path: 'Vida/Contas/Gmail.md', titulo: 'invadido' })
     ])).sincronizar()
 
     const fm = await ler('Vida/Contas/Gmail.md')
-    expect(fm.cancelado).toBeUndefined()
+    expect(fm.title).toBeUndefined()
     expect(fm.tipo).toBe('senha')
     expect(fm.usuario).toBe('pedro')
-    // O evento conta como aplicado: repetir a tentativa nao adianta, e
-    // deixa-lo pendente faria o sincronizador reprocessa-lo para sempre.
+    // O evento conta como aplicado: repetir nao adianta, e deixa-lo pendente
+    // faria o sincronizador reprocessa-lo para sempre.
     expect(r.aplicados).toBe(1)
   })
 

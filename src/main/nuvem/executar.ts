@@ -157,6 +157,26 @@ export async function executar(
         break
       }
 
+      case 'apagar': {
+        // Já não existe: nada a fazer, e nada a registrar. Apagar duas vezes
+        // o mesmo compromisso é o caso normal de um evento reprocessado.
+        if (!(await vault.exists(op.path))) break
+        const raw = await vault.read(op.path)
+        const tipo = parseFrontmatter(raw).frontmatter.tipo
+        // A guarda que separa esta operação de um comando de apagar arquivo:
+        // o caminho vem de fora, do celular.
+        if (typeof tipo !== 'string' || !op.tiposPermitidos.includes(tipo)) {
+          console.error(
+            `[cortex] evento do celular tentou apagar ${op.path} (tipo ${String(tipo)}), ` +
+            `mas só ${op.tiposPermitidos.join('/')} podem ser apagados`
+          )
+          break
+        }
+        await vault.remover(op.path)
+        indexer.removeFile(op.path)
+        break
+      }
+
       case 'nota-campos': {
         const raw = await lerOuVazio(vault, op.path)
         // `op.tipo` depois do spread de `op.campos`: quem decide o `tipo`

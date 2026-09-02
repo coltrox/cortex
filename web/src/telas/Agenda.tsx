@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { guardadoDoNavegador } from '../guardado'
-import { diaLocal, eventoProvaEstudada, eventoCompromissoCancelado } from '../montar'
+import { diaLocal, eventoProvaEstudada, eventoItemApagado } from '../montar'
 import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam } from '../cardapio'
 import { jaFeitos, marcarFeito } from '../feitos'
 import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
@@ -92,11 +92,11 @@ export function Agenda(p: {
         {cs.length > 0 && <Secao nome="Compromissos" />}
         {cs.map(i => {
           const path = caminhoDe(i)
-          const cancelado = feitos.includes(`cancelar:${path}`)
+          const apagado = feitos.includes(`apagar:${path}`)
           const texto = (k: string): string =>
             typeof i.detalhe[k] === 'string' ? (i.detalhe[k] as string) : ''
           return (
-            <div className={`item item-acao ${cancelado ? 'item-feito' : ''}`}
+            <div className={`item item-acao ${apagado ? 'item-feito' : ''}`}
               key={path || i.nome}>
               <div className="item-corpo">
                 <div className="item-nome">{i.nome}</div>
@@ -109,7 +109,7 @@ export function Agenda(p: {
               <button
                 className="acao-lado"
                 type="button"
-                disabled={cancelado || path === ''}
+                disabled={apagado || path === ''}
                 onClick={() => p.aoEditar({
                   path,
                   titulo: i.nome,
@@ -123,12 +123,15 @@ export function Agenda(p: {
               <button
                 className="acao-lado acao-destrutiva"
                 type="button"
-                disabled={cancelado || path === ''}
-                onClick={() => marcar(
-                  `cancelar:${path}`, () => eventoCompromissoCancelado(path, dia)
-                )}
+                disabled={apagado || path === ''}
+                onClick={() => {
+                  // Confirmar aqui e o que substitui o "marcar cancelado" de
+                  // antes: apagar no vault nao tem desfazer pelo celular.
+                  if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
+                  marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+                }}
               >
-                {cancelado ? 'excluído' : 'excluir'}
+                {apagado ? 'excluído' : 'excluir'}
               </button>
             </div>
           )
