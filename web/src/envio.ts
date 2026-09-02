@@ -4,6 +4,8 @@ import { guardadoDoNavegador } from './guardado'
 import { lerVaultId } from './ajustes'
 import { Fila } from './fila'
 import { ClienteWeb } from './nuvem'
+import { CREDENCIAL, faltaCredencial } from './credencial'
+import { ouvirCampainha, tocarCampainha, reavaliarCampainha } from './campainha'
 import { lerCardapio, gravarCardapio, type Cardapio } from './cardapio'
 
 /** De quanto em quanto tempo a fila tenta sair sozinha, com o app aberto. */
@@ -12,20 +14,15 @@ const INTERVALO_MS = 30_000
 /**
  * De quanto em quanto tempo os dados do Cortex sao buscados de novo.
  *
- * Dois minutos, o mesmo ritmo com que o Cortex puxa os eventos do celular.
+ * Isto e a rede de seguranca, nao o caminho normal: o caminho normal e a
+ * campainha, que avisa na hora que o Cortex publicou. O relogio cobre o que
+ * a campainha nao cobre — o toque que saiu enquanto o celular estava sem
+ * sinal, o WebSocket que a rede da escola bloqueia, o Realtime fora do ar.
+ *
  * Nao ha botao de atualizar em lugar nenhum, e e de proposito: o vault esta
  * conectado, entao manter isso em dia e trabalho do app, nao da pessoa.
  */
 const INTERVALO_CARDAPIO_MS = 120_000
-
-const CREDENCIAL = {
-  url: import.meta.env.VITE_SUPABASE_URL ?? '',
-  chave: import.meta.env.VITE_SUPABASE_CHAVE ?? ''
-}
-
-export function faltaCredencial(): boolean {
-  return CREDENCIAL.url === '' || CREDENCIAL.chave === ''
-}
 
 /**
  * O cliente da vez, ou `null` enquanto o id do vault não estiver configurado.
@@ -70,11 +67,17 @@ export function useEnvio() {
       return
     }
 
+    const tinha = fila.quantos()
     drenando.current = true
     setEstado(e => ({ ...e, enviando: true }))
     try {
       const r = await fila.esvaziar(ev => cliente.registrarEvento(ev))
       setEstado(e => ({ naFila: r.restam, enviando: false, avisos: [...e.avisos, ...r.avisos] }))
+      // Alguma coisa saiu da fila: o Cortex tem novidade para puxar, e o
+      // toque faz ele puxar agora em vez de daqui a dois minutos. Só quando
+      // de fato saiu — uma rodada que não conseguiu enviar nada não é
+      // novidade nenhuma para ninguém.
+      if (r.restam < tinha) tocarCampainha('eventos')
     } finally {
       drenando.current = false
       setEstado(e => ({ ...e, enviando: false, naFila: fila.quantos() }))
@@ -117,6 +120,9 @@ export function useCardapio(): UsoDoCardapio {
   const [buscando, setBuscando] = useState(false)
 
   const atualizar = useCallback(async () => {
+    // Conectar ou trocar de vault em Ajustes chama isto logo em seguida; é o
+    // ponto certo para a campainha trocar de canal junto.
+    reavaliarCampainha()
     const cliente = clienteAtual()
     if (!cliente) return
     setBuscando(true)
@@ -153,10 +159,14 @@ export function useCardapio(): UsoDoCardapio {
     document.addEventListener('visibilitychange', aoVoltar)
     window.addEventListener('online', aoVoltar)
 
+    // O caminho instantâneo: o Cortex publicou e tocou, e a busca sai agora.
+    const pararDeOuvir = ouvirCampainha(t => { if (t === 'cardapio') void atualizar() })
+
     return () => {
       clearInterval(relogio)
       document.removeEventListener('visibilitychange', aoVoltar)
       window.removeEventListener('online', aoVoltar)
+      pararDeOuvir()
     }
   }, [atualizar])
 

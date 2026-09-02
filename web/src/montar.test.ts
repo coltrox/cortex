@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
   eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
-  eventoProvaEstudada, eventoCompromisso, eventoCompromissoCancelado, eventoPorquinho
+  eventoProvaEstudada, eventoCompromisso, eventoItemApagado, eventoPorquinho,
+  eventoProvaNova, eventoTarefaNova
 } from './montar'
 
 const DIA = '2026-08-28'
@@ -163,14 +164,14 @@ describe('agenda e estudos', () => {
     })
   })
 
-  it('cancelar compromisso manda o caminho', () => {
-    expect(eventoCompromissoCancelado('Agenda/Dentista.md', DIA2).dados)
+  it('apagar item manda o caminho', () => {
+    expect(eventoItemApagado('Agenda/Dentista.md', DIA2).dados)
       .toEqual({ path: 'Agenda/Dentista.md' })
   })
 
   it('caminho vazio nao vira evento', () => {
     expect(() => eventoProvaEstudada('   ', DIA2)).toThrow()
-    expect(() => eventoCompromissoCancelado('', DIA2)).toThrow()
+    expect(() => eventoItemApagado('', DIA2)).toThrow()
   })
 
   it('compromisso novo leva a data escolhida, nao a de hoje', () => {
@@ -226,5 +227,35 @@ describe('porquinho', () => {
 
   it('recusa descricao vazia', () => {
     expect(() => eventoPorquinho('   ', 100, 'deposito', DIA3)).toThrow()
+  })
+})
+
+describe('marcar prova e tarefa do celular', () => {
+  const D = '2026-09-02'
+
+  it('prova nova leva materia e local', () => {
+    expect(eventoProvaNova('P1 de fisica', '2026-09-20', { materia: 'fisica', local: 'sala 3' }, D))
+      .toEqual({
+        tipo: 'prova_nova', dia: D,
+        dados: { titulo: 'P1 de fisica', data: '2026-09-20', materia: 'fisica', local: 'sala 3' }
+      })
+  })
+
+  it('tarefa nova nao tem local -- o campo nem existe na tela', () => {
+    expect(eventoTarefaNova('Trabalho', '2026-09-08', { materia: 'historia' }, D).dados)
+      .toEqual({ titulo: 'Trabalho', data: '2026-09-08', materia: 'historia' })
+  })
+
+  it('sem data cai em hoje', () => {
+    expect(eventoProvaNova('P1', '', {}, D).dados).toEqual({ titulo: 'P1', data: D })
+  })
+
+  it('recusa data fora do formato', () => {
+    expect(() => eventoTarefaNova('X', '20/09/2026', {}, D)).toThrow()
+  })
+
+  it('recusa titulo vazio', () => {
+    expect(() => eventoProvaNova('  ', '2026-09-20', {}, D)).toThrow()
+    expect(() => eventoTarefaNova('', '2026-09-20', {}, D)).toThrow()
   })
 })

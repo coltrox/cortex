@@ -44,6 +44,15 @@ export type Operacao =
       acao: 'marcar'; path: string
       tiposPermitidos: string[]; campos: Record<string, unknown>
     }
+  /**
+   * Apaga a nota do vault. Sem desfazer.
+   *
+   * Tem a MESMA guarda de tipo do `marcar`, e ela importa mais aqui: sem
+   * ela, um evento apagaria qualquer arquivo do vault — um documento, uma
+   * senha, um projeto inteiro. O executor confere o tipo antes de remover, e
+   * ignora quando não bate.
+   */
+  | { acao: 'apagar'; path: string; tiposPermitidos: string[] }
 
 /** Higieniza um título para virar nome de arquivo, igual ao renderer faz. */
 const nomeArquivo = (s: string): string =>
@@ -137,16 +146,14 @@ export function planejar(evento: Evento): Operacao[] {
       }]
     }
 
-    case 'compromisso_cancelado': {
+    case 'item_apagado': {
       const path = txt(dados.path)
       if (!path) return []
-      // Marca, não apaga: um toque errado no ônibus não pode sumir com o
-      // arquivo, e desfazer é destrabalhar um campo no computador.
-      return [{
-        acao: 'marcar', path,
-        tiposPermitidos: ['evento'],
-        campos: { cancelado: true, cancelado_em: dia }
-      }]
+      // Apaga de verdade, e não marca: foi o que o dono pediu. O que segura
+      // um toque errado é a confirmação na tela do celular, não uma marca
+      // aqui — e a lista de tipos abaixo é o que impede este evento de
+      // alcançar uma nota que não seja de agenda ou de estudos.
+      return [{ acao: 'apagar', path, tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa'] }]
     }
 
     case 'compromisso_editado': {
@@ -182,6 +189,32 @@ export function planejar(evento: Evento): Operacao[] {
           tipo: 'evento', title: titulo, date: data,
           // `path` e `titulo` são de transporte, não campos da nota.
           path: undefined, titulo: undefined, data: undefined
+        })
+      }]
+    }
+
+    /*
+     * Prova e tarefa novas.
+     *
+     * Mesma forma do `compromisso`, com a pasta e o tipo de cada uma. Nao ha
+     * um caso generico com o tipo vindo do evento, de proposito: `tipo` decide
+     * o que a nota E para o app inteiro, e deixar um evento escolher isso e o
+     * furo que este arquivo evita em todos os outros casos.
+     */
+    case 'prova_nova':
+    case 'tarefa_nova': {
+      const titulo = txt(dados.titulo).trim()
+      if (!titulo) return []
+      const prova = tipo === 'prova_nova'
+      return [{
+        acao: 'nota', tipo: prova ? 'prova' : 'tarefa', seExistir: 'criarOutro',
+        path: `${prova ? 'Estudos/Provas' : 'Estudos'}/${nomeArquivo(titulo)}.md`,
+        frontmatter: comValor({
+          ...dados,
+          tipo: prova ? 'prova' : 'tarefa',
+          title: titulo,
+          date: txt(dados.data) || dia,
+          titulo: undefined, data: undefined, path: undefined
         })
       }]
     }

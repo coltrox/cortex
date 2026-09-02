@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react'
+import { Qr, conteudoDoQr } from './Qr'
 
 /**
  * Primeiro acesso.
  *
- * Dois passos: onde o vault vive, e o que você quer usar. O segundo passo
- * existe porque o app tem sete áreas e ninguém precisa de todas — quem só
- * quer estudar não deveria abrir o app e ver uma aba de treino vazia.
+ * Três passos: onde o vault vive, o que você quer usar, e o celular.
+ *
+ * O segundo existe porque o app tem sete áreas e ninguém precisa de todas —
+ * quem só quer estudar não deveria abrir o app e ver uma aba de treino vazia.
+ *
+ * O terceiro existe porque o app do celular só é descoberto por quem vai
+ * procurar. Ele é metade do sistema: é onde o treino é registrado série a
+ * série, na academia, longe do computador. Deixar isso escondido em
+ * Configurações fazia a metade que registra o dia depender de alguém
+ * adivinhar que ela existe.
+ *
+ * `escolheu` só vira verdadeiro no fim do terceiro passo, e não no segundo:
+ * é ele que marca "a abertura terminou". Fechar o app no meio recomeça a
+ * abertura — o que é o certo, já que ela não terminou.
  *
  * Nenhum caminho é digitado aqui: criar e escolher passam pelo diálogo nativo
  * do processo principal. O renderer nunca nomeia uma pasta do disco.
@@ -36,6 +48,7 @@ export function Abertura({
 }: Props) {
   const [marcadas, setMarcadas] = useState<string[]>(() =>
     areasAtuais.length ? areasAtuais : AREAS.map(a => a.id))
+  const [passo, setPasso] = useState<'areas' | 'celular'>('areas')
 
   const alternar = (id: string): void =>
     setMarcadas(m => (m.includes(id) ? m.filter(x => x !== id) : [...m, id]))
@@ -65,6 +78,38 @@ export function Abertura({
 
   if (escolheu) return null
 
+  if (passo === 'celular') {
+    return (
+      <div className="abertura">
+        <div className="abertura-caixa larga">
+          <h1>Leve o Cortex no bolso</h1>
+          <p className="abertura-sub">
+            O app do celular registra o dia onde ele acontece — a série na academia,
+            o gasto no caixa, o compromisso marcado na rua. Tudo cai neste vault
+            como markdown, igual ao que você digitar aqui.
+          </p>
+
+          <PassoCelular />
+
+          {erro && <div className="erro">{erro}</div>}
+
+          <div className="abertura-acoes">
+            <button className="btn grande" onClick={() => aoConfirmarAreas(marcadas)}>
+              Começar a usar
+            </button>
+            <button className="btn-fantasma grande" onClick={() => setPasso('areas')}>
+              Voltar
+            </button>
+          </div>
+          <p className="abertura-rodape">
+            Dá para fazer isso depois: o mesmo QR fica em Configurações → Celular.
+            {' '}Documentos, senhas e contas bancárias nunca saem deste computador.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="abertura">
       <div className="abertura-caixa larga">
@@ -79,8 +124,8 @@ export function Abertura({
         {erro && <div className="erro">{erro}</div>}
 
         <div className="abertura-acoes">
-          <button className="btn grande" onClick={() => aoConfirmarAreas(marcadas)}>
-            Começar
+          <button className="btn grande" onClick={() => setPasso('celular')}>
+            Continuar
           </button>
           <span className="abertura-nota">
             O Hoje aparece sempre — ele é o resumo do que você marcar.
@@ -89,6 +134,76 @@ export function Abertura({
         <p className="abertura-rodape">Vault em <code>{root}</code></p>
       </div>
     </div>
+  )
+}
+
+type EstadoCelular = { vaultId: string; configurada: boolean; enderecoApp: string }
+
+/**
+ * O QR do primeiro acesso, com o que fazer com ele.
+ *
+ * Busca o próprio estado por IPC em vez de receber por prop, como o painel
+ * Celular já faz: `Abertura` é montada antes de existir vault em dois dos
+ * três passos, e carregar o id do vault lá em cima seria carregar para um
+ * passo que talvez nem apareça.
+ *
+ * Os passos de instalar estão escritos por extenso porque "instale o PWA" não
+ * quer dizer nada para quem nunca instalou um, e o caminho é diferente em
+ * cada telefone.
+ */
+function PassoCelular() {
+  const [estado, setEstado] = useState<EstadoCelular | null>(null)
+  const [falhou, setFalhou] = useState(false)
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setEstado(await window.vaultApi.invoke('nuvem:estado', {}) as EstadoCelular)
+      } catch {
+        // Não é motivo para travar a abertura: o vault já está pronto, e o
+        // celular pode ser conectado depois em Configurações → Celular.
+        setFalhou(true)
+      }
+    })()
+  }, [])
+
+  if (falhou) {
+    return (
+      <div className="erro">
+        Não deu para montar o QR agora. O vault está pronto — conecte o celular
+        depois em Configurações → Celular.
+      </div>
+    )
+  }
+
+  // Enquanto o id não chega. Sem a caixa, a tela salta de altura quando o QR
+  // aparece e o botão de continuar muda de lugar debaixo do cursor.
+  if (!estado) return <div className="qr-bloco qr-vazio" aria-hidden="true" />
+
+  return (
+    <>
+      <div className="qr-bloco">
+        <Qr conteudo={conteudoDoQr(estado.vaultId, estado.enderecoApp)} />
+        <div className="qr-texto">
+          <strong>Aponte a câmera do celular</strong>
+          <ol className="passos">
+            <li>Leia o QR. O navegador abre o app já conectado a este Cortex.</li>
+            <li>
+              Instale na tela de início: no iPhone, <b>Compartilhar → Adicionar à
+              Tela de Início</b>; no Android, <b>menu do navegador → Instalar app</b>.
+            </li>
+            <li>Abra pelo ícone daqui em diante. A conexão fica salva — é uma vez só.</li>
+          </ol>
+        </div>
+      </div>
+
+      {!estado.configurada && (
+        <div className="erro">
+          Este Cortex saiu sem credencial da nuvem, então nada vai chegar do
+          celular. Preencha o <code>.env</code> da raiz e recompile.
+        </div>
+      )}
+    </>
   )
 }
 

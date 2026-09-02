@@ -3,7 +3,8 @@ import { join, resolve, basename } from 'node:path'
 import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises'
 import { Session } from './session'
-import { registerIpc } from './ipc/handlers'
+import { registerIpc, sincronizadorDe } from './ipc/handlers'
+import { ligarCampainha, desligarCampainha } from './nuvem/campainha'
 import { Processos, scriptsDoProjeto } from './dev/processos'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 
@@ -60,7 +61,52 @@ function avisarMudanca(rel: string): void {
 async function abrirVault(root: string): Promise<{ root: string; config: ConfigParaRenderer }> {
   await session.open(root, avisarMudanca)
   await lembrarVault(session.vault.root)
+  ligarCampainha(session.config, aoTocarCampainha)
   return { root: session.vault.root, config: projetarConfigParaRenderer(session.config) }
+}
+
+/**
+ * O celular gravou alguma coisa: puxa agora.
+ *
+ * O relógio de dois minutos do renderer continua no lugar como rede de
+ * segurança — este caminho só adianta o que ele faria. Por isso a falha aqui
+ * é silenciosa: um toque perdido custa, no pior caso, esperar o relógio.
+ *
+ * Não precisa avisar a tela: aplicar um evento grava no vault, o
+ * `VaultWatcher` vê a gravação e dispara `vault:changed` como em qualquer
+ * outra mudança de arquivo. O caminho de volta já existia.
+ */
+function aoTocarCampainha(t: 'eventos' | 'cardapio'): void {
+  if (t !== 'eventos' || !session.isOpen) return
+  void puxarAgora(true)
+}
+
+/**
+ * Puxa os eventos do celular fora do relógio.
+ *
+ * O `try` não é decoração: `sincronizadorDe` lança de forma SÍNCRONA quando
+ * não há credencial, antes de existir promessa alguma — um `.catch()` no
+ * retorno não pegaria isso, e um throw solto aqui dentro sobe pelo tratador
+ * de mensagem do WebSocket, no processo principal, sem ninguém acima para
+ * segurar.
+ *
+ * `podeReTentar` cobre a única janela em que um toque se perderia: se a
+ * rodada do relógio já estava em andamento quando o evento chegou ao banco,
+ * ela pode tê-lo lido antes de ele existir, e a chamada disparada pelo toque
+ * desiste (ver `sincronizandoAgora`, em `nuvem/sincronizador.ts`). Uma
+ * segunda tentativa poucos segundos depois fecha essa janela sem inventar
+ * fila nenhuma.
+ */
+async function puxarAgora(podeReTentar: boolean): Promise<void> {
+  try {
+    const r = await sincronizadorDe(session).sincronizar()
+    if (r.pulado && podeReTentar) {
+      setTimeout(() => { void puxarAgora(false) }, 3000)
+    }
+  } catch (err) {
+    // Falhar aqui custa esperar o relógio de dois minutos, e nada além disso.
+    console.error('[cortex] sincronização disparada pela campainha falhou:', err)
+  }
 }
 
 function createWindow(): void {
@@ -360,10 +406,12 @@ app.whenReady().then(async () => {
   const lembrado = await vaultLembrado()
   if (lembrado) {
     try {
-      await session.open(lembrado, avisarMudanca)
-      win?.webContents.send('vault:aberto', {
-        root: session.vault.root, config: projetarConfigParaRenderer(session.config)
-      })
+      // Passa por `abrirVault` para não haver dois caminhos de abertura: foi
+      // exatamente essa duplicação que deixaria a campainha ligada só quando
+      // o vault fosse escolhido à mão, e muda no caso mais comum, que é o app
+      // reabrindo sozinho no vault de sempre.
+      const aberto = await abrirVault(lembrado)
+      win?.webContents.send('vault:aberto', aberto)
     } catch {
       // Pasta apagada, drive desconectado, permissão negada: cai na abertura.
     }
@@ -371,6 +419,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', async () => {
+  desligarCampainha()
   await session.close()
   if (process.platform !== 'darwin') app.quit()
 })

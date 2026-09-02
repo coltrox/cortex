@@ -4,14 +4,10 @@ import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoSuplemento, eventoRefeicaoPlano } from '../montar'
 import { suplementosDoDia, refeicoesDoPlano } from '../cardapio'
 import { jaFeitos, marcarFeito } from '../feitos'
-import { Cabecalho, Check, Botao, Aviso, Secao } from '../componentes'
+import { Cabecalho, Check, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
 
-/** Junta os pedaços de detalhe que existem, sem deixar separador solto. */
-function linhaDeDetalhe(...partes: unknown[]): string {
-  return partes.filter(p => typeof p === 'string' && p !== '').join(' · ')
-}
 
 /*
  * Os atalhos de registro.
@@ -95,7 +91,7 @@ export function Hoje(p: {
           <Check
             key={s.nome}
             rotulo={s.nome}
-            detalhe={linhaDeDetalhe(s.detalhe.dose, s.detalhe.quando)}
+            detalhe={<Detalhe partes={[s.detalhe.dose, s.detalhe.quando]} />}
             feito={feitos.includes(`suplemento:${s.nome}`)}
             aoMarcar={() => marcar(`suplemento:${s.nome}`, () => eventoSuplemento(s.nome, dia))}
           />
@@ -106,7 +102,7 @@ export function Hoje(p: {
           <Check
             key={r.nome}
             rotulo={r.nome}
-            detalhe={linhaDeDetalhe(r.detalhe.hora, r.detalhe.itens)}
+            detalhe={<Detalhe partes={[r.detalhe.hora, r.detalhe.itens]} />}
             feito={feitos.includes(`refeicao:${r.nome}`)}
             aoMarcar={() => marcar(`refeicao:${r.nome}`, () => eventoRefeicaoPlano(r.nome, dia))}
           />

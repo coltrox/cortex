@@ -43,8 +43,8 @@ language sql immutable as $$
                -- uma. Precisam casar com TIPOS_EVENTO em src/shared/eventos.ts
                -- e ter um caso em planejar.ts; faltar num dos tres faz o
                -- evento sumir em silencio.
-               'prova_estudada','compromisso','compromisso_cancelado',
-               'compromisso_editado',
+               'prova_estudada','compromisso','item_apagado',
+               'compromisso_editado','prova_nova','tarefa_nova',
                'porquinho']
 $$;
 

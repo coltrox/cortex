@@ -1563,8 +1563,24 @@ kbd {
      faria muitos leitores desistirem. Ele carrega o próprio branco. */
   background: #FFFFFF;
 }
+/* O lugar do QR antes de o id chegar. Sem altura reservada, a tela de
+   abertura salta e o botão de continuar muda de lugar debaixo do cursor. */
+.qr-vazio { min-height: 212px; }
+
 .qr-texto { flex: 1 1 240px; min-width: 220px; }
 .qr-texto strong { display: block; font-size: 14px; margin-bottom: 4px; }
+
+/* Os passos de instalar no celular. `padding-left` em vez de `list-style:
+   none` porque o número importa aqui: é uma ordem, não uma lista de itens. */
+.passos {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.passos li + li { margin-top: 7px; }
+.passos b { color: var(--text); font-weight: 600; }
 .qr-texto code {
   font: 12px var(--mono);
   padding: 1px 4px;

@@ -38,10 +38,10 @@ describe('validarEvento', () => {
 
   it('cobre todos os tipos que a spec define', () => {
     expect([...TIPOS_EVENTO].sort()).toEqual([
-      'anotacao', 'cardio', 'compromisso', 'compromisso_cancelado',
-      'compromisso_editado', 'gasto',
-      'medida', 'peso', 'porquinho', 'prova_estudada', 'refeicao_extra',
-      'refeicao_plano', 'sessao', 'suplemento'
+      'anotacao', 'cardio', 'compromisso', 'compromisso_editado', 'gasto',
+      'item_apagado', 'medida', 'peso', 'porquinho', 'prova_estudada',
+      'prova_nova', 'refeicao_extra', 'refeicao_plano', 'sessao',
+      'suplemento', 'tarefa_nova'
     ])
   })
 })

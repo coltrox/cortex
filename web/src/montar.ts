@@ -196,9 +196,17 @@ export function eventoProvaEstudada(path: string, dia: string = diaLocal()): Eve
   return validarEvento({ tipo: 'prova_estudada', dia, dados: { path: texto(path, 'prova') } })
 }
 
-export function eventoCompromissoCancelado(path: string, dia: string = diaLocal()): Evento {
+/**
+ * Apaga um item da agenda ou dos estudos.
+ *
+ * Apaga mesmo, no vault. Antes isto marcava `cancelado: true`; mudou porque
+ * foi o que o dono pediu. O que segura um toque errado passa a ser a
+ * confirmação na tela — e a lista de tipos que o Cortex confere no disco, que
+ * impede este evento de alcançar um documento ou uma senha.
+ */
+export function eventoItemApagado(path: string, dia: string = diaLocal()): Evento {
   return validarEvento({
-    tipo: 'compromisso_cancelado', dia, dados: { path: texto(path, 'compromisso') }
+    tipo: 'item_apagado', dia, dados: { path: texto(path, 'item') }
   })
 }
 
@@ -267,4 +275,53 @@ export function eventoPorquinho(
       direcao
     })
   })
+}
+
+/**
+ * Prova e tarefa marcadas do celular.
+ *
+ * Duas funções e não uma com o tipo por parâmetro: os campos diferem — prova
+ * tem local, tarefa não — e uma função só com tudo opcional aceitaria
+ * combinações que não existem.
+ */
+export function eventoProvaNova(
+  titulo: string,
+  data: string,
+  extras: { materia?: string; local?: string } = {},
+  dia: string = diaLocal()
+): Evento {
+  return validarEvento({
+    tipo: 'prova_nova',
+    dia,
+    dados: comValor({
+      titulo: texto(titulo, 'prova'),
+      data: dataIso(data, dia),
+      materia: extras.materia?.trim(),
+      local: extras.local?.trim()
+    })
+  })
+}
+
+export function eventoTarefaNova(
+  titulo: string,
+  data: string,
+  extras: { materia?: string } = {},
+  dia: string = diaLocal()
+): Evento {
+  return validarEvento({
+    tipo: 'tarefa_nova',
+    dia,
+    dados: comValor({
+      titulo: texto(titulo, 'tarefa'),
+      data: dataIso(data, dia),
+      materia: extras.materia?.trim()
+    })
+  })
+}
+
+/** Data no formato do vault, caindo em hoje quando vem vazia. */
+function dataIso(data: string, dia: string): string {
+  const quando = data.trim() || dia
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(quando)) throw new Error('data precisa ser AAAA-MM-DD')
+  return quando
 }

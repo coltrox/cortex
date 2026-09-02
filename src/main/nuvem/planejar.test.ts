@@ -177,22 +177,31 @@ describe('planejar — agenda e estudos', () => {
     }])
   })
 
-  it('cancelar compromisso marca, nao apaga', () => {
-    // Um toque errado no onibus nao pode sumir com o arquivo.
-    const ops = planejar({
-      tipo: 'compromisso_cancelado', dia: '2026-08-28',
+  it('apagar um item da agenda apaga a nota', () => {
+    // Mudou de "marcar cancelado" para apagar de verdade: foi o que o dono
+    // pediu. O que segura um toque errado passa a ser a confirmacao na tela.
+    expect(planejar({
+      tipo: 'item_apagado', dia: '2026-08-28',
       dados: { path: 'Agenda/Dentista.md' }
-    })
-    expect(ops).toEqual([{
-      acao: 'marcar', path: 'Agenda/Dentista.md',
-      tiposPermitidos: ['evento'],
-      campos: { cancelado: true, cancelado_em: '2026-08-28' }
+    })).toEqual([{
+      acao: 'apagar', path: 'Agenda/Dentista.md',
+      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa']
     }])
+  })
+
+  it('apagar nao alcanca nota que nao seja de agenda ou estudos', () => {
+    // A lista de tipos e o que impede este evento de chegar num documento ou
+    // numa senha. Ela viaja com a operacao e o executor a confere no disco.
+    const ops = planejar({
+      tipo: 'item_apagado', dia: '2026-08-28', dados: { path: 'Vida/Contas/Gmail.md' }
+    })
+    expect((ops[0] as any).tiposPermitidos).not.toContain('senha')
+    expect((ops[0] as any).tiposPermitidos).not.toContain('documento')
   })
 
   it('marcar sem caminho nao produz operacao nenhuma', () => {
     expect(planejar({ tipo: 'prova_estudada', dia: '2026-08-28', dados: {} })).toEqual([])
-    expect(planejar({ tipo: 'compromisso_cancelado', dia: '2026-08-28', dados: {} })).toEqual([])
+    expect(planejar({ tipo: 'item_apagado', dia: '2026-08-28', dados: {} })).toEqual([])
   })
 
   it('caminho que nao e texto nao vira operacao', () => {
@@ -258,5 +267,44 @@ describe('planejar — agenda e estudos', () => {
     // continua sendo um nome de arquivo unico dentro de Agenda/.
     expect((ops[0] as any).path).toBe('Agenda/..-..-fora.md')
     expect((ops[0] as any).path.split('/')).toHaveLength(2)
+  })
+})
+
+describe('planejar — prova e tarefa marcadas do celular', () => {
+  it('prova nova vira nota em Estudos/Provas', () => {
+    expect(planejar({
+      tipo: 'prova_nova', dia: '2026-09-02',
+      dados: { titulo: 'P1 de fisica', data: '2026-09-20', materia: 'fisica' }
+    })).toEqual([{
+      acao: 'nota', tipo: 'prova', seExistir: 'criarOutro',
+      path: 'Estudos/Provas/P1 de fisica.md',
+      frontmatter: { tipo: 'prova', title: 'P1 de fisica', date: '2026-09-20', materia: 'fisica' }
+    }])
+  })
+
+  it('tarefa nova vira nota em Estudos', () => {
+    const ops = planejar({
+      tipo: 'tarefa_nova', dia: '2026-09-02',
+      dados: { titulo: 'Trabalho', data: '2026-09-08' }
+    })
+    expect((ops[0] as any).path).toBe('Estudos/Trabalho.md')
+    expect((ops[0] as any).tipo).toBe('tarefa')
+  })
+
+  it('o evento nao escolhe o tipo da nota', () => {
+    // Mesma guarda dos outros casos: `tipo` decide o que a nota E para o app
+    // inteiro, e um evento vindo do banco nao pode espalhar o dele por cima.
+    const ops = planejar({
+      tipo: 'prova_nova', dia: '2026-09-02',
+      dados: { titulo: 'P1', tipo: 'senha', title: 'outro', date: '1999-01-01' }
+    })
+    const fm = (ops[0] as any).frontmatter
+    expect(fm.tipo).toBe('prova')
+    expect(fm.title).toBe('P1')
+    expect(fm.date).toBe('2026-09-02')
+  })
+
+  it('sem titulo nao vira nota', () => {
+    expect(planejar({ tipo: 'prova_nova', dia: '2026-09-02', dados: { titulo: ' ' } })).toEqual([])
   })
 })
