@@ -3,9 +3,10 @@ import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoProvaEstudada, eventoCompromissoCancelado } from '../montar'
 import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam } from '../cardapio'
 import { jaFeitos, marcarFeito } from '../feitos'
-import { Cabecalho, Botao, Aviso, Secao } from '../componentes'
+import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
+import type { EdicaoCompromisso } from './Compromisso'
 
 /**
  * O que está chegando.
@@ -19,6 +20,7 @@ export function Agenda(p: {
   envio: ReturnType<typeof useEnvio>
   cardapio: UsoDoCardapio
   irPara: (t: Tela) => void
+  aoEditar: (c: EdicaoCompromisso) => void
 }) {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
@@ -77,23 +79,42 @@ export function Agenda(p: {
         {cs.map(i => {
           const path = caminhoDe(i)
           const cancelado = feitos.includes(`cancelar:${path}`)
+          const texto = (k: string): string =>
+            typeof i.detalhe[k] === 'string' ? (i.detalhe[k] as string) : ''
           return (
-            <div className={`item ${cancelado ? 'feito' : ''}`} key={path || i.nome}>
-              <div className="item-texto">
-                <strong>{i.nome}</strong>
-                <small>
-                  {[faltam(dataDe(i), dia), i.detalhe.hora, i.detalhe.local]
-                    .filter(x => typeof x === 'string' && x !== '').join(' · ')}
-                </small>
+            <div className={`item item-acao ${cancelado ? 'item-feito' : ''}`}
+              key={path || i.nome}>
+              <div className="item-corpo">
+                <div className="item-nome">{i.nome}</div>
+                <div className="item-meta">
+                  <Detalhe partes={[faltam(dataDe(i), dia), i.detalhe.hora, i.detalhe.local]} />
+                </div>
               </div>
+              {/* Editar antes de excluir: mudar de horário é o que mais
+                  acontece, e cancelar é a saída. */}
               <button
-                className="item-acao perigo"
+                className="acao-lado"
+                type="button"
+                disabled={cancelado || path === ''}
+                onClick={() => p.aoEditar({
+                  path,
+                  titulo: i.nome,
+                  data: dataDe(i),
+                  hora: texto('hora'),
+                  local: texto('local')
+                })}
+              >
+                editar
+              </button>
+              <button
+                className="acao-lado acao-destrutiva"
+                type="button"
                 disabled={cancelado || path === ''}
                 onClick={() => marcar(
                   `cancelar:${path}`, () => eventoCompromissoCancelado(path, dia)
                 )}
               >
-                {cancelado ? 'cancelado' : 'cancelar'}
+                {cancelado ? 'excluído' : 'excluir'}
               </button>
             </div>
           )

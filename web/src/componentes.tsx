@@ -195,3 +195,28 @@ export function Chips({ opcoes, escolhida, aoEscolher }: {
     </div>
   )
 }
+
+/**
+ * Escolha em cascata.
+ *
+ * Usa o `<select>` nativo porque no celular ele abre a roda do sistema — que
+ * é maior, rola com o polegar e a pessoa já sabe usar. Uma lista desenhada
+ * aqui ficaria melhor numa captura de tela e pior na mão.
+ */
+export function Selecao({ rotulo, opcoes, valor, aoMudar }: {
+  rotulo: string
+  opcoes: string[]
+  valor: string
+  aoMudar: (v: string) => void
+}) {
+  return (
+    <label className="campo">
+      <span className="campo-rotulo">{rotulo}</span>
+      <span className="selecao">
+        <select value={valor} onChange={e => aoMudar(e.target.value)}>
+          {opcoes.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </span>
+    </label>
+  )
+}

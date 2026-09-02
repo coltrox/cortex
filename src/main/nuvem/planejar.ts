@@ -149,6 +149,21 @@ export function planejar(evento: Evento): Operacao[] {
       }]
     }
 
+    case 'compromisso_editado': {
+      const path = txt(dados.path)
+      if (!path) return []
+      // Só os campos que a tela do celular sabe editar, um a um. Um spread de
+      // `dados` aqui deixaria um evento reescrever `tipo` e virar outra coisa.
+      const campos = comValor({
+        title: txt(dados.titulo).trim(),
+        date: txt(dados.data).trim(),
+        hora: txt(dados.hora).trim(),
+        local: txt(dados.local).trim()
+      })
+      if (Object.keys(campos).length === 0) return []
+      return [{ acao: 'marcar', path, tiposPermitidos: ['evento'], campos }]
+    }
+
     case 'compromisso': {
       const titulo = txt(dados.titulo).trim()
       if (!titulo) return []

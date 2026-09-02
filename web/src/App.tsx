@@ -11,7 +11,7 @@ import { Medidas } from './telas/Medidas'
 import { Gasto } from './telas/Gasto'
 import { Anotacao } from './telas/Anotacao'
 import { Agenda } from './telas/Agenda'
-import { Compromisso } from './telas/Compromisso'
+import { Compromisso, type EdicaoCompromisso } from './telas/Compromisso'
 import { Porquinho } from './telas/Porquinho'
 import { Ajustes } from './telas/Ajustes'
 import { LerQr } from './telas/LerQr'
@@ -91,6 +91,14 @@ export function App() {
     lerVaultId(guardadoDoNavegador) ? 'hoje' : 'ajustes')
   const envio = useEnvio()
   const cardapio = useCardapio()
+  /**
+   * O compromisso que a tela de edicao vai abrir preenchido.
+   *
+   * Mora aqui, e nao dentro de `Compromisso`, porque quem escolhe e a tela
+   * de Chegando: passar por cima do App e o unico caminho entre as duas sem
+   * inventar um roteador.
+   */
+  const [editando, setEditando] = useState<EdicaoCompromisso | null>(null)
 
   if (faltaCredencial()) {
     return (
@@ -105,8 +113,21 @@ export function App() {
   return (
     <>
       {tela === 'hoje' && <Hoje envio={envio} cardapio={cardapio} irPara={setTela} />}
-      {tela === 'agenda' && <Agenda envio={envio} cardapio={cardapio} irPara={setTela} />}
-      {tela === 'compromisso' && <Compromisso envio={envio} irPara={setTela} />}
+      {tela === 'agenda' && (
+        <Agenda
+          envio={envio}
+          cardapio={cardapio}
+          irPara={setTela}
+          aoEditar={c => { setEditando(c); setTela('compromisso') }}
+        />
+      )}
+      {tela === 'compromisso' && (
+        <Compromisso
+          envio={envio}
+          editando={editando}
+          irPara={t => { setEditando(null); setTela(t) }}
+        />
+      )}
       {tela === 'treino' && <Treino envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'cardio' && <Cardio envio={envio} irPara={setTela} />}
       {tela === 'medidas' && <Medidas envio={envio} irPara={setTela} />}

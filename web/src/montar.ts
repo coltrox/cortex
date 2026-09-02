@@ -24,11 +24,13 @@ export function diaLocal(d: Date = new Date()): string {
   return `${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}`
 }
 
+/** Uma série: as repetições que saíram e o peso que estava na barra. */
+export type SerieFeita = { reps?: number; carga?: number }
+
 export type ExercicioFeito = {
   nome: string
-  series?: number
-  reps?: string
-  carga?: number
+  /** As séries de verdade, uma a uma. */
+  feitas: SerieFeita[]
 }
 
 /** Texto obrigatório: sem espaço em volta, nunca vazio. */
@@ -104,16 +106,43 @@ export function eventoSessao(
   exercicios: ExercicioFeito[],
   dia: string = diaLocal()
 ): Evento {
-  // Exercício sem nome é linha que ficou em branco no formulário, não dado.
   const feitos = exercicios
+    // Exercício sem nome é linha que ficou em branco, e exercício sem série
+    // nenhuma preenchida é exercício que não foi feito — nenhum dos dois é dado.
     .filter(e => e.nome.trim() !== '')
-    .map(e => comValor({
-      nome: e.nome.trim(),
-      series: e.series,
-      reps: e.reps?.trim(),
-      carga: e.carga
-    }))
-  if (feitos.length === 0) throw new Error('o treino precisa de pelo menos um exercício')
+    .map(e => {
+      const series = e.feitas
+        .map(s => comValor({ reps: s.reps, carga: s.carga }))
+        .filter(s => Object.keys(s).length > 0)
+      if (series.length === 0) return null
+
+      const cargas = series
+        .map(s => s.carga)
+        .filter((v): v is number => typeof v === 'number')
+      const reps = series
+        .map(s => s.reps)
+        .filter((v): v is number => typeof v === 'number')
+
+      return comValor({
+        nome: e.nome.trim(),
+        // Os três campos de resumo continuam existindo porque são o que as
+        // lentes do Cortex já leem. `carga` é a mais pesada da sessão, que é
+        // o número que interessa a quem olha a evolução; `reps` é a faixa
+        // que saiu de fato.
+        series: series.length,
+        reps: reps.length === 0
+          ? undefined
+          : Math.min(...reps) === Math.max(...reps)
+            ? String(reps[0])
+            : `${Math.min(...reps)}-${Math.max(...reps)}`,
+        carga: cargas.length === 0 ? undefined : Math.max(...cargas),
+        // E o detalhe série a série, que é o que o resumo perde.
+        feitas: series
+      })
+    })
+    .filter((e): e is Record<string, unknown> => e !== null)
+
+  if (feitos.length === 0) throw new Error('marque ao menos uma série de um exercício')
   return validarEvento({
     tipo: 'sessao',
     dia,
@@ -171,6 +200,25 @@ export function eventoCompromissoCancelado(path: string, dia: string = diaLocal(
   return validarEvento({
     tipo: 'compromisso_cancelado', dia, dados: { path: texto(path, 'compromisso') }
   })
+}
+
+/** Muda um compromisso que já existe. Só os campos preenchidos são tocados. */
+export function eventoCompromissoEditado(
+  path: string,
+  campos: { titulo?: string; data?: string; hora?: string; local?: string },
+  dia: string = diaLocal()
+): Evento {
+  const dados = comValor({
+    path: texto(path, 'compromisso'),
+    titulo: campos.titulo?.trim(),
+    data: campos.data?.trim(),
+    hora: campos.hora?.trim(),
+    local: campos.local?.trim()
+  })
+  // Só `path` significa "nada a mudar" — e um evento que não muda nada é
+  // uma escrita à toa no vault.
+  if (Object.keys(dados).length < 2) throw new Error('nada foi alterado')
+  return validarEvento({ tipo: 'compromisso_editado', dia, dados })
 }
 
 export function eventoCompromisso(
