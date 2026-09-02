@@ -11,12 +11,15 @@ import type { Config } from '../useVault'
  * lista de lentes, que é o que ele deveria ser.
  */
 export function Configuracoes({
-  config, aoSalvarAreas, aoTrocarConfig, aoAbrirNuvem, aoFechar, sincronizacaoFalhando
+  config, aoSalvarAreas, aoTrocarConfig, aoAbrirNuvem, aoRecarregar, aoFechar,
+  sincronizacaoFalhando
 }: {
   config: Config
   aoSalvarAreas: (areas: string[]) => void
   aoTrocarConfig: (c: Config) => void
   aoAbrirNuvem: () => void
+  /** Relê as notas depois de reindexar — ver `BlocoIndice`. */
+  aoRecarregar: () => void
   aoFechar: () => void
   sincronizacaoFalhando: boolean
 }) {
@@ -52,6 +55,8 @@ export function Configuracoes({
 
           <ProtecaoSenha config={config} aoTrocarConfig={aoTrocarConfig} />
 
+          <BlocoIndice aoRecarregar={aoRecarregar} />
+
           <section className="config-bloco">
             <h3>Celular</h3>
             <p className="form-dica">
@@ -70,5 +75,64 @@ export function Configuracoes({
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * Reconstruir o índice.
+ *
+ * O Cortex desenha a partir do índice, e a varredura do vault só acontecia ao
+ * ABRIR o vault. Quem apontasse o app para uma pasta e acrescentasse notas por
+ * fora — copiando de outro cofre, restaurando um backup, sincronizando por
+ * outro programa — via a tela vazia, sem nada dizendo por quê, e sem como
+ * forçar. Aconteceu de verdade, com 88 notas no disco e o índice em zero.
+ *
+ * Não escreve nota nenhuma: só relê o que está no disco. Por isso é seguro
+ * apertar quando a tela parece errada — o pior caso é não mudar nada.
+ */
+function BlocoIndice({ aoRecarregar }: { aoRecarregar: () => void }) {
+  const [ocupado, setOcupado] = useState(false)
+  const [recado, setRecado] = useState<string | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+
+  const reconstruir = async (): Promise<void> => {
+    if (ocupado) return
+    setOcupado(true); setRecado(null); setErro(null)
+    try {
+      const r = await window.vaultApi.invoke('indice:reconstruir', {}) as {
+        indexed: number; removed: number; skipped: number; trancados: number
+      }
+      // Relê a lista na tela: reindexar não escreve arquivo, então o watcher
+      // não dispara e a lente continuaria mostrando o que mostrava antes.
+      aoRecarregar()
+      const partes = [`${r.indexed + r.skipped} nota(s) no índice`]
+      if (r.indexed > 0) partes.push(`${r.indexed} relida(s)`)
+      if (r.removed > 0) partes.push(`${r.removed} que não existe(m) mais, fora`)
+      // Painel trancado com o cofre fechado fica de fora, e isso não é falha:
+      // dizer o número evita a conclusão de que o reindexar não funcionou.
+      if (r.trancados > 0) partes.push(`${r.trancados} em painel trancado, só ao abrir com a senha`)
+      setRecado(partes.join(' · '))
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'não deu para reconstruir o índice')
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  return (
+    <section className="config-bloco">
+      <h3>Índice do vault</h3>
+      <p className="form-dica">
+        O Cortex monta as telas a partir de um índice das notas. Se você
+        acrescentou arquivos na pasta por fora do app — copiando de outro
+        cofre, restaurando um backup — e eles não aparecem, é isto que falta.
+        Nada é escrito: ele só relê o que está no disco.
+      </p>
+      <button className="btn" onClick={() => void reconstruir()} disabled={ocupado}>
+        {ocupado ? 'Relendo o vault…' : 'Reconstruir o índice'}
+      </button>
+      {erro && <p className="config-erro">{erro}</p>}
+      {recado && <p className="config-recado">{recado}</p>}
+    </section>
   )
 }

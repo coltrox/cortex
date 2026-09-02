@@ -371,6 +371,10 @@ export function useVault() {
     sujo: conteudo !== salvo,
     saindo, entrando,
     escolher, criarVault, salvarAreas, trocarConfig: setConfig,
+    // Exposto por causa do reindexar: reconstruir o índice não escreve
+    // arquivo nenhum, então o watcher não dispara e a tela continuaria com a
+    // lista antiga até alguém trocar de lente.
+    recarregar,
     abrir, abrirPorNome, abrirLink, fechar, salvar,
     criar, alterar, excluir, mover, criarPasta, lancar, marcarNoDia,
     autorizarPasta, autorizarArrastadas, removerPasta,

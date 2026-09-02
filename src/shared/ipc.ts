@@ -96,6 +96,19 @@ export const IPC_SCHEMAS = {
     // um texto de 256 caracteres viraria um parágrafo dentro do cadeado.
     dica: z.string().max(200)
   }).strict(),
+  /*
+   * Reconstrói o índice a partir dos arquivos que estão no disco.
+   *
+   * Existe porque a varredura só acontecia ao ABRIR o vault: quem apontasse o
+   * Cortex para uma pasta e acrescentasse notas por fora — copiando de outro
+   * cofre, restaurando um backup, sincronizando por outro programa — via a
+   * tela vazia até fechar e abrir o app, sem nada dizendo por quê. E não
+   * havia como forçar.
+   *
+   * Sem payload: reconstruir é sobre o vault aberto, e deixar o renderer
+   * nomear um caminho aqui seria dar a ele o que o confinamento nega.
+   */
+  'indice:reconstruir': z.object({}).strict(),
   'senha:conferir': z.object({ senha: z.string().max(256) }).strict(),
   'senha:remover': z.object({ atual: z.string().max(256) }).strict(),
   'senha:paineis': z.object({
