@@ -86,7 +86,10 @@ body{
   max-width:var(--largura); margin:0 auto;
   /* O recuo que o cabeçalho e a barra de baixo ocupam. Sem isto, o primeiro
      e o último item da tela nascem embaixo deles. */
-  padding: calc(58px + var(--topo-seguro)) 0 calc(96px + var(--baixo-seguro));
+  /* O +e4 no topo e o respiro entre o cabecalho e a primeira linha. Sem ele
+     o conteudo nasce colado no titulo, e ao rolar parece que passa por baixo
+     dele sem folga nenhuma. */
+  padding: calc(58px + var(--e4) + var(--topo-seguro)) 0 calc(96px + var(--baixo-seguro));
 }
 .bloco{ padding:0 var(--e4); }
 .bloco + .bloco{ margin-top:var(--e5); }
@@ -479,3 +482,84 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 
 /* O botão principal solto no fim de um formulário precisa de ar acima. */
 .bloco > .btn-principal{ margin-top:var(--e4); }
+
+/* ─────────────── Séries do exercício ─────────────── */
+
+/* Uma linha por série, com reps e peso próprios. Cabe num celular porque os
+   dois campos são estreitos e o rótulo é uma letra e um número. */
+.series{ display:flex; flex-direction:column; gap:6px; margin-top:var(--e3); }
+.serie{
+  display:flex; align-items:center; gap:var(--e2);
+  padding:6px; border-radius:var(--r1);
+  background:var(--painel-alto); border:1px solid var(--borda);
+}
+.serie-n{
+  flex:none; width:34px; text-align:center;
+  font:700 12px/1 var(--fonte-num); letter-spacing:.04em;
+  color:var(--txt-3);
+}
+.serie-campo{
+  flex:1; min-width:0; display:flex; align-items:center; gap:5px;
+  background:var(--painel); border:1px solid var(--borda); border-radius:6px;
+  padding:0 10px; min-height:46px;
+}
+.serie-campo input{
+  width:100%; min-width:0; background:none; border:0; outline:none;
+  color:var(--txt); font:700 16px/1 var(--fonte-num); text-align:right;
+  -webkit-appearance:none; appearance:none;
+}
+.serie-campo input::placeholder{ color:var(--txt-3); font-weight:500; }
+.serie-campo span{ flex:none; font:500 11.5px/1 var(--fonte); color:var(--txt-3); }
+.serie-campo:focus-within{ border-color:var(--acento); }
+.serie-x{ flex:none; color:var(--txt-3); font:400 14px/1 var(--fonte); }
+
+/* Remover série e remover exercício: discretos até serem procurados. Apagar
+   por engano no meio do treino custa mais do que um botão apagado custa. */
+.sumir{
+  flex:none; width:38px; min-height:38px;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent; border:1px solid transparent; border-radius:var(--r1);
+  color:var(--txt-3); cursor:pointer;
+}
+.sumir:active{ background:var(--erro-fraco); border-color:rgba(234,106,114,.3); color:var(--erro); }
+
+.linha-acoes{ display:flex; gap:var(--e2); margin-top:var(--e2); }
+.btn-mini{
+  flex:1; min-height:44px; padding:0 var(--e3);
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  background:transparent; border:1px dashed var(--borda-forte); border-radius:var(--r1);
+  color:var(--txt-2); font:600 13px/1 var(--fonte); cursor:pointer;
+}
+.btn-mini:active{ border-color:var(--acento); color:var(--acento); }
+
+.exercicio-cabeca{ display:flex; align-items:flex-start; gap:var(--e2); }
+.exercicio-cabeca .exercicio-topo{ flex:1; min-width:0; }
+
+/* ─────────────── Seleção em cascata ─────────────── */
+
+/* Um <select> de verdade, e não uma lista desenhada à mão: no celular ele
+   abre a roda nativa do sistema, que é maior, rola com o polegar e já é
+   conhecida. Uma lista própria seria mais bonita na captura de tela e pior
+   na mão. O que se estiliza aqui é a caixa fechada, não a aberta. */
+.selecao{ position:relative; }
+.selecao select{
+  width:100%; min-height:var(--toque); padding:0 var(--e5) 0 var(--e4);
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  color:var(--txt); font:500 16px/1.2 var(--fonte);
+  outline:none; cursor:pointer;
+  -webkit-appearance:none; appearance:none;
+  transition:border-color .15s ease, background .15s ease;
+}
+.selecao select:focus{
+  border-color:var(--acento); background:var(--painel-alto);
+  box-shadow:0 0 0 3px var(--acento-fraco);
+}
+/* A seta é nossa: a nativa some com o appearance:none, e sem ela a caixa
+   parece um campo de texto que não aceita digitação. */
+.selecao::after{
+  content:''; position:absolute; right:var(--e4); top:50%;
+  width:8px; height:8px; margin-top:-6px; pointer-events:none;
+  border-right:2px solid var(--txt-3); border-bottom:2px solid var(--txt-3);
+  transform:rotate(45deg);
+}
+.selecao select option{ background:var(--painel-alto); color:var(--txt); }

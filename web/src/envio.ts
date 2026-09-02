@@ -9,6 +9,15 @@ import { lerCardapio, gravarCardapio, type Cardapio } from './cardapio'
 /** De quanto em quanto tempo a fila tenta sair sozinha, com o app aberto. */
 const INTERVALO_MS = 30_000
 
+/**
+ * De quanto em quanto tempo os dados do Cortex sao buscados de novo.
+ *
+ * Dois minutos, o mesmo ritmo com que o Cortex puxa os eventos do celular.
+ * Nao ha botao de atualizar em lugar nenhum, e e de proposito: o vault esta
+ * conectado, entao manter isso em dia e trabalho do app, nao da pessoa.
+ */
+const INTERVALO_CARDAPIO_MS = 120_000
+
 const CREDENCIAL = {
   url: import.meta.env.VITE_SUPABASE_URL ?? '',
   chave: import.meta.env.VITE_SUPABASE_CHAVE ?? ''
@@ -131,7 +140,25 @@ export function useCardapio(): UsoDoCardapio {
     }
   }, [])
 
-  useEffect(() => { void atualizar() }, [atualizar])
+  useEffect(() => {
+    void atualizar()
+    const relogio = setInterval(() => void atualizar(), INTERVALO_CARDAPIO_MS)
+
+    // Voltar para o app e o momento mais provavel de haver novidade: a pessoa
+    // acabou de mexer no Cortex e trocou de janela. Esperar o proximo tique
+    // de dois minutos ali seria esperar a toa.
+    const aoVoltar = (): void => {
+      if (document.visibilityState === 'visible') void atualizar()
+    }
+    document.addEventListener('visibilitychange', aoVoltar)
+    window.addEventListener('online', aoVoltar)
+
+    return () => {
+      clearInterval(relogio)
+      document.removeEventListener('visibilitychange', aoVoltar)
+      window.removeEventListener('online', aoVoltar)
+    }
+  }, [atualizar])
 
   return { cardapio, atualizar, erro, buscando }
 }

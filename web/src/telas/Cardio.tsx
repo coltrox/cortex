@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { diaLocal, eventoCardio } from '../montar'
-import { Cabecalho, Botao, Campo, CampoNumero, Aviso, Secao, Chips } from '../componentes'
+import { Cabecalho, Botao, Campo, CampoNumero, Aviso, Selecao } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
 
@@ -32,8 +32,7 @@ export function Cardio(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela
       <Cabecalho titulo="Cardio" aoVoltar={() => p.irPara('hoje')} />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="bloco">
-        <Secao nome="Aparelho" />
-        <Chips opcoes={APARELHOS} escolhida={aparelho} aoEscolher={setAparelho} />
+        <Selecao rotulo="Aparelho" opcoes={APARELHOS} valor={aparelho} aoMudar={setAparelho} />
         <CampoNumero rotulo="Minutos" valor={minutos} aoMudar={setMinutos} dica="30" />
         <CampoNumero rotulo="Distância (km)" valor={distancia} aoMudar={setDistancia} dica="5" />
         <Campo rotulo="Pace" valor={pace} aoMudar={setPace} dica="6:00" />

@@ -56,28 +56,53 @@ describe('construtores de evento', () => {
     expect(eventoGasto('almoço', 32.5, {}, DIA).dados).toEqual({ item: 'almoço', valor: 32.5 })
   })
 
-  it('sessão de treino leva a carga', () => {
+  it('sessão leva cada série, e um resumo para as lentes do Cortex', () => {
     const e = eventoSessao('Peito e tríceps', [
-      { nome: 'Supino reto', series: 4, reps: '8-10', carga: 60 },
-      { nome: 'Crucifixo', series: 3, reps: '12' }
+      { nome: 'Supino reto', feitas: [
+        { reps: 10, carga: 60 }, { reps: 8, carga: 65 }, { reps: 6, carga: 65 }
+      ] },
+      { nome: 'Crucifixo', feitas: [{ reps: 12, carga: 14 }] }
     ], DIA)
     expect(e.tipo).toBe('sessao')
-    expect(e.dados).toEqual({
-      modelo: 'Peito e tríceps',
-      exercicios: [
-        { nome: 'Supino reto', series: 4, reps: '8-10', carga: 60 },
-        { nome: 'Crucifixo', series: 3, reps: '12' }
-      ]
-    })
+    expect(e.dados.exercicios).toEqual([
+      {
+        nome: 'Supino reto',
+        // Resumo: quantas séries, a faixa de reps que saiu, e a carga mais
+        // pesada — que é o número de quem olha evolução.
+        series: 3, reps: '6-10', carga: 65,
+        feitas: [{ reps: 10, carga: 60 }, { reps: 8, carga: 65 }, { reps: 6, carga: 65 }]
+      },
+      { nome: 'Crucifixo', series: 1, reps: '12', carga: 14, feitas: [{ reps: 12, carga: 14 }] }
+    ])
   })
 
-  it('sessão descarta exercício sem nome', () => {
-    const e = eventoSessao('Peito', [{ nome: '' }, { nome: 'Supino' }], DIA)
-    expect(e.dados.exercicios as unknown[]).toHaveLength(1)
+  it('reps iguais nao viram faixa', () => {
+    const e = eventoSessao('T', [
+      { nome: 'Rosca', feitas: [{ reps: 12, carga: 10 }, { reps: 12, carga: 10 }] }
+    ], DIA)
+    expect((e.dados.exercicios as { reps: string }[])[0].reps).toBe('12')
   })
 
-  it('sessão sem nenhum exercício não passa', () => {
-    expect(() => eventoSessao('Peito', [{ nome: '  ' }], DIA)).toThrow()
+  it('exercicio sem serie preenchida nao entra', () => {
+    // E o exercicio que a pessoa pulou: apagar da lista e uma forma de dizer
+    // isso, deixar em branco e outra.
+    const e = eventoSessao('T', [
+      { nome: 'Supino', feitas: [{ reps: 8, carga: 40 }] },
+      { nome: 'Crucifixo', feitas: [{}, {}] }
+    ], DIA)
+    expect(e.dados.exercicios).toHaveLength(1)
+  })
+
+  it('serie so com reps, sem peso, vale', () => {
+    // Barra fixa e abdominal nao tem peso, e continuam sendo treino.
+    const e = eventoSessao('T', [{ nome: 'Barra fixa', feitas: [{ reps: 8 }] }], DIA)
+    expect((e.dados.exercicios as { feitas: unknown[]; carga?: number }[])[0])
+      .toEqual({ nome: 'Barra fixa', series: 1, reps: '8', feitas: [{ reps: 8 }] })
+  })
+
+  it('sessão sem nenhuma série não passa', () => {
+    expect(() => eventoSessao('Peito', [{ nome: 'Supino', feitas: [] }], DIA)).toThrow()
+    expect(() => eventoSessao('Peito', [{ nome: '  ', feitas: [{ reps: 8 }] }], DIA)).toThrow()
   })
 
   it('cardio', () => {

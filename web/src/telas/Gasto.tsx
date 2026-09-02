@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { diaLocal, eventoGasto } from '../montar'
-import { Cabecalho, Botao, Campo, CampoNumero, Aviso, Secao, Chips } from '../componentes'
+import { Cabecalho, Botao, Campo, CampoNumero, Aviso, Selecao } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
 
-const CATEGORIAS = ['comida', 'transporte', 'lazer', 'estudo', 'saude', 'outros']
+// A primeira e vazia para "sem categoria" continuar sendo escolhivel: no
+// <select> nao ha como desmarcar clicando de novo, como havia nos chips.
+const CATEGORIAS = ['', 'comida', 'transporte', 'lazer', 'estudo', 'saúde', 'outros']
 
 export function Gasto(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela) => void }) {
   const [item, setItem] = useState('')
@@ -34,9 +36,7 @@ export function Gasto(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela)
         </div>
         <Campo rotulo="O quê" valor={item} aoMudar={setItem} dica="almoço" />
         <CampoNumero rotulo="Valor (R$)" valor={valor} aoMudar={setValor} dica="32,50" />
-        <Secao nome="Categoria" />
-        <Chips opcoes={CATEGORIAS} escolhida={cat}
-          aoEscolher={c => setCat(c === cat ? '' : c)} />
+        <Selecao rotulo="Categoria" opcoes={CATEGORIAS} valor={cat} aoMudar={setCat} />
         <Botao tipo="principal" aoClicar={enviar}>
           {saiu ? 'Registrar gasto' : 'Registrar entrada'}
         </Botao>
