@@ -11,14 +11,14 @@ import { Medidas } from './telas/Medidas'
 import { Gasto } from './telas/Gasto'
 import { Anotacao } from './telas/Anotacao'
 import { Agenda } from './telas/Agenda'
-import { Compromisso, type EdicaoCompromisso } from './telas/Compromisso'
+import { NovoItem, type EdicaoCompromisso, type TipoNovo } from './telas/NovoItem'
 import { Porquinho } from './telas/Porquinho'
 import { Ajustes } from './telas/Ajustes'
 import { LerQr } from './telas/LerQr'
 
 export type Tela =
   | 'hoje' | 'agenda' | 'compromisso' | 'treino' | 'cardio'
-  | 'medidas' | 'gasto' | 'porquinho' | 'anotacao' | 'ajustes' | 'lerqr'
+  | 'medidas' | 'gasto' | 'porquinho' | 'anotacao' | 'ajustes' | 'lerqr' | 'novo'
 
 /**
  * O id que a câmera trouxe no endereço, gravado antes de qualquer tela abrir.
@@ -94,11 +94,13 @@ export function App() {
   /**
    * O compromisso que a tela de edicao vai abrir preenchido.
    *
-   * Mora aqui, e nao dentro de `Compromisso`, porque quem escolhe e a tela
+   * Mora aqui, e nao dentro de `NovoItem`, porque quem escolhe e a tela
    * de Chegando: passar por cima do App e o unico caminho entre as duas sem
    * inventar um roteador.
    */
   const [editando, setEditando] = useState<EdicaoCompromisso | null>(null)
+  /** Qual chip da agenda foi tocado — compromisso, prova ou tarefa. */
+  const [novoTipo, setNovoTipo] = useState<TipoNovo>('compromisso')
 
   if (faltaCredencial()) {
     return (
@@ -118,12 +120,14 @@ export function App() {
           envio={envio}
           cardapio={cardapio}
           irPara={setTela}
-          aoEditar={c => { setEditando(c); setTela('compromisso') }}
+          aoEditar={c => { setEditando(c); setNovoTipo('compromisso'); setTela('novo') }}
+          aoMarcar={t => { setEditando(null); setNovoTipo(t); setTela('novo') }}
         />
       )}
-      {tela === 'compromisso' && (
-        <Compromisso
+      {tela === 'novo' && (
+        <NovoItem
           envio={envio}
+          tipo={novoTipo}
           editando={editando}
           irPara={t => { setEditando(null); setTela(t) }}
         />
@@ -156,9 +160,9 @@ export function App() {
           Hoje
         </button>
         <button
-          className={`aba ${tela === 'agenda' || tela === 'compromisso' ? 'aba-ativa' : ''}`}
+          className={`aba ${tela === 'agenda' || tela === 'novo' ? 'aba-ativa' : ''}`}
           onClick={() => setTela('agenda')}
-          aria-current={tela === 'agenda' || tela === 'compromisso'}
+          aria-current={tela === 'agenda' || tela === 'novo'}
         >
           <IconeChegando />
           Chegando

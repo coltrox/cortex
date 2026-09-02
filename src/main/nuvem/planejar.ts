@@ -186,6 +186,32 @@ export function planejar(evento: Evento): Operacao[] {
       }]
     }
 
+    /*
+     * Prova e tarefa novas.
+     *
+     * Mesma forma do `compromisso`, com a pasta e o tipo de cada uma. Nao ha
+     * um caso generico com o tipo vindo do evento, de proposito: `tipo` decide
+     * o que a nota E para o app inteiro, e deixar um evento escolher isso e o
+     * furo que este arquivo evita em todos os outros casos.
+     */
+    case 'prova_nova':
+    case 'tarefa_nova': {
+      const titulo = txt(dados.titulo).trim()
+      if (!titulo) return []
+      const prova = tipo === 'prova_nova'
+      return [{
+        acao: 'nota', tipo: prova ? 'prova' : 'tarefa', seExistir: 'criarOutro',
+        path: `${prova ? 'Estudos/Provas' : 'Estudos'}/${nomeArquivo(titulo)}.md`,
+        frontmatter: comValor({
+          ...dados,
+          tipo: prova ? 'prova' : 'tarefa',
+          title: titulo,
+          date: txt(dados.data) || dia,
+          titulo: undefined, data: undefined, path: undefined
+        })
+      }]
+    }
+
     case 'porquinho': {
       const titulo = txt(dados.titulo).trim() || 'Movimento do porquinho'
       const valor = Number(dados.valor)

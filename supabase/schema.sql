@@ -44,7 +44,7 @@ language sql immutable as $$
                -- e ter um caso em planejar.ts; faltar num dos tres faz o
                -- evento sumir em silencio.
                'prova_estudada','compromisso','compromisso_cancelado',
-               'compromisso_editado',
+               'compromisso_editado','prova_nova','tarefa_nova',
                'porquinho']
 $$;
 

@@ -14,6 +14,8 @@ export const TIPOS_EVENTO = [
   // Agenda e estudos: os três que mexem numa nota que já existe, ou criam
   // uma. Os de cima só acrescentam ao diário do dia.
   'prova_estudada', 'compromisso', 'compromisso_cancelado', 'compromisso_editado',
+  // Marcar do celular o que antes so nascia no Cortex.
+  'prova_nova', 'tarefa_nova',
   // Porquinho: guardar e tirar. Movimento, nao saldo -- o saldo e a soma dos
   // movimentos, e quem faz essa conta e o Cortex.
   'porquinho'

@@ -260,3 +260,42 @@ describe('planejar — agenda e estudos', () => {
     expect((ops[0] as any).path.split('/')).toHaveLength(2)
   })
 })
+
+describe('planejar — prova e tarefa marcadas do celular', () => {
+  it('prova nova vira nota em Estudos/Provas', () => {
+    expect(planejar({
+      tipo: 'prova_nova', dia: '2026-09-02',
+      dados: { titulo: 'P1 de fisica', data: '2026-09-20', materia: 'fisica' }
+    })).toEqual([{
+      acao: 'nota', tipo: 'prova', seExistir: 'criarOutro',
+      path: 'Estudos/Provas/P1 de fisica.md',
+      frontmatter: { tipo: 'prova', title: 'P1 de fisica', date: '2026-09-20', materia: 'fisica' }
+    }])
+  })
+
+  it('tarefa nova vira nota em Estudos', () => {
+    const ops = planejar({
+      tipo: 'tarefa_nova', dia: '2026-09-02',
+      dados: { titulo: 'Trabalho', data: '2026-09-08' }
+    })
+    expect((ops[0] as any).path).toBe('Estudos/Trabalho.md')
+    expect((ops[0] as any).tipo).toBe('tarefa')
+  })
+
+  it('o evento nao escolhe o tipo da nota', () => {
+    // Mesma guarda dos outros casos: `tipo` decide o que a nota E para o app
+    // inteiro, e um evento vindo do banco nao pode espalhar o dele por cima.
+    const ops = planejar({
+      tipo: 'prova_nova', dia: '2026-09-02',
+      dados: { titulo: 'P1', tipo: 'senha', title: 'outro', date: '1999-01-01' }
+    })
+    const fm = (ops[0] as any).frontmatter
+    expect(fm.tipo).toBe('prova')
+    expect(fm.title).toBe('P1')
+    expect(fm.date).toBe('2026-09-02')
+  })
+
+  it('sem titulo nao vira nota', () => {
+    expect(planejar({ tipo: 'prova_nova', dia: '2026-09-02', dados: { titulo: ' ' } })).toEqual([])
+  })
+})

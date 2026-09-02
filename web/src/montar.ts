@@ -268,3 +268,52 @@ export function eventoPorquinho(
     })
   })
 }
+
+/**
+ * Prova e tarefa marcadas do celular.
+ *
+ * Duas funções e não uma com o tipo por parâmetro: os campos diferem — prova
+ * tem local, tarefa não — e uma função só com tudo opcional aceitaria
+ * combinações que não existem.
+ */
+export function eventoProvaNova(
+  titulo: string,
+  data: string,
+  extras: { materia?: string; local?: string } = {},
+  dia: string = diaLocal()
+): Evento {
+  return validarEvento({
+    tipo: 'prova_nova',
+    dia,
+    dados: comValor({
+      titulo: texto(titulo, 'prova'),
+      data: dataIso(data, dia),
+      materia: extras.materia?.trim(),
+      local: extras.local?.trim()
+    })
+  })
+}
+
+export function eventoTarefaNova(
+  titulo: string,
+  data: string,
+  extras: { materia?: string } = {},
+  dia: string = diaLocal()
+): Evento {
+  return validarEvento({
+    tipo: 'tarefa_nova',
+    dia,
+    dados: comValor({
+      titulo: texto(titulo, 'tarefa'),
+      data: dataIso(data, dia),
+      materia: extras.materia?.trim()
+    })
+  })
+}
+
+/** Data no formato do vault, caindo em hoje quando vem vazia. */
+function dataIso(data: string, dia: string): string {
+  const quando = data.trim() || dia
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(quando)) throw new Error('data precisa ser AAAA-MM-DD')
+  return quando
+}

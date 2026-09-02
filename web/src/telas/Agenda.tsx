@@ -6,7 +6,7 @@ import { jaFeitos, marcarFeito } from '../feitos'
 import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
-import type { EdicaoCompromisso } from './Compromisso'
+import type { EdicaoCompromisso, TipoNovo } from './NovoItem'
 
 /**
  * O que está chegando.
@@ -21,6 +21,7 @@ export function Agenda(p: {
   cardapio: UsoDoCardapio
   irPara: (t: Tela) => void
   aoEditar: (c: EdicaoCompromisso) => void
+  aoMarcar: (t: TipoNovo) => void
 }) {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
@@ -42,7 +43,20 @@ export function Agenda(p: {
       {p.cardapio.erro && <Aviso>{p.cardapio.erro}</Aviso>}
 
       <div className="bloco">
-        <Botao aoClicar={() => p.irPara('compromisso')}>Novo compromisso</Botao>
+        {/* Os mesmos chips do Cortex: marcar algo daqui e um toque, e a
+            fileira mostra de uma vez o que da para marcar. */}
+        <Secao nome="Marcar" />
+        <div className="chips">
+          {([
+            ['compromisso', '+ Compromisso'],
+            ['prova', '+ Prova'],
+            ['tarefa', '+ Tarefa']
+          ] as [TipoNovo, string][]).map(([t, rotulo]) => (
+            <button key={t} className="chip" type="button" onClick={() => p.aoMarcar(t)}>
+              {rotulo}
+            </button>
+          ))}
+        </div>
 
         {vazio && !p.cardapio.erro && (
           <p className="secao-vazia">
@@ -56,16 +70,16 @@ export function Agenda(p: {
           const path = caminhoDe(i)
           const feito = i.detalhe.estudado === true || feitos.includes(`prova:${path}`)
           return (
-            <div className={`item ${feito ? 'feito' : ''}`} key={path || i.nome}>
-              <div className="item-texto">
-                <strong>{i.nome}</strong>
-                <small>
-                  {[faltam(dataDe(i), dia), i.detalhe.materia, i.detalhe.local]
-                    .filter(x => typeof x === 'string' && x !== '').join(' · ')}
-                </small>
+            <div className={`item item-acao ${feito ? 'item-feito' : ''}`} key={path || i.nome}>
+              <div className="item-corpo">
+                <div className="item-nome">{i.nome}</div>
+                <div className="item-meta">
+                  <Detalhe partes={[faltam(dataDe(i), dia), i.detalhe.materia, i.detalhe.local]} />
+                </div>
               </div>
               <button
-                className="item-acao"
+                className={`acao-lado ${feito ? 'acao-feita' : ''}`}
+                type="button"
                 disabled={feito || path === ''}
                 onClick={() => marcar(`prova:${path}`, () => eventoProvaEstudada(path, dia))}
               >
@@ -122,13 +136,12 @@ export function Agenda(p: {
 
         {ts.length > 0 && <Secao nome="Tarefas" />}
         {ts.map(i => (
-          <div className="item" key={caminhoDe(i) || i.nome}>
-            <div className="item-texto">
-              <strong>{i.nome}</strong>
-              <small>
-                {[faltam(dataDe(i), dia), i.detalhe.materia]
-                  .filter(x => typeof x === 'string' && x !== '').join(' · ')}
-              </small>
+          <div className="item item-acao" key={caminhoDe(i) || i.nome}>
+            <div className="item-corpo">
+              <div className="item-nome">{i.nome}</div>
+              <div className="item-meta">
+                <Detalhe partes={[faltam(dataDe(i), dia), i.detalhe.materia]} />
+              </div>
             </div>
           </div>
         ))}
