@@ -194,3 +194,29 @@ export function eventoCompromisso(
     })
   })
 }
+
+/**
+ * Movimento do porquinho: guardar ou tirar.
+ *
+ * Manda o movimento, nunca o saldo. O saldo é a soma dos movimentos, e quem
+ * faz essa conta é o Cortex — se o celular mandasse um saldo, dois aparelhos
+ * offline no mesmo dia sobrescreveriam um ao outro e o dinheiro sumiria.
+ */
+export function eventoPorquinho(
+  titulo: string,
+  valor: number,
+  direcao: 'deposito' | 'sangria',
+  dia: string = diaLocal()
+): Evento {
+  const v = numero(valor, 'valor')
+  if (v <= 0) throw new Error('o valor precisa ser maior que zero')
+  return validarEvento({
+    tipo: 'porquinho',
+    dia,
+    dados: comValor({
+      titulo: texto(titulo, 'descrição'),
+      valor: v,
+      direcao
+    })
+  })
+}

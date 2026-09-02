@@ -3,7 +3,7 @@ import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoProvaEstudada, eventoCompromissoCancelado } from '../montar'
 import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam } from '../cardapio'
 import { jaFeitos, marcarFeito } from '../feitos'
-import { Cabecalho, Botao, Aviso } from '../componentes'
+import { Cabecalho, Botao, Aviso, Secao } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
 
@@ -35,21 +35,21 @@ export function Agenda(p: {
   const vazio = ps.length === 0 && cs.length === 0 && ts.length === 0
 
   return (
-    <div className="tela agenda">
+    <div className="tema-agenda">
       <Cabecalho titulo="Chegando" aoVoltar={() => p.irPara('hoje')} />
       {p.cardapio.erro && <Aviso>{p.cardapio.erro}</Aviso>}
 
-      <div className="secao">
+      <div className="bloco">
         <Botao aoClicar={() => p.irPara('compromisso')}>Novo compromisso</Botao>
 
         {vazio && !p.cardapio.erro && (
-          <p className="nota">
+          <p className="secao-vazia">
             Nada marcado nos próximos dias. Provas, compromissos e tarefas
             aparecem aqui assim que existirem no Cortex.
           </p>
         )}
 
-        {ps.length > 0 && <h2>Provas</h2>}
+        {ps.length > 0 && <Secao nome="Provas" />}
         {ps.map(i => {
           const path = caminhoDe(i)
           const feito = i.detalhe.estudado === true || feitos.includes(`prova:${path}`)
@@ -73,7 +73,7 @@ export function Agenda(p: {
           )
         })}
 
-        {cs.length > 0 && <h2>Compromissos</h2>}
+        {cs.length > 0 && <Secao nome="Compromissos" />}
         {cs.map(i => {
           const path = caminhoDe(i)
           const cancelado = feitos.includes(`cancelar:${path}`)
@@ -99,7 +99,7 @@ export function Agenda(p: {
           )
         })}
 
-        {ts.length > 0 && <h2>Tarefas</h2>}
+        {ts.length > 0 && <Secao nome="Tarefas" />}
         {ts.map(i => (
           <div className="item" key={caminhoDe(i) || i.nome}>
             <div className="item-texto">

@@ -18,13 +18,13 @@ export function Anotacao(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Te
   }
 
   return (
-    <>
+    <div className="tema-hoje">
       <Cabecalho titulo="Anotação" aoVoltar={() => p.irPara('hoje')} />
-      {erro && <Aviso grave aoFechar={() => setErro(null)}>{erro}</Aviso>}
-      <div className="secao">
+      {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
+      <div className="bloco">
         <Campo rotulo="" valor={texto} aoMudar={setTexto} linhas={8} dica="o que aconteceu" />
         <Botao tipo="principal" aoClicar={enviar}>Salvar anotação</Botao>
       </div>
-    </>
+    </div>
   )
 }

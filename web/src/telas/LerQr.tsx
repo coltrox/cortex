@@ -91,23 +91,23 @@ export function LerQr({ aoLer, aoFechar }: {
   }, [aoLer])
 
   return (
-    <>
+    <div className="tema-hoje">
       <Cabecalho titulo="Ler QR" aoVoltar={aoFechar} />
-      {erro && <Aviso grave>{erro}</Aviso>}
-      <div className="secao">
+      {erro && <Aviso tom="erro">{erro}</Aviso>}
+      <div className="bloco">
         {procurando && (
           <>
-            <div className="camera">
+            <div className="visor">
               <video ref={video} playsInline muted />
-              <div className="camera-mira" />
+              <div className="mira"><i /><i /><i /><i /></div>
             </div>
-            <p className="nota">
+            <p className="instrucao">
               Aponte para o QR que está no Cortex, em Configurações → Celular.
             </p>
           </>
         )}
         <Botao aoClicar={aoFechar}>Voltar e digitar o id</Botao>
       </div>
-    </>
+    </div>
   )
 }

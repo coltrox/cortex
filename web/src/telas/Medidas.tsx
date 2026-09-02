@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { diaLocal, eventoMedida, eventoPeso } from '../montar'
-import { Cabecalho, Botao, CampoNumero, Aviso } from '../componentes'
+import { Cabecalho, Botao, CampoNumero, Aviso, Secao } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
 
@@ -40,12 +40,12 @@ export function Medidas(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tel
   }
 
   return (
-    <>
+    <div className="tema-treino">
       <Cabecalho titulo="Peso e medidas" aoVoltar={() => p.irPara('hoje')} />
-      {erro && <Aviso grave aoFechar={() => setErro(null)}>{erro}</Aviso>}
-      <div className="secao">
-        <CampoNumero rotulo="Peso (kg)" valor={peso} aoMudar={setPeso} dica="78.4" />
-        <h2>Fita métrica</h2>
+      {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
+      <div className="bloco">
+        <CampoNumero rotulo="Peso (kg)" valor={peso} aoMudar={setPeso} dica="78,4" grande />
+        <Secao nome="Fita métrica" />
         {MEDIDAS.map(m => (
           <CampoNumero
             key={m.k}
@@ -56,6 +56,6 @@ export function Medidas(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tel
         ))}
         <Botao tipo="principal" aoClicar={enviar}>Registrar</Botao>
       </div>
-    </>
+    </div>
   )
 }

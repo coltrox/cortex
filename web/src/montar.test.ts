@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
   eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
-  eventoProvaEstudada, eventoCompromisso, eventoCompromissoCancelado
+  eventoProvaEstudada, eventoCompromisso, eventoCompromissoCancelado, eventoPorquinho
 } from './montar'
 
 const DIA = '2026-08-28'
@@ -167,5 +167,39 @@ describe('agenda e estudos', () => {
 
   it('recusa compromisso sem titulo', () => {
     expect(() => eventoCompromisso('  ', '2026-09-10', {}, DIA2)).toThrow()
+  })
+})
+
+describe('porquinho', () => {
+  const DIA3 = '2026-09-01'
+
+  it('manda o movimento, nunca o saldo', () => {
+    // Se o celular mandasse saldo, dois aparelhos offline no mesmo dia
+    // sobrescreveriam um ao outro e o dinheiro sumiria.
+    expect(eventoPorquinho('Guardei do salario', 250, 'deposito', DIA3)).toEqual({
+      tipo: 'porquinho', dia: DIA3,
+      dados: { titulo: 'Guardei do salario', valor: 250, direcao: 'deposito' }
+    })
+  })
+
+  it('tirar tambem e um movimento', () => {
+    expect(eventoPorquinho('Peca da bike', 80, 'sangria', DIA3).dados).toEqual({
+      titulo: 'Peca da bike', valor: 80, direcao: 'sangria'
+    })
+  })
+
+  it('recusa valor zero ou negativo', () => {
+    // Um movimento de zero nao e movimento, e um negativo seria uma sangria
+    // disfarcada de deposito.
+    expect(() => eventoPorquinho('x', 0, 'deposito', DIA3)).toThrow()
+    expect(() => eventoPorquinho('x', -50, 'deposito', DIA3)).toThrow()
+  })
+
+  it('recusa valor que nao e numero', () => {
+    expect(() => eventoPorquinho('x', Number.NaN, 'deposito', DIA3)).toThrow()
+  })
+
+  it('recusa descricao vazia', () => {
+    expect(() => eventoPorquinho('   ', 100, 'deposito', DIA3)).toThrow()
   })
 })

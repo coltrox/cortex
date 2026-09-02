@@ -171,6 +171,28 @@ export function planejar(evento: Evento): Operacao[] {
       }]
     }
 
+    case 'porquinho': {
+      const titulo = txt(dados.titulo).trim() || 'Movimento do porquinho'
+      const valor = Number(dados.valor)
+      if (!Number.isFinite(valor) || valor <= 0) return []
+      // Só dois movimentos existem, e o vocabulário é o do Cortex: qualquer
+      // outra coisa vira depósito, que é o caso seguro — um depósito a mais
+      // por engano se conserta somando; uma sangria a mais mente sobre
+      // dinheiro que existe.
+      const direcao = txt(dados.direcao) === 'sangria' ? 'sangria' : 'deposito'
+      return [{
+        acao: 'nota', tipo: 'porquinho', seExistir: 'criarOutro',
+        path: `Grana/${nomeArquivo(titulo)} ${dia}.md`,
+        frontmatter: comValor({
+          ...dados,
+          // tipo/title/date/direcao depois do spread pelo mesmo motivo do
+          // caso `cardio`: um evento externo não escolhe o que a nota É.
+          tipo: 'porquinho', title: titulo, date: dia, valor, direcao,
+          titulo: undefined
+        })
+      }]
+    }
+
     case 'anotacao': {
       const texto = txt(dados.texto).trim()
       if (!texto) return []

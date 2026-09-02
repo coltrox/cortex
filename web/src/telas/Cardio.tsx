@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { diaLocal, eventoCardio } from '../montar'
-import { Cabecalho, Botao, Campo, CampoNumero, Aviso } from '../componentes'
+import { Cabecalho, Botao, Campo, CampoNumero, Aviso, Secao, Chips } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
 
@@ -28,24 +28,18 @@ export function Cardio(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela
   }
 
   return (
-    <>
+    <div className="tema-treino">
       <Cabecalho titulo="Cardio" aoVoltar={() => p.irPara('hoje')} />
-      {erro && <Aviso grave aoFechar={() => setErro(null)}>{erro}</Aviso>}
-      <div className="secao">
-        <h2>Aparelho</h2>
-        <div className="grade">
-          {APARELHOS.map(a => (
-            <Botao key={a} tipo={a === aparelho ? 'principal' : 'comum'} aoClicar={() => setAparelho(a)}>
-              {a}
-            </Botao>
-          ))}
-        </div>
+      {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
+      <div className="bloco">
+        <Secao nome="Aparelho" />
+        <Chips opcoes={APARELHOS} escolhida={aparelho} aoEscolher={setAparelho} />
         <CampoNumero rotulo="Minutos" valor={minutos} aoMudar={setMinutos} dica="30" />
         <CampoNumero rotulo="Distância (km)" valor={distancia} aoMudar={setDistancia} dica="5" />
         <Campo rotulo="Pace" valor={pace} aoMudar={setPace} dica="6:00" />
         <CampoNumero rotulo="Nível" valor={nivel} aoMudar={setNivel} dica="8" />
         <Botao tipo="principal" aoClicar={enviar}>Registrar cardio</Botao>
       </div>
-    </>
+    </div>
   )
 }
