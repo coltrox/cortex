@@ -54,6 +54,14 @@
   /* — Altura mínima de toque. Nada abaixo disto. — */
   --toque: 52px;
 
+  /* — O que o cabeçalho e a barra de baixo ocupam.
+       São tokens, e não números soltos no `#raiz`, porque uma tela que
+       precise centrar o conteúdo no espaço livre tem de descontar
+       exatamente o mesmo — e dois números iguais escritos em dois lugares
+       divergem na primeira vez que um deles muda. — */
+  --alt-cabecalho: 58px;
+  --alt-barra: 96px;
+
   /* — Zonas seguras: valor real no aparelho, zero no navegador de mesa — */
   --topo-seguro: env(safe-area-inset-top, 0px);
   --baixo-seguro: env(safe-area-inset-bottom, 0px);
@@ -89,10 +97,45 @@ body{
   /* O +e4 no topo e o respiro entre o cabecalho e a primeira linha. Sem ele
      o conteudo nasce colado no titulo, e ao rolar parece que passa por baixo
      dele sem folga nenhuma. */
-  padding: calc(58px + var(--e4) + var(--topo-seguro)) 0 calc(96px + var(--baixo-seguro));
+  padding: calc(var(--alt-cabecalho) + var(--e4) + var(--topo-seguro))
+           0
+           calc(var(--alt-barra) + var(--baixo-seguro));
 }
 .bloco{ padding:0 var(--e4); }
 .bloco + .bloco{ margin-top:var(--e5); }
+
+/* — Tela de pouca coisa —
+   Ajustes conectado tem duas coisas na tela: o estado e a saída para trocar
+   de vault. Empilhadas no topo, elas viravam um fragmento com 700px de vazio
+   embaixo. Aqui o conteúdo ocupa a altura livre: o estado se centra, e a
+   ação secundária desce para o pé — longe do polegar, que é onde ela deve
+   estar, já que trocar de vault desliga este celular do Cortex atual.
+
+   O desconto é o MESMO do `#raiz` acima, pelos mesmos tokens. */
+.tela-calma{
+  min-height: calc(100dvh
+    - var(--alt-cabecalho) - var(--e4) - var(--topo-seguro)
+    - var(--alt-barra) - var(--baixo-seguro));
+  display:flex; flex-direction:column; gap:var(--e5);
+}
+.tela-calma-meio{
+  flex:1; display:flex; flex-direction:column; justify-content:center;
+  gap:var(--e3); text-align:center;
+}
+.tela-calma-pe{ flex:none; }
+
+/* O selo do estado: um círculo grande, porque a pergunta que traz alguém a
+   esta tela é "está ligado?" e ela deve ser respondida de relance. */
+.selo{
+  width:64px; height:64px; margin:0 auto var(--e2); border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:30px; line-height:1;
+  background:var(--ok-fraco); border:1px solid rgba(79,201,140,.3); color:var(--ok);
+}
+.selo-erro{ background:var(--erro-fraco); border-color:rgba(234,106,114,.3); color:var(--erro); }
+.tela-calma-meio h2{ margin:0; font:600 19px/1.3 var(--fonte); color:var(--txt); }
+.tela-calma-meio p{ margin:0; font:400 14px/1.55 var(--fonte); color:var(--txt-2); }
+.tela-calma-meio .quando{ font:500 12.5px/1 var(--fonte-num); color:var(--txt-3); }
 
 /* ─────────────── 2. CABEÇALHO ─────────────── */
 
@@ -235,6 +278,15 @@ body{
   pointer-events:none;
 }
 .acao-fixa .btn{ pointer-events:auto; }
+
+/* Dois botões na barra fixa: cancelar e registrar.
+   Cancelar mora aqui, e não no fim da lista de exercícios, porque quem começou
+   o treino errado quer sair AGORA — e no fim da lista ele estaria a oito
+   exercícios de rolagem de distância. Fica estreito e secundário ao lado do
+   registrar, que é a saída normal. */
+.acao-fixa-par{ display:flex; gap:var(--e2); }
+.acao-fixa-par .btn{ flex:1; }
+.acao-fixa-par .btn-perigo{ flex:0 0 38%; }
 
 /* ─────────────── 6. CAMPOS ─────────────── */
 

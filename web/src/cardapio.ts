@@ -199,6 +199,29 @@ export function faltam(data: string, hoje: string): string {
   return dias > 0 ? `em ${dias} dias` : `há ${-dias} dias`
 }
 
+/**
+ * Há quanto tempo os dados chegaram, em texto curto.
+ *
+ * Serve a uma pergunta só, e ela é a que leva alguém a abrir os Ajustes:
+ * "isto ainda está funcionando?". Um horário exato não responde — "12:41"
+ * obriga a pessoa a olhar o relógio e fazer conta.
+ *
+ * Não é um botão de atualizar, e não vira um: buscar é trabalho do app.
+ */
+export function haQuantoTempo(iso: string | null, agora: Date = new Date()): string {
+  if (!iso) return ''
+  const quando = Date.parse(iso)
+  if (Number.isNaN(quando)) return ''
+  const seg = Math.max(0, Math.round((agora.getTime() - quando) / 1000))
+  if (seg < 90) return 'agora mesmo'
+  const min = Math.round(seg / 60)
+  if (min < 60) return `há ${min} min`
+  const horas = Math.round(min / 60)
+  if (horas < 24) return `há ${horas} h`
+  const dias = Math.round(horas / 24)
+  return dias === 1 ? 'ontem' : `há ${dias} dias`
+}
+
 export type Porquinho = { nome: string; saldo: number; alvo: number | null; ate: string | null }
 
 /**

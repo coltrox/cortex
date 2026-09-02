@@ -23,6 +23,7 @@
     "better-sqlite3": "^13.0.3",
     "chokidar": "^5.0.0",
     "gray-matter": "^4.0.3",
+    "jsqr": "^1.4.0",
     "qrcode-generator": "^2.0.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

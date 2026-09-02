@@ -22,7 +22,14 @@ export function LenteVida({
   const [buscaConta, setBuscaConta] = useState('')
 
   const objetivos = notas.filter(n => n.tipo === 'objetivo')
-  const anotacoes = notas.filter(n => n.tipo === 'anotacao')
+  // Prioridade primeiro — é o que a estrela promete, e é o motivo de existir
+  // o botão no celular. Dentro de cada grupo a mais recente vem antes: uma
+  // anotação antiga marcada continua no topo, que é justamente o ponto.
+  const anotacoes = notas.filter(n => n.tipo === 'anotacao').sort((a, b) => {
+    const pa = a.campos.prioridade === true ? 0 : 1
+    const pb = b.campos.prioridade === true ? 0 : 1
+    return pa !== pb ? pa - pb : porData(b, a)
+  })
   const pessoas = notas.filter(n => n.tipo === 'pessoa')
   const compras = notas.filter(n => n.tipo === 'compra')
   const docs = notas.filter(n => n.tipo === 'documento')
@@ -81,6 +88,9 @@ export function LenteVida({
               {anotacoes.map(a => (
                 <Linha key={a.path} aoAbrir={() => aoAbrir(a.path)}
                   aoEditar={() => aoEditar(a)} aoExcluir={() => aoExcluir(a)}>
+                  {a.campos.prioridade === true && (
+                    <span className="pin" title="Prioridade">★</span>
+                  )}
                   <span className="linha-titulo">{a.title}</span>
                   {txt(a.campos.texto) && (
                     <span className="linha-valor">{txt(a.campos.texto).slice(0, 80)}</span>

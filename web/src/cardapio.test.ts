@@ -3,7 +3,7 @@ import { guardadoDeMemoria } from './guardado'
 import {
   lerCardapio, gravarCardapio, diaDaSemana,
   suplementosDoDia, refeicoesDoPlano, treinos, exerciciosDoTreino,
-  provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta
+  provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, haQuantoTempo
 } from './cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from './feitos'
 import type { ItemCardapio } from '@compartilhado/eventos'
@@ -269,5 +269,37 @@ describe('desmarcar o que foi marcado', () => {
     desmarcarFeito(g, DIA, 'prova:A.md')
     marcarFeito(g, DIA, 'prova:A.md')
     expect(jaFeitos(g, DIA)).toEqual(['prova:A.md'])
+  })
+})
+
+describe('ha quanto tempo os dados chegaram', () => {
+  const base = new Date('2026-09-02T12:00:00.000Z')
+  const atras = (segundos: number): string =>
+    new Date(base.getTime() - segundos * 1000).toISOString()
+
+  it('acabou de chegar', () => {
+    expect(haQuantoTempo(atras(0), base)).toBe('agora mesmo')
+    expect(haQuantoTempo(atras(45), base)).toBe('agora mesmo')
+  })
+
+  it('minutos, horas e dias', () => {
+    expect(haQuantoTempo(atras(5 * 60), base)).toBe('há 5 min')
+    expect(haQuantoTempo(atras(3 * 3600), base)).toBe('há 3 h')
+    expect(haQuantoTempo(atras(24 * 3600), base)).toBe('ontem')
+    expect(haQuantoTempo(atras(3 * 24 * 3600), base)).toBe('há 3 dias')
+  })
+
+  it('sem data, ou com data torta, nao inventa nada', () => {
+    // A tela esconde a linha quando isto vem vazio -- melhor nada do que
+    // "Atualizado NaN".
+    expect(haQuantoTempo(null, base)).toBe('')
+    expect(haQuantoTempo('ontem de tarde', base)).toBe('')
+  })
+
+  it('relogio do celular atrasado nao vira tempo negativo', () => {
+    // Acontece de verdade: o horario do aparelho anda sozinho, e "há -4 min"
+    // faria a pessoa achar que o app esta quebrado.
+    expect(haQuantoTempo(new Date(base.getTime() + 60_000).toISOString(), base))
+      .toBe('agora mesmo')
   })
 })

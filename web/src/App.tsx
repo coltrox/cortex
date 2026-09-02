@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import './estilo.css'
 import { guardadoDoNavegador } from './guardado'
 import { lerVaultId, gravarVaultId, idDoFragmento } from './ajustes'
@@ -15,7 +15,20 @@ import { Agenda } from './telas/Agenda'
 import { NovoItem, type EdicaoItem, type TipoNovo } from './telas/NovoItem'
 import { Porquinho } from './telas/Porquinho'
 import { Ajustes } from './telas/Ajustes'
-import { LerQr } from './telas/LerQr'
+
+/**
+ * A tela da câmera vem em separado, e só quando alguém abre.
+ *
+ * Ela carrega um decodificador de QR de ~50 KB — necessário porque o Safari
+ * do iPhone não traz um. Ele no pacote principal seria metade de um segundo a
+ * mais em TODA abertura do app, para um recurso usado uma vez na vida, na
+ * hora de conectar o celular ao Cortex.
+ *
+ * O service worker guarda todo GET do mesmo domínio, então o pedaço fica em
+ * cache depois da primeira vez. Sem rede na primeira abertura desta tela ela
+ * não carrega — e tudo bem: conectar exige rede de qualquer jeito.
+ */
+const LerQr = lazy(() => import('./telas/LerQr').then(m => ({ default: m.LerQr })))
 
 export type Tela =
   | 'hoje' | 'agenda' | 'compromisso' | 'treino' | 'cardio'
@@ -141,14 +154,16 @@ export function App() {
       {tela === 'anotacao' && <Anotacao envio={envio} irPara={setTela} />}
       {tela === 'ajustes' && <Ajustes cardapio={cardapio} irPara={setTela} />}
       {tela === 'lerqr' && (
-        <LerQr
-          aoLer={id => {
-            gravarVaultId(guardadoDoNavegador, id)
-            setTela('ajustes')
-            void cardapio.atualizar()
-          }}
-          aoFechar={() => setTela('ajustes')}
-        />
+        <Suspense fallback={<Aviso>Abrindo a câmera…</Aviso>}>
+          <LerQr
+            aoLer={id => {
+              gravarVaultId(guardadoDoNavegador, id)
+              setTela('ajustes')
+              void cardapio.atualizar()
+            }}
+            aoFechar={() => setTela('ajustes')}
+          />
+        </Suspense>
       )}
 
       <nav className="barra-baixo">

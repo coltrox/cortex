@@ -129,6 +129,14 @@ describe('construtores de evento', () => {
     })
   })
 
+  it('anotação com prioridade leva a marca; sem ela, o campo nao viaja', () => {
+    // `prioridade: false` no frontmatter e uma linha que ninguem le e que
+    // ainda assim apareceria em toda nota do vault.
+    expect(eventoAnotacao('ligar pro dentista', DIA, true).dados)
+      .toEqual({ texto: 'ligar pro dentista', prioridade: true })
+    expect(eventoAnotacao('dormi mal', DIA, false).dados).toEqual({ texto: 'dormi mal' })
+  })
+
   it('usa o dia de hoje quando nenhum é informado', () => {
     expect(eventoSuplemento('Creatina').dia).toBe(diaLocal())
   })

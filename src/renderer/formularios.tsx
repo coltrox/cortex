@@ -258,7 +258,10 @@ export const FORMULARIOS: Record<string, Formulario> = {
     tipo: 'anotacao', nome: 'Anotação', pasta: 'Vida', nomearPor: 'titulo',
     campos: [
       { k: 'titulo', rotulo: 'Anotação', tipo: 'texto', obrigatorio: true },
-      { k: 'texto', rotulo: 'Conteúdo', tipo: 'longo' }
+      { k: 'texto', rotulo: 'Conteúdo', tipo: 'longo' },
+      // O celular também marca isto. Sem o campo aqui, dava para marcar de
+      // fora e não de dentro — e desmarcar exigiria editar o YAML na mão.
+      { k: 'prioridade', rotulo: 'Prioridade', tipo: 'bool', dica: 'Vai para o topo da lista.' }
     ]
   },
   compra: {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { guardadoDoNavegador } from '../guardado'
 import { lerVaultId, gravarVaultId } from '../ajustes'
+import { haQuantoTempo } from '../cardapio'
 import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -44,24 +45,35 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
   /* ---------- conectado: quase nada ---------- */
 
   if (conectado) {
+    const falhou = p.cardapio.erro !== null
+    const quando = haQuantoTempo(p.cardapio.cardapio.atualizadoEm)
     return (
       <div className="tema-hoje">
         <Cabecalho titulo="Ajustes" aoVoltar={() => p.irPara('hoje')} />
 
-        {p.cardapio.erro
-          ? <Aviso tom="erro" titulo="Sem dados">{p.cardapio.erro}</Aviso>
-          : (
-            <Aviso tom="ok" titulo="Conectado ao seu Cortex">
-              {quantos > 0
-                ? 'Treinos, dieta e agenda chegam sozinhos — não há nada para apertar.'
-                : 'Assim que houver algo no Cortex, ele aparece aqui sozinho.'}
-            </Aviso>
-          )}
+        <div className="bloco tela-calma">
+          <div className="tela-calma-meio">
+            <div className={`selo ${falhou ? 'selo-erro' : ''}`} aria-hidden="true">
+              {falhou ? '!' : '✓'}
+            </div>
+            <h2>{falhou ? 'Sem dados agora' : 'Conectado ao seu Cortex'}</h2>
+            <p>
+              {falhou
+                ? p.cardapio.erro
+                : quantos > 0
+                  ? 'Treinos, dieta e agenda chegam sozinhos. Não há nada para apertar aqui.'
+                  : 'Assim que houver algo no Cortex, ele aparece aqui sozinho.'}
+            </p>
+            {/* O horário responde "ainda está funcionando?", que é a pergunta
+                que traz alguém a esta tela. Não é botão, e não vira um. */}
+            {quando && <span className="quando">Atualizado {quando}</span>}
+          </div>
 
-        <div className="bloco">
-          <Botao aoClicar={() => { setTrocando(true); setId('') }}>
-            Trocar de vault
-          </Botao>
+          <div className="tela-calma-pe">
+            <Botao aoClicar={() => { setTrocando(true); setId('') }}>
+              Trocar de vault
+            </Botao>
+          </div>
         </div>
       </div>
     )
