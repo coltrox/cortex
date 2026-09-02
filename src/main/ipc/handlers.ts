@@ -264,6 +264,21 @@ export async function handle(
       )
     }
 
+    /*
+     * Relê o disco e refaz o índice.
+     *
+     * `syncAll` compara mtime e tamanho, então relê só o que mudou — passar
+     * isto num vault ja em dia custa uma varredura de diretorio, nao 88
+     * leituras de arquivo.
+     *
+     * Nota trancada com o cofre fechado nao entra, e isso nao e erro: ela
+     * volta sozinha quando o painel for aberto. O numero vem separado
+     * (`trancados`) justamente para a tela poder dizer isso em vez de
+     * apresentar um total que nao bate com o que existe na pasta.
+     */
+    case 'indice:reconstruir':
+      return session.indexer.syncAll()
+
     case 'senha:conferir': {
       // Sem senha cadastrada nao ha o que conferir, e responder true aqui
       // abriria qualquer painel que estivesse na lista por engano.

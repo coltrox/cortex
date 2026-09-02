@@ -399,6 +399,7 @@ export function App() {
           aoSalvarAreas={areas => void v.salvarAreas(areas)}
           aoTrocarConfig={v.trocarConfig}
           aoAbrirNuvem={() => setNuvem(true)}
+          aoRecarregar={() => void v.recarregar()}
           aoFechar={() => setConfigurando(false)}
           sincronizacaoFalhando={falhasSincSeguidas >= LIMIAR_ALERTA_SYNC}
         />
