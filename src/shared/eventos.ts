@@ -13,7 +13,10 @@ export const TIPOS_EVENTO = [
   'sessao', 'cardio', 'medida', 'peso', 'anotacao',
   // Agenda e estudos: os três que mexem numa nota que já existe, ou criam
   // uma. Os de cima só acrescentam ao diário do dia.
-  'prova_estudada', 'compromisso', 'compromisso_cancelado'
+  'prova_estudada', 'compromisso', 'compromisso_cancelado',
+  // Porquinho: guardar e tirar. Movimento, nao saldo -- o saldo e a soma dos
+  // movimentos, e quem faz essa conta e o Cortex.
+  'porquinho'
 ] as const
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number]
@@ -51,11 +54,13 @@ export type Evento = z.infer<typeof EVENTO_SCHEMA>
  * novidade quando, por acaso, um treino fosse editado depois.
  */
 export const TIPOS_NOTA_CARDAPIO = [
-  'treino-modelo', 'suplemento', 'plano', 'prova', 'simulado', 'evento', 'tarefa'
+  'treino-modelo', 'suplemento', 'plano', 'prova', 'simulado', 'evento', 'tarefa',
+  // Os dois do porquinho: os movimentos, para somar o saldo, e a meta ativa.
+  'porquinho', 'meta-cofre'
 ] as const
 
 export const ESPECIES_CARDAPIO = [
-  'treino', 'suplemento', 'refeicao', 'prova', 'compromisso', 'tarefa'
+  'treino', 'suplemento', 'refeicao', 'prova', 'compromisso', 'tarefa', 'porquinho'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

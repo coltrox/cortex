@@ -150,5 +150,35 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
     })
   }
 
+  /*
+   * O porquinho: um item só, com o saldo somado e a meta ativa.
+   *
+   * O saldo é calculado AQUI e publicado pronto, em vez de mandar os
+   * movimentos para o celular somar. Dois motivos: os movimentos são
+   * lançamentos financeiros um a um, e o celular não precisa deles para
+   * responder "quanto tenho?"; e a conta feita em dois lugares diverge no dia
+   * em que alguém acrescentar um tipo de movimento e esquecer do outro lado.
+   */
+  const movimentos = notas.filter(x => x.tipo === 'porquinho')
+  const meta = notas.find(x => x.tipo === 'meta-cofre' && x.campos.ativa === true)
+  if (movimentos.length > 0 || meta) {
+    const saldo = movimentos.reduce((soma, n) => {
+      const v = num(n.campos.valor) ?? 0
+      // 'sangria' é o vocabulário do Cortex para retirada.
+      return txt(n.campos.direcao) === 'sangria' ? soma - v : soma + v
+    }, 0)
+    out.push({
+      especie: 'porquinho',
+      nome: meta ? txt(meta.title) : 'Porquinho',
+      detalhe: comValor({
+        // Arredonda ao centavo: somar float acumula 0.30000000000000004, e
+        // esse número chegaria à tela do celular do jeito que está.
+        saldo: Math.round(saldo * 100) / 100,
+        alvo: meta ? num(meta.campos.alvo) : undefined,
+        ate: meta ? txt(meta.date) : undefined
+      })
+    })
+  }
+
   return out
 }

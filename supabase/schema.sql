@@ -43,7 +43,8 @@ language sql immutable as $$
                -- uma. Precisam casar com TIPOS_EVENTO em src/shared/eventos.ts
                -- e ter um caso em planejar.ts; faltar num dos tres faz o
                -- evento sumir em silencio.
-               'prova_estudada','compromisso','compromisso_cancelado']
+               'prova_estudada','compromisso','compromisso_cancelado',
+               'porquinho']
 $$;
 
 create or replace function registrar_evento(
@@ -112,7 +113,7 @@ begin
       -- quem decide o que publica, mas o banco nao tem por que confiar nisso.
       -- Precisa casar com ESPECIES_CARDAPIO em src/shared/eventos.ts.
       where el->>'especie' in ('treino','suplemento','refeicao',
-                               'prova','compromisso','tarefa')
+                               'prova','compromisso','tarefa','porquinho')
         and coalesce(el->>'nome','') <> ''
     ) item
     order by item.especie, item.nome, item.pos desc

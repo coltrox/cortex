@@ -1,623 +1,481 @@
-/* ============================================================
-   Cortex — app de captura rápida
-   ============================================================
+/* ═══════════════════════════════════════════════════════════
+   CORTEX — sistema de design
+   Tema escuro único. Fonte de sistema.
 
-   Escrito para um polegar, num aparelho segurado com uma mão só, muitas vezes
-   em pé no ônibus. Disso saem quase todas as decisões daqui:
+   Portado do desenho feito no Claude Design. As diferenças em relação a
+   ele são estruturais, não estéticas: lá cada tela era uma maquete de
+   390×788 com rolagem interna; aqui o aparelho é a própria janela. Então
+   `.cabecalho`, `.barra-baixo`, `.progresso` e `.acao-fixa` deixam de ser
+   `absolute` dentro de uma moldura e passam a ser `fixed` na viewport, e o
+   recuo que eles ocupam mora no `#raiz`.
+   ═══════════════════════════════════════════════════════════ */
 
-   - Alvo de toque nunca abaixo de 52px. O dedo não tem a mira do mouse.
-   - O que se toca com frequência mora embaixo, ao alcance do polegar; o que
-     se lê mora em cima.
-   - Campo de texto com fonte de 16px, sempre: abaixo disso o Safari dá zoom
-     ao focar e desalinha a tela inteira.
-   - Cor forte só em ação e em estado. O fundo é escuro e quieto para o
-     conteúdo aparecer, não a moldura.
+:root{
+  /* — Superfícies em camadas: quanto mais alto, mais claro.
+       Profundidade por luminância, não por sombra. — */
+  --fundo:        #080b10;
+  --painel:       #10151d;
+  --painel-alto:  #19202b;
+  --painel-topo:  #222b38;   /* campos, chips, botões de passo */
+  --borda:        #232c39;
+  --borda-forte:  #33404f;
 
-   Os tokens abaixo são o vocabulário inteiro. Uma tela nova se monta com eles
-   sem inventar cor nem espaçamento — é o que faz isto escalar. */
+  /* — Texto: três níveis, todos AA sobre --painel — */
+  --txt:          #e6ecf5;
+  --txt-2:        #9aa8bb;
+  --txt-3:        #7f8da1;   /* piso AA: 5.3:1 sobre --painel */
 
-:root {
-  /* Superfícies em camadas: quanto mais alto o elemento, mais claro o fundo.
-     É o que dá profundidade sem sombra pesada, que em tela escura vira mancha. */
-  --fundo:      #070d17;
-  --painel:     #0e1726;
-  --painel-2:   #142032;
-  --borda:      #1e2c42;
-  --borda-viva: #2b3d57;
+  /* — Acento padrão (geral / hoje): o ciano do ícone — */
+  --acento:       #3fc9e8;
+  --acento-fraco: rgba(63,201,232,.14);
+  --acento-linha: rgba(63,201,232,.34);
 
-  --texto:   #e9f0f9;
-  --fraco:   #8fa3bf;
-  --apagado: #5d708c;
+  /* — Estados — */
+  --ok:      #4fc98c;
+  --ok-fraco:rgba(79,201,140,.13);
+  --erro:    #ea6a72;
+  --erro-fraco:rgba(234,106,114,.13);
+  --atencao: #e0ab4d;
+  --atencao-fraco:rgba(224,171,77,.13);
 
-  --azul:           #6cc6ff;
-  --azul-forte:     #8ad4ff;
-  --azul-fundo:     #0f2436;
-  --verde:          #4ade80;
-  --vermelho:       #ff7a7a;
-  --vermelho-fundo: #2c1418;
+  /* — Raio — */
+  --r1: 8px;
+  --r2: 13px;
+  --r3: 20px;
 
-  --r-p: 10px;
-  --r-m: 14px;
-  --r-g: 20px;
+  /* — Espaçamento — */
+  --e1: 4px;  --e2: 8px;  --e3: 12px;
+  --e4: 16px; --e5: 24px; --e6: 32px;
 
-  --fonte: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  /* — Tipografia — */
+  --fonte: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-num: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* — Altura mínima de toque. Nada abaixo disto. — */
+  --toque: 52px;
+
+  /* — Zonas seguras: valor real no aparelho, zero no navegador de mesa — */
+  --topo-seguro: env(safe-area-inset-top, 0px);
+  --baixo-seguro: env(safe-area-inset-bottom, 0px);
+
+  /* — A largura do app. Em tela grande ele fica centrado, e o cabeçalho e a
+       barra de baixo acompanham em vez de esticarem de ponta a ponta. — */
+  --largura: 480px;
 }
 
-* { box-sizing: border-box; }
+/* — Cor por assunto: classe na raiz da tela, componentes só leem --acento — */
+.tema-hoje    { --acento:#3fc9e8; --acento-fraco:rgba(63,201,232,.14); --acento-linha:rgba(63,201,232,.34); }
+.tema-treino  { --acento:#f08a4b; --acento-fraco:rgba(240,138,75,.14);  --acento-linha:rgba(240,138,75,.34);  }
+.tema-agenda  { --acento:#9b8ef2; --acento-fraco:rgba(155,142,242,.15); --acento-linha:rgba(155,142,242,.34); }
+.tema-dinheiro{ --acento:#d9b357; --acento-fraco:rgba(217,179,87,.14);  --acento-linha:rgba(217,179,87,.34);  }
 
-html { background: var(--fundo); }
+*,*::before,*::after{ box-sizing:border-box; }
 
-body {
-  margin: 0;
-  background:
-    /* Um brilho frio atrás do topo, na cor do ícone. Dá um horizonte à tela e
-       tira o aspecto de retângulo preto chapado. */
-    radial-gradient(120% 60% at 50% -10%, #10243a 0%, transparent 70%),
-    var(--fundo);
-  background-attachment: fixed;
-  color: var(--texto);
-  font: 16px/1.5 var(--fonte);
-  -webkit-text-size-adjust: 100%;
-  -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
+/* ─────────────── 1. LAYOUT ─────────────── */
+
+html{ background:var(--fundo); }
+body{
+  margin:0; background:var(--fundo); color:var(--txt);
+  font-family:var(--fonte); -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-text-size-adjust:100%;
+  overscroll-behavior-y:none;
 }
 
-#raiz {
-  max-width: 620px;
-  margin: 0 auto;
-  /* Espaço para a barra de baixo não cobrir o último item — mais a área
-     segura do iPhone, que come uns 34px a mais. */
-  padding-bottom: calc(104px + env(safe-area-inset-bottom));
+#raiz{
+  max-width:var(--largura); margin:0 auto;
+  /* O recuo que o cabeçalho e a barra de baixo ocupam. Sem isto, o primeiro
+     e o último item da tela nascem embaixo deles. */
+  padding: calc(58px + var(--topo-seguro)) 0 calc(96px + var(--baixo-seguro));
+}
+.bloco{ padding:0 var(--e4); }
+.bloco + .bloco{ margin-top:var(--e5); }
+
+/* ─────────────── 2. CABEÇALHO ─────────────── */
+
+.cabecalho{
+  position:fixed; top:0; left:0; right:0; z-index:4;
+  max-width:var(--largura); margin:0 auto;
+  height:calc(58px + var(--topo-seguro));
+  padding: var(--topo-seguro) var(--e4) 0 var(--e4);
+  display:flex; align-items:center; gap:var(--e3);
+  background:rgba(8,11,16,.72);
+  -webkit-backdrop-filter:blur(18px) saturate(140%);
+  backdrop-filter:blur(18px) saturate(140%);
+  border-bottom:1px solid var(--borda);
+}
+.voltar{
+  width:40px; height:var(--toque); margin-left:-10px;
+  display:flex; align-items:center; justify-content:flex-start;
+  background:none; border:0; color:var(--txt); cursor:pointer;
+  flex:none;
+}
+.voltar svg{ display:block; }
+.cabecalho h1{
+  font:700 20px/1.15 var(--fonte); margin:0; letter-spacing:-.01em; flex:1; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 
-/* ---------- Cabeçalho ---------- */
-
-.cabecalho {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: calc(14px + env(safe-area-inset-top)) 18px 12px;
-  /* O desfoque atrás do cabeçalho fixo: sem ele, o conteúdo rolando por baixo
-     do título deixa os dois ilegíveis. */
-  background: color-mix(in srgb, var(--fundo) 82%, transparent);
-  backdrop-filter: blur(12px);
+/* indicador pequeno de estado, à direita do cabeçalho */
+.estado{
+  display:inline-flex; align-items:center; gap:6px; flex:none;
+  font:500 11.5px/1 var(--fonte); color:var(--txt-2);
+  padding:6px 10px; border-radius:999px;
+  background:var(--painel-alto); border:1px solid var(--borda);
+  white-space:nowrap;
 }
-.cabecalho h1 {
-  flex: 1;
-  margin: 0;
-  font-size: 26px;
-  font-weight: 680;
-  letter-spacing: -.03em;
+.estado .ponto{ width:6px; height:6px; border-radius:50%; background:var(--txt-3); flex:none; }
+.estado-ok    .ponto{ background:var(--ok); }
+.estado-ok    { color:var(--ok); border-color:rgba(79,201,140,.28); background:var(--ok-fraco); }
+.estado-fila  .ponto{ background:var(--atencao); }
+.estado-fila  { color:var(--atencao); border-color:rgba(224,171,77,.3); background:var(--atencao-fraco); }
+.estado-envia .ponto{ background:var(--acento); animation:pulso 1.4s ease-in-out infinite; }
+.estado-envia { color:var(--acento); border-color:var(--acento-linha); background:var(--acento-fraco); }
+@keyframes pulso{ 0%,100%{opacity:1} 50%{opacity:.25} }
+
+.contador-serie{ font:600 14px/1 var(--fonte-num); color:var(--acento); flex:none; letter-spacing:.02em; }
+
+/* barra de progresso fina, colada embaixo do cabeçalho */
+.progresso{
+  position:fixed; left:0; right:0; z-index:4;
+  max-width:var(--largura); margin:0 auto;
+  top:calc(58px + var(--topo-seguro));
+  height:3px; background:var(--painel-alto);
 }
-.cabecalho .direita {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--fraco);
-  white-space: nowrap;
-  padding: 5px 11px;
-  border-radius: 999px;
-  background: var(--painel);
-  border: 1px solid var(--borda);
+.progresso i{ display:block; height:100%; background:var(--acento); border-radius:0 2px 2px 0;
+  transition:width .3s cubic-bezier(.4,0,.2,1); }
+
+/* ─────────────── 3. SEÇÃO ─────────────── */
+
+.rotulo-secao{
+  font:600 11.5px/1 var(--fonte); letter-spacing:.13em; text-transform:uppercase;
+  color:var(--txt-3); margin:0 0 var(--e3); padding:0 2px;
+  display:flex; align-items:baseline; justify-content:space-between; gap:var(--e2);
 }
-.voltar {
-  flex: none;
-  width: 38px; height: 38px;
-  display: grid; place-items: center;
-  margin-left: -8px;
-  background: none;
-  border: none;
-  border-radius: 50%;
-  color: var(--azul);
-  font-size: 26px;
-  line-height: 1;
-  cursor: pointer;
-}
-.voltar:active { background: var(--painel); }
+.rotulo-secao .contagem{ letter-spacing:.04em; color:var(--txt-3); font-weight:500; }
 
-/* ---------- Seções ---------- */
-
-.secao { padding: 4px 18px 20px; }
-
-.secao h2 {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin: 26px 0 12px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: var(--apagado);
-}
-.secao h2::after {
-  /* A régua depois do rótulo amarra a seção à largura da tela e separa os
-     blocos sem gastar espaço vertical, que no celular é caro. */
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(to right, var(--borda), transparent);
-}
-.secao h2:first-child { margin-top: 8px; }
-
-/* ---------- Check (suplemento, refeição) ---------- */
-
-.check {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  min-height: 62px;
-  padding: 12px 16px;
-  margin-bottom: 9px;
-  background: linear-gradient(180deg, var(--painel-2), var(--painel));
-  border: 1px solid var(--borda);
-  border-radius: var(--r-m);
-  color: var(--texto);
-  text-align: left;
-  cursor: pointer;
-  transition: transform .12s ease, border-color .15s ease, opacity .2s ease;
-}
-.check:active { transform: scale(.985); border-color: var(--borda-viva); }
-
-.check .marca {
-  flex: none;
-  width: 26px; height: 26px;
-  border-radius: 9px;
-  border: 2px solid var(--borda-viva);
-  display: grid; place-items: center;
-  color: #06121f;
-  font-size: 15px;
-  font-weight: 800;
-  transition: background .2s ease, border-color .2s ease;
-}
-.check.feito { opacity: .5; }
-.check.feito .marca { background: var(--verde); border-color: var(--verde); }
-
-.check .texto { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-.check .texto strong { font-weight: 600; letter-spacing: -.01em; }
-.check .texto small { color: var(--fraco); font-size: 13px; }
-
-/* ---------- Botões ---------- */
-
-.grade {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 9px;
-  margin-bottom: 9px;
+/* Estado vazio de seção: uma linha de texto e nada mais.
+   Nunca pesa mais do que o conteúdo real pesaria. */
+.secao-vazia{
+  font:400 13.5px/1.4 var(--fonte); color:var(--txt-3);
+  padding:2px 2px var(--e2);
 }
 
-.botao {
-  min-height: 56px;
-  width: 100%;
-  padding: 14px 16px;
-  background: linear-gradient(180deg, var(--painel-2), var(--painel));
-  border: 1px solid var(--borda);
-  border-radius: var(--r-m);
-  color: var(--texto);
-  font: 500 15px/1.3 var(--fonte);
-  letter-spacing: -.01em;
-  cursor: pointer;
-  transition: transform .12s ease, border-color .15s ease;
-}
-.botao:active:not(:disabled) { transform: scale(.98); border-color: var(--borda-viva); }
+.lista{ display:flex; flex-direction:column; gap:var(--e2); }
 
-.secao > .botao.principal { margin-top: 20px; }
-.botao.principal {
-  background: linear-gradient(180deg, var(--azul-forte), var(--azul));
-  border-color: transparent;
-  color: #04121e;
-  font-weight: 650;
-  /* O brilho embaixo do botão principal é o que o separa dos outros num
-     ambiente em que tudo é escuro e da mesma família. */
-  box-shadow: 0 6px 20px rgba(108, 198, 255, .22);
-}
-.botao:disabled { opacity: .45; }
+/* ─────────────── 4. ITEM MARCÁVEL ─────────────── */
 
-/* ---------- Campos ---------- */
+.item{
+  display:flex; align-items:center; gap:var(--e3); width:100%; text-align:left;
+  min-height:60px; padding:var(--e3) var(--e4) var(--e3) var(--e3);
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  color:var(--txt);
+  cursor:pointer; transition:background .15s ease, border-color .15s ease, opacity .15s ease;
+}
+.caixa{
+  width:26px; height:26px; flex:none; border-radius:7px;
+  border:2px solid var(--borda-forte); background:var(--painel-alto);
+  display:flex; align-items:center; justify-content:center;
+  color:transparent; font-size:14px; font-weight:700; line-height:1;
+  transition:background .15s ease, border-color .15s ease, color .15s ease;
+}
+.item-corpo{ min-width:0; flex:1; }
+.item-nome{ font:600 16.5px/1.25 var(--fonte); color:var(--txt);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.item-meta{ font:400 13px/1.35 var(--fonte); color:var(--txt-2); margin-top:3px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.item-meta .sep{ color:var(--txt-3); padding:0 5px; }
 
-.campo { display: block; margin-bottom: 14px; }
-.campo span {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .02em;
-  color: var(--fraco);
-  margin-bottom: 6px;
-}
-.campo input,
-.campo textarea {
-  width: 100%;
-  min-height: 54px;
-  padding: 14px 15px;
-  background: var(--painel);
-  border: 1px solid var(--borda);
-  border-radius: var(--r-m);
-  color: var(--texto);
-  /* 16px é o mínimo que impede o Safari de dar zoom ao focar. */
-  font: 16px/1.45 var(--fonte);
-  resize: vertical;
-  transition: border-color .15s ease, background .15s ease;
-}
-.campo textarea { min-height: 140px; }
-.campo input::placeholder,
-.campo textarea::placeholder { color: var(--apagado); }
-.campo input:focus,
-.campo textarea:focus {
-  outline: none;
-  border-color: var(--azul);
-  background: var(--painel-2);
-}
-/* O seletor nativo de data e hora vem com ícone escuro sobre fundo escuro. */
-.campo input[type="date"],
-.campo input[type="time"] { color-scheme: dark; }
+/* feito: verde e esmaecido, mas continua na lista e continua legível */
+.item-feito{ background:var(--ok-fraco); border-color:rgba(79,201,140,.26); opacity:.62; }
+.item-feito .caixa{ background:var(--ok); border-color:var(--ok); color:#06120c; }
+.item-feito .item-nome{ text-decoration:line-through; text-decoration-color:rgba(230,236,245,.35); }
 
-/* ---------- Avisos ---------- */
+/* ─────────────── 5. BOTÕES ─────────────── */
 
-.aviso {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin: 8px 18px;
-  padding: 13px 15px;
-  border-radius: var(--r-m);
-  background: var(--azul-fundo);
-  border: 1px solid color-mix(in srgb, var(--azul) 25%, transparent);
-  color: var(--texto);
-  font-size: 14px;
-  line-height: 1.45;
+.btn{
+  min-height:var(--toque); padding:0 var(--e5);
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--e2);
+  font:600 15.5px/1 var(--fonte); border-radius:var(--r2); border:1px solid transparent;
+  cursor:pointer; width:100%; transition:filter .15s ease, background .15s ease;
+  -webkit-tap-highlight-color:transparent;
 }
-.aviso span { flex: 1; }
-.aviso.grave {
-  background: var(--vermelho-fundo);
-  border-color: color-mix(in srgb, var(--vermelho) 30%, transparent);
-  color: var(--vermelho);
+.btn-principal{ background:var(--acento); color:#06121a; border-color:var(--acento); }
+.btn-principal:active{ filter:brightness(.88); }
+.btn-secundario{ background:var(--painel-alto); color:var(--txt); border-color:var(--borda-forte); }
+.btn-fantasma{ background:transparent; color:var(--txt-2); border-color:var(--borda); }
+.btn-perigo{ background:var(--erro-fraco); color:var(--erro); border-color:rgba(234,106,114,.3); }
+.btn[disabled], .btn-desabilitado{
+  background:var(--painel-alto); color:var(--txt-3); border-color:var(--borda);
+  cursor:not-allowed; opacity:.7;
 }
-.aviso button {
-  flex: none;
-  background: none;
-  border: none;
-  color: inherit;
-  font-size: 20px;
-  line-height: 1;
-  opacity: .6;
-  cursor: pointer;
-}
+.dupla{ display:grid; grid-template-columns:1fr auto; gap:var(--e2); }
+.dupla .btn{ padding:0 var(--e4); }
 
-.nota {
-  color: var(--fraco);
-  font-size: 14px;
-  line-height: 1.55;
-  margin: 6px 0 16px;
-  padding-left: 12px;
-  border-left: 2px solid var(--borda);
+/* grade de registro: 2 colunas, alvos altos */
+.grade-registrar{ display:grid; grid-template-columns:1fr 1fr; gap:var(--e2); }
+.btn-registrar{
+  min-height:74px; padding:var(--e3);
+  display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:6px;
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  color:var(--txt); font:600 15px/1.15 var(--fonte); cursor:pointer; text-align:left;
 }
+.btn-registrar svg{ color:var(--acento); display:block; }
 
-/* ---------- Lista do que está chegando ---------- */
+/* botão fixo no rodapé da tela, com degradê para o conteúdo não colidir */
+.acao-fixa{
+  position:fixed; left:0; right:0; z-index:3;
+  max-width:var(--largura); margin:0 auto;
+  bottom:calc(68px + var(--baixo-seguro));
+  padding:var(--e6) var(--e4) var(--e3);
+  background:linear-gradient(to top, var(--fundo) 42%, rgba(8,11,16,.92) 68%, rgba(8,11,16,0));
+  pointer-events:none;
+}
+.acao-fixa .btn{ pointer-events:auto; }
 
-.item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 62px;
-  padding: 13px 16px;
-  margin-bottom: 9px;
-  background: linear-gradient(180deg, var(--painel-2), var(--painel));
-  border: 1px solid var(--borda);
-  border-radius: var(--r-m);
-  transition: opacity .2s ease;
-}
-.item.feito { opacity: .45; }
-.item-texto { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.item-texto strong { font-weight: 600; letter-spacing: -.01em; }
-.item-texto small { color: var(--fraco); font-size: 13px; }
+/* ─────────────── 6. CAMPOS ─────────────── */
 
-.item-acao {
-  flex: none;
-  min-height: 42px;
-  padding: 9px 15px;
-  background: var(--azul-fundo);
-  border: 1px solid color-mix(in srgb, var(--azul) 22%, transparent);
-  border-radius: 999px;
-  color: var(--azul);
-  font: 600 13px/1 var(--fonte);
-  cursor: pointer;
-  transition: transform .12s ease;
+.campo{ display:block; margin-bottom:var(--e3); }
+.campo-rotulo{ display:block; font:600 12px/1 var(--fonte); letter-spacing:.06em;
+  text-transform:uppercase; color:var(--txt-3); margin:0 0 var(--e2); padding-left:2px; }
+/* 16px é o piso: abaixo disso o Safari dá zoom ao focar o input */
+.entrada{
+  width:100%; min-height:var(--toque); padding:0 var(--e4);
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  color:var(--txt); font:500 16px/1.2 var(--fonte);
+  outline:none; transition:border-color .15s ease, background .15s ease;
+  -webkit-appearance:none; appearance:none;
 }
-.item-acao:active:not(:disabled) { transform: scale(.95); }
-.item-acao.perigo {
-  background: var(--vermelho-fundo);
-  border-color: color-mix(in srgb, var(--vermelho) 22%, transparent);
-  color: var(--vermelho);
+textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
+.entrada::placeholder{ color:var(--txt-3); }
+.entrada:focus, .entrada-foco{
+  border-color:var(--acento); background:var(--painel-alto);
+  box-shadow:0 0 0 3px var(--acento-fraco);
 }
-.item-acao:disabled {
-  background: transparent;
-  border-color: var(--borda);
-  color: var(--apagado);
-  cursor: default;
-}
+.entrada-grande{ min-height:76px; font:700 30px/1 var(--fonte-num); letter-spacing:-.02em; }
+.entrada-longa{ font:500 16px/1.2 var(--fonte-num); text-overflow:ellipsis; }
+/* O seletor nativo de data e hora vem com o ícone escuro sobre fundo escuro. */
+.entrada[type="date"], .entrada[type="time"]{ color-scheme:dark; }
+.par-campos{ display:grid; grid-template-columns:1fr 1fr; gap:var(--e3); }
+.dica-campo{ font:400 12.5px/1.4 var(--fonte); color:var(--txt-3); margin:6px 0 0; padding-left:2px; }
 
-/* ---------- Barra de baixo ---------- */
-
-.rodape {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  z-index: 20;
-  display: flex;
-  gap: 4px;
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--painel) 92%, transparent);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid var(--borda);
+/* alternador de dois estados */
+.alternador{
+  display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px;
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  margin-bottom:var(--e3);
 }
-.rodape button {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-height: 54px;
-  padding: 6px 4px;
-  background: none;
-  border: none;
-  border-radius: var(--r-p);
-  color: var(--apagado);
-  font: 500 11px/1 var(--fonte);
-  letter-spacing: .01em;
-  cursor: pointer;
-  transition: color .15s ease, background .15s ease;
+.alternador button{
+  min-height:52px; border:0; border-radius:calc(var(--r2) - 5px); cursor:pointer;
+  background:transparent; color:var(--txt-2); font:600 15px/1 var(--fonte);
 }
-.rodape button svg { width: 22px; height: 22px; }
-.rodape button.ativo { color: var(--azul); background: var(--azul-fundo); }
+.alternador .ligado{ background:var(--acento); color:#120d02; }
 
-/* ---------- Leitor de QR ---------- */
+/* ─────────────── 7. CHIPS ─────────────── */
 
-.camera {
-  position: relative;
-  margin: 8px 0 14px;
-  border-radius: var(--r-g);
-  overflow: hidden;
-  background: #000;
-  aspect-ratio: 1;
-  border: 1px solid var(--borda);
+.chips{ display:flex; flex-wrap:wrap; gap:var(--e2); margin-bottom:var(--e3); }
+.chip{
+  min-height:var(--toque); padding:0 var(--e4);
+  display:inline-flex; align-items:center;
+  background:var(--painel); border:1px solid var(--borda); border-radius:999px;
+  color:var(--txt-2); font:500 15px/1 var(--fonte); cursor:pointer;
+  transition:border-color .15s ease, color .15s ease, background .15s ease;
 }
-.camera video { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* A mira não recorta nada — a detecção olha o quadro inteiro. Ela existe para
-   a pessoa saber onde mirar, que é metade do trabalho de ler um QR. */
-.camera-mira {
-  position: absolute;
-  inset: 18%;
-  border: 2px solid var(--azul);
-  border-radius: var(--r-m);
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .5);
-}
+.chip-ligado{ background:var(--acento-fraco); border-color:var(--acento); color:var(--acento); font-weight:600; }
 
-/* ---------- Movimento ---------- */
+/* ─────────────── 8. AVISOS ─────────────── */
 
-/* Quem pediu menos movimento no sistema recebe menos movimento. */
-@media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
+.aviso{
+  display:flex; align-items:flex-start; gap:var(--e3);
+  margin:0 var(--e4) var(--e3);
+  padding:var(--e3) var(--e4); border-radius:var(--r2);
+  font:400 13.5px/1.45 var(--fonte);
+  background:var(--acento-fraco); border:1px solid var(--acento-linha); color:var(--txt);
 }
+.aviso > span{ flex:1; min-width:0; }
+.aviso b{ display:block; font:600 14px/1.3 var(--fonte); margin-bottom:2px; color:var(--acento); }
+.aviso-erro{ background:var(--erro-fraco); border-color:rgba(234,106,114,.32); }
+.aviso-erro b{ color:var(--erro); }
+.aviso-ok{ background:var(--ok-fraco); border-color:rgba(79,201,140,.3); }
+.aviso-ok b{ color:var(--ok); }
+.aviso-neutro{ background:var(--painel); border-color:var(--borda); }
+.aviso-neutro b{ color:var(--txt-2); }
+.aviso-fechar{
+  flex:none; width:32px; height:32px; margin:-4px -8px -4px 0;
+  border:0; background:transparent; color:var(--erro); cursor:pointer;
+  font:400 20px/1 var(--fonte); border-radius:8px;
+}
+.aviso .girando{ width:14px; height:14px; margin-top:2px; flex:none; border-radius:50%;
+  border:2px solid var(--acento-linha); border-top-color:var(--acento);
+  animation:gira .7s linear infinite; }
+@keyframes gira{ to{ transform:rotate(360deg) } }
 
-/* ============================================================
-   Cor por assunto
-   ============================================================
+/* ─────────────── 9. LISTA / CARTÕES ─────────────── */
 
-   O azul sozinho fazia toda tela parecer a mesma tela. Cada assunto ganha um
-   acento próprio, aplicado por uma classe na raiz da tela — os componentes
-   compartilhados leem `--acento` e mudam junto, sem uma regra por tela.
+.cartao{
+  display:flex; align-items:center; gap:var(--e3); width:100%; text-align:left;
+  min-height:70px; padding:var(--e3) var(--e4);
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  color:var(--txt); cursor:pointer;
+}
+.cartao-corpo{ flex:1; min-width:0; }
+.cartao-topo{ display:flex; align-items:center; gap:var(--e2); }
+.cartao-nome{ font:600 16.5px/1.25 var(--fonte); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.etiqueta{
+  flex:none; font:600 10.5px/1 var(--fonte-num); letter-spacing:.06em; text-transform:uppercase;
+  padding:4px 7px; border-radius:5px;
+  background:var(--acento-fraco); color:var(--acento); border:1px solid var(--acento-linha);
+}
+.cartao-meta{ font:400 13px/1.35 var(--fonte); color:var(--txt-2); margin-top:3px; }
+.seta{ flex:none; color:var(--txt-3); }
 
-   Continua sendo uma família só: nada aqui é saturado a ponto de brigar com o
-   texto, que é o que precisa ser lido. */
+/* item de lista com ação à direita */
+.item-acao{ align-items:center; cursor:default; }
+.acao-lado{
+  flex:none; min-height:var(--toque); padding:0 var(--e3);
+  display:inline-flex; align-items:center; justify-content:center;
+  background:var(--painel-alto); border:1px solid var(--borda-forte); border-radius:var(--r1);
+  color:var(--txt); font:600 13.5px/1 var(--fonte); cursor:pointer; white-space:nowrap;
+}
+.acao-feita{ background:var(--ok-fraco); border-color:rgba(79,201,140,.3); color:var(--ok); }
+.acao-destrutiva{ background:transparent; border-color:rgba(234,106,114,.3); color:var(--erro); }
 
-.tela { --acento: var(--azul); --acento-fundo: var(--azul-fundo); }
+/* linha de dados chave→valor */
+.linha-dado{
+  display:flex; align-items:center; justify-content:space-between; gap:var(--e3);
+  min-height:52px; padding:var(--e2) var(--e4);
+  border-bottom:1px solid var(--borda);
+  font:400 14.5px/1.35 var(--fonte); color:var(--txt-2);
+}
+.linha-dado:last-child{ border-bottom:0; }
+.linha-dado b{ font:600 14.5px/1.35 var(--fonte-num); color:var(--txt); }
+.caixa-dados{ background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2); overflow:hidden; }
 
-/* Treino: âmbar. É a cor de esforço, e destaca a única tela em que a pessoa
-   fica olhando entre uma série e outra. */
-.tela.treino   { --acento: #ffb454; --acento-fundo: #2a1e0d; }
-.tela.agenda   { --acento: #c084fc; --acento-fundo: #221636; }
-.tela.grana    { --acento: #4ade80; --acento-fundo: #0e2a1c; }
+/* ─────────────── 10. EXERCÍCIO / PESO ─────────────── */
 
-.tela .cabecalho .direita {
-  color: var(--acento);
-  border-color: color-mix(in srgb, var(--acento) 30%, transparent);
-  background: var(--acento-fundo);
-  font-variant-numeric: tabular-nums;
+.cartao-exercicio{
+  padding:var(--e3); background:var(--painel);
+  border:1px solid var(--borda); border-radius:var(--r2);
+  transition:opacity .15s ease, background .15s ease;
 }
-/* A seta tambem: ela era o unico azul sobrando numa tela ambar. */
-.tela .voltar { color: var(--acento); }
-.tela .voltar:active { background: var(--acento-fundo); }
-.tela .nota { border-left-color: color-mix(in srgb, var(--acento) 35%, transparent); }
-.tela .aviso {
-  background: var(--acento-fundo);
-  border-color: color-mix(in srgb, var(--acento) 25%, transparent);
+.exercicio-topo{
+  display:flex; align-items:flex-start; gap:var(--e3); width:100%;
+  background:none; border:0; padding:0; color:var(--txt); text-align:left; cursor:pointer;
 }
-.tela .aviso.grave {
-  background: var(--vermelho-fundo);
-  border-color: color-mix(in srgb, var(--vermelho) 30%, transparent);
+.marcador{
+  width:34px; height:34px; flex:none; border-radius:10px;
+  background:var(--painel-topo); border:1px solid var(--borda-forte);
+  display:flex; align-items:center; justify-content:center;
+  font:700 15px/1 var(--fonte-num); color:var(--txt-2);
 }
-.tela .campo input:focus, .tela .campo textarea:focus { border-color: var(--acento); }
-.tela .botao.principal {
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--acento) 88%, white),
-    var(--acento));
-  box-shadow: 0 6px 22px color-mix(in srgb, var(--acento) 26%, transparent);
-}
-.tela .item-acao {
-  background: var(--acento-fundo);
-  border-color: color-mix(in srgb, var(--acento) 22%, transparent);
-  color: var(--acento);
-}
-.tela .item-acao.perigo {
-  background: var(--vermelho-fundo);
-  border-color: color-mix(in srgb, var(--vermelho) 22%, transparent);
-  color: var(--vermelho);
-}
+.exercicio-nome{ font:600 16.5px/1.25 var(--fonte); }
+.exercicio-presc{ font:500 13px/1.3 var(--fonte-num); color:var(--txt-2); margin-top:4px; letter-spacing:.02em; }
 
-/* ---------- Escolher o treino ---------- */
+/* controle de peso: polegar suado entre séries → alvos de 56px */
+.peso{ display:flex; align-items:stretch; gap:var(--e2); margin-top:var(--e3); }
+.peso-passo{
+  width:64px; min-height:56px; flex:none;
+  background:var(--painel-topo); border:1px solid var(--borda-forte); border-radius:var(--r1);
+  color:var(--txt); font:400 26px/1 var(--fonte); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.peso-passo:active{ background:var(--acento-fraco); border-color:var(--acento); }
+.peso-campo{
+  flex:1; min-width:0; min-height:56px; text-align:center;
+  background:var(--painel-alto); border:1px solid var(--borda); border-radius:var(--r1);
+  color:var(--txt); font:700 20px/1 var(--fonte-num); letter-spacing:-.01em;
+  outline:none; -webkit-appearance:none; appearance:none;
+}
+.peso-campo:focus{ border-color:var(--acento); box-shadow:0 0 0 3px var(--acento-fraco); }
+.peso-campo::placeholder{ color:var(--txt-3); font-weight:600; }
 
-.modelo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 76px;
-  padding: 16px 18px;
-  margin-bottom: 10px;
-  background: linear-gradient(180deg, var(--painel-2), var(--painel));
-  border: 1px solid var(--borda);
-  border-radius: var(--r-m);
-  color: var(--texto);
-  text-align: left;
-  cursor: pointer;
-  transition: transform .12s ease, border-color .15s ease;
-}
-.modelo:active { transform: scale(.985); border-color: var(--acento); }
-.modelo-texto { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.modelo-texto strong { font-size: 17px; font-weight: 650; letter-spacing: -.02em; }
-.modelo-texto small {
-  display: flex; align-items: center; gap: 8px;
-  color: var(--fraco); font-size: 13px;
-}
-.tag {
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--acento-fundo);
-  color: var(--acento);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-}
-.modelo-seta { flex: none; color: var(--apagado); font-size: 24px; line-height: 1; }
+/* feito: esmaece mas continua editável — por isso opacity, não pointer-events */
+.exercicio-feito{ opacity:.5; background:var(--painel); }
+.exercicio-feito .marcador{ background:var(--ok); border-color:var(--ok); color:#06120c; }
+.exercicio-feito .exercicio-nome{ text-decoration:line-through; text-decoration-color:rgba(230,236,245,.3); }
 
-/* ---------- Barra de avanço ---------- */
+/* ─────────────── 11. PORQUINHO ─────────────── */
 
-.progresso {
-  height: 3px;
-  margin: 0 18px 12px;
-  border-radius: 999px;
-  background: var(--borda);
-  overflow: hidden;
+/* O único lugar do app com um número grande de dinheiro. Ele existe para
+   responder "quanto falta?" de relance, que é a pergunta que faz alguém
+   abrir esta tela. */
+.painel-meta{
+  padding:var(--e4); background:var(--painel);
+  border:1px solid var(--borda); border-radius:var(--r2);
+  margin-bottom:var(--e3);
 }
-.progresso-cheio {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--acento) 55%, transparent), var(--acento));
-  transition: width .3s cubic-bezier(.4, 0, .2, 1);
+.meta-para{ font:600 11.5px/1 var(--fonte); letter-spacing:.13em; text-transform:uppercase;
+  color:var(--txt-3); margin-bottom:var(--e2); }
+.meta-valor{ font:700 32px/1 var(--fonte-num); letter-spacing:-.02em; color:var(--acento); }
+.meta-alvo{ font:400 13.5px/1.4 var(--fonte); color:var(--txt-2); margin-top:6px; }
+.meta-barra{ height:6px; margin-top:var(--e3); border-radius:999px;
+  background:var(--painel-topo); overflow:hidden; }
+.meta-barra i{ display:block; height:100%; border-radius:999px; background:var(--acento);
+  transition:width .3s cubic-bezier(.4,0,.2,1); }
+
+/* ─────────────── 12. VISOR DE QR ─────────────── */
+
+.visor{
+  position:relative; width:100%; aspect-ratio:1/1;
+  background:#0c1016; border-radius:var(--r2); overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+}
+.visor video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.mira{
+  position:relative; width:62%; aspect-ratio:1/1; border-radius:var(--r1);
+  box-shadow:0 0 0 999px rgba(5,7,10,.66);
+}
+.mira i{ position:absolute; width:28px; height:28px; border:2.5px solid var(--acento); }
+.mira i:nth-child(1){ top:-2px; left:-2px;  border-right:0; border-bottom:0; border-radius:6px 0 0 0; }
+.mira i:nth-child(2){ top:-2px; right:-2px; border-left:0;  border-bottom:0; border-radius:0 6px 0 0; }
+.mira i:nth-child(3){ bottom:-2px; left:-2px;  border-right:0; border-top:0; border-radius:0 0 0 6px; }
+.mira i:nth-child(4){ bottom:-2px; right:-2px; border-left:0;  border-top:0; border-radius:0 0 6px 0; }
+.instrucao{ font:400 14px/1.5 var(--fonte); color:var(--txt-2); text-align:center; margin:var(--e4) 0 0; }
+
+/* ─────────────── 13. BARRA DE BAIXO ─────────────── */
+
+.barra-baixo{
+  position:fixed; left:0; right:0; bottom:0; z-index:5;
+  max-width:var(--largura); margin:0 auto;
+  height:calc(68px + var(--baixo-seguro));
+  padding-bottom:var(--baixo-seguro);
+  display:grid; grid-template-columns:repeat(3,1fr);
+  background:rgba(8,11,16,.78);
+  -webkit-backdrop-filter:blur(18px) saturate(140%);
+  backdrop-filter:blur(18px) saturate(140%);
+  border-top:1px solid var(--borda);
+}
+.aba{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+  min-height:68px; border:0; background:transparent; cursor:pointer;
+  color:var(--txt-3); font:500 11px/1 var(--fonte);
+  -webkit-tap-highlight-color:transparent;
+}
+.aba svg{ display:block; }
+.aba-ativa{ color:var(--acento); font-weight:700; }
+.aba-ativa svg{ filter:drop-shadow(0 0 7px var(--acento-linha)); }
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
 }
 
-/* ---------- Exercício ---------- */
+/* ─────────────── Ajustes do porte para o app real ─────────────── */
 
-.exercicio {
-  margin-bottom: 10px;
-  background: linear-gradient(180deg, var(--painel-2), var(--painel));
-  border: 1px solid var(--borda);
-  border-radius: var(--r-m);
-  overflow: hidden;
-  transition: opacity .2s ease, border-color .15s ease;
-}
-/* Feito não some: continua editável, porque marcar sem querer no meio do
-   treino é comum e desfazer tem de ser um toque. */
-.exercicio.feito { opacity: .52; border-color: color-mix(in srgb, var(--verde) 30%, transparent); }
+/* No desenho, `.item-nome` e `.item-meta` eram <div>. Aqui eles vivem dentro
+   de um <button>, onde <span> é a marcação segura — e span é inline, então
+   nome e detalhe saíam colados na mesma linha. */
+.item-corpo, .item-nome, .item-meta,
+.cartao-corpo, .cartao-nome, .cartao-meta,
+.exercicio-nome, .exercicio-presc{ display:block; }
+.cartao-topo{ display:flex; }
 
-.exercicio-topo {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 15px 16px 12px;
-  background: none;
-  border: none;
-  color: var(--texto);
-  text-align: left;
-  cursor: pointer;
-}
-.exercicio-n {
-  flex: none;
-  width: 30px; height: 30px;
-  display: grid; place-items: center;
-  border-radius: 10px;
-  background: var(--acento-fundo);
-  color: var(--acento);
-  font: 700 14px/1 var(--fonte);
-  transition: background .2s ease, color .2s ease;
-}
-.exercicio.feito .exercicio-n { background: var(--verde); color: #06121f; }
-.exercicio-texto { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.exercicio-texto strong { font-size: 16px; font-weight: 620; letter-spacing: -.01em; }
-.exercicio-texto small { color: var(--fraco); font-size: 13px; font-variant-numeric: tabular-nums; }
-.exercicio-texto .x { color: var(--apagado); }
+/* No desenho cada seção era um `.bloco` próprio, e o respiro vinha do
+   `.bloco + .bloco`. Aqui uma tela é um bloco só com várias seções dentro,
+   então o respiro tem de vir do próprio rótulo — sem isso ele encosta no
+   último item da seção anterior. */
+.rotulo-secao{ margin-top:var(--e5); }
+.bloco > .rotulo-secao:first-child{ margin-top:0; }
 
-/* ---------- Peso ---------- */
-
-.peso {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-  padding: 0 16px 14px;
-}
-/* Botão de passo em vez de só teclado: no meio do treino, somar 2,5 kg com o
-   polegar é um toque, e digitar é abrir teclado, mirar e fechar. O campo
-   continua ali para quem quiser um número qualquer. */
-.peso-passo {
-  flex: none;
-  width: 52px;
-  min-height: 50px;
-  background: var(--painel);
-  border: 1px solid var(--borda);
-  border-radius: var(--r-p);
-  color: var(--acento);
-  font: 400 24px/1 var(--fonte);
-  cursor: pointer;
-  transition: transform .1s ease, background .15s ease;
-}
-.peso-passo:active { transform: scale(.94); background: var(--acento-fundo); }
-
-.peso-campo {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 50px;
-  padding: 0 10px;
-  background: var(--painel);
-  border: 1px solid var(--borda);
-  border-radius: var(--r-p);
-}
-.peso-campo:focus-within { border-color: var(--acento); }
-.peso-campo input {
-  width: 100%;
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--texto);
-  /* 16px para o Safari não dar zoom ao focar; tabular para o número não
-     dançar de largura a cada toque no + . */
-  font: 650 18px/1 var(--fonte);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-.peso-campo input::placeholder { color: var(--apagado); font-weight: 400; }
-.peso-campo span { flex: none; color: var(--fraco); font-size: 13px; font-weight: 600; }
-
-/* ---------- Ação fixa no rodapé ---------- */
-
-.acao-fixa {
-  position: fixed;
-  left: 0; right: 0;
-  bottom: calc(70px + env(safe-area-inset-bottom));
-  z-index: 15;
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 10px 18px;
-  background: linear-gradient(to top, var(--fundo) 55%, transparent);
-}
-.acao-fixa .botao.principal { margin-top: 0; }
+/* O botão principal solto no fim de um formulário precisa de ar acima. */
+.bloco > .btn-principal{ margin-top:var(--e4); }

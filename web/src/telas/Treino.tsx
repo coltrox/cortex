@@ -36,30 +36,38 @@ export function Treino(p: {
 
   if (!modelo) {
     return (
-      <div className="tela treino">
+      <div className="tema-treino">
         <Cabecalho titulo="Treino" aoVoltar={() => p.irPara('hoje')} />
         {modelos.length === 0 && (
-          <Aviso>
-            Nenhum treino ainda. Cadastre um no Cortex — ele aparece aqui sozinho.
+          <Aviso titulo="Nenhum treino ainda">
+            Cadastre um treino no Cortex — ele aparece aqui sozinho.
           </Aviso>
         )}
-        <div className="secao">
-          {modelos.map(m => {
-            const n = exerciciosDoTreino(m).length
-            const grupo = typeof m.detalhe.grupo === 'string' ? m.detalhe.grupo : ''
-            return (
-              <button key={m.nome} className="modelo" onClick={() => setEscolhido(m.nome)}>
-                <span className="modelo-texto">
-                  <strong>{m.nome}</strong>
-                  <small>
-                    {grupo && <span className="tag">{grupo}</span>}
-                    {n} {n === 1 ? 'exercício' : 'exercícios'}
-                  </small>
-                </span>
-                <span className="modelo-seta" aria-hidden="true">›</span>
-              </button>
-            )
-          })}
+        <div className="bloco">
+          <div className="lista">
+            {modelos.map(m => {
+              const n = exerciciosDoTreino(m).length
+              const grupo = typeof m.detalhe.grupo === 'string' ? m.detalhe.grupo : ''
+              return (
+                <button key={m.nome} className="cartao" type="button"
+                  onClick={() => setEscolhido(m.nome)}>
+                  <span className="cartao-corpo">
+                    <span className="cartao-topo">
+                      <span className="cartao-nome">{m.nome}</span>
+                      {grupo && <span className="etiqueta">{grupo}</span>}
+                    </span>
+                    <span className="cartao-meta">
+                      {n} {n === 1 ? 'exercício' : 'exercícios'}
+                    </span>
+                  </span>
+                  <svg className="seta" width="18" height="18" viewBox="0 0 18 18" fill="none"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m6.5 3.5 5.5 5.5-5.5 5.5" />
+                  </svg>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
     )
@@ -98,77 +106,72 @@ export function Treino(p: {
     }
   }
 
+  const porcento = exercicios.length ? (prontos / exercicios.length) * 100 : 0
+
   return (
-    <div className="tela treino">
+    <div className="tema-treino">
       <Cabecalho
         titulo={modelo.nome}
         aoVoltar={() => { setEscolhido(null); setFeitos([]) }}
-        direita={`${prontos}/${exercicios.length}`}
+        direita={<span className="contador-serie">{prontos}/{exercicios.length}</span>}
       />
 
       {/* A barra é a única coisa que responde a cada toque no treino inteiro.
           Ela existe para dar a sensação de avanço, que é o que faz terminar. */}
-      <div className="progresso">
-        <div
-          className="progresso-cheio"
-          style={{ width: exercicios.length ? `${(prontos / exercicios.length) * 100}%` : '0%' }}
-        />
-      </div>
+      <div className="progresso"><i style={{ width: `${porcento}%` }} /></div>
 
-      {erro && <Aviso grave aoFechar={() => setErro(null)}>{erro}</Aviso>}
+      {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
 
-      <div className="secao">
+      <div className="bloco">
         {exercicios.length === 0 && (
-          <p className="nota">Este treino ainda não tem exercícios cadastrados no Cortex.</p>
+          <p className="secao-vazia">Este treino ainda não tem exercícios cadastrados no Cortex.</p>
         )}
 
-        {exercicios.map((e, i) => {
-          const feito = feitos.includes(e.nome)
-          return (
-            <div className={`exercicio ${feito ? 'feito' : ''}`} key={e.nome}>
-              <button
-                className="exercicio-topo"
-                onClick={() => alternar(e.nome)}
-                aria-pressed={feito}
-              >
-                <span className="exercicio-n">{feito ? '✓' : i + 1}</span>
-                <span className="exercicio-texto">
-                  <strong>{e.nome}</strong>
-                  {(e.series || e.reps) && (
-                    <small>
-                      {e.series ?? '—'} <span className="x">×</span> {e.reps ?? '—'}
-                    </small>
-                  )}
-                </span>
-              </button>
-
-              <div className="peso">
+        <div className="lista">
+          {exercicios.map((e, i) => {
+            const feito = feitos.includes(e.nome)
+            return (
+              <div className={`cartao-exercicio ${feito ? 'exercicio-feito' : ''}`} key={e.nome}>
                 <button
-                  className="peso-passo"
-                  onClick={() => mexer(e.nome, -2.5)}
-                  aria-label={`tirar 2,5 kg de ${e.nome}`}
-                >−</button>
-                <label className="peso-campo">
+                  className="exercicio-topo"
+                  onClick={() => alternar(e.nome)}
+                  aria-pressed={feito}
+                  type="button"
+                >
+                  <span className="marcador">{feito ? '✓' : i + 1}</span>
+                  <span>
+                    <span className="exercicio-nome">{e.nome}</span>
+                    {(e.series || e.reps) && (
+                      <span className="exercicio-presc">
+                        {e.series ?? '—'} × {e.reps ?? '—'}
+                      </span>
+                    )}
+                  </span>
+                </button>
+
+                <div className="peso">
+                  <button className="peso-passo" type="button"
+                    onClick={() => mexer(e.nome, -2.5)}
+                    aria-label={`tirar 2,5 kg de ${e.nome}`}>−</button>
                   <input
+                    className="peso-campo"
                     type="text"
                     inputMode="decimal"
                     value={cargas[e.nome] ?? ''}
-                    placeholder="0"
+                    placeholder="0 kg"
+                    aria-label={`carga de ${e.nome} em kg`}
                     onChange={ev => setCargas(c => ({
                       ...c, [e.nome]: ev.target.value.replace(',', '.')
                     }))}
                   />
-                  <span>kg</span>
-                </label>
-                <button
-                  className="peso-passo"
-                  onClick={() => mexer(e.nome, 2.5)}
-                  aria-label={`somar 2,5 kg em ${e.nome}`}
-                >+</button>
+                  <button className="peso-passo" type="button"
+                    onClick={() => mexer(e.nome, 2.5)}
+                    aria-label={`somar 2,5 kg em ${e.nome}`}>+</button>
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
       {exercicios.length > 0 && (

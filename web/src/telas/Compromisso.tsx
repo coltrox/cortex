@@ -28,22 +28,18 @@ export function Compromisso(p: {
   }
 
   return (
-    <>
+    <div className="tema-agenda">
       <Cabecalho titulo="Novo compromisso" aoVoltar={() => p.irPara('agenda')} />
-      {erro && <Aviso grave aoFechar={() => setErro(null)}>{erro}</Aviso>}
-      <div className="secao">
+      {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
+      <div className="bloco">
         <Campo rotulo="O quê" valor={titulo} aoMudar={setTitulo} dica="Dentista" />
-        <label className="campo">
-          <span>Quando</span>
-          <input type="date" value={data} onChange={e => setData(e.target.value)} />
-        </label>
-        <label className="campo">
-          <span>Hora</span>
-          <input type="time" value={hora} onChange={e => setHora(e.target.value)} />
-        </label>
+        <div className="par-campos">
+          <Campo rotulo="Quando" tipo="date" valor={data} aoMudar={setData} />
+          <Campo rotulo="Hora" tipo="time" valor={hora} aoMudar={setHora} />
+        </div>
         <Campo rotulo="Onde" valor={local} aoMudar={setLocal} dica="Centro" />
         <Botao tipo="principal" aoClicar={enviar}>Marcar</Botao>
       </div>
-    </>
+    </div>
   )
 }

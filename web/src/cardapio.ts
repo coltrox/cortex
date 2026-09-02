@@ -171,3 +171,27 @@ export function faltam(data: string, hoje: string): string {
   if (dias === -1) return 'ontem'
   return dias > 0 ? `em ${dias} dias` : `há ${-dias} dias`
 }
+
+export type Porquinho = { nome: string; saldo: number; alvo: number | null; ate: string | null }
+
+/**
+ * O porquinho, quando o Cortex publicou um.
+ *
+ * O saldo vem somado de lá: o celular não recebe os movimentos, só o total.
+ */
+export function porquinho(c: Cardapio): Porquinho | null {
+  const i = c.itens.find(x => x.especie === 'porquinho')
+  if (!i) return null
+  const n = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  return {
+    nome: i.nome,
+    saldo: n(i.detalhe.saldo) ?? 0,
+    alvo: n(i.detalhe.alvo),
+    ate: typeof i.detalhe.ate === 'string' ? i.detalhe.ate : null
+  }
+}
+
+/** Dinheiro em português, com o símbolo e duas casas. */
+export function reais(v: number): string {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}

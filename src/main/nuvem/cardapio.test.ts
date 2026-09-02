@@ -302,7 +302,8 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // quando, por acaso, um treino fosse editado depois. Agora ha uma lista
     // so, e ela precisa continuar cobrindo tudo que a funcao consulta.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
-      'evento', 'plano', 'prova', 'simulado', 'suplemento', 'tarefa', 'treino-modelo'
+      'evento', 'meta-cofre', 'plano', 'porquinho', 'prova', 'simulado',
+      'suplemento', 'tarefa', 'treino-modelo'
     ])
   })
 
@@ -320,6 +321,19 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       const c = montarCardapio([n as never], HOJE)
       expect(c.length, tipo + ' nao virou item').toBeGreaterThan(0)
     }
+    // Tres excecoes ao laco acima, porque nao viram um item cada:
+    // `plano` fornece as refeicoes, e `porquinho`/`meta-cofre` juntos viram
+    // UM item com o saldo somado.
+    const comPorquinho = montarCardapio([
+      nota({ path: 'm1.md', title: 'Guardei', tipo: 'porquinho', campos: { valor: 100, direcao: 'deposito' } }),
+      nota({ path: 'm2.md', title: 'Tirei', tipo: 'porquinho', campos: { valor: 30, direcao: 'sangria' } }),
+      nota({ path: 'meta.md', title: 'Notebook', tipo: 'meta-cofre', campos: { ativa: true, alvo: 4000 } })
+    ], HOJE)
+    expect(comPorquinho).toHaveLength(1)
+    expect(comPorquinho[0]).toEqual({
+      especie: 'porquinho', nome: 'Notebook', detalhe: { saldo: 70, alvo: 4000 }
+    })
+
     // `plano` e a excecao: ele nao vira item, ele fornece as refeicoes.
     const comPlano = montarCardapio([nota({
       path: 'g.md', title: 'Plano', tipo: 'plano',
