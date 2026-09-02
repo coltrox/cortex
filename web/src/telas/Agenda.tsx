@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoProvaEstudada, eventoItemApagado } from '../montar'
 import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta } from '../cardapio'
@@ -38,6 +38,38 @@ export function Agenda(p: {
     local: txt(i.detalhe.local),
     materia: txt(i.detalhe.materia)
   })
+
+  /*
+   * As marcas locais valem só até o Cortex confirmar.
+   *
+   * Elas existem para cobrir o intervalo entre o toque e o cardápio voltar do
+   * banco. Depois disso passam a atrapalhar: marquei "não estudei" no celular
+   * hoje, o Cortex confirmou, e mais tarde marquei a prova como estudada NO
+   * COMPUTADOR — a chave velha faria este celular continuar mostrando "não
+   * estudei" até a virada do dia, contra o que o vault diz.
+   *
+   * Então, assim que o cardápio chega dizendo a mesma coisa que a marca local,
+   * a marca é apagada. O que sobra é sempre "pendente de confirmação", nunca
+   * uma segunda fonte da verdade concorrendo com o vault.
+   */
+  useEffect(() => {
+    const atuais = jaFeitos(guardadoDoNavegador, dia)
+    let mexeu = false
+    for (const i of provas(p.cardapio.cardapio)) {
+      const path = caminhoDe(i)
+      if (!path) continue
+      const confirmado = i.detalhe.estudado === true ? `prova:${path}` : `nao-prova:${path}`
+      if (atuais.includes(confirmado)) {
+        desmarcarFeito(guardadoDoNavegador, dia, confirmado)
+        mexeu = true
+      }
+    }
+    if (mexeu) setFeitos(jaFeitos(guardadoDoNavegador, dia))
+    // `feitos` fora das dependências de propósito: o efeito lê do disco, não
+    // do estado, e listá-lo faria ele rodar de novo por causa da própria
+    // limpeza que acabou de fazer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.cardapio.cardapio, dia])
 
   const marcar = (chave: string, montar: () => ReturnType<typeof eventoProvaEstudada>): void => {
     marcarFeito(guardadoDoNavegador, dia, chave)
