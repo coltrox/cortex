@@ -225,6 +225,44 @@ body{
   color:transparent; font-size:14px; font-weight:700; line-height:1;
   transition:background .15s ease, border-color .15s ease, color .15s ease;
 }
+/* ─────────────── Puxar para atualizar ─────────────── */
+
+/* O indicador nasce ESCONDIDO ATRÁS do cabeçalho e desce de lá — por isso
+   `z-index` menor que o dele. Sai de baixo do cabeçalho como uma gaveta, em
+   vez de aparecer do nada no meio do conteúdo.
+
+   `fixed`, e não `absolute`: assim ele não empurra nada, não reserva espaço
+   no layout e não depende de a página inteira se mexer (mexer a página
+   quebraria o próprio cabeçalho, que é `fixed`). */
+.puxar-cova{
+  position:fixed; z-index:3; left:0; right:0;
+  top:calc(var(--alt-cabecalho) + var(--topo-seguro) - 34px);
+  display:flex; justify-content:center;
+  pointer-events:none;
+}
+
+/* Um anel aberto — três quartos de círculo. Aberto, e não um círculo cheio,
+   porque a falta do pedaço é o que deixa ver que ele gira. */
+.puxar-anel{
+  width:22px; height:22px; border-radius:50%;
+  border:2px solid var(--borda-forte); border-top-color:var(--acento);
+  background:var(--fundo);
+}
+.puxar-girando{ animation:puxar-gira .7s linear infinite; }
+@keyframes puxar-gira{ to{ transform:rotate(360deg); } }
+
+/* Quem prefere menos movimento vê o anel parado — ele continua dizendo que
+   algo está em curso pela cor, sem girar. */
+@media (prefers-reduced-motion: reduce){
+  .puxar-girando{ animation:none; }
+}
+
+/* Cartão encostado no cartão vira um bloco só: as bordas vizinhas se somam
+   numa linha grossa e o olho perde onde um item acaba e o outro começa.
+   `.lista` já resolve isso com `gap`, então lá esta margem é desligada. */
+.item + .item{ margin-top:var(--e2); }
+.lista .item + .item{ margin-top:0; }
+
 .item-corpo{ min-width:0; flex:1; }
 .item-nome{ font:600 16.5px/1.25 var(--fonte); color:var(--txt);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -416,6 +454,19 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   display:flex; flex-wrap:wrap; align-items:baseline;
   white-space:normal; overflow:visible;
 }
+
+/* A linha do "quando" — data, hora e quanto falta.
+   Separada do resto porque é o que se procura primeiro numa agenda, e porque
+   junto com matéria e local virava um fio de quatro pedaços que quebrava
+   deixando um "·" abrindo a linha de baixo. Sem separador nenhum: o espaço
+   entre os pedaços já os separa, e um ponto a menos é uma leitura a mais. */
+.item-quando{
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--e2);
+  margin-top:5px;
+  font:600 13.5px/1.35 var(--fonte); color:var(--txt);
+}
+.item-quando .item-falta{ font-weight:400; color:var(--txt-2); }
+.item-acao .item-quando + .item-meta{ margin-top:3px; }
 .acao-lado{
   flex:none; min-height:var(--toque); padding:0 var(--e3);
   display:inline-flex; align-items:center; justify-content:center;

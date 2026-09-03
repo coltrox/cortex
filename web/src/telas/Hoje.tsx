@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua } from '../montar'
 import { suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { lerPendente, somarPendente, conciliarPendente, totalNaTela } from '../agua'
+import { usePuxarParaAtualizar, progresso, LIMITE } from '../puxar'
 import { Cabecalho, Check, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -121,12 +122,49 @@ export function Hoje(p: {
     setFeitos(jaFeitos(guardadoDoNavegador, dia))
     p.envio.registrar(montar(!estava))
   }
+  /*
+   * Puxar para atualizar.
+   *
+   * "O app todo": o cardápio DESCE e a fila SOBE. Só buscar deixaria o gesto
+   * pela metade — quem puxa depois de marcar coisas sem sinal quer ver a fila
+   * esvaziar tanto quanto quer ver a novidade chegar.
+   */
+  const puxar = usePuxarParaAtualizar(useCallback(async () => {
+    await Promise.all([p.cardapio.atualizar(), p.envio.drenar()])
+  }, [p.cardapio, p.envio]))
+
   const { naFila, enviando, avisos } = p.envio.estado
   const vazio = suplementos.length === 0 && refeicoes.length === 0
     && rotinas.length === 0 && !agua
 
   return (
     <div className="tema-hoje">
+      {/* Duas camadas de propósito: a de fora desce com o dedo, a de dentro
+          gira. Numa só, a animação de girar (que é `transform`) apagaria o
+          `translateY` da descida.
+
+          A página em si NÃO desce: `transform` num ancestral faz todo
+          `position: fixed` de dentro virar `absolute`, e o cabeçalho fixo
+          desceria junto, deixando de ser cabeçalho. */}
+      <div
+        className="puxar-cova"
+        style={{
+          transform: `translateY(${puxar.distancia}px)`,
+          opacity: puxar.atualizando ? 1 : progresso(puxar.distancia),
+          transition: puxar.distancia === 0 ? 'transform .25s ease, opacity .2s ease' : 'none'
+        }}
+        aria-hidden="true"
+      >
+        <div
+          className={`puxar-anel ${puxar.atualizando ? 'puxar-girando' : ''}`}
+          // Enquanto se puxa, o anel gira acompanhando o dedo — é o que diz
+          // que falta pouco. Ao soltar, a animação do CSS assume.
+          style={puxar.atualizando
+            ? undefined
+            : { transform: `rotate(${(puxar.distancia / LIMITE) * 270}deg)` }}
+        />
+      </div>
+
       <Cabecalho
         titulo="Hoje"
         estado={
@@ -138,6 +176,15 @@ export function Hoje(p: {
         }
       />
 
+      {/* Só o conteúdo desce com o dedo — o cabeçalho fica fora deste div de
+          propósito. `transform` num ancestral faz `position: fixed` virar
+          `absolute`, e o cabeçalho desceria junto, deixando de ser fixo. */}
+      <div
+        style={{
+          transform: `translateY(${puxar.distancia}px)`,
+          transition: puxar.distancia === 0 ? 'transform .25s ease' : 'none'
+        }}
+      >
       {avisos.length > 0 && (
         <Aviso tom="erro" aoFechar={p.envio.limparAvisos}>
           {avisos.length} registro(s) recusado(s). O primeiro: {avisos[0]}
@@ -259,6 +306,7 @@ export function Hoje(p: {
             </button>
           ))}
         </div>
+      </div>
       </div>
     </div>
   )

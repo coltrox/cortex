@@ -143,12 +143,8 @@ export function Agenda(p: {
               key={path || i.nome}>
               <div className="item-corpo">
                 <div className="item-nome">{i.nome}</div>
-                <div className="item-meta">
-                  <Detalhe partes={[
-                    dataCurta(dataDe(i), dia), faltam(dataDe(i), dia),
-                    i.detalhe.materia, i.detalhe.local
-                  ]} />
-                </div>
+                <Quando data={dataCurta(dataDe(i), dia)} falta={faltam(dataDe(i), dia)} />
+                <Sobre partes={[i.detalhe.materia, i.detalhe.local]} />
               </div>
               <div className="item-acoes">
                 <button
@@ -194,12 +190,12 @@ export function Agenda(p: {
               key={path || i.nome}>
               <div className="item-corpo">
                 <div className="item-nome">{i.nome}</div>
-                <div className="item-meta">
-                  <Detalhe partes={[
-                    dataCurta(dataDe(i), dia), faltam(dataDe(i), dia),
-                    i.detalhe.hora, i.detalhe.local
-                  ]} />
-                </div>
+                <Quando
+                  data={dataCurta(dataDe(i), dia)}
+                  falta={faltam(dataDe(i), dia)}
+                  hora={txt(i.detalhe.hora)}
+                />
+                <Sobre partes={[i.detalhe.local]} />
               </div>
               {/* Editar antes de excluir: mudar de horário é o que mais
                   acontece, e cancelar é a saída. */}
@@ -235,15 +231,48 @@ export function Agenda(p: {
           <div className="item item-acao" key={caminhoDe(i) || i.nome}>
             <div className="item-corpo">
               <div className="item-nome">{i.nome}</div>
-              <div className="item-meta">
-                <Detalhe partes={[
-                  dataCurta(dataDe(i), dia), faltam(dataDe(i), dia), i.detalhe.materia
-                ]} />
-              </div>
+              <Quando data={dataCurta(dataDe(i), dia)} falta={faltam(dataDe(i), dia)} />
+              <Sobre partes={[i.detalhe.materia]} />
             </div>
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+/*
+ * O detalhe da agenda em duas linhas, e não num fio só.
+ *
+ * Antes era um `Detalhe` com quatro pedaços colados por "·" — data, quanto
+ * falta, matéria e local — numa linha que ainda dividia a largura com três
+ * botões. Ela quebrava no meio, e a linha de baixo abria com um "·" órfão
+ * ("· a divulgar"), que é o que se lê pior de tudo.
+ *
+ * Separadas, cada uma responde uma pergunta: `Quando` é quando, e é o que se
+ * procura primeiro; `Sobre` é o resto, e pode ficar mais apagado.
+ */
+function Quando({ data, falta, hora }: { data: string; falta: string; hora?: string }) {
+  const partes = [data, hora, falta].filter(x => typeof x === 'string' && x !== '') as string[]
+  if (partes.length === 0) return null
+  return (
+    <div className="item-quando">
+      {partes.map((x, i) => (
+        // Quanto falta não é hora marcada: fica mais leve, para a data
+        // continuar sendo o que salta aos olhos.
+        <span key={i} className={x === falta ? 'item-falta' : undefined}>{x}</span>
+      ))}
+    </div>
+  )
+}
+
+/** Matéria, local — o que a linha de cima não respondeu. Some quando vazio. */
+function Sobre({ partes }: { partes: unknown[] }) {
+  const uteis = partes.filter(x => typeof x === 'string' && x !== '') as string[]
+  if (uteis.length === 0) return null
+  return (
+    <div className="item-meta">
+      <Detalhe partes={uteis} />
     </div>
   )
 }
