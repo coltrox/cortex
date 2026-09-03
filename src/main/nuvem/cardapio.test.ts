@@ -301,9 +301,12 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // no Cortex nao mandava nada para o celular -- a novidade so aparecia
     // quando, por acaso, um treino fosse editado depois. Agora ha uma lista
     // so, e ela precisa continuar cobrindo tudo que a funcao consulta.
+    // `diario` entrou por outro motivo: nao vira item de cardapio, e sim diz
+    // o que JA foi marcado hoje. Sem ele, desmarcar um suplemento no Cortex
+    // nao chegava ao celular -- o check de la vivia so na memoria do aparelho.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
-      'evento', 'meta-cofre', 'plano', 'porquinho', 'prova', 'simulado',
-      'suplemento', 'tarefa', 'treino-modelo'
+      'diario', 'evento', 'meta-cofre', 'plano', 'porquinho', 'prova',
+      'simulado', 'suplemento', 'tarefa', 'treino-modelo'
     ])
   })
 
@@ -340,5 +343,70 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       campos: { ativo: true, refeicoes: [{ nome: 'Cafe', hora: '07:00' }] }
     })], HOJE)
     expect(comPlano.map(i => i.especie)).toEqual(['refeicao'])
+  })
+})
+
+/**
+ * O que ja foi marcado hoje.
+ *
+ * Existe por um defeito de desenho: o check do celular vivia so na memoria do
+ * proprio aparelho, entao desmarcar um suplemento no Cortex nao chegava la --
+ * as duas telas divergiam em silencio ate a virada do dia.
+ */
+describe('o que ja foi feito hoje sobe junto', () => {
+  const HOJE = '2026-09-01'
+  const creatina = nota({
+    path: 'Saude/Creatina.md', title: 'Creatina', tipo: 'suplemento',
+    campos: { dose: '6 g' }
+  })
+  const diario = (campos: Record<string, unknown>) =>
+    nota({ path: `Diario/${HOJE}.md`, title: HOJE, tipo: 'diario', date: HOJE, campos })
+
+  const so = (itens: ReturnType<typeof montarCardapio>) =>
+    itens.find(i => i.especie === 'suplemento')
+
+  it('marca o suplemento que esta no diario de hoje', () => {
+    const c = montarCardapio([creatina, diario({ suplementos_feitos: ['Creatina'] })], HOJE)
+    expect(so(c)?.detalhe.feito).toBe(true)
+  })
+
+  it('sem diario, o campo nem existe -- e nao `feito: false`', () => {
+    // `comValor` tira o undefined: um `feito: false` em todo item seria uma
+    // chave a mais em cada linha que sobe, dizendo o padrao.
+    const c = montarCardapio([creatina], HOJE)
+    expect(so(c)?.detalhe).not.toHaveProperty('feito')
+  })
+
+  it('o diario de OUTRO dia nao marca nada', () => {
+    // O cardapio e do dia de hoje. Ler o de ontem faria o celular abrir com
+    // tudo marcado toda manha.
+    const ontem = nota({
+      path: 'Diario/2026-08-31.md', title: '2026-08-31', tipo: 'diario',
+      date: '2026-08-31', campos: { suplementos_feitos: ['Creatina'] }
+    })
+    const c = montarCardapio([creatina, ontem], HOJE)
+    expect(so(c)?.detalhe).not.toHaveProperty('feito')
+  })
+
+  it('so os dois campos do diario sobem -- o resto dele fica', () => {
+    // O diario do dia tambem guarda gasto e anotacao. Este teste e o que
+    // impede alguem de trocar a lista branca por um spread mais tarde.
+    const c = montarCardapio([creatina, diario({
+      suplementos_feitos: ['Creatina'],
+      gastos: [{ item: 'SEGREDO-GASTO', valor: 99 }],
+      anotacao: 'SEGREDO-ANOTACAO'
+    })], HOJE)
+    const json = JSON.stringify(c)
+    expect(json).not.toContain('SEGREDO-GASTO')
+    expect(json).not.toContain('SEGREDO-ANOTACAO')
+  })
+
+  it('marca a refeicao do plano ativo', () => {
+    const plano = nota({
+      path: 'Saude/Dieta/Plano.md', title: 'Plano', tipo: 'plano',
+      campos: { ativo: true, refeicoes: [{ nome: 'Café da manhã', hora: '07:00' }] }
+    })
+    const c = montarCardapio([plano, diario({ dieta_feitas: ['Café da manhã'] })], HOJE)
+    expect(c.find(i => i.especie === 'refeicao')?.detalhe.feito).toBe(true)
   })
 })

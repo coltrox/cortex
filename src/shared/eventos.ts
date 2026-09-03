@@ -58,7 +58,14 @@ export type Evento = z.infer<typeof EVENTO_SCHEMA>
 export const TIPOS_NOTA_CARDAPIO = [
   'treino-modelo', 'suplemento', 'plano', 'prova', 'simulado', 'evento', 'tarefa',
   // Os dois do porquinho: os movimentos, para somar o saldo, e a meta ativa.
-  'porquinho', 'meta-cofre'
+  'porquinho', 'meta-cofre',
+  // O diário do dia, e SÓ para saber o que já foi marcado hoje: sem ele o
+  // celular não teria como saber que um suplemento foi desmarcado aqui no
+  // Cortex, porque o check dele vivia apenas na memória do próprio aparelho.
+  // `montarCardapio` copia dele dois campos, nada mais — ver a lista branca
+  // lá, que é o que impede o resto do diário (gastos, anotações do dia) de
+  // subir junto.
+  'diario'
 ] as const
 
 export const ESPECIES_CARDAPIO = [

@@ -84,7 +84,9 @@ export function Check({ rotulo, detalhe, feito, aoMarcar }: {
     <button
       className={`item ${feito ? 'item-feito' : ''}`}
       onClick={aoMarcar}
-      disabled={feito}
+      // Sem `disabled` quando feito: é o mesmo botão que desmarca. Antes,
+      // marcar sem querer não tinha volta pelo celular — o item ficava morto
+      // até a virada do dia.
       type="button"
       aria-pressed={feito}
     >

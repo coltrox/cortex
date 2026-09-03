@@ -375,3 +375,43 @@ describe('planejar — prova e tarefa marcadas do celular', () => {
     expect(planejar({ tipo: 'prova_nova', dia: '2026-09-02', dados: { titulo: ' ' } })).toEqual([])
   })
 })
+
+/**
+ * Desmarcar o check.
+ *
+ * Vai no mesmo tipo de evento com o sinal trocado, e nao num tipo novo: um
+ * tipo novo teria de entrar tambem em `tipos_validos()`, no banco, e isso
+ * exige rodar o SQL do Supabase de novo para o evento fazer exatamente a
+ * mesma coisa ao contrario.
+ */
+describe('planejar — desmarcar suplemento e refeicao', () => {
+  it('feito false tira do conjunto do diario', () => {
+    expect(planejar(ev('suplemento', { nome: 'Creatina', feito: false }))).toEqual([
+      { acao: 'diario-tirar', dia: '2026-08-27', campo: 'suplementos_feitos', valor: 'Creatina' }
+    ])
+    expect(planejar(ev('refeicao_plano', { nome: 'Café', feito: false }))).toEqual([
+      { acao: 'diario-tirar', dia: '2026-08-27', campo: 'dieta_feitas', valor: 'Café' }
+    ])
+  })
+
+  it('sem o campo, marca -- e nao desmarca', () => {
+    // Um evento gravado pelo app do celular ANTES desta mudanca nao carrega
+    // `feito`. Ele pode ter esperado dias na fila sem sinal; tratar a
+    // ausencia como `false` desmarcaria o que a pessoa marcou.
+    expect(planejar(ev('suplemento', { nome: 'Creatina' })))
+      .toEqual([{ acao: 'diario-conjunto', dia: '2026-08-27', campo: 'suplementos_feitos', valor: 'Creatina' }])
+  })
+
+  it('so o booleano false desmarca -- a string "false" nao', () => {
+    // `dados` vem do banco como registro livre. Qualquer coisa que nao seja
+    // exatamente `false` cai no lado seguro, que e marcar.
+    expect(planejar(ev('suplemento', { nome: 'Creatina', feito: 'false' })))
+      .toMatchObject([{ acao: 'diario-conjunto' }])
+    expect(planejar(ev('suplemento', { nome: 'Creatina', feito: 0 })))
+      .toMatchObject([{ acao: 'diario-conjunto' }])
+  })
+
+  it('desmarcar sem nome nao vira operacao', () => {
+    expect(planejar(ev('suplemento', { feito: false }))).toEqual([])
+  })
+})

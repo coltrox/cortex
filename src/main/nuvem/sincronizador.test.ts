@@ -430,3 +430,66 @@ describe('marcar nota existente', () => {
     expect(await session.vault.exists('Agenda/Dentista (2).md')).toBe(true)
   })
 })
+
+/**
+ * Desmarcar de verdade, no disco.
+ *
+ * O `planejar` decide `diario-tirar`; aqui se prova que o arquivo do diario
+ * fica como deve ficar -- inclusive quando o conjunto esvazia.
+ */
+describe('desmarcar o check no diario', () => {
+  const ler = async (path: string) =>
+    parseFrontmatter(await session.vault.read(path)).frontmatter
+
+  it('tira o suplemento do conjunto e mantem os outros', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'suplemento', { nome: 'Whey' }),
+      ev('e2', 'suplemento', { nome: 'Creatina' })
+    ])).sincronizar()
+
+    await sinc(new ClienteFalso([
+      ev('e3', 'suplemento', { nome: 'Whey', feito: false })
+    ])).sincronizar()
+
+    expect((await ler('Diario/2026-08-27.md')).suplementos_feitos).toEqual(['Creatina'])
+  })
+
+  it('conjunto vazio APAGA a chave, em vez de deixar uma lista vazia', async () => {
+    // `suplementos_feitos: []` pendurado no diario e uma linha que nao diz
+    // nada e que aparece em toda nota do dia.
+    await sinc(new ClienteFalso([ev('e1', 'suplemento', { nome: 'Whey' })])).sincronizar()
+    await sinc(new ClienteFalso([
+      ev('e2', 'suplemento', { nome: 'Whey', feito: false })
+    ])).sincronizar()
+
+    const fm = await ler('Diario/2026-08-27.md')
+    expect(fm).not.toHaveProperty('suplementos_feitos')
+  })
+
+  it('desmarcar o que nunca foi marcado nao quebra nem cria diario', async () => {
+    // Acontece de verdade: o celular reenvia a fila depois de a pessoa ja ter
+    // desmarcado no Cortex. Criar um diario vazio so para registrar que nada
+    // foi feito seria pior do que nao fazer nada.
+    const r = await sinc(new ClienteFalso([
+      ev('e1', 'suplemento', { nome: 'Whey', feito: false })
+    ])).sincronizar()
+
+    expect(r.aplicados).toBe(1)
+    expect(await session.vault.exists('Diario/2026-08-27.md')).toBe(false)
+  })
+
+  it('o resto do diario continua de pe', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'suplemento', { nome: 'Whey' }),
+      ev('e2', 'gasto', { item: 'Almoço', valor: 32 })
+    ])).sincronizar()
+    await sinc(new ClienteFalso([
+      ev('e3', 'suplemento', { nome: 'Whey', feito: false })
+    ])).sincronizar()
+
+    const fm = await ler('Diario/2026-08-27.md')
+    expect(fm).not.toHaveProperty('suplementos_feitos')
+    // O gasto do dia nao pode sair junto: sao campos vizinhos no mesmo arquivo.
+    expect(JSON.stringify(fm)).toContain('Almoço')
+  })
+})

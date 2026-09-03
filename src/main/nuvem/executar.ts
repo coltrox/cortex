@@ -104,6 +104,31 @@ export async function executar(
         break
       }
 
+      /*
+       * O desfazer do check.
+       *
+       * Se o diário do dia nem existe, não há o que desmarcar — e criar o
+       * arquivo aqui produziria um diário vazio só para registrar que nada
+       * foi feito. Por isso este caso NÃO chama `garantir`, ao contrário do
+       * `diario-conjunto` logo acima.
+       */
+      case 'diario-tirar': {
+        const path = `Diario/${op.dia}.md`
+        if (!(await vault.exists(path))) break
+        const raw = await vault.read(path)
+        const atual = comoLista(parseFrontmatter(raw).frontmatter[op.campo])
+        if (!atual.includes(op.valor)) break
+        const restante = atual.filter(v => v !== op.valor)
+        // Lista vazia vira `null`, que `patchFrontmatter` traduz em apagar a
+        // chave: um `suplementos_feitos: []` pendurado no diário é uma linha
+        // que não diz nada e que aparece em toda nota do dia.
+        await vault.writeAtomic(path, patchFrontmatter(raw, {
+          [op.campo]: restante.length > 0 ? restante : null
+        }))
+        await indexarSemFalhar(indexer, path)
+        break
+      }
+
       case 'diario-lista': {
         const path = `Diario/${op.dia}.md`
         await garantir(vault, path, cabecalhoDiario(op.dia))

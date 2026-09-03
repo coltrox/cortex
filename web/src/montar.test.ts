@@ -294,3 +294,25 @@ describe('marcar prova e tarefa do celular', () => {
     expect(() => eventoTarefaNova('', '2026-09-20', {}, D)).toThrow()
   })
 })
+
+describe('desmarcar o check', () => {
+  const DIA3 = '2026-08-28'
+
+  it('feito false viaja; marcado nao carrega o campo', () => {
+    // Ausente ja significa "marcou" -- e o que todo evento gravado antes
+    // desta mudanca quer dizer, e e o que o Cortex assume ao aplicar.
+    expect(eventoSuplemento('Creatina', DIA3).dados).toEqual({ nome: 'Creatina' })
+    expect(eventoSuplemento('Creatina', DIA3, false).dados)
+      .toEqual({ nome: 'Creatina', feito: false })
+  })
+
+  it('vale igual para a refeicao do plano', () => {
+    expect(eventoRefeicaoPlano('Café', DIA3).dados).toEqual({ nome: 'Café' })
+    expect(eventoRefeicaoPlano('Café', DIA3, false).dados)
+      .toEqual({ nome: 'Café', feito: false })
+  })
+
+  it('desmarcar continua exigindo um nome', () => {
+    expect(() => eventoSuplemento('  ', DIA3, false)).toThrow()
+  })
+})

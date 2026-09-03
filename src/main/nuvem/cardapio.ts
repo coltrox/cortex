@@ -55,6 +55,25 @@ function aindaInteressa(data: string | null, hoje: string): boolean {
 export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardapio[] {
   const out: ItemCardapio[] = []
 
+  /*
+   * O que já foi marcado HOJE, lido do diário do dia.
+   *
+   * Existe porque o check do celular vivia só na memória do aparelho: o
+   * Cortex não tinha como dizer "desmarquei este suplemento aqui", e as duas
+   * telas divergiam em silêncio até a virada do dia.
+   *
+   * Dois campos, e não o diário inteiro. O diário também guarda gasto, treino
+   * e anotação do dia — copiar o objeto todo aqui mandaria tudo isso para a
+   * nuvem, que é exatamente o que a lista branca desta função existe para
+   * impedir. `listaDeTexto` ainda garante que um objeto disfarçado de nome
+   * não passe.
+   */
+  const diario = notas.find(x => x.tipo === 'diario' && x.date === hoje)
+  const feitosHoje = {
+    suplemento: new Set(listaDeTexto(diario?.campos.suplementos_feitos)),
+    refeicao: new Set(listaDeTexto(diario?.campos.dieta_feitas))
+  }
+
   for (const n of notas.filter(x => x.tipo === 'treino-modelo')) {
     out.push({
       especie: 'treino',
@@ -82,7 +101,11 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
         dose: txt(n.campos.dose),
         quando: txt(n.campos.quando),
         // Item a item, igual exercicios/refeicoes: um objeto disfarçado de dia não passa.
-        dias: listaDeTexto(n.campos.dias)
+        dias: listaDeTexto(n.campos.dias),
+        // Só quando é verdade; `comValor` tira o `undefined`. O celular usa
+        // isto para desenhar o check já marcado — e para desmarcá-lo quando
+        // some daqui.
+        feito: feitosHoje.suplemento.has(txt(n.title)) ? true : undefined
       })
     })
   }
@@ -96,7 +119,10 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
     out.push({
       especie: 'refeicao',
       nome,
-      detalhe: comValor({ hora: txt(r.hora), itens: txt(r.itens), kcal: num(r.kcal), prot: num(r.prot) })
+      detalhe: comValor({
+        hora: txt(r.hora), itens: txt(r.itens), kcal: num(r.kcal), prot: num(r.prot),
+        feito: feitosHoje.refeicao.has(nome) ? true : undefined
+      })
     })
   }
 

@@ -11,6 +11,15 @@ import { txt, comValor } from './util'
 export type Operacao =
   /** Acrescenta a um conjunto do diário (marcar suplemento, marcar refeição). */
   | { acao: 'diario-conjunto'; dia: string; campo: string; valor: string }
+  /**
+   * Tira de um conjunto do diário — o desfazer do check.
+   *
+   * Operação separada, e não um `diario-conjunto` com um sinal dentro: quem
+   * lê `executar.ts` vê pelo nome se aquela linha põe ou tira, e um booleano
+   * escondido no meio dos campos seria a única diferença entre acrescentar e
+   * apagar dado do diário.
+   */
+  | { acao: 'diario-tirar'; dia: string; campo: string; valor: string }
   /** Acrescenta a uma lista do diário (gasto, refeição extra). */
   | { acao: 'diario-lista'; dia: string; campo: string; item: Record<string, unknown> }
   /**
@@ -68,16 +77,31 @@ export function planejar(evento: Evento): Operacao[] {
   const { tipo, dia, dados } = evento
 
   switch (tipo) {
+    /*
+     * Marcar e desmarcar são o mesmo evento, com o sinal trocado.
+     *
+     * `feito: false` desfaz. Vai dentro do mesmo tipo, e não num tipo novo,
+     * porque um tipo novo precisaria entrar em `TIPOS_EVENTO`, aqui e na
+     * lista `tipos_validos()` do banco — e a última exige rodar o SQL do
+     * Supabase de novo, para o evento fazer exatamente a mesma coisa ao
+     * contrário.
+     *
+     * Ausente vale como "marcou": é como o app do celular mandava antes, e um
+     * evento parado na fila desde então não pode virar uma desmarcação ao ser
+     * aplicado dias depois.
+     */
     case 'suplemento': {
       const nome = txt(dados.nome)
       if (!nome) return []
-      return [{ acao: 'diario-conjunto', dia, campo: 'suplementos_feitos', valor: nome }]
+      const acao = dados.feito === false ? 'diario-tirar' : 'diario-conjunto'
+      return [{ acao, dia, campo: 'suplementos_feitos', valor: nome }]
     }
 
     case 'refeicao_plano': {
       const nome = txt(dados.nome)
       if (!nome) return []
-      return [{ acao: 'diario-conjunto', dia, campo: 'dieta_feitas', valor: nome }]
+      const acao = dados.feito === false ? 'diario-tirar' : 'diario-conjunto'
+      return [{ acao, dia, campo: 'dieta_feitas', valor: nome }]
     }
 
     case 'refeicao_extra':

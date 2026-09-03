@@ -63,12 +63,33 @@ function comValor(o: Record<string, unknown>): Record<string, unknown> {
   return out
 }
 
-export function eventoSuplemento(nome: string, dia: string = diaLocal()): Evento {
-  return validarEvento({ tipo: 'suplemento', dia, dados: { nome: texto(nome, 'nome') } })
+/*
+ * Marcar e desmarcar são o mesmo evento, com o sinal trocado.
+ *
+ * `feito: false` desfaz o check. Vai dentro do mesmo tipo em vez de um tipo
+ * novo porque um tipo novo teria de entrar também na lista `tipos_validos()`
+ * do banco — e isso exige rodar o SQL do Supabase de novo, para o evento
+ * fazer exatamente a mesma coisa ao contrário.
+ *
+ * `feito` só viaja quando é `false`: ausente já significa "marcou", que é o
+ * que todo evento gravado antes desta mudança quer dizer.
+ */
+export function eventoSuplemento(
+  nome: string, dia: string = diaLocal(), feito = true
+): Evento {
+  return validarEvento({
+    tipo: 'suplemento', dia,
+    dados: comValor({ nome: texto(nome, 'nome'), feito: feito ? undefined : false })
+  })
 }
 
-export function eventoRefeicaoPlano(nome: string, dia: string = diaLocal()): Evento {
-  return validarEvento({ tipo: 'refeicao_plano', dia, dados: { nome: texto(nome, 'nome') } })
+export function eventoRefeicaoPlano(
+  nome: string, dia: string = diaLocal(), feito = true
+): Evento {
+  return validarEvento({
+    tipo: 'refeicao_plano', dia,
+    dados: comValor({ nome: texto(nome, 'nome'), feito: feito ? undefined : false })
+  })
 }
 
 export function eventoRefeicaoExtra(
