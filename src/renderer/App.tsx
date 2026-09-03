@@ -395,12 +395,14 @@ export function App() {
 
       {configurando && (
         <Configuracoes
+          root={v.root}
+          quantasNotas={v.notas.length}
           config={v.config}
           aoSalvarAreas={areas => void v.salvarAreas(areas)}
           aoTrocarConfig={v.trocarConfig}
           aoAbrirNuvem={() => setNuvem(true)}
-          aoRecarregar={() => void v.recarregar()}
           aoFechar={() => setConfigurando(false)}
+          aoTrocarVault={v.trocarVault}
           sincronizacaoFalhando={falhasSincSeguidas >= LIMIAR_ALERTA_SYNC}
         />
       )}
