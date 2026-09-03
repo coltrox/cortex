@@ -254,6 +254,29 @@ export const FORMULARIOS: Record<string, Formulario> = {
       { k: 'prioridade', rotulo: 'Prioridade do momento', tipo: 'bool', dica: 'Aparece no Hoje.' }
     ]
   },
+  /*
+   * A tarefa diária.
+   *
+   * Tipo próprio, e não uma `tarefa` sem prazo: a tarefa tem data de entrega e
+   * vive na aba Chegando do celular, some quando é feita e não volta. Esta se
+   * repete, aparece no Hoje ao lado dos suplementos, e amanhã está lá de novo.
+   * Duas coisas diferentes com o mesmo nome acabariam numa tela mostrando a
+   * outra.
+   *
+   * Os campos são os mesmos do suplemento de propósito — é o mesmo gesto na
+   * mesma tela, e o celular desenha os dois com o mesmo componente.
+   */
+  rotina: {
+    tipo: 'rotina', nome: 'Tarefa diária', pasta: 'Vida', nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'O quê', tipo: 'texto', obrigatorio: true, placeholder: 'Tomar 3 L de água' },
+      { k: 'quando', rotulo: 'Quando', tipo: 'select', opcoes: ['manhã', 'tarde', 'noite', 'qualquer hora'] },
+      {
+        k: 'dias', rotulo: 'Dias da semana', tipo: 'dias',
+        dica: 'Sem marcar nenhum, ela aparece todo dia.'
+      }
+    ]
+  },
   anotacao: {
     tipo: 'anotacao', nome: 'Anotação', pasta: 'Vida', nomearPor: 'titulo',
     campos: [

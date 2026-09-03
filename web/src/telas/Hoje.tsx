@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from '../guardado'
-import { diaLocal, eventoSuplemento, eventoRefeicaoPlano } from '../montar'
-import { suplementosDoDia, refeicoesDoPlano } from '../cardapio'
+import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina } from '../montar'
+import { suplementosDoDia, refeicoesDoPlano, rotinasDoDia } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { Cabecalho, Check, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
@@ -56,6 +56,7 @@ export function Hoje(p: {
 
   const suplementos = suplementosDoDia(p.cardapio.cardapio, dia)
   const refeicoes = refeicoesDoPlano(p.cardapio.cardapio)
+  const rotinas = rotinasDoDia(p.cardapio.cardapio, dia)
 
   /*
    * Quem manda é o Cortex; a marca local só cobre o intervalo.
@@ -80,6 +81,7 @@ export function Hoje(p: {
     }
     for (const s of suplementos) conferir(`suplemento:${s.nome}`, s.detalhe.feito === true)
     for (const r of refeicoes) conferir(`refeicao:${r.nome}`, r.detalhe.feito === true)
+    for (const t of rotinas) conferir(`rotina:${t.nome}`, t.detalhe.feito === true)
     if (mexeu) setFeitos(jaFeitos(guardadoDoNavegador, dia))
     // `feitos` fora das dependências de propósito: o efeito lê do disco, não
     // do estado, e listá-lo o faria rodar por causa da própria limpeza.
@@ -104,7 +106,7 @@ export function Hoje(p: {
     p.envio.registrar(montar(!estava))
   }
   const { naFila, enviando, avisos } = p.envio.estado
-  const vazio = suplementos.length === 0 && refeicoes.length === 0
+  const vazio = suplementos.length === 0 && refeicoes.length === 0 && rotinas.length === 0
 
   return (
     <div className="tema-hoje">
@@ -138,6 +140,24 @@ export function Hoje(p: {
               `suplemento:${s.nome}`,
               estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true),
               feito => eventoSuplemento(s.nome, dia, feito)
+            )}
+          />
+        ))}
+
+        {/* Logo abaixo dos suplementos: é o mesmo gesto, e separar as duas
+            listas por uma seção de outra coisa quebraria a sequência de
+            toques de quem abre o app de manhã e desce marcando. */}
+        {rotinas.length > 0 && <Secao nome="Tarefas do dia" />}
+        {rotinas.map(t => (
+          <Check
+            key={t.nome}
+            rotulo={t.nome}
+            detalhe={<Detalhe partes={[t.detalhe.quando]} />}
+            feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
+            aoMarcar={() => alternar(
+              `rotina:${t.nome}`,
+              estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
+              feito => eventoRotina(t.nome, dia, feito)
             )}
           />
         ))}

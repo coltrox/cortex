@@ -306,7 +306,7 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // nao chegava ao celular -- o check de la vivia so na memoria do aparelho.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
       'diario', 'evento', 'meta-cofre', 'plano', 'porquinho', 'prova',
-      'simulado', 'suplemento', 'tarefa', 'treino-modelo'
+      'rotina', 'simulado', 'suplemento', 'tarefa', 'treino-modelo'
     ])
   })
 
@@ -408,5 +408,51 @@ describe('o que ja foi feito hoje sobe junto', () => {
     })
     const c = montarCardapio([plano, diario({ dieta_feitas: ['Café da manhã'] })], HOJE)
     expect(c.find(i => i.especie === 'refeicao')?.detalhe.feito).toBe(true)
+  })
+})
+
+describe('a tarefa diaria sobe como especie propria', () => {
+  const HOJE2 = '2026-09-01'
+  const rotina = nota({
+    path: 'Vida/Agua.md', title: 'Tomar 3 L de agua', tipo: 'rotina',
+    campos: { quando: 'manhã', dias: ['seg', 'qua'] }
+  })
+
+  it('publica com quando e dias', () => {
+    const c = montarCardapio([rotina], HOJE2)
+    expect(c).toEqual([{
+      especie: 'rotina', nome: 'Tomar 3 L de agua',
+      detalhe: { quando: 'manhã', dias: ['seg', 'qua'] }
+    }])
+  })
+
+  it('marca a que ja esta no diario de hoje', () => {
+    const diario = nota({
+      path: `Diario/${HOJE2}.md`, title: HOJE2, tipo: 'diario', date: HOJE2,
+      campos: { rotinas_feitas: ['Tomar 3 L de agua'] }
+    })
+    expect(montarCardapio([rotina, diario], HOJE2)[0].detalhe.feito).toBe(true)
+  })
+
+  it('o conjunto dos suplementos NAO marca a rotina', () => {
+    // Sao conjuntos separados de proposito. Se um dia alguem unificar os dois
+    // campos, este teste e o que avisa.
+    const diario = nota({
+      path: `Diario/${HOJE2}.md`, title: HOJE2, tipo: 'diario', date: HOJE2,
+      campos: { suplementos_feitos: ['Tomar 3 L de agua'] }
+    })
+    expect(montarCardapio([rotina, diario], HOJE2)[0].detalhe).not.toHaveProperty('feito')
+  })
+
+  it('e uma especie diferente de `tarefa`', () => {
+    // A `tarefa` tem prazo e vive na aba Chegando; a rotina se repete e vive
+    // no Hoje. Publicar as duas sob o mesmo nome faria uma tela mostrar a
+    // outra.
+    const tarefa = nota({
+      path: 'Estudos/Trabalho.md', title: 'Trabalho de historia', tipo: 'tarefa',
+      date: HOJE2, campos: { materia: 'historia' }
+    })
+    const especies = montarCardapio([rotina, tarefa], HOJE2).map(i => i.especie).sort()
+    expect(especies).toEqual(['rotina', 'tarefa'])
   })
 })

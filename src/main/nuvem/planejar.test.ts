@@ -415,3 +415,34 @@ describe('planejar — desmarcar suplemento e refeicao', () => {
     expect(planejar(ev('suplemento', { feito: false }))).toEqual([])
   })
 })
+
+/**
+ * A tarefa diaria.
+ *
+ * Conjunto proprio no diario (`rotinas_feitas`), e nao o dos suplementos: a
+ * lente Saude conta `suplementos_feitos` para dizer quantos foram tomados no
+ * dia, e "escovar os dentes" entrando ali estragaria essa conta.
+ */
+describe('planejar — tarefa diaria', () => {
+  it('marca no conjunto proprio do diario', () => {
+    expect(planejar(ev('rotina_feita', { nome: 'Tomar 3 L de agua' }))).toEqual([
+      { acao: 'diario-conjunto', dia: '2026-08-27', campo: 'rotinas_feitas', valor: 'Tomar 3 L de agua' }
+    ])
+  })
+
+  it('desmarca com feito false, como o suplemento', () => {
+    expect(planejar(ev('rotina_feita', { nome: 'Tomar 3 L de agua', feito: false }))).toEqual([
+      { acao: 'diario-tirar', dia: '2026-08-27', campo: 'rotinas_feitas', valor: 'Tomar 3 L de agua' }
+    ])
+  })
+
+  it('nao encosta no conjunto dos suplementos', () => {
+    const [op] = planejar(ev('rotina_feita', { nome: 'Escovar os dentes' }))
+    expect(op).toMatchObject({ campo: 'rotinas_feitas' })
+    expect(JSON.stringify(op)).not.toContain('suplementos_feitos')
+  })
+
+  it('sem nome nao vira operacao', () => {
+    expect(planejar(ev('rotina_feita', {}))).toEqual([])
+  })
+})

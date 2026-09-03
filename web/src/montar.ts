@@ -92,6 +92,16 @@ export function eventoRefeicaoPlano(
   })
 }
 
+/** A tarefa diária. Mesma forma do suplemento — é o mesmo gesto na tela. */
+export function eventoRotina(
+  nome: string, dia: string = diaLocal(), feito = true
+): Evento {
+  return validarEvento({
+    tipo: 'rotina_feita', dia,
+    dados: comValor({ nome: texto(nome, 'nome'), feito: feito ? undefined : false })
+  })
+}
+
 export function eventoRefeicaoExtra(
   item: string,
   extras: { kcal?: number; prot?: number } = {},

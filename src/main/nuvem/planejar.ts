@@ -104,6 +104,20 @@ export function planejar(evento: Evento): Operacao[] {
       return [{ acao, dia, campo: 'dieta_feitas', valor: nome }]
     }
 
+    /*
+     * A tarefa diária, marcada e desmarcada como o suplemento.
+     *
+     * Conjunto próprio (`rotinas_feitas`), e não o dos suplementos: a lente
+     * Saúde conta `suplementos_feitos` para dizer quantos foram tomados no
+     * dia, e "escovar os dentes" entrando ali estragaria essa conta.
+     */
+    case 'rotina_feita': {
+      const nome = txt(dados.nome)
+      if (!nome) return []
+      const acao = dados.feito === false ? 'diario-tirar' : 'diario-conjunto'
+      return [{ acao, dia, campo: 'rotinas_feitas', valor: nome }]
+    }
+
     case 'refeicao_extra':
       return [{ acao: 'diario-lista', dia, campo: 'extras', item: comValor(dados) }]
 

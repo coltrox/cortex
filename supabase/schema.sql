@@ -45,7 +45,9 @@ language sql immutable as $$
                -- evento sumir em silencio.
                'prova_estudada','compromisso','item_apagado',
                'compromisso_editado','prova_nova','tarefa_nova',
-               'porquinho']
+               'porquinho',
+               -- A tarefa diaria, marcada e desmarcada como o suplemento.
+               'rotina_feita']
 $$;
 
 create or replace function registrar_evento(
@@ -114,7 +116,12 @@ begin
       -- quem decide o que publica, mas o banco nao tem por que confiar nisso.
       -- Precisa casar com ESPECIES_CARDAPIO em src/shared/eventos.ts.
       where el->>'especie' in ('treino','suplemento','refeicao',
-                               'prova','compromisso','tarefa','porquinho')
+                               'prova','compromisso','tarefa','porquinho',
+                               -- A tarefa diaria. Espécie propria, e nao
+                               -- 'tarefa': aquela tem prazo e vive na aba
+                               -- Chegando; esta se repete todo dia e vive no
+                               -- Hoje, ao lado dos suplementos.
+                               'rotina')
         and coalesce(el->>'nome','') <> ''
     ) item
     order by item.especie, item.nome, item.pos desc

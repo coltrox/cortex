@@ -3,7 +3,7 @@ import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
   eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
   eventoProvaEstudada, eventoCompromisso, eventoItemApagado, eventoPorquinho,
-  eventoProvaNova, eventoTarefaNova, eventoItemEditado
+  eventoProvaNova, eventoTarefaNova, eventoItemEditado, eventoRotina
 } from './montar'
 
 const DIA = '2026-08-28'
@@ -314,5 +314,21 @@ describe('desmarcar o check', () => {
 
   it('desmarcar continua exigindo um nome', () => {
     expect(() => eventoSuplemento('  ', DIA3, false)).toThrow()
+  })
+})
+
+describe('tarefa diaria', () => {
+  const DIA4 = '2026-08-28'
+
+  it('marca e desmarca, com a mesma forma do suplemento', () => {
+    expect(eventoRotina('Tomar 3 L de agua', DIA4)).toEqual({
+      tipo: 'rotina_feita', dia: DIA4, dados: { nome: 'Tomar 3 L de agua' }
+    })
+    expect(eventoRotina('Tomar 3 L de agua', DIA4, false).dados)
+      .toEqual({ nome: 'Tomar 3 L de agua', feito: false })
+  })
+
+  it('exige um nome', () => {
+    expect(() => eventoRotina('   ', DIA4)).toThrow()
   })
 })

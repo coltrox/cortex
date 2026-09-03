@@ -18,7 +18,12 @@ export const TIPOS_EVENTO = [
   'prova_nova', 'tarefa_nova',
   // Porquinho: guardar e tirar. Movimento, nao saldo -- o saldo e a soma dos
   // movimentos, e quem faz essa conta e o Cortex.
-  'porquinho'
+  'porquinho',
+  // A tarefa diaria: marcar e desmarcar, como o suplemento. Tipo proprio, e
+  // nao um `suplemento` com uma etiqueta, porque ela cai num conjunto proprio
+  // do diario (`rotinas_feitas`) -- misturar as duas faria a lente Saude
+  // contar "escovar os dentes" como suplemento tomado.
+  'rotina_feita'
 ] as const
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number]
@@ -59,6 +64,8 @@ export const TIPOS_NOTA_CARDAPIO = [
   'treino-modelo', 'suplemento', 'plano', 'prova', 'simulado', 'evento', 'tarefa',
   // Os dois do porquinho: os movimentos, para somar o saldo, e a meta ativa.
   'porquinho', 'meta-cofre',
+  // A tarefa diária, que aparece no celular junto com os suplementos.
+  'rotina',
   // O diário do dia, e SÓ para saber o que já foi marcado hoje: sem ele o
   // celular não teria como saber que um suplemento foi desmarcado aqui no
   // Cortex, porque o check dele vivia apenas na memória do próprio aparelho.
@@ -69,7 +76,12 @@ export const TIPOS_NOTA_CARDAPIO = [
 ] as const
 
 export const ESPECIES_CARDAPIO = [
-  'treino', 'suplemento', 'refeicao', 'prova', 'compromisso', 'tarefa', 'porquinho'
+  'treino', 'suplemento', 'refeicao', 'prova', 'compromisso', 'tarefa', 'porquinho',
+  // A tarefa diária. Espécie própria, e não `tarefa` com uma etiqueta: a
+  // `tarefa` tem prazo e vive na aba Chegando; esta se repete todo dia e vive
+  // no Hoje, ao lado dos suplementos. Duas coisas diferentes com o mesmo nome
+  // acabariam numa tela mostrando a outra.
+  'rotina'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

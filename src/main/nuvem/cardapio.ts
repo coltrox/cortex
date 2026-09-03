@@ -71,7 +71,8 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
   const diario = notas.find(x => x.tipo === 'diario' && x.date === hoje)
   const feitosHoje = {
     suplemento: new Set(listaDeTexto(diario?.campos.suplementos_feitos)),
-    refeicao: new Set(listaDeTexto(diario?.campos.dieta_feitas))
+    refeicao: new Set(listaDeTexto(diario?.campos.dieta_feitas)),
+    rotina: new Set(listaDeTexto(diario?.campos.rotinas_feitas))
   }
 
   for (const n of notas.filter(x => x.tipo === 'treino-modelo')) {
@@ -106,6 +107,20 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
         // isto para desenhar o check já marcado — e para desmarcá-lo quando
         // some daqui.
         feito: feitosHoje.suplemento.has(txt(n.title)) ? true : undefined
+      })
+    })
+  }
+
+  // A tarefa diária. Mesma forma do suplemento — no celular ela é o mesmo
+  // gesto, logo abaixo dele.
+  for (const n of notas.filter(x => x.tipo === 'rotina')) {
+    out.push({
+      especie: 'rotina',
+      nome: txt(n.title),
+      detalhe: comValor({
+        quando: txt(n.campos.quando),
+        dias: listaDeTexto(n.campos.dias),
+        feito: feitosHoje.rotina.has(txt(n.title)) ? true : undefined
       })
     })
   }

@@ -37,11 +37,16 @@ describe('validarEvento', () => {
   })
 
   it('cobre todos os tipos que a spec define', () => {
+    // Esta lista tem um espelho FORA do codigo: `tipos_validos()`, no
+    // supabase/schema.sql. Acrescentar aqui sem acrescentar la faz o banco
+    // recusar o evento com 400 -- e o app do celular so descobre na hora de
+    // enviar. Se este teste quebrou porque voce acrescentou um tipo, rode o
+    // schema.sql de novo antes de dar por pronto.
     expect([...TIPOS_EVENTO].sort()).toEqual([
       'anotacao', 'cardio', 'compromisso', 'compromisso_editado', 'gasto',
       'item_apagado', 'medida', 'peso', 'porquinho', 'prova_estudada',
-      'prova_nova', 'refeicao_extra', 'refeicao_plano', 'sessao',
-      'suplemento', 'tarefa_nova'
+      'prova_nova', 'refeicao_extra', 'refeicao_plano', 'rotina_feita',
+      'sessao', 'suplemento', 'tarefa_nova'
     ])
   })
 })

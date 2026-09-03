@@ -78,6 +78,23 @@ export function suplementosDoDia(c: Cardapio, dia: string): ItemCardapio[] {
   })
 }
 
+/**
+ * As tarefas diárias de hoje.
+ *
+ * Mesma regra dos suplementos, e de propósito: no Hoje elas são o mesmo gesto,
+ * logo abaixo. Sem lista de dias significa "todo dia" — que é o padrão útil
+ * para uma rotina, e é o que o Cortex publica quando ninguém marcou dia.
+ */
+export function rotinasDoDia(c: Cardapio, dia: string): ItemCardapio[] {
+  const hoje = diaDaSemana(dia)
+  return c.itens.filter(i => {
+    if (i.especie !== 'rotina') return false
+    const dias = i.detalhe.dias
+    if (!Array.isArray(dias) || dias.length === 0) return true
+    return dias.some(d => String(d) === hoje)
+  })
+}
+
 export function refeicoesDoPlano(c: Cardapio): ItemCardapio[] {
   // Na ordem do dia, nao na ordem em que o banco devolveu: o almoco aparecer
   // antes do cafe faz a pessoa procurar na lista o que deveria estar na
