@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from '../guardado'
-import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina } from '../montar'
-import { suplementosDoDia, refeicoesDoPlano, rotinasDoDia } from '../cardapio'
+import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua } from '../montar'
+import { suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
+import { lerPendente, somarPendente, conciliarPendente, totalNaTela } from '../agua'
 import { Cabecalho, Check, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -57,6 +58,18 @@ export function Hoje(p: {
   const suplementos = suplementosDoDia(p.cardapio.cardapio, dia)
   const refeicoes = refeicoesDoPlano(p.cardapio.cardapio)
   const rotinas = rotinasDoDia(p.cardapio.cardapio, dia)
+  /*
+   * A água do dia.
+   *
+   * O total mora no vault, e o pendente é a distância entre o que já foi
+   * tocado e o que o Cortex confirmou — ver `agua.ts`. Não é uma segunda
+   * contagem: com o computador desligado, que é onde o Pedro está quando bebe
+   * água, a volta pelo Cortex não acontece hoje, e sem o pendente o número
+   * ficaria parado a manhã inteira por mais que ele tocasse.
+   */
+  const agua = hidratacao(p.cardapio.cardapio)
+  const [pendente, setPendente] = useState<number>(() => lerPendente(guardadoDoNavegador, dia))
+  const bebido = totalNaTela(agua?.ml ?? 0, pendente)
 
   /*
    * Quem manda é o Cortex; a marca local só cobre o intervalo.
@@ -83,6 +96,9 @@ export function Hoje(p: {
     for (const r of refeicoes) conferir(`refeicao:${r.nome}`, r.detalhe.feito === true)
     for (const t of rotinas) conferir(`rotina:${t.nome}`, t.detalhe.feito === true)
     if (mexeu) setFeitos(jaFeitos(guardadoDoNavegador, dia))
+    // A água acerta a conta pelo mesmo gatilho, só que somando em vez de
+    // comparar: o que o Cortex absorveu sai do pendente.
+    setPendente(conciliarPendente(guardadoDoNavegador, dia, agua?.ml ?? 0))
     // `feitos` fora das dependências de propósito: o efeito lê do disco, não
     // do estado, e listá-lo o faria rodar por causa da própria limpeza.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,7 +122,8 @@ export function Hoje(p: {
     p.envio.registrar(montar(!estava))
   }
   const { naFila, enviando, avisos } = p.envio.estado
-  const vazio = suplementos.length === 0 && refeicoes.length === 0 && rotinas.length === 0
+  const vazio = suplementos.length === 0 && refeicoes.length === 0
+    && rotinas.length === 0 && !agua
 
   return (
     <div className="tema-hoje">
@@ -143,6 +160,54 @@ export function Hoje(p: {
             )}
           />
         ))}
+
+        {agua && (
+          <>
+            <Secao nome="Hidratação" contagem={agua.meta > 0
+              ? `${litros(bebido)} de ${litros(agua.meta)}`
+              : litros(bebido)} />
+            <div className="agua">
+              {/* A barra trava em 100%: beber a mais que a meta é bom, e uma
+                  barra que vaza para fora da caixa parece defeito. O número
+                  ao lado continua contando a verdade. */}
+              {agua.meta > 0 && (
+                <div className="agua-barra">
+                  <i style={{ width: `${Math.min(100, (bebido / agua.meta) * 100)}%` }} />
+                </div>
+              )}
+              <div className="agua-acoes">
+                <button
+                  className="btn btn-principal"
+                  type="button"
+                  onClick={() => {
+                    setPendente(somarPendente(guardadoDoNavegador, dia, agua.copo))
+                    p.envio.registrar(eventoAgua(agua.copo, dia))
+                  }}
+                >
+                  + {agua.copo} ml
+                </button>
+                {/* Desfazer o toque a mais. Some quando não há o que desfazer:
+                    um botão que não faz nada é pior do que botão nenhum. */}
+                {bebido > 0 && (
+                  <button
+                    className="btn btn-fantasma agua-tirar"
+                    type="button"
+                    aria-label={`tirar ${agua.copo} ml`}
+                    onClick={() => {
+                      // Nunca tira mais do que há: o total na tela não pode
+                      // dizer 0 enquanto um "−800" a mais viaja para o vault.
+                      const quanto = Math.min(agua.copo, bebido)
+                      setPendente(somarPendente(guardadoDoNavegador, dia, -quanto))
+                      p.envio.registrar(eventoAgua(-quanto, dia))
+                    }}
+                  >
+                    −
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Logo abaixo dos suplementos: é o mesmo gesto, e separar as duas
             listas por uma seção de outra coisa quebraria a sequência de

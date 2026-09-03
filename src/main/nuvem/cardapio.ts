@@ -125,6 +125,27 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
     })
   }
 
+  /*
+   * A agua do dia.
+   *
+   * Uma nota so: duas metas de agua nao fazem sentido, e a primeira vence.
+   * O TOTAL nao vem da nota -- vem do diario, como todo registro do dia. E a
+   * nota que diz a meta e o tamanho da garrafa, para o celular desenhar o
+   * botao certo sem ninguem redigitar 800 toda vez.
+   */
+  const hidratacao = notas.find(x => x.tipo === 'hidratacao')
+  if (hidratacao) {
+    out.push({
+      especie: 'hidratacao',
+      nome: txt(hidratacao.title),
+      detalhe: comValor({
+        meta: num(hidratacao.campos.meta),
+        copo: num(hidratacao.campos.copo),
+        ml: num(diario?.campos.agua_ml)
+      })
+    })
+  }
+
   // Só o plano ativo: publicar todos os planos faria o celular perguntar qual
   // usar, e essa escolha já foi feita no Cortex.
   const ativo = notas.find(x => x.tipo === 'plano' && x.campos.ativo === true)

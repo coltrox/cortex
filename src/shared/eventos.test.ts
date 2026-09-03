@@ -43,8 +43,10 @@ describe('validarEvento', () => {
     // enviar. Se este teste quebrou porque voce acrescentou um tipo, rode o
     // schema.sql de novo antes de dar por pronto.
     expect([...TIPOS_EVENTO].sort()).toEqual([
-      'anotacao', 'cardio', 'compromisso', 'compromisso_editado', 'gasto',
-      'item_apagado', 'medida', 'peso', 'porquinho', 'prova_estudada',
+      // `agua` entrou com o contador de hidratação: é o único tipo que soma
+      // um número no diário em vez de marcar um check.
+      'agua', 'anotacao', 'cardio', 'compromisso', 'compromisso_editado',
+      'gasto', 'item_apagado', 'medida', 'peso', 'porquinho', 'prova_estudada',
       'prova_nova', 'refeicao_extra', 'refeicao_plano', 'rotina_feita',
       'sessao', 'suplemento', 'tarefa_nova'
     ])

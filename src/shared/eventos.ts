@@ -23,7 +23,11 @@ export const TIPOS_EVENTO = [
   // nao um `suplemento` com uma etiqueta, porque ela cai num conjunto proprio
   // do diario (`rotinas_feitas`) -- misturar as duas faria a lente Saude
   // contar "escovar os dentes" como suplemento tomado.
-  'rotina_feita'
+  'rotina_feita',
+  // Agua bebida, em ml. Nao e um check: cada garrafa SOMA ao total do dia, e
+  // um `ml` negativo desfaz o gole registrado sem querer. Por isso tem tipo
+  // proprio em vez de virar mais uma `rotina`.
+  'agua'
 ] as const
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number]
@@ -66,12 +70,15 @@ export const TIPOS_NOTA_CARDAPIO = [
   'porquinho', 'meta-cofre',
   // A tarefa diária, que aparece no celular junto com os suplementos.
   'rotina',
+  // A meta de água do dia e o tamanho da garrafa. O TOTAL bebido não vem
+  // daqui: vem do diário, como todo registro do dia.
+  'hidratacao',
   // O diário do dia, e SÓ para saber o que já foi marcado hoje: sem ele o
   // celular não teria como saber que um suplemento foi desmarcado aqui no
   // Cortex, porque o check dele vivia apenas na memória do próprio aparelho.
-  // `montarCardapio` copia dele dois campos, nada mais — ver a lista branca
-  // lá, que é o que impede o resto do diário (gastos, anotações do dia) de
-  // subir junto.
+  // `montarCardapio` copia dele quatro campos, nada mais — os três conjuntos
+  // de check e o total de água. Ver a lista branca lá, que é o que impede o
+  // resto do diário (gastos, peso, anotações do dia) de subir junto.
   'diario'
 ] as const
 
@@ -81,7 +88,9 @@ export const ESPECIES_CARDAPIO = [
   // `tarefa` tem prazo e vive na aba Chegando; esta se repete todo dia e vive
   // no Hoje, ao lado dos suplementos. Duas coisas diferentes com o mesmo nome
   // acabariam numa tela mostrando a outra.
-  'rotina'
+  'rotina',
+  // A água do dia: quanto já foi, qual é a meta, e de quanto é a garrafa.
+  'hidratacao'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

@@ -493,3 +493,81 @@ describe('desmarcar o check no diario', () => {
     expect(JSON.stringify(fm)).toContain('Almoço')
   })
 })
+
+/**
+ * A agua do dia, no arquivo.
+ *
+ * O `planejar` decide `diario-somar`; aqui se prova o que sobra no diario --
+ * inclusive quando o total zera e quando chega um "tirar" a mais.
+ */
+describe('somar a agua no diario', () => {
+  const ler = async (path: string) =>
+    parseFrontmatter(await session.vault.read(path)).frontmatter
+
+  it('duas garrafas somam', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'agua', { ml: 800 }),
+      ev('e2', 'agua', { ml: 800 })
+    ])).sincronizar()
+
+    expect((await ler('Diario/2026-08-27.md')).agua_ml).toBe(1600)
+  })
+
+  it('soma tambem entre sincronizacoes -- e o total do dia, nao da rodada', async () => {
+    await sinc(new ClienteFalso([ev('e1', 'agua', { ml: 800 })])).sincronizar()
+    await sinc(new ClienteFalso([ev('e2', 'agua', { ml: 800 })])).sincronizar()
+
+    expect((await ler('Diario/2026-08-27.md')).agua_ml).toBe(1600)
+  })
+
+  it('ml negativo desfaz o toque a mais', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'agua', { ml: 800 }),
+      ev('e2', 'agua', { ml: 800 }),
+      ev('e3', 'agua', { ml: -800 })
+    ])).sincronizar()
+
+    expect((await ler('Diario/2026-08-27.md')).agua_ml).toBe(800)
+  })
+
+  it('zerar APAGA a chave, em vez de deixar agua_ml: 0', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'agua', { ml: 800 }),
+      ev('e2', 'agua', { ml: -800 })
+    ])).sincronizar()
+
+    expect(await ler('Diario/2026-08-27.md')).not.toHaveProperty('agua_ml')
+  })
+
+  it('nao desce abaixo de zero', async () => {
+    // Acontece quando a fila do celular reenvia um "tirar" depois de o total
+    // ja ter sido zerado no Cortex. Menos que zero nao e um total de agua.
+    await sinc(new ClienteFalso([
+      ev('e1', 'agua', { ml: 800 }),
+      ev('e2', 'agua', { ml: -800 }),
+      ev('e3', 'agua', { ml: -800 })
+    ])).sincronizar()
+
+    expect(await ler('Diario/2026-08-27.md')).not.toHaveProperty('agua_ml')
+  })
+
+  it('tirar num dia sem diario nao cria arquivo nenhum', async () => {
+    const r = await sinc(new ClienteFalso([
+      ev('e1', 'agua', { ml: -800 })
+    ])).sincronizar()
+
+    expect(r.aplicados).toBe(1)
+    expect(await session.vault.exists('Diario/2026-08-27.md')).toBe(false)
+  })
+
+  it('o resto do diario continua de pe', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'agua', { ml: 800 }),
+      ev('e2', 'suplemento', { nome: 'Creatina' })
+    ])).sincronizar()
+
+    const fm = await ler('Diario/2026-08-27.md')
+    expect(fm.agua_ml).toBe(800)
+    expect(fm.suplementos_feitos).toEqual(['Creatina'])
+  })
+})

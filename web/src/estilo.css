@@ -627,6 +627,30 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 .exercicio-cabeca{ display:flex; align-items:flex-start; gap:var(--e2); }
 .exercicio-cabeca .exercicio-topo{ flex:1; min-width:0; }
 
+/* ─────────────── Hidratação ─────────────── */
+
+/* Não é um check: é um contador que sobe a cada garrafa. A barra existe
+   porque "1,6 L de 3,5 L" é um número que se lê, e a barra é o que se
+   entende de relance — que é o que se quer no meio do dia. */
+.agua{ padding:var(--e3) 0 var(--e2); }
+
+.agua-barra{
+  height:10px; border-radius:99px; overflow:hidden;
+  background:var(--painel-alto); border:1px solid var(--borda);
+  margin-bottom:var(--e3);
+}
+.agua-barra i{
+  display:block; height:100%; border-radius:99px;
+  background:var(--acento);
+  transition:width .35s ease;
+}
+
+.agua-acoes{ display:flex; gap:var(--e2); }
+/* O botão de somar é o gesto do dia e fica com a largura toda; o de desfazer
+   é a exceção, e ocupa só o necessário para o polegar acertar. */
+.agua-acoes .btn{ flex:1; }
+.agua-tirar{ flex:0 0 var(--toque); font-size:22px; }
+
 /* ─────────────── Seleção em cascata ─────────────── */
 
 /* Um <select> de verdade, e não uma lista desenhada à mão: no celular ele

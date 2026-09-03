@@ -145,6 +145,30 @@ export const FORMULARIOS: Record<string, Formulario> = {
       { k: 'estoque', rotulo: 'Estoque (doses)', tipo: 'numero' }
     ]
   },
+  /*
+   * A água do dia.
+   *
+   * Só a meta e o tamanho da garrafa moram aqui. O quanto já foi bebido vive
+   * no diário do dia, como todo registro — misturar as duas coisas na mesma
+   * nota faria a meta ser reescrita a cada gole.
+   *
+   * Uma nota basta: duas metas de água não querem dizer nada, e o Cortex
+   * publica a primeira que encontrar.
+   */
+  hidratacao: {
+    tipo: 'hidratacao', nome: 'Água do dia', pasta: 'Saude', nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'Nome', tipo: 'texto', obrigatorio: true, placeholder: 'Água' },
+      {
+        k: 'meta', rotulo: 'Meta do dia (ml)', tipo: 'numero', obrigatorio: true,
+        dica: '3,5 litros são 3500.'
+      },
+      {
+        k: 'copo', rotulo: 'Tamanho da garrafa (ml)', tipo: 'numero',
+        dica: 'É o tamanho do botão no celular — cada toque soma isto.'
+      }
+    ]
+  },
   consulta: {
     tipo: 'consulta', nome: 'Consulta', pasta: 'Saude', nomearPor: 'titulo',
     campos: [

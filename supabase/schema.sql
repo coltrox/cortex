@@ -47,7 +47,9 @@ language sql immutable as $$
                'compromisso_editado','prova_nova','tarefa_nova',
                'porquinho',
                -- A tarefa diaria, marcada e desmarcada como o suplemento.
-               'rotina_feita']
+               'rotina_feita',
+               -- Agua bebida, em ml. Soma ao total do dia; ml negativo desfaz.
+               'agua']
 $$;
 
 create or replace function registrar_evento(
@@ -121,7 +123,9 @@ begin
                                -- 'tarefa': aquela tem prazo e vive na aba
                                -- Chegando; esta se repete todo dia e vive no
                                -- Hoje, ao lado dos suplementos.
-                               'rotina')
+                               'rotina',
+                               -- A agua do dia: quanto ja foi, a meta e a garrafa.
+                               'hidratacao')
         and coalesce(el->>'nome','') <> ''
     ) item
     order by item.especie, item.nome, item.pos desc

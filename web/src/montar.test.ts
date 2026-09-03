@@ -3,7 +3,7 @@ import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
   eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
   eventoProvaEstudada, eventoCompromisso, eventoItemApagado, eventoPorquinho,
-  eventoProvaNova, eventoTarefaNova, eventoItemEditado, eventoRotina
+  eventoProvaNova, eventoTarefaNova, eventoItemEditado, eventoRotina, eventoAgua
 } from './montar'
 
 const DIA = '2026-08-28'
@@ -330,5 +330,29 @@ describe('tarefa diaria', () => {
 
   it('exige um nome', () => {
     expect(() => eventoRotina('   ', DIA4)).toThrow()
+  })
+})
+
+describe('água', () => {
+  it('a garrafa vira um evento de 800 ml', () => {
+    expect(eventoAgua(800, DIA)).toEqual({
+      tipo: 'agua', dia: DIA, dados: { ml: 800 }
+    })
+  })
+
+  it('negativo desfaz o toque a mais', () => {
+    expect(eventoAgua(-800, DIA).dados).toEqual({ ml: -800 })
+  })
+
+  it('leva só o gole -- nada do total nem da meta', () => {
+    // O evento é um "somar isto", não um "o total agora é X": o total mora no
+    // vault, e o celular nem precisa saber quanto era antes. Se um dia um
+    // `total` entrar aqui, dois toques com a fila lenta gravariam o mesmo
+    // número duas vezes e o segundo gole sumiria.
+    expect(Object.keys(eventoAgua(800, DIA).dados)).toEqual(['ml'])
+  })
+
+  it('exige um número', () => {
+    expect(() => eventoAgua(Number.NaN, DIA)).toThrow()
   })
 })

@@ -1,5 +1,5 @@
 import type { Evento } from '../../shared/eventos'
-import { txt, comValor } from './util'
+import { txt, num, comValor } from './util'
 
 /**
  * Traduz um evento vindo do celular nas mudanças que ele causa no vault.
@@ -11,6 +11,18 @@ import { txt, comValor } from './util'
 export type Operacao =
   /** Acrescenta a um conjunto do diário (marcar suplemento, marcar refeição). */
   | { acao: 'diario-conjunto'; dia: string; campo: string; valor: string }
+  /**
+   * Soma a um número do diário (água bebida no dia).
+   *
+   * Soma, e não substitui: cada garrafa é um evento próprio, e dois celulares
+   * — ou o mesmo depois de ficar sem sinal — mandariam totais diferentes se
+   * cada um enviasse "o total é X". Somando, a ordem de chegada não importa e
+   * nada se perde.
+   *
+   * `quanto` negativo desfaz. O executor não deixa o total ficar abaixo de
+   * zero: um desfazer a mais é dedo torto, não uma dívida de água.
+   */
+  | { acao: 'diario-somar'; dia: string; campo: string; quanto: number }
   /**
    * Tira de um conjunto do diário — o desfazer do check.
    *
@@ -116,6 +128,21 @@ export function planejar(evento: Evento): Operacao[] {
       if (!nome) return []
       const acao = dados.feito === false ? 'diario-tirar' : 'diario-conjunto'
       return [{ acao, dia, campo: 'rotinas_feitas', valor: nome }]
+    }
+
+    /*
+     * Água bebida, em ml.
+     *
+     * Um teto de 5 litros por evento não é frescura: `dados` vem do banco
+     * como registro livre, e um número absurdo (ou vindo de um app com
+     * defeito) contaminaria o total do dia sem ninguém notar. Cinco litros
+     * de uma vez já é mais do que qualquer garrafa.
+     */
+    case 'agua': {
+      const ml = num(dados.ml)
+      if (ml === undefined || ml === 0) return []
+      if (Math.abs(ml) > 5000) return []
+      return [{ acao: 'diario-somar', dia, campo: 'agua_ml', quanto: Math.round(ml) }]
     }
 
     case 'refeicao_extra':

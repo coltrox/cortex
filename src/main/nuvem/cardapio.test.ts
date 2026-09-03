@@ -304,9 +304,11 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // `diario` entrou por outro motivo: nao vira item de cardapio, e sim diz
     // o que JA foi marcado hoje. Sem ele, desmarcar um suplemento no Cortex
     // nao chegava ao celular -- o check de la vivia so na memoria do aparelho.
+    // `hidratacao` diz a meta e o tamanho da garrafa; o total bebido vem do
+    // `diario`, logo acima. Sao dois tipos para uma secao so na tela.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
-      'diario', 'evento', 'meta-cofre', 'plano', 'porquinho', 'prova',
-      'rotina', 'simulado', 'suplemento', 'tarefa', 'treino-modelo'
+      'diario', 'evento', 'hidratacao', 'meta-cofre', 'plano', 'porquinho',
+      'prova', 'rotina', 'simulado', 'suplemento', 'tarefa', 'treino-modelo'
     ])
   })
 
@@ -318,7 +320,9 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       prova: nota({ path: 'c.md', title: 'P', tipo: 'prova', date: '2026-09-10' }),
       simulado: nota({ path: 'd.md', title: 'Si', tipo: 'simulado', date: '2026-09-10' }),
       evento: nota({ path: 'e.md', title: 'E', tipo: 'evento', date: '2026-09-10' }),
-      tarefa: nota({ path: 'f.md', title: 'Ta', tipo: 'tarefa', date: '2026-09-10' })
+      tarefa: nota({ path: 'f.md', title: 'Ta', tipo: 'tarefa', date: '2026-09-10' }),
+      rotina: nota({ path: 'h.md', title: 'Abdomen', tipo: 'rotina' }),
+      hidratacao: nota({ path: 'i.md', title: 'Agua', tipo: 'hidratacao', campos: { meta: 3500 } })
     }
     for (const [tipo, n] of Object.entries(porTipo)) {
       const c = montarCardapio([n as never], HOJE)
@@ -454,5 +458,67 @@ describe('a tarefa diaria sobe como especie propria', () => {
     })
     const especies = montarCardapio([rotina, tarefa], HOJE2).map(i => i.especie).sort()
     expect(especies).toEqual(['rotina', 'tarefa'])
+  })
+})
+
+/**
+ * A agua nao e um check: e um numero que sobe.
+ *
+ * A nota guarda o alvo (`meta`) e o tamanho da garrafa (`copo`); o total do
+ * dia vem do diario. Sao coisas de arquivos diferentes que o celular recebe
+ * juntas -- e e aqui que se juntam.
+ */
+describe('hidratacao', () => {
+  const HOJE3 = '2026-09-03'
+  const nascente = nota({
+    path: 'Saude/Hidratacao.md', title: 'Água', tipo: 'hidratacao',
+    campos: { meta: 3500, copo: 800 }
+  })
+
+  it('publica meta e copo, e o total de hoje', () => {
+    const diario = nota({
+      path: `Diario/${HOJE3}.md`, title: HOJE3, tipo: 'diario', date: HOJE3,
+      campos: { agua_ml: 1600 }
+    })
+    expect(montarCardapio([nascente, diario], HOJE3)).toEqual([{
+      especie: 'hidratacao', nome: 'Água',
+      detalhe: { meta: 3500, copo: 800, ml: 1600 }
+    }])
+  })
+
+  it('sem nada bebido, `ml` nao vai -- e ausencia, nao zero', () => {
+    expect(montarCardapio([nascente], HOJE3)[0].detalhe).not.toHaveProperty('ml')
+  })
+
+  it('o total e o de HOJE, nao o de ontem', () => {
+    // O celular pergunta "quanto falta agora". O diario de ontem responderia
+    // outra coisa, e a barra abriria o dia ja cheia.
+    const ontem = nota({
+      path: 'Diario/2026-09-02.md', title: 'ontem', tipo: 'diario',
+      date: '2026-09-02', campos: { agua_ml: 3500 }
+    })
+    expect(montarCardapio([nascente, ontem], HOJE3)[0].detalhe).not.toHaveProperty('ml')
+  })
+
+  it('sem a nota, nao ha secao de hidratacao', () => {
+    // O diario sozinho nao inventa a nascente: sem meta e sem copo nao ha
+    // botao que se possa desenhar.
+    const diario = nota({
+      path: `Diario/${HOJE3}.md`, title: HOJE3, tipo: 'diario', date: HOJE3,
+      campos: { agua_ml: 800 }
+    })
+    expect(montarCardapio([diario], HOJE3)).toEqual([])
+  })
+
+  it('NAO leva junto o resto do diario', () => {
+    // O diario e o arquivo mais intimo do vault: gasto, peso, anotacao do dia.
+    // So `agua_ml` atravessa.
+    const diario = nota({
+      path: `Diario/${HOJE3}.md`, title: HOJE3, tipo: 'diario', date: HOJE3,
+      campos: { agua_ml: 800, peso: 78.4, anotacao: 'briga com o chefe' }
+    })
+    const json = JSON.stringify(montarCardapio([nascente, diario], HOJE3))
+    expect(json).not.toContain('chefe')
+    expect(json).not.toContain('78.4')
   })
 })

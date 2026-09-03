@@ -92,6 +92,19 @@ export function eventoRefeicaoPlano(
   })
 }
 
+/**
+ * Agua bebida, em ml.
+ *
+ * Cada garrafa e um evento proprio que SOMA ao total do dia -- nao "o total
+ * agora e X". Dois aparelhos, ou o mesmo depois de ficar sem sinal, mandariam
+ * totais diferentes; somando, a ordem de chegada nao importa.
+ *
+ * `ml` negativo desfaz o toque a mais.
+ */
+export function eventoAgua(ml: number, dia: string = diaLocal()): Evento {
+  return validarEvento({ tipo: 'agua', dia, dados: { ml: numero(ml, 'ml') } })
+}
+
 /** A tarefa diária. Mesma forma do suplemento — é o mesmo gesto na tela. */
 export function eventoRotina(
   nome: string, dia: string = diaLocal(), feito = true

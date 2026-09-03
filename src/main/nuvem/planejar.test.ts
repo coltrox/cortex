@@ -446,3 +446,49 @@ describe('planejar — tarefa diaria', () => {
     expect(planejar(ev('rotina_feita', {}))).toEqual([])
   })
 })
+
+/**
+ * A agua do dia.
+ *
+ * Soma, e nao substitui: cada garrafa e um evento proprio. Dois aparelhos --
+ * ou o mesmo depois de ficar sem sinal -- mandariam totais diferentes se cada
+ * um enviasse "o total agora e X".
+ */
+describe('planejar — agua', () => {
+  it('cada garrafa soma ao total do dia', () => {
+    expect(planejar(ev('agua', { ml: 800 }))).toEqual([
+      { acao: 'diario-somar', dia: '2026-08-27', campo: 'agua_ml', quanto: 800 }
+    ])
+  })
+
+  it('ml negativo desfaz o toque a mais', () => {
+    expect(planejar(ev('agua', { ml: -800 }))).toEqual([
+      { acao: 'diario-somar', dia: '2026-08-27', campo: 'agua_ml', quanto: -800 }
+    ])
+  })
+
+  it('zero nao vira operacao -- seria uma escrita que nao muda nada', () => {
+    expect(planejar(ev('agua', { ml: 0 }))).toEqual([])
+    expect(planejar(ev('agua', {}))).toEqual([])
+  })
+
+  it('recusa numero absurdo, em vez de contaminar o total', () => {
+    // `dados` vem do banco como registro livre. Um numero fora de escala --
+    // de um app com defeito, ou de quem tenha o id do vault -- estragaria o
+    // total do dia sem ninguem notar. Cinco litros de uma vez ja e mais do
+    // que qualquer garrafa.
+    expect(planejar(ev('agua', { ml: 999999 }))).toEqual([])
+    expect(planejar(ev('agua', { ml: -999999 }))).toEqual([])
+  })
+
+  it('so numero de verdade passa', () => {
+    // String, objeto e NaN nao sao ml. `num()` recusa os tres.
+    expect(planejar(ev('agua', { ml: '800' }))).toEqual([])
+    expect(planejar(ev('agua', { ml: { valor: 800 } }))).toEqual([])
+    expect(planejar(ev('agua', { ml: Number.NaN }))).toEqual([])
+  })
+
+  it('arredonda: ml e numero inteiro', () => {
+    expect(planejar(ev('agua', { ml: 333.7 }))).toMatchObject([{ quanto: 334 }])
+  })
+})

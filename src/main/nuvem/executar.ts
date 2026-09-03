@@ -105,6 +105,37 @@ export async function executar(
       }
 
       /*
+       * Soma a um número do diário (a água do dia).
+       *
+       * Cria o diário se faltar, ao contrário do `diario-tirar`: registrar a
+       * primeira garrafa do dia é o caso normal, e não haver arquivo ainda é
+       * o estado esperado às sete da manhã.
+       *
+       * O piso é zero. Um `quanto` negativo é o desfazer de um toque a mais;
+       * deixar o total ir a -800 transformaria dedo torto numa dívida que a
+       * pessoa teria de "pagar" bebendo antes de o contador sair do zero.
+       */
+      case 'diario-somar': {
+        const path = `Diario/${op.dia}.md`
+        // Tirar de um dia que nem começou não é nada — e criar o arquivo
+        // aqui deixaria um diário vazio no vault. Mesma razão do
+        // `diario-tirar` logo abaixo. Só somar abre o dia.
+        if (op.quanto < 0 && !(await vault.exists(path))) break
+        await garantir(vault, path, cabecalhoDiario(op.dia))
+        const raw = await vault.read(path)
+        const atual = parseFrontmatter(raw).frontmatter[op.campo]
+        const base = typeof atual === 'number' && Number.isFinite(atual) ? atual : 0
+        const total = Math.max(0, base + op.quanto)
+        // Zero apaga a chave: um `agua_ml: 0` pendurado no diário diz o mesmo
+        // que a ausência dele, e ocupa uma linha em toda nota do dia.
+        await vault.writeAtomic(path, patchFrontmatter(raw, {
+          [op.campo]: total > 0 ? total : null
+        }))
+        await indexarSemFalhar(indexer, path)
+        break
+      }
+
+      /*
        * O desfazer do check.
        *
        * Se o diário do dia nem existe, não há o que desmarcar — e criar o
