@@ -223,7 +223,9 @@ body{
   border:2px solid var(--borda-forte); background:var(--painel-alto);
   display:flex; align-items:center; justify-content:center;
   color:transparent; font-size:14px; font-weight:700; line-height:1;
-  transition:background .15s ease, border-color .15s ease, color .15s ease;
+  /* Sem transição: o verde é o estado, e estado muda inteiro de uma vez.
+     Enquanto o fundo desbotava, o risco no nome já tinha sumido — e a caixa
+     meio verde sem risco se lê como "marcado" logo depois de desmarcar. */
 }
 /* ─────────────── Puxar para atualizar ─────────────── */
 
