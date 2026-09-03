@@ -1582,6 +1582,24 @@ kbd {
 }
 .config-alerta { color: var(--pale-red); }
 
+/* O caminho do vault atual, em Configurações → Vault. Só leitura — o texto
+   é longo e quebraria a caixa se tratado como qualquer parágrafo. */
+.config-caminho {
+  margin: 8px 0 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  word-break: break-all;
+}
+
+/* Quantas notas o vault tem. Em vermelho quando é zero: pasta vazia quase
+   sempre quer dizer pasta errada, e é a única pista visível disso. */
+.config-contagem {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.config-contagem[data-vazio='true'] { color: var(--pale-red); }
+
 /* O rótulo do passo — "Passo 1 de 3 · Qual área proteger".
    Proteger uma área virou um caminho, e sem dizer em que ponto dele a pessoa
    está, três telas parecidas viram uma só confusa. */

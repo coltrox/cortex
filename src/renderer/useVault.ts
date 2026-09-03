@@ -115,6 +115,15 @@ export function useVault() {
   const criarVault = async (): Promise<void> => {
     try { aplicarEstado(await window.vaultApi.criarVault()); setErro(null) } catch (e) { falhou(e) }
   }
+
+  /**
+   * Volta para a tela de criar/escolher, sem fechar nada no processo
+   * principal: `session.open()` já começa com `close()`, então a sessão
+   * antiga se fecha sozinha assim que um vault novo é escolhido ou criado.
+   * Até lá, o app mostra a mesma tela do primeiro acesso — não existia
+   * caminho de volta a ela depois da primeira vez.
+   */
+  const trocarVault = useCallback((): void => { setRoot(null) }, [])
   const salvarAreas = useCallback(async (areas: string[]): Promise<void> => {
     try {
       setConfig(await window.vaultApi.invoke('config:areas', { areas }) as Config)
@@ -370,7 +379,7 @@ export function useVault() {
     aberta, conteudo, setConteudo, editando, setEditando,
     sujo: conteudo !== salvo,
     saindo, entrando,
-    escolher, criarVault, salvarAreas, trocarConfig: setConfig,
+    escolher, criarVault, trocarVault, salvarAreas, trocarConfig: setConfig,
     // Exposto por causa do reindexar: reconstruir o índice não escreve
     // arquivo nenhum, então o watcher não dispara e a tela continuaria com a
     // lista antiga até alguém trocar de lente.

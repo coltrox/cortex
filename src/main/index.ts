@@ -185,9 +185,22 @@ ipcMain.handle('vault:state', async () => {
   return { root: null, config: null }
 })
 
+/*
+ * O diálogo abre ONDE OS VAULTS MORAM, e não em lugar nenhum.
+ *
+ * Sem `defaultPath`, o Windows abre na última pasta que o usuário visitou em
+ * qualquer programa — e o vault do Cortex vive num caminho que ninguém decora
+ * (`AppData\Roaming\Cortex\vaults`). O resultado real foi apontar para a pasta
+ * de INSTALAÇÃO do app, que não tem nota nenhuma: o vault abria vazio, todas
+ * as telas ficavam em branco, e nada dizia que a pasta escolhida era a errada.
+ *
+ * Com um vault aberto, abre na pasta dele — que é de onde quem troca de vault
+ * quer começar a procurar.
+ */
 ipcMain.handle('vault:pick', async () => {
   const r = await dialog.showOpenDialog({
     title: 'Escolher a pasta do vault',
+    defaultPath: session.isOpen ? session.vault.root : pastaDosVaults(),
     properties: ['openDirectory']
   })
   if (r.canceled || !r.filePaths[0]) return null

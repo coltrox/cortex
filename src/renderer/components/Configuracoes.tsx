@@ -12,16 +12,19 @@ import type { Config } from '../useVault'
  * lista de lentes, que é o que ele deveria ser.
  */
 export function Configuracoes({
-  config, aoSalvarAreas, aoTrocarConfig, aoAbrirNuvem, aoRecarregar, aoFechar,
-  sincronizacaoFalhando
+  root, quantasNotas, config, aoSalvarAreas, aoTrocarConfig, aoAbrirNuvem, aoFechar,
+  aoTrocarVault, sincronizacaoFalhando
 }: {
+  root: string | null
+  /** Quantas notas o vault aberto tem. Zero denuncia pasta errada. */
+  quantasNotas: number
   config: Config
   aoSalvarAreas: (areas: string[]) => void
   aoTrocarConfig: (c: Config) => void
   aoAbrirNuvem: () => void
-  /** Relê as notas depois de reindexar — ver `BlocoIndice`. */
-  aoRecarregar: () => void
   aoFechar: () => void
+  /** Some sozinho: o app volta à tela de criar/escolher no próximo render. */
+  aoTrocarVault: () => void
   sincronizacaoFalhando: boolean
 }) {
   const [marcadas, setMarcadas] = useState<string[]>(config.areas)
@@ -37,6 +40,23 @@ export function Configuracoes({
       <div className="form largo" onClick={e => e.stopPropagation()}>
         <div className="form-topo">Configurações</div>
         <div className="form-corpo config-corpo">
+
+          <section className="config-bloco">
+            <h3>Vault</h3>
+            <p className="form-dica">Onde estas notas vivem no disco.</p>
+            <p className="config-caminho"><code>{root}</code></p>
+            {/* A contagem não é enfeite: é o que denuncia pasta errada. Um
+                vault apontado para o lugar errado abre sem erro nenhum e
+                deixa todas as telas em branco — aqui isso vira "0 notas". */}
+            <p className="config-contagem" data-vazio={quantasNotas === 0}>
+              {quantasNotas === 0
+                ? '0 notas — esta pasta está vazia. Se não era ela, troque abaixo.'
+                : `${quantasNotas} notas carregadas.`}
+            </p>
+            <button className="btn-fantasma" onClick={() => { aoFechar(); aoTrocarVault() }}>
+              Trocar de vault
+            </button>
+          </section>
 
           <section className="config-bloco">
             <h3>Áreas do app</h3>
@@ -57,8 +77,6 @@ export function Configuracoes({
           <ProtecaoSenha config={config} aoTrocarConfig={aoTrocarConfig} />
 
           <BlocoTema />
-
-          <BlocoIndice aoRecarregar={aoRecarregar} />
 
           <section className="config-bloco">
             <h3>Celular</h3>
@@ -81,64 +99,19 @@ export function Configuracoes({
   )
 }
 
-/**
- * Reconstruir o índice.
+/*
+ * Não há mais botão de reconstruir o índice.
  *
- * O Cortex desenha a partir do índice, e a varredura do vault só acontecia ao
- * ABRIR o vault. Quem apontasse o app para uma pasta e acrescentasse notas por
- * fora — copiando de outro cofre, restaurando um backup, sincronizando por
- * outro programa — via a tela vazia, sem nada dizendo por quê, e sem como
- * forçar. Aconteceu de verdade, com 88 notas no disco e o índice em zero.
+ * Ele existia porque a varredura do vault só acontecia ao ABRIR o vault, e
+ * quem acrescentasse notas por fora do app não tinha como forçar a releitura.
+ * Mas isso já é automático: `session.open()` roda `syncAll()` em toda
+ * abertura, e o `VaultWatcher` cobre o que muda com o app aberto. O botão só
+ * dava a impressão de que manter a tela em dia era trabalho de quem usa.
  *
- * Não escreve nota nenhuma: só relê o que está no disco. Por isso é seguro
- * apertar quando a tela parece errada — o pior caso é não mudar nada.
+ * O que restava dele — dizer quantas notas o vault tem — virou uma linha no
+ * bloco Vault acima, que é onde a informação responde a pergunta certa:
+ * "esta pasta é a certa?".
  */
-function BlocoIndice({ aoRecarregar }: { aoRecarregar: () => void }) {
-  const [ocupado, setOcupado] = useState(false)
-  const [recado, setRecado] = useState<string | null>(null)
-  const [erro, setErro] = useState<string | null>(null)
-
-  const reconstruir = async (): Promise<void> => {
-    if (ocupado) return
-    setOcupado(true); setRecado(null); setErro(null)
-    try {
-      const r = await window.vaultApi.invoke('indice:reconstruir', {}) as {
-        indexed: number; removed: number; skipped: number; trancados: number
-      }
-      // Relê a lista na tela: reindexar não escreve arquivo, então o watcher
-      // não dispara e a lente continuaria mostrando o que mostrava antes.
-      aoRecarregar()
-      const partes = [`${r.indexed + r.skipped} nota(s) no índice`]
-      if (r.indexed > 0) partes.push(`${r.indexed} relida(s)`)
-      if (r.removed > 0) partes.push(`${r.removed} que não existe(m) mais, fora`)
-      // Painel trancado com o cofre fechado fica de fora, e isso não é falha:
-      // dizer o número evita a conclusão de que o reindexar não funcionou.
-      if (r.trancados > 0) partes.push(`${r.trancados} em painel trancado, só ao abrir com a senha`)
-      setRecado(partes.join(' · '))
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'não deu para reconstruir o índice')
-    } finally {
-      setOcupado(false)
-    }
-  }
-
-  return (
-    <section className="config-bloco">
-      <h3>Índice do vault</h3>
-      <p className="form-dica">
-        O Cortex monta as telas a partir de um índice das notas. Se você
-        acrescentou arquivos na pasta por fora do app — copiando de outro
-        cofre, restaurando um backup — e eles não aparecem, é isto que falta.
-        Nada é escrito: ele só relê o que está no disco.
-      </p>
-      <button className="btn" onClick={() => void reconstruir()} disabled={ocupado}>
-        {ocupado ? 'Relendo o vault…' : 'Reconstruir o índice'}
-      </button>
-      {erro && <p className="config-erro">{erro}</p>}
-      {recado && <p className="config-recado">{recado}</p>}
-    </section>
-  )
-}
 
 /**
  * Claro, escuro, ou seguir o sistema.
