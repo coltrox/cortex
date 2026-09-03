@@ -27,7 +27,91 @@
   --rail:    68px;
   --sidebar: 264px;
   --aside:   276px;
+
+  /* O botão principal e os realces.
+     Eram cor fixa no CSS, e por isso o tema escuro os deixava invisíveis:
+     preto sobre preto, e um hover `rgba(0,0,0,.04)` que não aparece em fundo
+     escuro. Como token, cada tema diz o seu. */
+  --btn-fundo:       #111111;
+  --btn-fundo-hover: #333333;
+  --btn-texto:       #FFFFFF;
+  --realce:          rgba(0,0,0,.04);
+  --vidro:           rgba(255,255,255,.88);
+  --scrim:           rgba(20,20,19,.22);
+  --erro-borda:      #F3D4D5;
+
+  color-scheme: light;
 }
+
+/*
+ * Tema escuro.
+ *
+ * Um bloco só, e não também um `@media (prefers-color-scheme: dark)`: quem
+ * resolve entre "claro", "escuro" e "seguir o sistema" é o `tema.ts`, que
+ * escreve o resultado em `data-tema`. Com a media query aqui, a mesma paleta
+ * viveria em dois lugares e divergiria na primeira cor que alguém ajustasse
+ * num deles.
+ *
+ * São os mesmos tokens, invertidos — nenhum componente sabe que existe tema.
+ * O cinza continua quente, como no claro: o app é monocromático quente, e um
+ * cinza azulado aqui faria parecer outro programa.
+ */
+:root[data-tema="escuro"] {
+  --canvas:        #191919;
+  --surface:       #212121;
+  --surface-sunk:  #151515;
+  --border:        #2F2E2C;
+  --border-strong: #403E3B;
+
+  --text:    #E9E7E4;
+  --text-2:  #9E9B97;
+  /* Não o equivalente direto do claro: sobre --surface ele daria ~3,5:1,
+     abaixo do piso de leitura para texto pequeno. Este dá ~4,8:1, que é o
+     mesmo papel que --text-3 cumpre no tema claro. */
+  --text-3:  #86827D;
+
+  --accent:     #5FAADD;
+  --accent-bg:  #17303F;
+
+  --pale-red-bg: #341E1E;  --pale-red: #E98D8A;
+  --pale-grn-bg: #1C2A1D;  --pale-grn: #82C68A;
+  --pale-yel-bg: #322813;  --pale-yel: #DFB65E;
+
+  --btn-fundo:       #E9E7E4;
+  --btn-fundo-hover: #FFFFFF;
+  --btn-texto:       #191919;
+  --realce:          rgba(255,255,255,.06);
+  --vidro:           rgba(25,25,25,.88);
+  /* Mais opaco que no claro: sobre um fundo já escuro, 22% não separa o
+     modal do que está atrás — os dois viram a mesma mancha. */
+  --scrim:           rgba(0,0,0,.55);
+  --erro-borda:      #5A3230;
+
+  /* Faz o Chromium desenhar barra de rolagem, campo e menu nativo no escuro.
+     Sem isto, o `select` de um formulário abre branco no meio da tela preta. */
+  color-scheme: dark;
+}
+
+/*
+ * A cor de cada lente, no escuro.
+ *
+ * O `--acento-bg` do tema claro é sempre um pastel quase branco — no escuro
+ * ele viraria um bloco claro no meio da tela, que é o oposto do que a cor
+ * deveria fazer. Aqui o matiz é o mesmo e os papéis se invertem: o acento
+ * clareia para continuar legível, e o fundo escurece.
+ */
+:root[data-tema="escuro"] .shell {
+  --acento:      #A8A6A2;
+  --acento-bg:   #242423;
+  --acento-fino: #353533;
+}
+:root[data-tema="escuro"] .shell[data-lente="hoje"]         { --acento: #7FA8CC; --acento-bg: #1A2530; --acento-fino: #2B3A48; }
+:root[data-tema="escuro"] .shell[data-lente="vida"]         { --acento: #D3937A; --acento-bg: #2B1F1A; --acento-fino: #3E2C24; }
+:root[data-tema="escuro"] .shell[data-lente="saude"]        { --acento: #79BE97; --acento-bg: #17251D; --acento-fino: #24382C; }
+:root[data-tema="escuro"] .shell[data-lente="conhecimento"] { --acento: #8D96E0; --acento-bg: #1D1F35; --acento-fino: #2C3050; }
+:root[data-tema="escuro"] .shell[data-lente="financas"]     { --acento: #C9A94E; --acento-bg: #2A2413; --acento-fino: #3D3520; }
+:root[data-tema="escuro"] .shell[data-lente="dev"]          { --acento: #A98BD8; --acento-bg: #241D33; --acento-fino: #35294D; }
+:root[data-tema="escuro"] .shell[data-lente="calendario"]   { --acento: #D9829F; --acento-bg: #301A24; --acento-fino: #452636; }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -92,12 +176,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--pale-red);
 }
 
-.rail-item:hover:not(:disabled) { background: rgba(0,0,0,.04); color: var(--text); }
+.rail-item:hover:not(:disabled) { background: var(--realce); color: var(--text); }
 
 .rail-item[aria-current="true"] {
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  box-shadow: 0 1px 2px var(--realce);
 }
 
 .rail-item:disabled { opacity: .34; cursor: default; }
@@ -160,7 +244,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   transition: background 140ms, color 140ms;
 }
 
-.nota:hover { background: rgba(0,0,0,.035); color: var(--text); }
+.nota:hover { background: var(--realce); color: var(--text); }
 
 .nota[aria-current="true"] {
   background: var(--surface);
@@ -201,7 +285,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  background: rgba(255,255,255,.88);
+  background: var(--vidro);
   backdrop-filter: blur(8px);
   z-index: 2;
 }
@@ -232,12 +316,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
   font-size: 13px;
   border: 0;
   border-radius: 5px;
-  background: #111111;
-  color: #FFFFFF;
+  background: var(--btn-fundo);
+  color: var(--btn-texto);
   transition: background 160ms, transform 120ms;
 }
 
-.btn:hover:not(:disabled) { background: #333333; }
+.btn:hover:not(:disabled) { background: var(--btn-fundo-hover); }
 .btn:active:not(:disabled) { transform: scale(.98); }
 .btn:disabled { background: var(--border); color: var(--text-3); cursor: default; }
 
@@ -315,7 +399,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   white-space: nowrap;
 }
 
-.link:hover { background: rgba(0,0,0,.035); }
+.link:hover { background: var(--realce); }
 .link[data-quebrado="true"] { color: var(--pale-red); }
 
 /* ---------- tela inicial ---------- */
@@ -357,7 +441,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   margin: 0 40px 18px;
   padding: 10px 14px;
   font-size: 13px;
-  border: 1px solid #F3D4D5;
+  border: 1px solid var(--erro-borda);
   border-radius: 6px;
   background: var(--pale-red-bg);
   color: var(--pale-red);
@@ -368,7 +452,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .paleta-fundo {
   position: fixed;
   inset: 0;
-  background: rgba(20,20,19,.22);
+  background: var(--scrim);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -662,7 +746,7 @@ kbd {
   border-radius: 9999px;
 }
 
-.cal-dia[data-hoje="true"] .cal-num { background: #111111; color: #FFFFFF; }
+.cal-dia[data-hoje="true"] .cal-num { background: var(--btn-fundo); color: var(--btn-texto); }
 
 .cal-chip {
   font-size: 10.5px;
@@ -736,13 +820,13 @@ kbd {
   transition: background 140ms, color 140ms;
 }
 
-.subnav-item:hover { background: rgba(0,0,0,.035); color: var(--text); }
+.subnav-item:hover { background: var(--realce); color: var(--text); }
 
 .subnav-item[aria-current="true"] {
   background: var(--surface);
   color: var(--text);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  box-shadow: 0 1px 2px var(--realce);
 }
 
 /* ---------- contador de prazo ---------- */
@@ -816,7 +900,7 @@ kbd {
   transition: background 140ms, color 140ms, border-color 140ms;
 }
 
-.btn-add:hover { background: #111111; color: #FFFFFF; border-color: #111111; }
+.btn-add:hover { background: var(--btn-fundo); color: var(--btn-texto); border-color: var(--btn-fundo); }
 
 /* ---------- caixa de marcar ---------- */
 
@@ -838,7 +922,7 @@ kbd {
 }
 
 .check:hover { border-color: var(--text-3); }
-.check[aria-checked="true"] { background: var(--pale-grn); border-color: var(--pale-grn); color: #FFFFFF; }
+.check[aria-checked="true"] { background: var(--pale-grn); border-color: var(--pale-grn); color: var(--canvas); }
 
 /* ---------- formulario ---------- */
 
@@ -912,7 +996,7 @@ kbd {
 .form-campo input:focus, .form-campo select:focus { border-color: var(--text-3); }
 .form-campo input::placeholder { color: var(--text-3); }
 
-.form-check { width: 17px; height: 17px; accent-color: #111111; }
+.form-check { width: 17px; height: 17px; accent-color: var(--btn-fundo); }
 
 .form-rodape {
   display: flex;
@@ -1932,3 +2016,37 @@ kbd {
    Com a largura de verdade, as areas cabem em duas colunas folgadas e o modal
    encolhe quase pela metade. */
 .form.largo { width: min(720px, 92vw); max-width: none; }
+
+/* ---------- seletor de tema ---------- */
+
+.config-temas { display: flex; gap: 8px; margin: 0 0 10px; }
+
+.config-tema {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+  transition: border-color .12s, color .12s;
+}
+.config-tema:hover { border-color: var(--border-strong); }
+.config-tema-ativo { border-color: var(--text); color: var(--text); font-weight: 600; }
+
+/* A amostra mostra a cor em vez de descrevê-la: "claro" e "escuro" se
+   entendem de relance, e nenhuma frase faz isso melhor que o próprio par de
+   cores. A do sistema é dividida ao meio, que é o que "depende" parece. */
+.config-tema-amostra {
+  width: 100%;
+  height: 30px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+}
+.amostra-claro  { background: #FBFBFA; }
+.amostra-escuro { background: #191919; }
+.amostra-sistema { background: linear-gradient(to right, #FBFBFA 50%, #191919 50%); }
