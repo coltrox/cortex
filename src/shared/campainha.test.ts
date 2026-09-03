@@ -81,6 +81,84 @@ describe('Campainha', () => {
     expect(enviadosDo(sockets[0], 'broadcast')).toHaveLength(0)
   })
 
+  /*
+   * O toque guardado.
+   *
+   * Este é o caso do celular: tela apagada e app em segundo plano fazem o
+   * navegador suspender o websocket, então o canal quase nunca está de pé no
+   * instante em que alguém abre o app e marca alguma coisa. O toque era
+   * descartado aí, e o outro lado só descobria no relógio de dois minutos --
+   * desmarcar no celular e ver o Cortex ainda marcado.
+   */
+  it('o toque feito com o canal fechado sai quando ele entra', () => {
+    const { campainha, sockets } = montar()
+    campainha.abrir()
+    sockets[0].conectar()
+
+    campainha.tocar('eventos')
+    expect(enviadosDo(sockets[0], 'broadcast')).toHaveLength(0)
+
+    sockets[0].entrar()
+    const toques = enviadosDo(sockets[0], 'broadcast')
+    expect(toques).toHaveLength(1)
+    expect(toques[0].payload).toEqual({ type: 'broadcast', event: 'eventos', payload: {} })
+  })
+
+  it('dois toques iguais antes de entrar valem um só', () => {
+    // O toque diz "mudou alguma coisa", nunca o que mudou -- mandar o mesmo
+    // aviso três vezes faria o outro lado sincronizar três vezes à toa.
+    const { campainha, sockets } = montar()
+    campainha.abrir()
+    sockets[0].conectar()
+
+    campainha.tocar('eventos')
+    campainha.tocar('eventos')
+    campainha.tocar('eventos')
+    sockets[0].entrar()
+
+    expect(enviadosDo(sockets[0], 'broadcast')).toHaveLength(1)
+  })
+
+  it('toques de tipos diferentes saem os dois', () => {
+    const { campainha, sockets } = montar()
+    campainha.abrir()
+    sockets[0].conectar()
+
+    campainha.tocar('eventos')
+    campainha.tocar('cardapio')
+    sockets[0].entrar()
+
+    const eventos = enviadosDo(sockets[0], 'broadcast')
+      .map(t => (t.payload as { event: string }).event)
+    expect(eventos.sort()).toEqual(['cardapio', 'eventos'])
+  })
+
+  it('tocar numa campainha que ninguém abriu abre ela', () => {
+    // Sem isto o toque ficaria guardado para sempre: `cair` só reagenda uma
+    // conexão que existiu, e uma que nunca foi aberta não tem quem a abra.
+    const { campainha, sockets } = montar()
+    expect(sockets).toHaveLength(0)
+
+    campainha.tocar('eventos')
+    expect(sockets).toHaveLength(1)
+
+    sockets[0].entrar()
+    expect(enviadosDo(sockets[0], 'broadcast')).toHaveLength(1)
+  })
+
+  it('fechar joga fora o que estava esperando', () => {
+    // Quem fecha trocou de vault ou está saindo. Um toque guardado avisaria
+    // o Cortex errado quando a campainha nova subisse.
+    const { campainha, sockets } = montar()
+    campainha.abrir()
+    sockets[0].conectar()
+    campainha.tocar('eventos')
+    campainha.fechar()
+
+    sockets[0].entrar()
+    expect(enviadosDo(sockets[0], 'broadcast')).toHaveLength(0)
+  })
+
   it('toca sem levar dado nenhum junto', () => {
     const { campainha, sockets } = montar()
     campainha.abrir()
