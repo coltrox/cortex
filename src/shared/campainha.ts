@@ -186,6 +186,33 @@ export class Campainha {
     this.enviar(this.topico, 'broadcast', { type: 'broadcast', event: t, payload: {} })
   }
 
+  /**
+   * Reconecta AGORA, sem esperar o backoff.
+   *
+   * Existe por causa do celular. Em segundo plano o sistema congela o
+   * WebSocket e os timers junto — inclusive o `setTimeout` que religaria. Ao
+   * voltar para a tela, a conexão está morta e o religamento pode estar
+   * agendado para dali a meio minuto (a espera dobra a cada queda, até 30 s).
+   * Nesse intervalo o celular fica surdo: o Cortex publica, toca, e o toque
+   * não encontra ninguém — a tela só se corrige no relógio de dois minutos.
+   *
+   * Um broadcast é tiro único e não se guarda no servidor. Por isso quem
+   * volta à tela tem de reconectar na hora E buscar de novo: a reconexão
+   * cobre os toques seguintes, e a busca cobre o toque que já se perdeu.
+   */
+  acordar(): void {
+    if (this.morta || this.dentro) return
+    if (this.religar) { clearTimeout(this.religar); this.religar = null }
+    // A espera volta ao mínimo: quem acabou de abrir o app não deve herdar o
+    // castigo acumulado por quedas de quando o aparelho estava dormindo.
+    this.espera = ESPERA_MIN_MS
+    // Um socket que sobrou de antes é descartado: depois de o aparelho
+    // dormir ele costuma ficar zumbi — nem aberto nem fechado, e sem nunca
+    // disparar `onclose` para avisar.
+    this.limpar()
+    this.abrir()
+  }
+
   /** Solta o que ficou esperando o canal. Chamado no instante em que ele entra. */
   private soltarPendentes(): void {
     if (this.pendentes.size === 0) return

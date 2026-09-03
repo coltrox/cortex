@@ -918,7 +918,19 @@ kbd {
   background: var(--surface);
   color: transparent;
   cursor: pointer;
-  transition: background 140ms, border-color 140ms;
+  /*
+   * Sem transição no fundo, de propósito.
+   *
+   * O verde É o estado — ele quer dizer "tomei". O ✓ e o risco no nome
+   * trocam na hora (`color` e `text-decoration` não animam aqui), então uma
+   * transição só no fundo abria 140 ms em que a caixa ficava verde SEM o ✓:
+   * o desenho de "marcado" mostrando um item que acabou de ser desmarcado.
+   * Aconteceu de verdade, e enganou duas vezes — inclusive a mim, olhando
+   * uma captura de tela e concluindo que o desmarcar não tinha funcionado.
+   *
+   * Um estado que muda tem de mudar inteiro, de uma vez. O que pode animar é
+   * o que não carrega significado; a cor de fundo aqui carrega.
+   */
 }
 
 .check:hover { border-color: var(--text-3); }

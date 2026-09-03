@@ -5,7 +5,9 @@ import { lerVaultId } from './ajustes'
 import { Fila } from './fila'
 import { ClienteWeb } from './nuvem'
 import { CREDENCIAL, faltaCredencial } from './credencial'
-import { ouvirCampainha, tocarCampainha, reavaliarCampainha } from './campainha'
+import {
+  ouvirCampainha, tocarCampainha, reavaliarCampainha, acordarCampainha
+} from './campainha'
 import { lerCardapio, gravarCardapio, type Cardapio } from './cardapio'
 
 /** De quanto em quanto tempo a fila tenta sair sozinha, com o app aberto. */
@@ -164,11 +166,15 @@ export function useCardapio(): UsoDoCardapio {
     // Voltar para o app e o momento mais provavel de haver novidade: a pessoa
     // acabou de mexer no Cortex e trocou de janela. Esperar o proximo tique
     // de dois minutos ali seria esperar a toa.
+    // Reconectar E buscar. Um broadcast é tiro único e não fica guardado no
+    // servidor: reconectar cobre os toques daqui para frente, buscar cobre o
+    // que se perdeu enquanto o aparelho dormia.
+    const voltar = (): void => { acordarCampainha(); void atualizar() }
     const aoVoltar = (): void => {
-      if (document.visibilityState === 'visible') void atualizar()
+      if (document.visibilityState === 'visible') voltar()
     }
     document.addEventListener('visibilitychange', aoVoltar)
-    window.addEventListener('online', aoVoltar)
+    window.addEventListener('online', voltar)
 
     // O caminho instantâneo: o Cortex publicou e tocou, e a busca sai agora.
     const pararDeOuvir = ouvirCampainha(t => { if (t === 'cardapio') void atualizar() })
@@ -176,7 +182,7 @@ export function useCardapio(): UsoDoCardapio {
     return () => {
       clearInterval(relogio)
       document.removeEventListener('visibilitychange', aoVoltar)
-      window.removeEventListener('online', aoVoltar)
+      window.removeEventListener('online', voltar)
       pararDeOuvir()
     }
   }, [atualizar])

@@ -146,6 +146,48 @@ describe('Campainha', () => {
     expect(enviadosDo(sockets[0], 'broadcast')).toHaveLength(1)
   })
 
+  /*
+   * Acordar depois de dormir.
+   *
+   * Em segundo plano o celular tem o WebSocket e os timers congelados pelo
+   * sistema. Ao voltar, a conexao esta morta e o religamento pode estar
+   * agendado para dali a 30 s (a espera dobra a cada queda) -- e nesse
+   * intervalo o Cortex publica, toca, e nao ha ninguem ouvindo.
+   */
+  it('acordar reconecta na hora, sem esperar o backoff', () => {
+    const { campainha, sockets } = montar()
+    campainha.abrir()
+    sockets[0].entrar()
+
+    sockets[0].cair()
+    expect(sockets).toHaveLength(1)
+
+    // O religamento existe, mas so daqui a pouco.
+    campainha.acordar()
+    expect(sockets).toHaveLength(2)
+  })
+
+  it('acordar nao mexe numa conexao que ja esta boa', () => {
+    // Derrubar e reabrir um canal saudavel custaria justamente o que se quer
+    // evitar: uma janela surda.
+    const { campainha, sockets } = montar()
+    campainha.abrir()
+    sockets[0].entrar()
+
+    campainha.acordar()
+    expect(sockets).toHaveLength(1)
+    expect(sockets[0].fechou).toBe(false)
+  })
+
+  it('acordar nao ressuscita campainha fechada', () => {
+    const { campainha, sockets } = montar()
+    campainha.abrir()
+    campainha.fechar()
+
+    campainha.acordar()
+    expect(sockets).toHaveLength(1)
+  })
+
   it('fechar joga fora o que estava esperando', () => {
     // Quem fecha trocou de vault ou está saindo. Um toque guardado avisaria
     // o Cortex errado quando a campainha nova subisse.

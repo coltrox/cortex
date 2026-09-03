@@ -72,3 +72,17 @@ export function tocarCampainha(t: Toque): void {
 export function reavaliarCampainha(): void {
   garantir()
 }
+
+/**
+ * Voltou para a tela: reconecta na hora.
+ *
+ * `garantir()` não serve aqui — ele só cria a campainha que não existe, e a
+ * que existe com o socket morto ele devolve intacta. E é justamente esse o
+ * estado depois de o celular ficar em segundo plano: o sistema congela o
+ * WebSocket e o timer de religar junto, e ao voltar a conexão está morta com
+ * o religamento agendado para daqui a até 30 segundos. Nesse intervalo o
+ * Cortex publica, toca, e não há ninguém ouvindo.
+ */
+export function acordarCampainha(): void {
+  garantir()?.acordar()
+}
