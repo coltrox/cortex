@@ -32,8 +32,9 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
       setTrocando(false)
       setId('')
       // Buscar na hora é a única confirmação honesta de que o id está certo:
-      // se voltar vazio, o aviso aparece agora e não amanhã.
-      await p.cardapio.atualizar()
+      // se voltar vazio, o aviso aparece agora e não amanhã. `comoConexao` é
+      // o que faz vazio virar aviso — fora deste instante, vazio é normal.
+      await p.cardapio.atualizar({ comoConexao: true })
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'id inválido')
     }
