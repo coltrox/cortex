@@ -56,6 +56,8 @@ export class Campainha {
   private espera = ESPERA_MIN_MS
   private ref = 0
   private dentro = false
+  /** Toques feitos com o canal fechado, esperando ele entrar. Ver `tocar`. */
+  private readonly pendentes = new Set<Toque>()
   /** `fechar()` foi chamado: para de tentar religar para sempre. */
   private morta = false
 
@@ -129,6 +131,8 @@ export class Campainha {
         // laço apertado de reconexão.
         this.dentro = true
         this.espera = ESPERA_MIN_MS
+        // O que foi tocado com o canal fechado sai agora — ver `tocar`.
+        this.soltarPendentes()
         return
       }
       if (d.event === 'broadcast') {
@@ -154,13 +158,42 @@ export class Campainha {
   /**
    * Avisa o outro lado que mudou alguma coisa.
    *
-   * Sem canal aberto, o toque é descartado em silêncio — e pode ser: o dado já
-   * está no banco, e o relógio do outro lado acha ele do mesmo jeito. Guardar
-   * o toque para mandar depois só adiantaria o que a próxima rodada faria.
+   * Sem canal aberto, o toque ESPERA o canal entrar em vez de sumir.
+   *
+   * Ele já foi descartado em silêncio, com o argumento de que o relógio do
+   * outro lado acharia o dado de qualquer jeito. Acha mesmo — só que dois
+   * minutos depois, e o caso em que o toque some é justamente o mais comum no
+   * celular: tela apagada e app em segundo plano fazem o navegador suspender
+   * o websocket, então o canal quase nunca está de pé no instante em que
+   * alguém abre o app e marca alguma coisa. O resultado era desmarcar no
+   * celular e olhar o Cortex ainda marcado, sem nada explicando por quê.
+   *
+   * O que espera é só a intenção de avisar — nunca o dado, que já está no
+   * banco. Por isso é um conjunto e não uma fila: dois toques iguais antes de
+   * o canal abrir valem um só, e a ordem entre 'eventos' e 'cardapio' não diz
+   * nada. E por isso também não há retentativa própria: se o canal não abrir,
+   * o relógio do outro lado continua sendo a rede de segurança.
    */
   tocar(t: Toque): void {
-    if (!this.dentro) return
+    if (!this.dentro) {
+      this.pendentes.add(t)
+      // Uma conexão caída já tem religamento agendado por `cair`. Mas uma que
+      // nunca foi aberta não tem ninguém para abri-la — e é aí que abrir agora
+      // transforma o toque guardado em toque entregue.
+      if (!this.ws && !this.religar && !this.morta) this.abrir()
+      return
+    }
     this.enviar(this.topico, 'broadcast', { type: 'broadcast', event: t, payload: {} })
+  }
+
+  /** Solta o que ficou esperando o canal. Chamado no instante em que ele entra. */
+  private soltarPendentes(): void {
+    if (this.pendentes.size === 0) return
+    const guardados = [...this.pendentes]
+    this.pendentes.clear()
+    for (const t of guardados) {
+      this.enviar(this.topico, 'broadcast', { type: 'broadcast', event: t, payload: {} })
+    }
   }
 
   private limpar(): void {
@@ -179,6 +212,9 @@ export class Campainha {
   fechar(): void {
     this.morta = true
     if (this.religar) { clearTimeout(this.religar); this.religar = null }
+    // Intenção de avisar não sobrevive ao fechamento: quem fecha trocou de
+    // vault ou está saindo, e um toque guardado aqui avisaria o Cortex errado.
+    this.pendentes.clear()
     this.limpar()
   }
 }
