@@ -3,7 +3,7 @@ import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
   eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
   eventoProvaEstudada, eventoCompromisso, eventoItemApagado, eventoPorquinho,
-  eventoProvaNova, eventoTarefaNova, eventoItemEditado
+  eventoProvaNova, eventoTarefaNova, eventoItemEditado, eventoRotina, eventoAgua
 } from './montar'
 
 const DIA = '2026-08-28'
@@ -292,5 +292,67 @@ describe('marcar prova e tarefa do celular', () => {
   it('recusa titulo vazio', () => {
     expect(() => eventoProvaNova('  ', '2026-09-20', {}, D)).toThrow()
     expect(() => eventoTarefaNova('', '2026-09-20', {}, D)).toThrow()
+  })
+})
+
+describe('desmarcar o check', () => {
+  const DIA3 = '2026-08-28'
+
+  it('feito false viaja; marcado nao carrega o campo', () => {
+    // Ausente ja significa "marcou" -- e o que todo evento gravado antes
+    // desta mudanca quer dizer, e e o que o Cortex assume ao aplicar.
+    expect(eventoSuplemento('Creatina', DIA3).dados).toEqual({ nome: 'Creatina' })
+    expect(eventoSuplemento('Creatina', DIA3, false).dados)
+      .toEqual({ nome: 'Creatina', feito: false })
+  })
+
+  it('vale igual para a refeicao do plano', () => {
+    expect(eventoRefeicaoPlano('Café', DIA3).dados).toEqual({ nome: 'Café' })
+    expect(eventoRefeicaoPlano('Café', DIA3, false).dados)
+      .toEqual({ nome: 'Café', feito: false })
+  })
+
+  it('desmarcar continua exigindo um nome', () => {
+    expect(() => eventoSuplemento('  ', DIA3, false)).toThrow()
+  })
+})
+
+describe('tarefa diaria', () => {
+  const DIA4 = '2026-08-28'
+
+  it('marca e desmarca, com a mesma forma do suplemento', () => {
+    expect(eventoRotina('Tomar 3 L de agua', DIA4)).toEqual({
+      tipo: 'rotina_feita', dia: DIA4, dados: { nome: 'Tomar 3 L de agua' }
+    })
+    expect(eventoRotina('Tomar 3 L de agua', DIA4, false).dados)
+      .toEqual({ nome: 'Tomar 3 L de agua', feito: false })
+  })
+
+  it('exige um nome', () => {
+    expect(() => eventoRotina('   ', DIA4)).toThrow()
+  })
+})
+
+describe('água', () => {
+  it('a garrafa vira um evento de 800 ml', () => {
+    expect(eventoAgua(800, DIA)).toEqual({
+      tipo: 'agua', dia: DIA, dados: { ml: 800 }
+    })
+  })
+
+  it('negativo desfaz o toque a mais', () => {
+    expect(eventoAgua(-800, DIA).dados).toEqual({ ml: -800 })
+  })
+
+  it('leva só o gole -- nada do total nem da meta', () => {
+    // O evento é um "somar isto", não um "o total agora é X": o total mora no
+    // vault, e o celular nem precisa saber quanto era antes. Se um dia um
+    // `total` entrar aqui, dois toques com a fila lenta gravariam o mesmo
+    // número duas vezes e o segundo gole sumiria.
+    expect(Object.keys(eventoAgua(800, DIA).dados)).toEqual(['ml'])
+  })
+
+  it('exige um número', () => {
+    expect(() => eventoAgua(Number.NaN, DIA)).toThrow()
   })
 })

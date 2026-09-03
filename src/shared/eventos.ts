@@ -18,7 +18,16 @@ export const TIPOS_EVENTO = [
   'prova_nova', 'tarefa_nova',
   // Porquinho: guardar e tirar. Movimento, nao saldo -- o saldo e a soma dos
   // movimentos, e quem faz essa conta e o Cortex.
-  'porquinho'
+  'porquinho',
+  // A tarefa diaria: marcar e desmarcar, como o suplemento. Tipo proprio, e
+  // nao um `suplemento` com uma etiqueta, porque ela cai num conjunto proprio
+  // do diario (`rotinas_feitas`) -- misturar as duas faria a lente Saude
+  // contar "escovar os dentes" como suplemento tomado.
+  'rotina_feita',
+  // Agua bebida, em ml. Nao e um check: cada garrafa SOMA ao total do dia, e
+  // um `ml` negativo desfaz o gole registrado sem querer. Por isso tem tipo
+  // proprio em vez de virar mais uma `rotina`.
+  'agua'
 ] as const
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number]
@@ -58,11 +67,30 @@ export type Evento = z.infer<typeof EVENTO_SCHEMA>
 export const TIPOS_NOTA_CARDAPIO = [
   'treino-modelo', 'suplemento', 'plano', 'prova', 'simulado', 'evento', 'tarefa',
   // Os dois do porquinho: os movimentos, para somar o saldo, e a meta ativa.
-  'porquinho', 'meta-cofre'
+  'porquinho', 'meta-cofre',
+  // A tarefa diária, que aparece no celular junto com os suplementos.
+  'rotina',
+  // A meta de água do dia e o tamanho da garrafa. O TOTAL bebido não vem
+  // daqui: vem do diário, como todo registro do dia.
+  'hidratacao',
+  // O diário do dia, e SÓ para saber o que já foi marcado hoje: sem ele o
+  // celular não teria como saber que um suplemento foi desmarcado aqui no
+  // Cortex, porque o check dele vivia apenas na memória do próprio aparelho.
+  // `montarCardapio` copia dele quatro campos, nada mais — os três conjuntos
+  // de check e o total de água. Ver a lista branca lá, que é o que impede o
+  // resto do diário (gastos, peso, anotações do dia) de subir junto.
+  'diario'
 ] as const
 
 export const ESPECIES_CARDAPIO = [
-  'treino', 'suplemento', 'refeicao', 'prova', 'compromisso', 'tarefa', 'porquinho'
+  'treino', 'suplemento', 'refeicao', 'prova', 'compromisso', 'tarefa', 'porquinho',
+  // A tarefa diária. Espécie própria, e não `tarefa` com uma etiqueta: a
+  // `tarefa` tem prazo e vive na aba Chegando; esta se repete todo dia e vive
+  // no Hoje, ao lado dos suplementos. Duas coisas diferentes com o mesmo nome
+  // acabariam numa tela mostrando a outra.
+  'rotina',
+  // A água do dia: quanto já foi, qual é a meta, e de quanto é a garrafa.
+  'hidratacao'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

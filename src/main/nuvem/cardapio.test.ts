@@ -301,9 +301,14 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // no Cortex nao mandava nada para o celular -- a novidade so aparecia
     // quando, por acaso, um treino fosse editado depois. Agora ha uma lista
     // so, e ela precisa continuar cobrindo tudo que a funcao consulta.
+    // `diario` entrou por outro motivo: nao vira item de cardapio, e sim diz
+    // o que JA foi marcado hoje. Sem ele, desmarcar um suplemento no Cortex
+    // nao chegava ao celular -- o check de la vivia so na memoria do aparelho.
+    // `hidratacao` diz a meta e o tamanho da garrafa; o total bebido vem do
+    // `diario`, logo acima. Sao dois tipos para uma secao so na tela.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
-      'evento', 'meta-cofre', 'plano', 'porquinho', 'prova', 'simulado',
-      'suplemento', 'tarefa', 'treino-modelo'
+      'diario', 'evento', 'hidratacao', 'meta-cofre', 'plano', 'porquinho',
+      'prova', 'rotina', 'simulado', 'suplemento', 'tarefa', 'treino-modelo'
     ])
   })
 
@@ -315,7 +320,9 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       prova: nota({ path: 'c.md', title: 'P', tipo: 'prova', date: '2026-09-10' }),
       simulado: nota({ path: 'd.md', title: 'Si', tipo: 'simulado', date: '2026-09-10' }),
       evento: nota({ path: 'e.md', title: 'E', tipo: 'evento', date: '2026-09-10' }),
-      tarefa: nota({ path: 'f.md', title: 'Ta', tipo: 'tarefa', date: '2026-09-10' })
+      tarefa: nota({ path: 'f.md', title: 'Ta', tipo: 'tarefa', date: '2026-09-10' }),
+      rotina: nota({ path: 'h.md', title: 'Abdomen', tipo: 'rotina' }),
+      hidratacao: nota({ path: 'i.md', title: 'Agua', tipo: 'hidratacao', campos: { meta: 3500 } })
     }
     for (const [tipo, n] of Object.entries(porTipo)) {
       const c = montarCardapio([n as never], HOJE)
@@ -340,5 +347,178 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       campos: { ativo: true, refeicoes: [{ nome: 'Cafe', hora: '07:00' }] }
     })], HOJE)
     expect(comPlano.map(i => i.especie)).toEqual(['refeicao'])
+  })
+})
+
+/**
+ * O que ja foi marcado hoje.
+ *
+ * Existe por um defeito de desenho: o check do celular vivia so na memoria do
+ * proprio aparelho, entao desmarcar um suplemento no Cortex nao chegava la --
+ * as duas telas divergiam em silencio ate a virada do dia.
+ */
+describe('o que ja foi feito hoje sobe junto', () => {
+  const HOJE = '2026-09-01'
+  const creatina = nota({
+    path: 'Saude/Creatina.md', title: 'Creatina', tipo: 'suplemento',
+    campos: { dose: '6 g' }
+  })
+  const diario = (campos: Record<string, unknown>) =>
+    nota({ path: `Diario/${HOJE}.md`, title: HOJE, tipo: 'diario', date: HOJE, campos })
+
+  const so = (itens: ReturnType<typeof montarCardapio>) =>
+    itens.find(i => i.especie === 'suplemento')
+
+  it('marca o suplemento que esta no diario de hoje', () => {
+    const c = montarCardapio([creatina, diario({ suplementos_feitos: ['Creatina'] })], HOJE)
+    expect(so(c)?.detalhe.feito).toBe(true)
+  })
+
+  it('sem diario, o campo nem existe -- e nao `feito: false`', () => {
+    // `comValor` tira o undefined: um `feito: false` em todo item seria uma
+    // chave a mais em cada linha que sobe, dizendo o padrao.
+    const c = montarCardapio([creatina], HOJE)
+    expect(so(c)?.detalhe).not.toHaveProperty('feito')
+  })
+
+  it('o diario de OUTRO dia nao marca nada', () => {
+    // O cardapio e do dia de hoje. Ler o de ontem faria o celular abrir com
+    // tudo marcado toda manha.
+    const ontem = nota({
+      path: 'Diario/2026-08-31.md', title: '2026-08-31', tipo: 'diario',
+      date: '2026-08-31', campos: { suplementos_feitos: ['Creatina'] }
+    })
+    const c = montarCardapio([creatina, ontem], HOJE)
+    expect(so(c)?.detalhe).not.toHaveProperty('feito')
+  })
+
+  it('so os dois campos do diario sobem -- o resto dele fica', () => {
+    // O diario do dia tambem guarda gasto e anotacao. Este teste e o que
+    // impede alguem de trocar a lista branca por um spread mais tarde.
+    const c = montarCardapio([creatina, diario({
+      suplementos_feitos: ['Creatina'],
+      gastos: [{ item: 'SEGREDO-GASTO', valor: 99 }],
+      anotacao: 'SEGREDO-ANOTACAO'
+    })], HOJE)
+    const json = JSON.stringify(c)
+    expect(json).not.toContain('SEGREDO-GASTO')
+    expect(json).not.toContain('SEGREDO-ANOTACAO')
+  })
+
+  it('marca a refeicao do plano ativo', () => {
+    const plano = nota({
+      path: 'Saude/Dieta/Plano.md', title: 'Plano', tipo: 'plano',
+      campos: { ativo: true, refeicoes: [{ nome: 'Café da manhã', hora: '07:00' }] }
+    })
+    const c = montarCardapio([plano, diario({ dieta_feitas: ['Café da manhã'] })], HOJE)
+    expect(c.find(i => i.especie === 'refeicao')?.detalhe.feito).toBe(true)
+  })
+})
+
+describe('a tarefa diaria sobe como especie propria', () => {
+  const HOJE2 = '2026-09-01'
+  const rotina = nota({
+    path: 'Vida/Agua.md', title: 'Tomar 3 L de agua', tipo: 'rotina',
+    campos: { quando: 'manhã', dias: ['seg', 'qua'] }
+  })
+
+  it('publica com quando e dias', () => {
+    const c = montarCardapio([rotina], HOJE2)
+    expect(c).toEqual([{
+      especie: 'rotina', nome: 'Tomar 3 L de agua',
+      detalhe: { quando: 'manhã', dias: ['seg', 'qua'] }
+    }])
+  })
+
+  it('marca a que ja esta no diario de hoje', () => {
+    const diario = nota({
+      path: `Diario/${HOJE2}.md`, title: HOJE2, tipo: 'diario', date: HOJE2,
+      campos: { rotinas_feitas: ['Tomar 3 L de agua'] }
+    })
+    expect(montarCardapio([rotina, diario], HOJE2)[0].detalhe.feito).toBe(true)
+  })
+
+  it('o conjunto dos suplementos NAO marca a rotina', () => {
+    // Sao conjuntos separados de proposito. Se um dia alguem unificar os dois
+    // campos, este teste e o que avisa.
+    const diario = nota({
+      path: `Diario/${HOJE2}.md`, title: HOJE2, tipo: 'diario', date: HOJE2,
+      campos: { suplementos_feitos: ['Tomar 3 L de agua'] }
+    })
+    expect(montarCardapio([rotina, diario], HOJE2)[0].detalhe).not.toHaveProperty('feito')
+  })
+
+  it('e uma especie diferente de `tarefa`', () => {
+    // A `tarefa` tem prazo e vive na aba Chegando; a rotina se repete e vive
+    // no Hoje. Publicar as duas sob o mesmo nome faria uma tela mostrar a
+    // outra.
+    const tarefa = nota({
+      path: 'Estudos/Trabalho.md', title: 'Trabalho de historia', tipo: 'tarefa',
+      date: HOJE2, campos: { materia: 'historia' }
+    })
+    const especies = montarCardapio([rotina, tarefa], HOJE2).map(i => i.especie).sort()
+    expect(especies).toEqual(['rotina', 'tarefa'])
+  })
+})
+
+/**
+ * A agua nao e um check: e um numero que sobe.
+ *
+ * A nota guarda o alvo (`meta`) e o tamanho da garrafa (`copo`); o total do
+ * dia vem do diario. Sao coisas de arquivos diferentes que o celular recebe
+ * juntas -- e e aqui que se juntam.
+ */
+describe('hidratacao', () => {
+  const HOJE3 = '2026-09-03'
+  const nascente = nota({
+    path: 'Saude/Hidratacao.md', title: 'Água', tipo: 'hidratacao',
+    campos: { meta: 3500, copo: 800 }
+  })
+
+  it('publica meta e copo, e o total de hoje', () => {
+    const diario = nota({
+      path: `Diario/${HOJE3}.md`, title: HOJE3, tipo: 'diario', date: HOJE3,
+      campos: { agua_ml: 1600 }
+    })
+    expect(montarCardapio([nascente, diario], HOJE3)).toEqual([{
+      especie: 'hidratacao', nome: 'Água',
+      detalhe: { meta: 3500, copo: 800, ml: 1600 }
+    }])
+  })
+
+  it('sem nada bebido, `ml` nao vai -- e ausencia, nao zero', () => {
+    expect(montarCardapio([nascente], HOJE3)[0].detalhe).not.toHaveProperty('ml')
+  })
+
+  it('o total e o de HOJE, nao o de ontem', () => {
+    // O celular pergunta "quanto falta agora". O diario de ontem responderia
+    // outra coisa, e a barra abriria o dia ja cheia.
+    const ontem = nota({
+      path: 'Diario/2026-09-02.md', title: 'ontem', tipo: 'diario',
+      date: '2026-09-02', campos: { agua_ml: 3500 }
+    })
+    expect(montarCardapio([nascente, ontem], HOJE3)[0].detalhe).not.toHaveProperty('ml')
+  })
+
+  it('sem a nota, nao ha secao de hidratacao', () => {
+    // O diario sozinho nao inventa a nascente: sem meta e sem copo nao ha
+    // botao que se possa desenhar.
+    const diario = nota({
+      path: `Diario/${HOJE3}.md`, title: HOJE3, tipo: 'diario', date: HOJE3,
+      campos: { agua_ml: 800 }
+    })
+    expect(montarCardapio([diario], HOJE3)).toEqual([])
+  })
+
+  it('NAO leva junto o resto do diario', () => {
+    // O diario e o arquivo mais intimo do vault: gasto, peso, anotacao do dia.
+    // So `agua_ml` atravessa.
+    const diario = nota({
+      path: `Diario/${HOJE3}.md`, title: HOJE3, tipo: 'diario', date: HOJE3,
+      campos: { agua_ml: 800, peso: 78.4, anotacao: 'briga com o chefe' }
+    })
+    const json = JSON.stringify(montarCardapio([nascente, diario], HOJE3))
+    expect(json).not.toContain('chefe')
+    expect(json).not.toContain('78.4')
   })
 })

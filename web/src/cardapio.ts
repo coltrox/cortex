@@ -78,6 +78,54 @@ export function suplementosDoDia(c: Cardapio, dia: string): ItemCardapio[] {
   })
 }
 
+/**
+ * As tarefas diárias de hoje.
+ *
+ * Mesma regra dos suplementos, e de propósito: no Hoje elas são o mesmo gesto,
+ * logo abaixo. Sem lista de dias significa "todo dia" — que é o padrão útil
+ * para uma rotina, e é o que o Cortex publica quando ninguém marcou dia.
+ */
+export function rotinasDoDia(c: Cardapio, dia: string): ItemCardapio[] {
+  const hoje = diaDaSemana(dia)
+  return c.itens.filter(i => {
+    if (i.especie !== 'rotina') return false
+    const dias = i.detalhe.dias
+    if (!Array.isArray(dias) || dias.length === 0) return true
+    return dias.some(d => String(d) === hoje)
+  })
+}
+
+export type Hidratacao = { nome: string; meta: number; copo: number; ml: number }
+
+/**
+ * A agua do dia: quanto ja foi, a meta, e de quanto e a garrafa.
+ *
+ * Devolve `null` quando não há nota de hidratação no Cortex — e aí a seção
+ * inteira some da tela, em vez de aparecer um contador de uma meta que
+ * ninguém definiu.
+ *
+ * Os padroes existem para o caso de a nota vir sem os numeros: uma garrafa de
+ * 250 ml e um copo comum, e sem meta o contador ainda conta.
+ */
+export function hidratacao(c: Cardapio): Hidratacao | null {
+  const i = c.itens.find(x => x.especie === 'hidratacao')
+  if (!i) return null
+  const n = (v: unknown, padrao: number): number =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : padrao
+  return {
+    nome: i.nome,
+    meta: n(i.detalhe.meta, 0),
+    copo: n(i.detalhe.copo, 250),
+    // O total pode faltar (nenhum gole hoje), e ai e zero.
+    ml: typeof i.detalhe.ml === 'number' && Number.isFinite(i.detalhe.ml) ? i.detalhe.ml : 0
+  }
+}
+
+/** Em litros, com uma casa: "1,6 L" se lê melhor que "1600 ml". */
+export function litros(ml: number): string {
+  return (ml / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' L'
+}
+
 export function refeicoesDoPlano(c: Cardapio): ItemCardapio[] {
   // Na ordem do dia, nao na ordem em que o banco devolveu: o almoco aparecer
   // antes do cafe faz a pessoa procurar na lista o que deveria estar na

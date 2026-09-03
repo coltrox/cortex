@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { SeletorAreas } from './Abertura'
 import { ProtecaoSenha } from './ProtecaoSenha'
+import { lerTema, salvarTema, aplicarTema, type Tema } from '../tema'
 import type { Config } from '../useVault'
 
 /**
@@ -54,6 +55,8 @@ export function Configuracoes({
           </section>
 
           <ProtecaoSenha config={config} aoTrocarConfig={aoTrocarConfig} />
+
+          <BlocoTema />
 
           <BlocoIndice aoRecarregar={aoRecarregar} />
 
@@ -133,6 +136,53 @@ function BlocoIndice({ aoRecarregar }: { aoRecarregar: () => void }) {
       </button>
       {erro && <p className="config-erro">{erro}</p>}
       {recado && <p className="config-recado">{recado}</p>}
+    </section>
+  )
+}
+
+/**
+ * Claro, escuro, ou seguir o sistema.
+ *
+ * Três opções e não um interruptor de dois estados: "seguir o sistema" é o
+ * padrão, e é o que a maioria quer sem saber que quer — quem já deixou o
+ * Windows no escuro não deveria ter de dizer de novo aqui.
+ *
+ * A escolha vale na hora, sem salvar nem fechar nada: trocar o tema é uma
+ * decisão que se avalia olhando, e um botão "salvar" no meio disso obrigaria
+ * a pessoa a confirmar o que ela já está vendo.
+ */
+function BlocoTema() {
+  const [tema, setTema] = useState<Tema>(() => lerTema())
+
+  const escolher = (t: Tema): void => {
+    setTema(t)
+    aplicarTema(t)
+    salvarTema(t)
+  }
+
+  const opcoes: { id: Tema; nome: string; dica: string }[] = [
+    { id: 'sistema', nome: 'Do sistema', dica: 'Acompanha o Windows, inclusive quando ele muda sozinho à noite.' },
+    { id: 'claro', nome: 'Claro', dica: 'Sempre claro, mesmo com o sistema no escuro.' },
+    { id: 'escuro', nome: 'Escuro', dica: 'Sempre escuro, mesmo com o sistema no claro.' }
+  ]
+
+  return (
+    <section className="config-bloco">
+      <h3>Aparência</h3>
+      <div className="config-temas">
+        {opcoes.map(o => (
+          <button
+            key={o.id}
+            className={`config-tema ${tema === o.id ? 'config-tema-ativo' : ''}`}
+            onClick={() => escolher(o.id)}
+            aria-pressed={tema === o.id}
+          >
+            <span className={`config-tema-amostra amostra-${o.id}`} aria-hidden="true" />
+            <span>{o.nome}</span>
+          </button>
+        ))}
+      </div>
+      <p className="form-dica">{opcoes.find(o => o.id === tema)?.dica}</p>
     </section>
   )
 }

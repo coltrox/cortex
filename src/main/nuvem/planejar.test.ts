@@ -375,3 +375,120 @@ describe('planejar — prova e tarefa marcadas do celular', () => {
     expect(planejar({ tipo: 'prova_nova', dia: '2026-09-02', dados: { titulo: ' ' } })).toEqual([])
   })
 })
+
+/**
+ * Desmarcar o check.
+ *
+ * Vai no mesmo tipo de evento com o sinal trocado, e nao num tipo novo: um
+ * tipo novo teria de entrar tambem em `tipos_validos()`, no banco, e isso
+ * exige rodar o SQL do Supabase de novo para o evento fazer exatamente a
+ * mesma coisa ao contrario.
+ */
+describe('planejar — desmarcar suplemento e refeicao', () => {
+  it('feito false tira do conjunto do diario', () => {
+    expect(planejar(ev('suplemento', { nome: 'Creatina', feito: false }))).toEqual([
+      { acao: 'diario-tirar', dia: '2026-08-27', campo: 'suplementos_feitos', valor: 'Creatina' }
+    ])
+    expect(planejar(ev('refeicao_plano', { nome: 'Café', feito: false }))).toEqual([
+      { acao: 'diario-tirar', dia: '2026-08-27', campo: 'dieta_feitas', valor: 'Café' }
+    ])
+  })
+
+  it('sem o campo, marca -- e nao desmarca', () => {
+    // Um evento gravado pelo app do celular ANTES desta mudanca nao carrega
+    // `feito`. Ele pode ter esperado dias na fila sem sinal; tratar a
+    // ausencia como `false` desmarcaria o que a pessoa marcou.
+    expect(planejar(ev('suplemento', { nome: 'Creatina' })))
+      .toEqual([{ acao: 'diario-conjunto', dia: '2026-08-27', campo: 'suplementos_feitos', valor: 'Creatina' }])
+  })
+
+  it('so o booleano false desmarca -- a string "false" nao', () => {
+    // `dados` vem do banco como registro livre. Qualquer coisa que nao seja
+    // exatamente `false` cai no lado seguro, que e marcar.
+    expect(planejar(ev('suplemento', { nome: 'Creatina', feito: 'false' })))
+      .toMatchObject([{ acao: 'diario-conjunto' }])
+    expect(planejar(ev('suplemento', { nome: 'Creatina', feito: 0 })))
+      .toMatchObject([{ acao: 'diario-conjunto' }])
+  })
+
+  it('desmarcar sem nome nao vira operacao', () => {
+    expect(planejar(ev('suplemento', { feito: false }))).toEqual([])
+  })
+})
+
+/**
+ * A tarefa diaria.
+ *
+ * Conjunto proprio no diario (`rotinas_feitas`), e nao o dos suplementos: a
+ * lente Saude conta `suplementos_feitos` para dizer quantos foram tomados no
+ * dia, e "escovar os dentes" entrando ali estragaria essa conta.
+ */
+describe('planejar — tarefa diaria', () => {
+  it('marca no conjunto proprio do diario', () => {
+    expect(planejar(ev('rotina_feita', { nome: 'Tomar 3 L de agua' }))).toEqual([
+      { acao: 'diario-conjunto', dia: '2026-08-27', campo: 'rotinas_feitas', valor: 'Tomar 3 L de agua' }
+    ])
+  })
+
+  it('desmarca com feito false, como o suplemento', () => {
+    expect(planejar(ev('rotina_feita', { nome: 'Tomar 3 L de agua', feito: false }))).toEqual([
+      { acao: 'diario-tirar', dia: '2026-08-27', campo: 'rotinas_feitas', valor: 'Tomar 3 L de agua' }
+    ])
+  })
+
+  it('nao encosta no conjunto dos suplementos', () => {
+    const [op] = planejar(ev('rotina_feita', { nome: 'Escovar os dentes' }))
+    expect(op).toMatchObject({ campo: 'rotinas_feitas' })
+    expect(JSON.stringify(op)).not.toContain('suplementos_feitos')
+  })
+
+  it('sem nome nao vira operacao', () => {
+    expect(planejar(ev('rotina_feita', {}))).toEqual([])
+  })
+})
+
+/**
+ * A agua do dia.
+ *
+ * Soma, e nao substitui: cada garrafa e um evento proprio. Dois aparelhos --
+ * ou o mesmo depois de ficar sem sinal -- mandariam totais diferentes se cada
+ * um enviasse "o total agora e X".
+ */
+describe('planejar — agua', () => {
+  it('cada garrafa soma ao total do dia', () => {
+    expect(planejar(ev('agua', { ml: 800 }))).toEqual([
+      { acao: 'diario-somar', dia: '2026-08-27', campo: 'agua_ml', quanto: 800 }
+    ])
+  })
+
+  it('ml negativo desfaz o toque a mais', () => {
+    expect(planejar(ev('agua', { ml: -800 }))).toEqual([
+      { acao: 'diario-somar', dia: '2026-08-27', campo: 'agua_ml', quanto: -800 }
+    ])
+  })
+
+  it('zero nao vira operacao -- seria uma escrita que nao muda nada', () => {
+    expect(planejar(ev('agua', { ml: 0 }))).toEqual([])
+    expect(planejar(ev('agua', {}))).toEqual([])
+  })
+
+  it('recusa numero absurdo, em vez de contaminar o total', () => {
+    // `dados` vem do banco como registro livre. Um numero fora de escala --
+    // de um app com defeito, ou de quem tenha o id do vault -- estragaria o
+    // total do dia sem ninguem notar. Cinco litros de uma vez ja e mais do
+    // que qualquer garrafa.
+    expect(planejar(ev('agua', { ml: 999999 }))).toEqual([])
+    expect(planejar(ev('agua', { ml: -999999 }))).toEqual([])
+  })
+
+  it('so numero de verdade passa', () => {
+    // String, objeto e NaN nao sao ml. `num()` recusa os tres.
+    expect(planejar(ev('agua', { ml: '800' }))).toEqual([])
+    expect(planejar(ev('agua', { ml: { valor: 800 } }))).toEqual([])
+    expect(planejar(ev('agua', { ml: Number.NaN }))).toEqual([])
+  })
+
+  it('arredonda: ml e numero inteiro', () => {
+    expect(planejar(ev('agua', { ml: 333.7 }))).toMatchObject([{ quanto: 334 }])
+  })
+})

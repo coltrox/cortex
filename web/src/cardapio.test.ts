@@ -3,7 +3,8 @@ import { guardadoDeMemoria } from './guardado'
 import {
   lerCardapio, gravarCardapio, diaDaSemana,
   suplementosDoDia, refeicoesDoPlano, treinos, exerciciosDoTreino,
-  provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, haQuantoTempo
+  provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, haQuantoTempo,
+  hidratacao, litros
 } from './cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from './feitos'
 import type { ItemCardapio } from '@compartilhado/eventos'
@@ -301,5 +302,56 @@ describe('ha quanto tempo os dados chegaram', () => {
     // faria a pessoa achar que o app esta quebrado.
     expect(haQuantoTempo(new Date(base.getTime() + 60_000).toISOString(), base))
       .toBe('agora mesmo')
+  })
+})
+
+describe('a água do dia', () => {
+  const com = (detalhe: Record<string, unknown>) => ({
+    itens: [{ especie: 'hidratacao', nome: 'Água', detalhe }] as ItemCardapio[],
+    atualizadoEm: null
+  })
+
+  it('lê meta, copo e total', () => {
+    expect(hidratacao(com({ meta: 3500, copo: 800, ml: 1600 })))
+      .toEqual({ nome: 'Água', meta: 3500, copo: 800, ml: 1600 })
+  })
+
+  it('sem a nota, a seção inteira some', () => {
+    // `null`, e não um objeto zerado: um contador de uma meta que ninguém
+    // definiu é pior do que seção nenhuma.
+    expect(hidratacao({ itens: ITENS, atualizadoEm: null })).toBeNull()
+  })
+
+  it('sem `ml`, o dia começa em zero', () => {
+    expect(hidratacao(com({ meta: 3500, copo: 800 }))?.ml).toBe(0)
+  })
+
+  it('sem `copo`, o botão ainda existe -- 250 ml é um copo comum', () => {
+    expect(hidratacao(com({ meta: 3500 }))?.copo).toBe(250)
+  })
+
+  it('sem meta, o contador ainda conta -- só não há barra', () => {
+    // `meta: 0` é o sinal que a tela usa para esconder a barra e mostrar só
+    // o total. Contar sem alvo é melhor do que não contar.
+    expect(hidratacao(com({ ml: 800 }))?.meta).toBe(0)
+  })
+
+  it('número torto vira o padrão, em vez de NaN na tela', () => {
+    const h = hidratacao(com({ meta: 'muita', copo: -100, ml: 'dois copos' }))
+    expect(h).toEqual({ nome: 'Água', meta: 0, copo: 250, ml: 0 })
+  })
+})
+
+describe('litros', () => {
+  it('mostra em litros, com vírgula', () => {
+    // O celular é do Pedro: "1,6 L", não "1.6 L".
+    expect(litros(1600)).toBe('1,6 L')
+    expect(litros(3500)).toBe('3,5 L')
+  })
+
+  it('zero e o total redondo também vêm com a casa', () => {
+    // "0 L" e "0,0 L" na mesma tela dançariam a largura do texto a cada gole.
+    expect(litros(0)).toBe('0,0 L')
+    expect(litros(2000)).toBe('2,0 L')
   })
 })

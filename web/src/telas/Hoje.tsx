@@ -1,9 +1,10 @@
-import { useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from '../guardado'
-import { diaLocal, eventoSuplemento, eventoRefeicaoPlano } from '../montar'
-import { suplementosDoDia, refeicoesDoPlano } from '../cardapio'
-import { jaFeitos, marcarFeito } from '../feitos'
+import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua } from '../montar'
+import { suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros } from '../cardapio'
+import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
+import { lerPendente, somarPendente, conciliarPendente, totalNaTela } from '../agua'
 import { Cabecalho, Check, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -54,16 +55,75 @@ export function Hoje(p: {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
 
-  const marcar = (chave: string, montar: () => Evento) => {
-    marcarFeito(guardadoDoNavegador, dia, chave)
-    setFeitos(jaFeitos(guardadoDoNavegador, dia))
-    p.envio.registrar(montar())
-  }
-
   const suplementos = suplementosDoDia(p.cardapio.cardapio, dia)
   const refeicoes = refeicoesDoPlano(p.cardapio.cardapio)
+  const rotinas = rotinasDoDia(p.cardapio.cardapio, dia)
+  /*
+   * A água do dia.
+   *
+   * O total mora no vault, e o pendente é a distância entre o que já foi
+   * tocado e o que o Cortex confirmou — ver `agua.ts`. Não é uma segunda
+   * contagem: com o computador desligado, que é onde o Pedro está quando bebe
+   * água, a volta pelo Cortex não acontece hoje, e sem o pendente o número
+   * ficaria parado a manhã inteira por mais que ele tocasse.
+   */
+  const agua = hidratacao(p.cardapio.cardapio)
+  const [pendente, setPendente] = useState<number>(() => lerPendente(guardadoDoNavegador, dia))
+  const bebido = totalNaTela(agua?.ml ?? 0, pendente)
+
+  /*
+   * Quem manda é o Cortex; a marca local só cobre o intervalo.
+   *
+   * O check agora vem no cardápio (`detalhe.feito`), lido do diário do dia lá
+   * no computador. A marca em `localStorage` existe só para a tela responder
+   * na hora do toque, enquanto o evento não deu a volta — e some assim que o
+   * cardápio volta dizendo a mesma coisa.
+   *
+   * Sem essa limpeza, desmarcar aqui e remarcar NO CORTEX deixaria este
+   * celular mostrando desmarcado até a virada do dia, contra o que o vault diz.
+   */
+  useEffect(() => {
+    const atuais = jaFeitos(guardadoDoNavegador, dia)
+    let mexeu = false
+    const conferir = (chave: string, doCardapio: boolean): void => {
+      const confirmado = doCardapio ? chave : `nao-${chave}`
+      if (atuais.includes(confirmado)) {
+        desmarcarFeito(guardadoDoNavegador, dia, confirmado)
+        mexeu = true
+      }
+    }
+    for (const s of suplementos) conferir(`suplemento:${s.nome}`, s.detalhe.feito === true)
+    for (const r of refeicoes) conferir(`refeicao:${r.nome}`, r.detalhe.feito === true)
+    for (const t of rotinas) conferir(`rotina:${t.nome}`, t.detalhe.feito === true)
+    if (mexeu) setFeitos(jaFeitos(guardadoDoNavegador, dia))
+    // A água acerta a conta pelo mesmo gatilho, só que somando em vez de
+    // comparar: o que o Cortex absorveu sai do pendente.
+    setPendente(conciliarPendente(guardadoDoNavegador, dia, agua?.ml ?? 0))
+    // `feitos` fora das dependências de propósito: o efeito lê do disco, não
+    // do estado, e listá-lo o faria rodar por causa da própria limpeza.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.cardapio.cardapio, dia])
+
+  /** O item está marcado? O cardápio decide; a marca local só adianta. */
+  const estaFeito = (chave: string, doCardapio: boolean): boolean =>
+    !feitos.includes(`nao-${chave}`) && (doCardapio || feitos.includes(chave))
+
+  /** Marcar e desmarcar são o mesmo toque, com o sinal trocado. */
+  const alternar = (chave: string, estava: boolean, montar: (feito: boolean) => Evento): void => {
+    const anti = `nao-${chave}`
+    if (estava) {
+      marcarFeito(guardadoDoNavegador, dia, anti)
+      desmarcarFeito(guardadoDoNavegador, dia, chave)
+    } else {
+      marcarFeito(guardadoDoNavegador, dia, chave)
+      desmarcarFeito(guardadoDoNavegador, dia, anti)
+    }
+    setFeitos(jaFeitos(guardadoDoNavegador, dia))
+    p.envio.registrar(montar(!estava))
+  }
   const { naFila, enviando, avisos } = p.envio.estado
   const vazio = suplementos.length === 0 && refeicoes.length === 0
+    && rotinas.length === 0 && !agua
 
   return (
     <div className="tema-hoje">
@@ -92,8 +152,78 @@ export function Hoje(p: {
             key={s.nome}
             rotulo={s.nome}
             detalhe={<Detalhe partes={[s.detalhe.dose, s.detalhe.quando]} />}
-            feito={feitos.includes(`suplemento:${s.nome}`)}
-            aoMarcar={() => marcar(`suplemento:${s.nome}`, () => eventoSuplemento(s.nome, dia))}
+            feito={estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)}
+            aoMarcar={() => alternar(
+              `suplemento:${s.nome}`,
+              estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true),
+              feito => eventoSuplemento(s.nome, dia, feito)
+            )}
+          />
+        ))}
+
+        {agua && (
+          <>
+            <Secao nome="Hidratação" contagem={agua.meta > 0
+              ? `${litros(bebido)} de ${litros(agua.meta)}`
+              : litros(bebido)} />
+            <div className="agua">
+              {/* A barra trava em 100%: beber a mais que a meta é bom, e uma
+                  barra que vaza para fora da caixa parece defeito. O número
+                  ao lado continua contando a verdade. */}
+              {agua.meta > 0 && (
+                <div className="agua-barra">
+                  <i style={{ width: `${Math.min(100, (bebido / agua.meta) * 100)}%` }} />
+                </div>
+              )}
+              <div className="agua-acoes">
+                <button
+                  className="btn btn-principal"
+                  type="button"
+                  onClick={() => {
+                    setPendente(somarPendente(guardadoDoNavegador, dia, agua.copo))
+                    p.envio.registrar(eventoAgua(agua.copo, dia))
+                  }}
+                >
+                  + {agua.copo} ml
+                </button>
+                {/* Desfazer o toque a mais. Some quando não há o que desfazer:
+                    um botão que não faz nada é pior do que botão nenhum. */}
+                {bebido > 0 && (
+                  <button
+                    className="btn btn-fantasma agua-tirar"
+                    type="button"
+                    aria-label={`tirar ${agua.copo} ml`}
+                    onClick={() => {
+                      // Nunca tira mais do que há: o total na tela não pode
+                      // dizer 0 enquanto um "−800" a mais viaja para o vault.
+                      const quanto = Math.min(agua.copo, bebido)
+                      setPendente(somarPendente(guardadoDoNavegador, dia, -quanto))
+                      p.envio.registrar(eventoAgua(-quanto, dia))
+                    }}
+                  >
+                    −
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Logo abaixo dos suplementos: é o mesmo gesto, e separar as duas
+            listas por uma seção de outra coisa quebraria a sequência de
+            toques de quem abre o app de manhã e desce marcando. */}
+        {rotinas.length > 0 && <Secao nome="Tarefas do dia" />}
+        {rotinas.map(t => (
+          <Check
+            key={t.nome}
+            rotulo={t.nome}
+            detalhe={<Detalhe partes={[t.detalhe.quando]} />}
+            feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
+            aoMarcar={() => alternar(
+              `rotina:${t.nome}`,
+              estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
+              feito => eventoRotina(t.nome, dia, feito)
+            )}
           />
         ))}
 
@@ -103,8 +233,12 @@ export function Hoje(p: {
             key={r.nome}
             rotulo={r.nome}
             detalhe={<Detalhe partes={[r.detalhe.hora, r.detalhe.itens]} />}
-            feito={feitos.includes(`refeicao:${r.nome}`)}
-            aoMarcar={() => marcar(`refeicao:${r.nome}`, () => eventoRefeicaoPlano(r.nome, dia))}
+            feito={estaFeito(`refeicao:${r.nome}`, r.detalhe.feito === true)}
+            aoMarcar={() => alternar(
+              `refeicao:${r.nome}`,
+              estaFeito(`refeicao:${r.nome}`, r.detalhe.feito === true),
+              feito => eventoRefeicaoPlano(r.nome, dia, feito)
+            )}
           />
         ))}
 

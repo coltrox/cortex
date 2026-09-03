@@ -145,6 +145,30 @@ export const FORMULARIOS: Record<string, Formulario> = {
       { k: 'estoque', rotulo: 'Estoque (doses)', tipo: 'numero' }
     ]
   },
+  /*
+   * A água do dia.
+   *
+   * Só a meta e o tamanho da garrafa moram aqui. O quanto já foi bebido vive
+   * no diário do dia, como todo registro — misturar as duas coisas na mesma
+   * nota faria a meta ser reescrita a cada gole.
+   *
+   * Uma nota basta: duas metas de água não querem dizer nada, e o Cortex
+   * publica a primeira que encontrar.
+   */
+  hidratacao: {
+    tipo: 'hidratacao', nome: 'Água do dia', pasta: 'Saude', nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'Nome', tipo: 'texto', obrigatorio: true, placeholder: 'Água' },
+      {
+        k: 'meta', rotulo: 'Meta do dia (ml)', tipo: 'numero', obrigatorio: true,
+        dica: '3,5 litros são 3500.'
+      },
+      {
+        k: 'copo', rotulo: 'Tamanho da garrafa (ml)', tipo: 'numero',
+        dica: 'É o tamanho do botão no celular — cada toque soma isto.'
+      }
+    ]
+  },
   consulta: {
     tipo: 'consulta', nome: 'Consulta', pasta: 'Saude', nomearPor: 'titulo',
     campos: [
@@ -252,6 +276,29 @@ export const FORMULARIOS: Record<string, Formulario> = {
       { k: 'titulo', rotulo: 'Meta', tipo: 'texto', obrigatorio: true, placeholder: 'Chegar em 76 kg' },
       { k: 'date', rotulo: 'Prazo', tipo: 'data' },
       { k: 'prioridade', rotulo: 'Prioridade do momento', tipo: 'bool', dica: 'Aparece no Hoje.' }
+    ]
+  },
+  /*
+   * A tarefa diária.
+   *
+   * Tipo próprio, e não uma `tarefa` sem prazo: a tarefa tem data de entrega e
+   * vive na aba Chegando do celular, some quando é feita e não volta. Esta se
+   * repete, aparece no Hoje ao lado dos suplementos, e amanhã está lá de novo.
+   * Duas coisas diferentes com o mesmo nome acabariam numa tela mostrando a
+   * outra.
+   *
+   * Os campos são os mesmos do suplemento de propósito — é o mesmo gesto na
+   * mesma tela, e o celular desenha os dois com o mesmo componente.
+   */
+  rotina: {
+    tipo: 'rotina', nome: 'Tarefa diária', pasta: 'Vida', nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'O quê', tipo: 'texto', obrigatorio: true, placeholder: 'Tomar 3 L de água' },
+      { k: 'quando', rotulo: 'Quando', tipo: 'select', opcoes: ['manhã', 'tarde', 'noite', 'qualquer hora'] },
+      {
+        k: 'dias', rotulo: 'Dias da semana', tipo: 'dias',
+        dica: 'Sem marcar nenhum, ela aparece todo dia.'
+      }
     ]
   },
   anotacao: {
