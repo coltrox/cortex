@@ -108,7 +108,7 @@ export function useEnvio() {
 
 export type UsoDoCardapio = {
   cardapio: Cardapio
-  atualizar: () => Promise<void>
+  atualizar: (opts?: { comoConexao?: boolean }) => Promise<void>
   erro: string | null
   buscando: boolean
 }
@@ -119,7 +119,23 @@ export function useCardapio(): UsoDoCardapio {
   const [erro, setErro] = useState<string | null>(null)
   const [buscando, setBuscando] = useState(false)
 
-  const atualizar = useCallback(async () => {
+  /*
+   * `comoConexao` é a única hora em que cardápio vazio vira aviso.
+   *
+   * O ID ligado ao vault não é "válido só quando há algo publicado" — ele
+   * fica ligado independente de o Cortex ter publicado algo ainda. Cardápio
+   * vazio e ID errado respondem exatamente igual (lista vazia), e por um
+   * tempo este hook tratava os dois casos como o mesmo aviso vermelho —
+   * inclusive nas buscas de fundo, que rodam a cada dois minutos pelo resto
+   * da vida do app. Um vault recém-criado, ou um dia em que o Cortex não
+   * publicou nada novo, acendia o mesmo alarme de "ID errado?" para sempre.
+   *
+   * A única checagem honesta acontece uma vez, no instante de ligar o ID
+   * (`Ajustes.tsx` chama com `comoConexao: true` logo após salvar) — é o que
+   * o comentário de lá já dizia: "o aviso aparece agora e não amanhã". Fora
+   * desse instante, vazio é estado normal, não motivo de alarme.
+   */
+  const atualizar = useCallback(async (opts?: { comoConexao?: boolean }) => {
     // Conectar ou trocar de vault em Ajustes chama isto logo em seguida; é o
     // ponto certo para a campainha trocar de canal junto.
     reavaliarCampainha()
@@ -130,12 +146,7 @@ export function useCardapio(): UsoDoCardapio {
       const itens = await cliente.listarCardapio()
       gravarCardapio(guardadoDoNavegador, itens, new Date().toISOString())
       setCardapio(lerCardapio(guardadoDoNavegador))
-      // Cardápio vazio quase sempre é id errado, ou Cortex que ainda não
-      // publicou. Dizer isso é melhor do que mostrar uma tela em branco.
-      // A distincao honesta: com id errado e com id certo sem nada publicado o
-      // banco responde igual, lista vazia. Entao a mensagem nomeia as duas
-      // possibilidades em vez de afirmar a errada com seguranca.
-      setErro(itens.length === 0
+      setErro(opts?.comoConexao && itens.length === 0
         ? 'Não veio nada com esse ID. Ou ele está errado, ou o Cortex ainda não subiu seus dados — confira o ID no Cortex, em Configurações → Celular.'
         : null)
     } catch {
