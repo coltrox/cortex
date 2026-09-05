@@ -142,6 +142,42 @@ export function suplementosDoDia(notas: NoteComCampos[], dia: string): NoteComCa
 }
 
 /**
+ * Tarefas diárias que entram num dia.
+ *
+ * Mesma regra dos suplementos, e de propósito: no Hoje as duas listas são o
+ * mesmo gesto, uma embaixo da outra. Sem `dias` declarado vale todo dia — é
+ * o padrão útil para uma rotina, e é o que o celular já entende.
+ */
+export function rotinasDoDia(notas: NoteComCampos[], dia: string): NoteComCampos[] {
+  const semana = diaDaSemana(dia)
+  return notas.filter(n => {
+    if (n.tipo !== 'rotina') return false
+    const d = textos(n.campos.dias)
+    return d.length === 0 || d.includes(semana)
+  })
+}
+
+/* ---------- vida ---------- */
+
+/**
+ * As anotações de um dia, as marcadas na frente.
+ *
+ * Elas nascem no celular e caem em `Vida/`, misturadas com objetivo, compra e
+ * conta. Sem esta leitura, o que se escreveu de manhã no ônibus só reaparece
+ * quem for procurar na lente Vida — que é justamente o que ninguém faz no
+ * meio do dia.
+ */
+export function anotacoesDoDia(notas: NoteComCampos[], dia: string): NoteComCampos[] {
+  return notas
+    .filter(n => n.tipo === 'anotacao' && n.date === dia)
+    .sort((a, b) => {
+      const pa = a.campos.prioridade === true
+      const pb = b.campos.prioridade === true
+      return pa === pb ? a.title.localeCompare(b.title) : pa ? -1 : 1
+    })
+}
+
+/**
  * Calorias e proteína consumidas num dia: as refeições do plano que foram
  * marcadas, mais o que foi comido fora do plano.
  */

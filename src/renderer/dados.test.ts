@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import type { NoteComCampos } from './tipos'
 import {
   corpoAlinhado, extrairTransacoes, porCategoria, saldoPorquinho,
-  suplementosDoDia, totaisDoDia, seriePeso, serieAgua, litros, textos
+  suplementosDoDia, rotinasDoDia, anotacoesDoDia, totaisDoDia,
+  seriePeso, serieAgua, litros, textos
 } from './dados'
 
 /** Nota sintetica com o minimo que as leituras precisam. */
@@ -301,5 +302,66 @@ describe('litros', () => {
   it('zero e total redondo tambem vem com a casa', () => {
     expect(litros(0)).toBe('0,0 L')
     expect(litros(2000)).toBe('2,0 L')
+  })
+})
+
+describe('rotinasDoDia', () => {
+  const escada = nota({ path: 'Vida/Escada.md', title: 'Escada 30 min', tipo: 'rotina',
+    campos: { dias: ['seg', 'ter', 'qua', 'qui', 'sex'] } })
+  const abdomen = nota({ path: 'Vida/Abdomen.md', title: 'Treino de abdomen', tipo: 'rotina' })
+  const ingles = nota({ path: 'Vida/Ingles.md', title: 'Ingles', tipo: 'rotina',
+    campos: { dias: ['sab'] } })
+
+  it('so as do dia da semana', () => {
+    // 2026-09-04 e uma sexta; 2026-09-05, sabado.
+    expect(rotinasDoDia([escada, ingles], '2026-09-04').map(r => r.title)).toEqual(['Escada 30 min'])
+    expect(rotinasDoDia([escada, ingles], '2026-09-05').map(r => r.title)).toEqual(['Ingles'])
+  })
+
+  it('sem `dias` declarado vale todo dia', () => {
+    // Ausencia e "sempre", nao "nunca" -- e o padrao de quem cadastrou sem
+    // pensar em dia da semana, e o mesmo que o celular entende.
+    expect(rotinasDoDia([abdomen], '2026-09-04')).toHaveLength(1)
+    expect(rotinasDoDia([abdomen], '2026-09-05')).toHaveLength(1)
+  })
+
+  it('ignora quem nao e rotina', () => {
+    const suplemento = nota({ path: 's.md', title: 'Creatina', tipo: 'suplemento' })
+    expect(rotinasDoDia([suplemento, abdomen], '2026-09-04').map(r => r.title))
+      .toEqual(['Treino de abdomen'])
+  })
+})
+
+describe('anotacoesDoDia', () => {
+  const hoje = nota({ path: 'Vida/a.md', title: 'Fui bem no simulado', tipo: 'anotacao',
+    date: '2026-09-04', campos: { texto: 'Fui bem no simulado' } })
+  const marcada = nota({ path: 'Vida/b.md', title: 'Ligar pro dentista', tipo: 'anotacao',
+    date: '2026-09-04', campos: { texto: 'Ligar pro dentista', prioridade: true } })
+  const ontem = nota({ path: 'Vida/c.md', title: 'De ontem', tipo: 'anotacao',
+    date: '2026-09-03', campos: { texto: 'De ontem' } })
+
+  it('so as do dia pedido', () => {
+    expect(anotacoesDoDia([hoje, ontem], '2026-09-04').map(a => a.title))
+      .toEqual(['Fui bem no simulado'])
+  })
+
+  it('as marcadas vem na frente', () => {
+    // 'Ligar' vem depois de 'Fui' no alfabeto -- e a prioridade que a sobe.
+    expect(anotacoesDoDia([hoje, marcada], '2026-09-04').map(a => a.title))
+      .toEqual(['Ligar pro dentista', 'Fui bem no simulado'])
+  })
+
+  it('ignora o resto de Vida', () => {
+    // Elas caem em `Vida/`, junto com objetivo, compra e conta -- e nenhum
+    // desses e recado do dia.
+    const compra = nota({ path: 'Vida/n.md', title: 'Notebook', tipo: 'compra', date: '2026-09-04' })
+    const objetivo = nota({ path: 'Vida/o.md', title: '90 kg', tipo: 'objetivo', date: '2026-09-04' })
+    expect(anotacoesDoDia([compra, objetivo, hoje], '2026-09-04').map(a => a.title))
+      .toEqual(['Fui bem no simulado'])
+  })
+
+  it('anotacao sem data nao entra em dia nenhum', () => {
+    const solta = nota({ path: 'Vida/d.md', title: 'Solta', tipo: 'anotacao', date: null })
+    expect(anotacoesDoDia([solta], '2026-09-04')).toEqual([])
   })
 })

@@ -2,7 +2,7 @@ import {
   Cartao, Secao, Titulo, Linha, ListaNotas, Check, Vazio, Progresso,
   moeda, nf, num, txt, lista, textos, porData, type PropsLente
 } from './base'
-import { suplementosDoDia, totaisDoDia } from '../dados'
+import { suplementosDoDia, rotinasDoDia, anotacoesDoDia, totaisDoDia } from '../dados'
 
 /**
  * Hoje.
@@ -50,6 +50,24 @@ export function LenteHoje({
   const suplementos = suplementosDoDia(notas, hoje)
   const tomados = textos(diario?.campos.suplementos_feitos)
 
+  /*
+   * Tarefas do dia e anotações: as duas metades de "como foi hoje?".
+   *
+   * As duas nascem no celular e viviam só lá. A tarefa vinha marcada do
+   * cardápio, mas quem trabalha no computador não tinha onde marcar; e a
+   * anotação escrita de manhã caía em `Vida/`, misturada com objetivo e
+   * compra, e só reaparecia para quem fosse procurar.
+   *
+   * `rotinas_feitas` é o mesmo conjunto que o celular usa — marcar aqui
+   * desmarca lá, e o contrário também. Ver `montarCardapio`.
+   */
+  const rotinas = rotinasDoDia(notas, hoje)
+  const rotinasFeitas = textos(diario?.campos.rotinas_feitas)
+  // Conta só as de hoje: o conjunto do diário pode guardar o nome de uma
+  // rotina de outro dia da semana, e "4/3 feitas" seria um número impossível.
+  const rotinasDeHojeFeitas = rotinas.filter(r => rotinasFeitas.includes(r.title)).length
+  const anotacoes = anotacoesDoDia(notas, hoje)
+
   const compromissosHoje = doDia.filter(n =>
     n.tipo === 'evento' || n.tipo === 'consulta' || n.tipo === 'prova')
   const proximos = notas
@@ -86,6 +104,13 @@ export function LenteHoje({
         <Cartao
           rotulo="Suplementos"
           valor={suplementos.length ? `${tomados.length}/${suplementos.length}` : '—'}
+        />
+        <Cartao
+          rotulo="Tarefas do dia"
+          valor={rotinas.length ? `${rotinasDeHojeFeitas}/${rotinas.length}` : '—'}
+          nota={rotinas.length === 0
+            ? 'nenhuma para hoje'
+            : rotinasDeHojeFeitas === rotinas.length ? 'tudo feito' : undefined}
         />
       </div>
 
@@ -166,6 +191,53 @@ export function LenteHoje({
               </Linha>
             )
           })}
+        </div>
+      )}
+
+      {/* Logo abaixo dos suplementos: é o mesmo gesto, e a mesma pergunta de
+          manhã. Mesma ordem do celular, de propósito — as duas telas mostram
+          a mesma lista, e trocar a ordem faria uma parecer outra coisa. */}
+      <Secao nome="Tarefas do dia" acao="Tarefa diária" aoClicar={() => aoAdicionar('rotina')} />
+      {rotinas.length === 0 ? <Vazio>Nenhuma tarefa para hoje.</Vazio> : (
+        <div className="lista-notas">
+          {rotinas.map(r => {
+            const feito = rotinasFeitas.includes(r.title)
+            return (
+              <Linha key={r.path} aoAbrir={() => aoAbrir(r.path)} aoEditar={() => aoEditar(r)}>
+                <Check feito={feito} rotulo={r.title}
+                  aoAlternar={() => aoMarcarDia(hoje, {
+                    rotinas_feitas: feito
+                      ? rotinasFeitas.filter(f => f !== r.title)
+                      : [...rotinasFeitas, r.title]
+                  })} />
+                <span className="linha-titulo" data-feito={feito}>{r.title}</span>
+                <span className="tipo">{txt(r.campos.quando)}</span>
+              </Linha>
+            )
+          })}
+        </div>
+      )}
+
+      {/* E em seguida o que aconteceu. A tarefa é o que estava para fazer; a
+          anotação é o resto do dia — juntas respondem "como foi hoje?". */}
+      <Secao nome="Anotações de hoje" acao="Anotação" aoClicar={() => aoAdicionar('anotacao', { date: hoje })} />
+      {anotacoes.length === 0 ? <Vazio>Nada anotado hoje.</Vazio> : (
+        <div className="lista-notas">
+          {anotacoes.map(a => (
+            <Linha key={a.path} aoAbrir={() => aoAbrir(a.path)}
+              aoEditar={() => aoEditar(a)} aoExcluir={() => aoExcluir(a)}>
+              {/* A estrela ocupa a coluna do check das listas de cima, para as
+                  linhas não dançarem de indentação entre uma seção e outra. */}
+              <span className="pin" data-vazio={a.campos.prioridade === true ? undefined : 'sim'}>★</span>
+              <span className="linha-titulo">{a.title}</span>
+              {/* O texto completo só quando ele diz mais do que o título — o
+                  celular usa a primeira linha como título, então na maioria
+                  das anotações curtas os dois são a mesma frase. */}
+              <span className="linha-valor">
+                {txt(a.campos.texto) !== a.title ? txt(a.campos.texto) : ''}
+              </span>
+            </Linha>
+          ))}
         </div>
       )}
 

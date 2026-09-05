@@ -1111,6 +1111,10 @@ kbd {
 .btn-fantasma.largo { width: 100%; margin-top: 10px; justify-content: center; text-align: center; }
 
 .pin { color: var(--pale-yel); font-size: 12px; }
+/* A estrela apagada guarda o lugar da acesa: sem ela, as anotações comuns
+   ficariam com o título numa indentação e as marcadas noutra, e a lista
+   inteira dançaria a cada linha. */
+.pin[data-vazio="sim"] { color: var(--border); }
 .grip { color: var(--text-3); font-size: 11px; letter-spacing: -2px; cursor: grab; }
 .secao-total { font-size: 12px; color: var(--text-2); margin-left: auto; margin-right: 8px; }
 
