@@ -198,6 +198,37 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
     })
   }
 
+  /*
+   * As anotações de HOJE, e só as de hoje.
+   *
+   * Elas voltam para o celular para ele mostrar embaixo das tarefas do dia o
+   * que acabou de escrever — sem isto a anotação some no instante em que sai,
+   * e não há como conferir se saiu.
+   *
+   * `hoje` estrito, e não a janela de dois dias das provas: anotação não tem
+   * prazo para cumprir, é o registro do dia. Mandar a semana inteira encheria
+   * a tela do celular de coisa velha e o banco de texto que ninguém lê — o
+   * histórico fica no vault, que é onde histórico mora.
+   *
+   * O texto sobe inteiro, de propósito: uma anotação cortada pela metade não
+   * serve para conferir nada. `validarEvento` já limita a 8 KB na entrada, e
+   * `titulo` e `texto` são os dois únicos campos que uma anotação tem.
+   */
+  for (const n of notas.filter(x => x.tipo === 'anotacao')) {
+    if (txt(n.date) !== hoje) continue
+    out.push({
+      especie: 'anotacao',
+      nome: txt(n.title),
+      detalhe: comValor({
+        path: n.path,
+        texto: txt(n.campos.texto),
+        // Só quando é verdade — uma anotação comum não carrega
+        // `prioridade: false` para o celular só para ele ignorar.
+        prioridade: n.campos.prioridade === true ? true : undefined
+      })
+    })
+  }
+
   for (const n of notas.filter(x => x.tipo === 'tarefa')) {
     if (!aindaInteressa(n.date, hoje)) continue
     out.push({

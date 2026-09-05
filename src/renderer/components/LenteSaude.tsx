@@ -4,7 +4,7 @@ import {
   Cartao, Serie, Secao, Check, Titulo, Linha, ListaNotas, Vazio, Progresso,
   nf, num, txt, lista, textos, porData, type PropsLente
 } from './base'
-import { suplementosDoDia, seriePeso, totaisDoDia } from '../dados'
+import { suplementosDoDia, seriePeso, serieAgua, litros, totaisDoDia } from '../dados'
 
 /**
  * Saúde.
@@ -302,7 +302,126 @@ export function LenteSaude({
           )}
         </>
       )}
+
+      {sub === 'hidratacao' && (
+        <Hidratacao
+          notas={notas} hoje={hoje}
+          aoAdicionar={aoAdicionar} aoEditar={aoEditar} aoAbrir={aoAbrir}
+        />
+      )}
     </div>
+  )
+}
+
+/* ---------- hidratação ---------- */
+
+/**
+ * Quanta água por dia, desde sempre.
+ *
+ * O número do dia já existia — o celular soma e o Cortex grava em `agua_ml`,
+ * no diário — mas não tinha onde ser visto: era um campo dentro de um arquivo
+ * por dia, e ninguém abre trinta arquivos para saber como foi a semana.
+ *
+ * Os dias vêm do mais novo para o mais velho, e não em ordem de quantidade: a
+ * pergunta aqui é "como estou indo", e ela se responde de trás para frente.
+ * (Por isso não usa `Barras`, que ordena pelo valor.)
+ */
+function Hidratacao({ notas, hoje, aoAdicionar, aoEditar, aoAbrir }: {
+  notas: NoteComCampos[]
+  hoje: string
+} & Pick<PropsLente, 'aoAdicionar' | 'aoEditar' | 'aoAbrir'>) {
+  const nota = notas.find(n => n.tipo === 'hidratacao')
+  const meta = num(nota?.campos.meta)
+  const dias = serieAgua(notas)
+  const recentes = [...dias].reverse()
+  const hojeMl = dias.find(d => d.x === hoje)?.y ?? 0
+  const porDia = new Map(
+    notas.filter(n => n.tipo === 'diario' && n.date).map(n => [n.date as string, n.path])
+  )
+
+  // A média ignora hoje: o dia ainda está acontecendo, e um dia pela metade
+  // puxaria a média para baixo toda tarde.
+  const fechados = dias.filter(d => d.x !== hoje)
+  const ultimos = fechados.slice(-7)
+  const media = ultimos.length > 0
+    ? ultimos.reduce((s, d) => s + d.y, 0) / ultimos.length
+    : 0
+  const naMeta = meta > 0 ? fechados.filter(d => d.y >= meta).length : 0
+
+  // A barra de cada dia é medida contra a META, não contra o maior dia da
+  // série: contra o maior, o melhor dia de uma semana ruim desenharia uma
+  // barra cheia, e a tela diria "ótimo" para uma semana inteira abaixo.
+  const escala = meta > 0 ? meta : Math.max(...dias.map(d => d.y), 1)
+
+  return (
+    <>
+      <div className="cartoes">
+        <Cartao
+          rotulo="Hoje" valor={litros(hojeMl)}
+          nota={meta > 0 ? `meta ${litros(meta)}` : 'sem meta definida'}
+        />
+        <Cartao
+          rotulo="Média" valor={ultimos.length > 0 ? litros(media) : '—'}
+          nota={ultimos.length > 0 ? `últimos ${ultimos.length} dias` : undefined}
+        />
+        <Cartao
+          rotulo="Dias na meta" valor={meta > 0 ? String(naMeta) : '—'}
+          nota={meta > 0 ? `de ${fechados.length} registrados` : 'defina uma meta'}
+        />
+        <Cartao
+          rotulo="Garrafa"
+          valor={num(nota?.campos.copo) > 0 ? `${num(nota?.campos.copo)} ml` : '—'}
+          nota={nota?.title}
+        />
+      </div>
+
+      {meta > 0 && (
+        <Progresso feito={hojeMl} total={meta} rotulo={`${litros(hojeMl)} de ${litros(meta)}`} />
+      )}
+
+      <h3 className="secao">Ao longo do tempo</h3>
+      {/* Em litros, e não em ml: o eixo mostra a faixa da série, e
+          "800–3200" com o rótulo "L" seria um número certo com a unidade
+          errada. */}
+      <Serie pontos={dias.map(d => ({ x: d.x, y: d.y / 1000 }))} rotulo="L" />
+
+      <Secao
+        nome="Dia a dia"
+        acao={nota ? undefined : 'Hidratação'}
+        aoClicar={nota ? undefined : () => aoAdicionar('hidratacao')}
+        direita={nota
+          ? <button className="btn-add" onClick={() => aoEditar(nota)}>Mudar meta</button>
+          : undefined}
+      />
+      {recentes.length === 0 ? (
+        <Vazio>
+          Nenhum dia registrado ainda. A conta sobe sozinha quando você toca no
+          botão de água no celular.
+        </Vazio>
+      ) : (
+        <div className="barras">
+          {recentes.map(d => {
+            // O número de um dia mora no diário daquele dia, e é de lá que ele
+            // veio — então a linha abre o arquivo, em vez de só desenhar. É o
+            // caminho para responder "por que bebi tão pouco naquela terça?".
+            const caminho = porDia.get(d.x)
+            return (
+              <div
+                key={d.x}
+                className="barra-linha"
+                data-clicavel={!!caminho}
+                data-ativo={d.x === hoje}
+                onClick={caminho ? () => aoAbrir(caminho) : undefined}
+              >
+                <span className="barra-rotulo">{d.x === hoje ? 'hoje' : d.x}</span>
+                <span className="barra" style={{ width: `${Math.min(100, (d.y / escala) * 100)}%` }} />
+                <span className="barra-valor">{litros(d.y)}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </>
   )
 }
 

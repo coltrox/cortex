@@ -73,6 +73,9 @@ export const TIPOS_NOTA_CARDAPIO = [
   // A meta de água do dia e o tamanho da garrafa. O TOTAL bebido não vem
   // daqui: vem do diário, como todo registro do dia.
   'hidratacao',
+  // A anotação rápida — a que o celular acabou de criar, voltando para ele.
+  // Só as de HOJE sobem; ver `montarCardapio`, que é quem corta.
+  'anotacao',
   // O diário do dia, e SÓ para saber o que já foi marcado hoje: sem ele o
   // celular não teria como saber que um suplemento foi desmarcado aqui no
   // Cortex, porque o check dele vivia apenas na memória do próprio aparelho.
@@ -90,7 +93,12 @@ export const ESPECIES_CARDAPIO = [
   // acabariam numa tela mostrando a outra.
   'rotina',
   // A água do dia: quanto já foi, qual é a meta, e de quanto é a garrafa.
-  'hidratacao'
+  'hidratacao',
+  // A anotação do dia. Não é item de catálogo como as outras espécies: é
+  // registro, e vai para o celular só para ele conseguir MOSTRAR de volta o
+  // que acabou de escrever. Não tem check, não tem prazo, e some na virada
+  // do dia — o histórico fica no vault, que é onde histórico mora.
+  'anotacao'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

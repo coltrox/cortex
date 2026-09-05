@@ -24,7 +24,8 @@ export const SUBS: Partial<Record<Lente, { id: Sub; nome: string }[]>> = {
     { id: 'cardio',      nome: 'Cardio' },
     { id: 'medidas',     nome: 'Medidas' },
     { id: 'dieta',       nome: 'Dieta' },
-    { id: 'suplementos', nome: 'Suplementos' }
+    { id: 'suplementos', nome: 'Suplementos' },
+    { id: 'hidratacao',  nome: 'Hidratação' }
   ],
   conhecimento: [
     { id: 'overview',    nome: 'Panorama' },
