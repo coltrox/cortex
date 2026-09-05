@@ -3,7 +3,8 @@ import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua } from '../montar'
 import {
-  suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros, anotacoesDoDia
+  suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros,
+  anotacoesDoDia, momentoDe
 } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { lerAnotacoes, conciliarAnotacoes } from '../anotacoes'
@@ -241,11 +242,14 @@ export function Hoje(p: {
 
       <div className="bloco">
         {suplementos.length > 0 && <Secao nome="Suplementos" />}
+        {/* Dose primeiro, momento sempre. A dose some quando ninguém escreveu
+            uma; o momento cai para "qualquer hora" em vez de deixar a linha
+            muda — ver `momentoDe`. */}
         {suplementos.map(s => (
           <Check
             key={s.nome}
             rotulo={s.nome}
-            detalhe={<Detalhe partes={[s.detalhe.dose, s.detalhe.quando]} />}
+            detalhe={<Detalhe partes={[s.detalhe.dose, momentoDe(s)]} />}
             feito={estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)}
             aoMarcar={() => alternar(
               `suplemento:${s.nome}`,
@@ -307,11 +311,13 @@ export function Hoje(p: {
             listas por uma seção de outra coisa quebraria a sequência de
             toques de quem abre o app de manhã e desce marcando. */}
         {rotinas.length > 0 && <Secao nome="Tarefas do dia" />}
+        {/* Mesma regra do suplemento, logo acima: a tarefa sem hora marcada é
+            "qualquer hora", e não uma linha sem resposta. */}
         {rotinas.map(t => (
           <Check
             key={t.nome}
             rotulo={t.nome}
-            detalhe={<Detalhe partes={[t.detalhe.quando]} />}
+            detalhe={<Detalhe partes={[momentoDe(t)]} />}
             feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
             aoMarcar={() => alternar(
               `rotina:${t.nome}`,
