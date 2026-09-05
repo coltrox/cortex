@@ -307,8 +307,9 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // `hidratacao` diz a meta e o tamanho da garrafa; o total bebido vem do
     // `diario`, logo acima. Sao dois tipos para uma secao so na tela.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
-      'diario', 'evento', 'hidratacao', 'meta-cofre', 'plano', 'porquinho',
-      'prova', 'rotina', 'simulado', 'suplemento', 'tarefa', 'treino-modelo'
+      'anotacao', 'diario', 'evento', 'hidratacao', 'meta-cofre', 'plano',
+      'porquinho', 'prova', 'rotina', 'simulado', 'suplemento', 'tarefa',
+      'treino-modelo'
     ])
   })
 
@@ -322,7 +323,11 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       evento: nota({ path: 'e.md', title: 'E', tipo: 'evento', date: '2026-09-10' }),
       tarefa: nota({ path: 'f.md', title: 'Ta', tipo: 'tarefa', date: '2026-09-10' }),
       rotina: nota({ path: 'h.md', title: 'Abdomen', tipo: 'rotina' }),
-      hidratacao: nota({ path: 'i.md', title: 'Agua', tipo: 'hidratacao', campos: { meta: 3500 } })
+      hidratacao: nota({ path: 'i.md', title: 'Agua', tipo: 'hidratacao', campos: { meta: 3500 } }),
+      anotacao: nota({
+        path: 'j.md', title: 'Passou o dia', tipo: 'anotacao', date: HOJE,
+        campos: { texto: 'Passou o dia' }
+      })
     }
     for (const [tipo, n] of Object.entries(porTipo)) {
       const c = montarCardapio([n as never], HOJE)
@@ -412,6 +417,60 @@ describe('o que ja foi feito hoje sobe junto', () => {
     })
     const c = montarCardapio([plano, diario({ dieta_feitas: ['Café da manhã'] })], HOJE)
     expect(c.find(i => i.especie === 'refeicao')?.detalhe.feito).toBe(true)
+  })
+})
+
+describe('a anotacao do dia volta para o celular', () => {
+  const HOJE4 = '2026-09-04'
+  const anotacao = (p: { path: string; title: string; date: string | null; campos?: Record<string, unknown> }) =>
+    nota({ path: p.path, title: p.title, tipo: 'anotacao', date: p.date, campos: p.campos })
+
+  it('publica texto e caminho de volta', () => {
+    const c = montarCardapio([anotacao({
+      path: 'Vida/Fui bem no simulado.md', title: 'Fui bem no simulado',
+      date: HOJE4, campos: { texto: 'Fui bem no simulado\nErrei duas de humanas' }
+    })], HOJE4)
+    expect(c).toEqual([{
+      especie: 'anotacao', nome: 'Fui bem no simulado',
+      detalhe: {
+        path: 'Vida/Fui bem no simulado.md',
+        texto: 'Fui bem no simulado\nErrei duas de humanas'
+      }
+    }])
+  })
+
+  it('a marca de prioridade so aparece quando e verdade', () => {
+    const comum = montarCardapio([anotacao({
+      path: 'a.md', title: 'Dormi mal', date: HOJE4, campos: { texto: 'Dormi mal' }
+    })], HOJE4)
+    // Nem `prioridade: false`: seria uma linha em todo item do cardapio para
+    // o celular so ignorar.
+    expect(comum[0].detalhe).not.toHaveProperty('prioridade')
+
+    const marcada = montarCardapio([anotacao({
+      path: 'b.md', title: 'Ligar pro dentista', date: HOJE4,
+      campos: { texto: 'Ligar pro dentista', prioridade: true }
+    })], HOJE4)
+    expect(marcada[0].detalhe.prioridade).toBe(true)
+  })
+
+  it('so as de HOJE sobem', () => {
+    // Anotacao nao tem prazo para cumprir, entao nao ganha a janela de dois
+    // dias das provas: e o registro do dia, e o historico fica no vault.
+    const ontem = anotacao({ path: 'c.md', title: 'Ontem', date: '2026-09-03', campos: { texto: 'Ontem' } })
+    const hoje = anotacao({ path: 'd.md', title: 'Hoje', date: HOJE4, campos: { texto: 'Hoje' } })
+    const semData = anotacao({ path: 'e.md', title: 'Sem data', date: null, campos: { texto: 'Sem data' } })
+
+    expect(montarCardapio([ontem, hoje, semData], HOJE4).map(i => i.nome)).toEqual(['Hoje'])
+  })
+
+  it('sem o campo texto, o titulo salva a linha', () => {
+    // O titulo E a primeira linha da anotacao (ver `planejar.ts`), entao ele
+    // e a melhor aproximacao quando `texto` faltar -- melhor do que publicar
+    // um item cujo conteudo e uma string vazia.
+    const c = montarCardapio([anotacao({ path: 'f.md', title: 'So o titulo', date: HOJE4 })], HOJE4)
+    expect(c[0].detalhe).not.toHaveProperty('texto')
+    expect(c[0].nome).toBe('So o titulo')
   })
 })
 

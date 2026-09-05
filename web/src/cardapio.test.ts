@@ -4,7 +4,7 @@ import {
   lerCardapio, gravarCardapio, diaDaSemana,
   suplementosDoDia, refeicoesDoPlano, treinos, exerciciosDoTreino,
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, haQuantoTempo,
-  hidratacao, litros
+  hidratacao, litros, anotacoesDoDia
 } from './cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from './feitos'
 import type { ItemCardapio } from '@compartilhado/eventos'
@@ -353,5 +353,54 @@ describe('litros', () => {
     // "0 L" e "0,0 L" na mesma tela dançariam a largura do texto a cada gole.
     expect(litros(0)).toBe('0,0 L')
     expect(litros(2000)).toBe('2,0 L')
+  })
+})
+
+describe('anotações do dia', () => {
+  const com = (itens: ItemCardapio[]) => ({ itens, atualizadoEm: null })
+
+  it('sem nenhuma, a lista vem vazia -- não é erro', () => {
+    // A seção some da tela; um dia sem anotação nenhuma é um dia normal.
+    expect(anotacoesDoDia(com(ITENS))).toEqual([])
+  })
+
+  it('traz texto e prioridade', () => {
+    const c = com([{
+      especie: 'anotacao', nome: 'Fui bem no simulado',
+      detalhe: { texto: 'Fui bem no simulado\nErrei duas de humanas', prioridade: true }
+    }])
+    expect(anotacoesDoDia(c)).toEqual([{
+      titulo: 'Fui bem no simulado',
+      texto: 'Fui bem no simulado\nErrei duas de humanas',
+      prioridade: true
+    }])
+  })
+
+  it('sem a marca, prioridade é falsa -- e não `undefined` na tela', () => {
+    const c = com([{ especie: 'anotacao', nome: 'Dormi mal', detalhe: { texto: 'Dormi mal' } }])
+    expect(anotacoesDoDia(c)[0].prioridade).toBe(false)
+  })
+
+  it('sem texto, o título salva a linha', () => {
+    // O título É a primeira linha da anotação, então é a melhor aproximação
+    // -- melhor do que uma linha em branco no meio da lista.
+    const c = com([{ especie: 'anotacao', nome: 'Só o título', detalhe: {} }])
+    expect(anotacoesDoDia(c)[0].texto).toBe('Só o título')
+  })
+
+  it('as marcadas vêm primeiro', () => {
+    const c = com([
+      { especie: 'anotacao', nome: 'A comum', detalhe: { texto: 'A comum' } },
+      { especie: 'anotacao', nome: 'Z urgente', detalhe: { texto: 'Z urgente', prioridade: true } }
+    ])
+    expect(anotacoesDoDia(c).map(a => a.titulo)).toEqual(['Z urgente', 'A comum'])
+  })
+
+  it('ignora as outras espécies', () => {
+    const c = com([
+      ...ITENS,
+      { especie: 'anotacao', nome: 'A única', detalhe: { texto: 'A única' } }
+    ])
+    expect(anotacoesDoDia(c).map(a => a.titulo)).toEqual(['A única'])
   })
 })

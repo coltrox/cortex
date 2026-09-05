@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua } from '../montar'
-import { suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros } from '../cardapio'
+import {
+  suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros, anotacoesDoDia
+} from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
+import { lerAnotacoes, conciliarAnotacoes } from '../anotacoes'
 import { lerPendente, somarPendente, conciliarPendente, totalNaTela } from '../agua'
 import { usePuxarParaAtualizar, progresso, LIMITE } from '../puxar'
 import { Cabecalho, Check, Botao, Aviso, Secao, Detalhe } from '../componentes'
@@ -48,6 +51,29 @@ const ATALHOS: { tela: Tela; nome: string; icone: ReactElement }[] = [
     </svg>) }
 ]
 
+/**
+ * Uma anotação na lista do Hoje.
+ *
+ * Mora aqui, e não em `componentes.tsx`, porque é usada só nesta tela — o
+ * arquivo de componentes é para o que se repete entre telas.
+ *
+ * `soAqui` diz que esta ainda não deu a volta pelo Cortex. É informação, não
+ * erro: sem sinal, ou com o computador desligado, é o estado normal por horas
+ * — e omitir isso faria a anotação parecer guardada no vault quando ela está
+ * só no aparelho.
+ */
+function Anotada(p: { texto: string; prioridade: boolean; soAqui?: boolean }) {
+  return (
+    <div className="anotada" data-prioridade={p.prioridade ? 'sim' : undefined}>
+      {p.prioridade && <span className="anotada-estrela" aria-label="prioridade">★</span>}
+      {/* `pre-wrap` no CSS: a anotação foi escrita num campo de 8 linhas, e
+          amassar as quebras faria a lista de recados virar um parágrafo só. */}
+      <p className="anotada-texto">{p.texto}</p>
+      {p.soAqui && <span className="anotada-marca">só neste aparelho</span>}
+    </div>
+  )
+}
+
 export function Hoje(p: {
   envio: ReturnType<typeof useEnvio>
   cardapio: UsoDoCardapio
@@ -71,6 +97,21 @@ export function Hoje(p: {
   const agua = hidratacao(p.cardapio.cardapio)
   const [pendente, setPendente] = useState<number>(() => lerPendente(guardadoDoNavegador, dia))
   const bebido = totalNaTela(agua?.ml ?? 0, pendente)
+
+  /*
+   * As anotações do dia, de duas fontes que dizem a mesma coisa.
+   *
+   * As do Cortex são as que já viraram nota no vault. As locais são as que
+   * este aparelho escreveu e ainda não voltaram — com o computador desligado,
+   * que é o caso normal quando ele escreve alguma no ônibus, são todas.
+   *
+   * Somar as duas listas sem mais nada duplicaria cada anotação assim que ela
+   * desse a volta; quem tira a cópia local é `conciliarAnotacoes`, no efeito
+   * abaixo. A local aparece marcada "só neste aparelho", que é a verdade
+   * enquanto o Cortex não a recebeu.
+   */
+  const publicadas = anotacoesDoDia(p.cardapio.cardapio)
+  const [locais, setLocais] = useState(() => lerAnotacoes(guardadoDoNavegador, dia))
 
   /*
    * Quem manda é o Cortex; a marca local só cobre o intervalo.
@@ -100,6 +141,8 @@ export function Hoje(p: {
     // A água acerta a conta pelo mesmo gatilho, só que somando em vez de
     // comparar: o que o Cortex absorveu sai do pendente.
     setPendente(conciliarPendente(guardadoDoNavegador, dia, agua?.ml ?? 0))
+    // E a anotação que voltou do vault deixa de ser mostrada pela cópia local.
+    setLocais(conciliarAnotacoes(guardadoDoNavegador, dia, publicadas.map(a => a.texto)))
     // `feitos` fora das dependências de propósito: o efeito lê do disco, não
     // do estado, e listá-lo o faria rodar por causa da própria limpeza.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,6 +179,10 @@ export function Hoje(p: {
   const { naFila, enviando, avisos } = p.envio.estado
   const vazio = suplementos.length === 0 && refeicoes.length === 0
     && rotinas.length === 0 && !agua
+    // Uma anotação escrita aqui já é conteúdo na tela: dizer "nada no
+    // cardápio ainda" logo abaixo dela seria o app contradizendo o que
+    // está mostrando.
+    && publicadas.length === 0 && locais.length === 0
 
   return (
     <div className="tema-hoje">
@@ -272,6 +319,18 @@ export function Hoje(p: {
               feito => eventoRotina(t.nome, dia, feito)
             )}
           />
+        ))}
+
+        {/* Logo abaixo das tarefas: o que estava para fazer, e em seguida o
+            que aconteceu. As duas metades da mesma pergunta — "como foi
+            hoje?" — e é por isso que a lista fica aqui, e não numa aba
+            própria que ninguém abriria. */}
+        {(publicadas.length > 0 || locais.length > 0) && <Secao nome="Anotações de hoje" />}
+        {publicadas.map(a => (
+          <Anotada key={`vault:${a.titulo}`} texto={a.texto} prioridade={a.prioridade} />
+        ))}
+        {locais.map((a, i) => (
+          <Anotada key={`aqui:${i}:${a.texto}`} texto={a.texto} prioridade={a.prioridade} soAqui />
         ))}
 
         {refeicoes.length > 0 && <Secao nome="Refeições" />}

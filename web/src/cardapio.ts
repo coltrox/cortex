@@ -95,6 +95,37 @@ export function rotinasDoDia(c: Cardapio, dia: string): ItemCardapio[] {
   })
 }
 
+export type AnotacaoPublicada = { titulo: string; texto: string; prioridade: boolean }
+
+/**
+ * As anotações que o Cortex devolveu.
+ *
+ * Ele publica só as de hoje (ver `montarCardapio`), então não há data para
+ * filtrar aqui — o que chegou é o que é de hoje.
+ *
+ * Prioridade primeiro, e depois em ordem de título. Ordenar por hora seria
+ * melhor, mas anotação no vault guarda só o DIA: inventar uma ordem
+ * cronológica a partir do que não existe daria uma lista que muda de ordem
+ * sozinha a cada publicação.
+ */
+export function anotacoesDoDia(c: Cardapio): AnotacaoPublicada[] {
+  return c.itens
+    .filter(i => i.especie === 'anotacao')
+    .map(i => ({
+      titulo: i.nome,
+      // Sem `texto` sobra o título, que é a primeira linha dela — melhor do
+      // que uma linha em branco na tela.
+      texto: typeof i.detalhe.texto === 'string' && i.detalhe.texto !== ''
+        ? i.detalhe.texto
+        : i.nome,
+      prioridade: i.detalhe.prioridade === true
+    }))
+    .sort((a, b) =>
+      a.prioridade === b.prioridade
+        ? a.titulo.localeCompare(b.titulo)
+        : a.prioridade ? -1 : 1)
+}
+
 export type Hidratacao = { nome: string; meta: number; copo: number; ml: number }
 
 /**

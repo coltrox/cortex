@@ -125,7 +125,11 @@ begin
                                -- Hoje, ao lado dos suplementos.
                                'rotina',
                                -- A agua do dia: quanto ja foi, a meta e a garrafa.
-                               'hidratacao')
+                               'hidratacao',
+                               -- A anotacao de hoje, voltando para o celular
+                               -- mostrar embaixo das tarefas do dia. So as de
+                               -- hoje sobem; quem corta e montarCardapio.
+                               'anotacao')
         and coalesce(el->>'nome','') <> ''
     ) item
     order by item.especie, item.nome, item.pos desc

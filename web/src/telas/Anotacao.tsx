@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { diaLocal, eventoAnotacao } from '../montar'
+import { guardarAnotacao } from '../anotacoes'
+import { guardadoDoNavegador } from '../guardado'
 import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
@@ -10,8 +12,16 @@ export function Anotacao(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Te
   const [erro, setErro] = useState<string | null>(null)
 
   const enviar = () => {
+    const dia = diaLocal()
     try {
-      p.envio.registrar(eventoAnotacao(texto, diaLocal(), prioridade))
+      p.envio.registrar(eventoAnotacao(texto, dia, prioridade))
+      // A cópia local, para a anotação já estar na lista do Hoje quando esta
+      // tela fechar. O caminho de volta pelo Cortex existe e é o definitivo,
+      // mas depende do computador estar ligado — sem esta linha, escrever uma
+      // anotação com o Cortex desligado devolveria a tela de antes, sem sinal
+      // nenhum de que ela saiu. `conciliarAnotacoes` tira a cópia quando a de
+      // verdade chega.
+      guardarAnotacao(guardadoDoNavegador, dia, texto, prioridade)
       p.irPara('hoje')
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'não deu para registrar')

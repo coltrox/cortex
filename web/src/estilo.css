@@ -265,6 +265,39 @@ body{
 .item + .item{ margin-top:var(--e2); }
 .lista .item + .item{ margin-top:0; }
 
+/* ─────────────── Anotação do dia ─────────────── */
+
+/* Parece um item, mas não é marcável: sem caixa, sem cursor de clique, e o
+   texto ocupando a largura toda. A semelhança é de propósito — a lista do
+   Hoje é uma coluna só, e um cartão de outra forma no meio dela pareceria
+   outra coisa. */
+.anotada{
+  padding:var(--e3) var(--e4);
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--e2);
+}
+.anotada + .anotada, .item + .anotada, .anotada + .item{ margin-top:var(--e2); }
+
+/* A estrela acende a borda inteira, e não só a si mesma: numa lista de
+   recados iguais, um ícone pequeno no canto se perde. */
+.anotada[data-prioridade='sim']{
+  border-color:var(--acento-linha); background:var(--acento-fraco);
+}
+.anotada-estrela{ color:var(--acento); font-size:14px; line-height:1.45; flex:none; }
+
+.anotada-texto{
+  margin:0; flex:1; min-width:0;
+  font:400 15px/1.45 var(--fonte); color:var(--txt);
+  /* Escrita num campo de 8 linhas: amassar as quebras faria a lista de
+     recados virar um parágrafo só. */
+  white-space:pre-wrap; overflow-wrap:anywhere;
+}
+
+.anotada-marca{
+  font:500 11px/1 var(--fonte); letter-spacing:.06em; text-transform:uppercase;
+  color:var(--txt-3); flex:none;
+}
+
 .item-corpo{ min-width:0; flex:1; }
 .item-nome{ font:600 16.5px/1.25 var(--fonte); color:var(--txt);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
