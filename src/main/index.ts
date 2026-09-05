@@ -7,6 +7,7 @@ import { registerIpc, sincronizadorDe } from './ipc/handlers'
 import { ligarCampainha, desligarCampainha } from './nuvem/campainha'
 import { Processos, scriptsDoProjeto } from './dev/processos'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
+import { ehOuContem } from './caminhos'
 
 const session = new Session()
 
@@ -59,6 +60,33 @@ function avisarMudanca(rel: string): void {
  * esse canal.
  */
 async function abrirVault(root: string): Promise<{ root: string; config: ConfigParaRenderer }> {
+  /*
+   * A prateleira dos vaults não é um vault, e nada acima dela também é.
+   *
+   * A guarda fica aqui, e não só no diálogo, porque este é o funil único de
+   * abertura: passam por ele o escolher, o criar e a reabertura do vault
+   * lembrado. Barrar num só dos três deixaria os outros dois abrindo.
+   *
+   * Aconteceu três vezes no mesmo dia. O diálogo abre dentro de
+   * `userData\vaults`, e um clique a mais para cima cai em `vaults`, dois em
+   * `userData`. O Cortex abria aquilo como vault, criava um `.vault` com id
+   * NOVO e espalhava as pastas de área ao redor — no caso de `vaults`, em
+   * volta dos vaults de verdade. E o id novo é o estrago silencioso: o
+   * celular continua publicando no id antigo, este Cortex passa a ouvir o
+   * novo, e o que se marca no celular não volta nunca. Foi assim que a água
+   * do dia parou de atualizar.
+   *
+   * A pergunta é `pastaDosVaults` e não `userData` porque é a mais apertada
+   * das duas e cobre a outra: `vaults` mora dentro de `userData`, então
+   * quem contém `userData` contém `vaults` também. `vaults\Cortex`, que fica
+   * ABAIXO, continua passando — é o lugar certo.
+   */
+  if (ehOuContem(root, pastaDosVaults())) {
+    throw new Error(
+      'Essa é a pasta onde o Cortex guarda os próprios arquivos, não um vault. ' +
+      `Os vaults ficam DENTRO de ${pastaDosVaults()} — escolha um de lá, ou crie um novo.`
+    )
+  }
   await session.open(root, avisarMudanca)
   await lembrarVault(session.vault.root)
   ligarCampainha(session.config, aoTocarCampainha)
