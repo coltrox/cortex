@@ -95,6 +95,22 @@ export function rotinasDoDia(c: Cardapio, dia: string): ItemCardapio[] {
   })
 }
 
+/**
+ * O momento de tomar (ou de fazer), que nunca some da tela.
+ *
+ * A dose some quando não existe — "6 g" só faz sentido se alguém escreveu 6 g.
+ * O momento não: um item sem `quando` não é um item sem hora, é um item que
+ * pode ser a qualquer hora, e a linha em branco fazia parecer falta de dado.
+ *
+ * "qualquer hora" é o vocabulário que o próprio Cortex já usa nas rotinas
+ * (ver as opções de `quando` em `formularios.tsx`), então a tela não inventa
+ * palavra nova para dizer a mesma coisa.
+ */
+export function momentoDe(i: ItemCardapio): string {
+  const q = i.detalhe.quando
+  return typeof q === 'string' && q.trim() !== '' ? q : 'qualquer hora'
+}
+
 export type AnotacaoPublicada = { titulo: string; texto: string; prioridade: boolean }
 
 /**
