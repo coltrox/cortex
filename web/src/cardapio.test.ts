@@ -4,7 +4,7 @@ import {
   lerCardapio, gravarCardapio, diaDaSemana,
   suplementosDoDia, refeicoesDoPlano, treinos, exerciciosDoTreino,
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, haQuantoTempo,
-  hidratacao, litros, anotacoesDoDia
+  hidratacao, litros, anotacoesDoDia, momentoDe
 } from './cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from './feitos'
 import type { ItemCardapio } from '@compartilhado/eventos'
@@ -402,5 +402,33 @@ describe('anotações do dia', () => {
       { especie: 'anotacao', nome: 'A única', detalhe: { texto: 'A única' } }
     ])
     expect(anotacoesDoDia(c).map(a => a.titulo)).toEqual(['A única'])
+  })
+})
+
+describe('o momento de tomar', () => {
+  const item = (detalhe: Record<string, unknown>): ItemCardapio =>
+    ({ especie: 'suplemento', nome: 'X', detalhe })
+
+  it('mostra o que foi escrito', () => {
+    expect(momentoDe(item({ quando: 'pré-treino' }))).toBe('pré-treino')
+  })
+
+  it('sem `quando`, vira "qualquer hora" -- e não linha vazia', () => {
+    // O caso real: a Creatina tinha dose e nenhum horário, e a linha mostrava
+    // só "6 g"; a Vitamina D não tinha nenhum dos dois e não mostrava nada.
+    // Item sem horário não é item sem resposta -- é item a qualquer hora.
+    expect(momentoDe(item({ dose: '6 g' }))).toBe('qualquer hora')
+    expect(momentoDe(item({}))).toBe('qualquer hora')
+  })
+
+  it('texto em branco conta como ausente', () => {
+    // Um select limpo no Cortex grava string vazia, não remove o campo.
+    expect(momentoDe(item({ quando: '   ' }))).toBe('qualquer hora')
+  })
+
+  it('valor de outro tipo não vai torto para a tela', () => {
+    // Vem do banco, que é dado de fora: um número aqui viraria "[object]" na
+    // linha do suplemento.
+    expect(momentoDe(item({ quando: 7 }))).toBe('qualquer hora')
   })
 })
