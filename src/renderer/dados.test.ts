@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { NoteComCampos } from './tipos'
 import {
   corpoAlinhado, extrairTransacoes, porCategoria, saldoPorquinho,
-  suplementosDoDia, totaisDoDia, seriePeso, textos
+  suplementosDoDia, totaisDoDia, seriePeso, serieAgua, litros, textos
 } from './dados'
 
 /** Nota sintetica com o minimo que as leituras precisam. */
@@ -245,5 +245,61 @@ describe('textos', () => {
   })
   it('separa string por virgula e limpa espacos', () => {
     expect(textos(' a , b ')).toEqual(['a', 'b'])
+  })
+})
+
+describe('serieAgua', () => {
+  it('junta o total de cada dia, do mais antigo ao mais novo', () => {
+    // O historico ja existia -- um `agua_ml` por diario -- so nao tinha onde
+    // aparecer. Isto e o que a aba Hidratacao desenha.
+    const ns = [
+      nota({ path: 'd2.md', tipo: 'diario', date: '2026-09-03', campos: { agua_ml: 3200 } }),
+      nota({ path: 'd1.md', tipo: 'diario', date: '2026-09-02', campos: { agua_ml: 800 } }),
+      nota({ path: 'd3.md', tipo: 'diario', date: '2026-09-04', campos: { agua_ml: 2400 } })
+    ]
+    expect(serieAgua(ns)).toEqual([
+      { x: '2026-09-02', y: 800 },
+      { x: '2026-09-03', y: 3200 },
+      { x: '2026-09-04', y: 2400 }
+    ])
+  })
+
+  it('dia sem o campo fica de fora, e nao entra como zero', () => {
+    // "Nao registrei" e "nao bebi nada" sao coisas diferentes. Um zero
+    // inventado afundaria a media de qualquer semana sem sinal.
+    const ns = [
+      nota({ path: 'd1.md', tipo: 'diario', date: '2026-09-02', campos: { agua_ml: 2000 } }),
+      nota({ path: 'd2.md', tipo: 'diario', date: '2026-09-03', campos: {} })
+    ]
+    expect(serieAgua(ns).map(p => p.x)).toEqual(['2026-09-02'])
+  })
+
+  it('so o diario conta -- `agua_ml` em outra nota nao entra', () => {
+    // Diferente de `seriePeso`, que junta peso de qualquer nota: o total do
+    // dia e do diario, e so ele tem um por dia.
+    const ns = [
+      nota({ path: 'x.md', tipo: 'nota', date: '2026-09-02', campos: { agua_ml: 9000 } }),
+      nota({ path: 'd.md', tipo: 'diario', date: '2026-09-02', campos: { agua_ml: 2000 } })
+    ]
+    expect(serieAgua(ns)).toEqual([{ x: '2026-09-02', y: 2000 }])
+  })
+
+  it('diario sem data fica de fora', () => {
+    const ns = [nota({ path: 'd.md', tipo: 'diario', date: null, campos: { agua_ml: 2000 } })]
+    expect(serieAgua(ns)).toEqual([])
+  })
+})
+
+describe('litros', () => {
+  it('mostra em litros, com virgula -- igual ao app web', () => {
+    // As duas telas mostram o mesmo numero do mesmo dia. Uma dizendo "2,4 L"
+    // e a outra "2.400 ml" faz a pessoa desconfiar de qual esta certa.
+    expect(litros(1600)).toBe('1,6 L')
+    expect(litros(3500)).toBe('3,5 L')
+  })
+
+  it('zero e total redondo tambem vem com a casa', () => {
+    expect(litros(0)).toBe('0,0 L')
+    expect(litros(2000)).toBe('2,0 L')
   })
 })

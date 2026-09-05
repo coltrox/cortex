@@ -168,6 +168,39 @@ export function totaisDoDia(
  * Lê `peso` de QUALQUER nota com data — nota de medida, diário, o que for.
  * Quem registra não precisa saber de onde o gráfico lê.
  */
+/**
+ * Quanta água por dia, do mais antigo para o mais novo.
+ *
+ * A fonte é o diário, um arquivo por dia — então o histórico já existia desde
+ * sempre, só não tinha onde aparecer. Cada `agua_ml` é o total do dia, somado
+ * pelos eventos que o celular manda; ver `planejar.ts`.
+ *
+ * Dia sem o campo fica de fora, e não entra como zero: "não registrei" e
+ * "não bebi nada" são coisas diferentes, e um zero inventado afundaria a
+ * média de qualquer semana em que o celular ficou sem sinal.
+ */
+export function serieAgua(notas: NoteComCampos[]): { x: string; y: number }[] {
+  return notas
+    .filter(n => n.tipo === 'diario' && n.date && typeof n.campos.agua_ml !== 'undefined')
+    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+    .map(n => ({ x: n.date as string, y: num(n.campos.agua_ml) }))
+}
+
+/**
+ * Em litros, com uma casa: "1,6 L" se lê melhor que "1600 ml".
+ *
+ * Mesma forma da `litros` do app web (`web/src/cardapio.ts`). São duas
+ * cópias de propósito — o app web não importa nada do renderer —, mas a
+ * forma tem que bater: os dois mostram o mesmo número do mesmo dia, e uma
+ * tela dizendo "2,4 L" e a outra "2.400 ml" faz a pessoa desconfiar de qual
+ * das duas está certa.
+ */
+export function litros(ml: number): string {
+  return (ml / 1000).toLocaleString('pt-BR', {
+    minimumFractionDigits: 1, maximumFractionDigits: 1
+  }) + ' L'
+}
+
 export function seriePeso(notas: NoteComCampos[]): { x: string; y: number }[] {
   return notas
     .filter(n => n.date && typeof n.campos.peso !== 'undefined')
