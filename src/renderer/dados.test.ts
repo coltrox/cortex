@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { NoteComCampos } from './tipos'
 import {
   corpoAlinhado, extrairTransacoes, porCategoria, saldoPorquinho,
-  suplementosDoDia, rotinasDoDia, anotacoesDoDia, totaisDoDia,
+  suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia,
   seriePeso, serieAgua, litros, textos
 } from './dados'
 
@@ -363,5 +363,60 @@ describe('anotacoesDoDia', () => {
   it('anotacao sem data nao entra em dia nenhum', () => {
     const solta = nota({ path: 'Vida/d.md', title: 'Solta', tipo: 'anotacao', date: null })
     expect(anotacoesDoDia([solta], '2026-09-04')).toEqual([])
+  })
+})
+
+describe('datasComemorativas', () => {
+  const HOJE = '2026-09-07'
+
+  it('junta a nota propria e o aniversario da pessoa', () => {
+    // Duas fontes de proposito: sem a segunda, cadastrar alguem e depois
+    // criar a data dela seria digitar o mesmo nome duas vezes -- e foi assim
+    // que um aniversario acabou escrito dentro do campo `papel`.
+    const ns = [
+      nota({ path: 'Agenda/Casamento.md', title: 'Casamento', tipo: 'data-comemorativa',
+        campos: { dia: 20, mes: 9, ano: 2015, oque: 'casamento' } }),
+      nota({ path: 'Vida/Mae.md', title: 'Minha mae', tipo: 'pessoa',
+        campos: { nascimento_dia: 12, nascimento_mes: 9, nascimento_ano: 1970 } })
+    ]
+    const d = datasComemorativas(ns, HOJE)
+    expect(d.map(x => x.titulo)).toEqual(['Aniversário — Minha mae', 'Casamento'])
+    expect(d[0].quando).toBe('2026-09-12')
+    expect(d[1].anos).toBe(11)
+  })
+
+  it('ordena pelo mais proximo', () => {
+    const ns = [
+      nota({ path: 'a.md', title: 'Depois', tipo: 'data-comemorativa', campos: { dia: 30, mes: 9 } }),
+      nota({ path: 'b.md', title: 'Antes', tipo: 'data-comemorativa', campos: { dia: 10, mes: 9 } })
+    ]
+    expect(datasComemorativas(ns, HOJE).map(x => x.titulo)).toEqual(['Antes', 'Depois'])
+  })
+
+  it('fora da janela nao aparece', () => {
+    // Trinta aniversarios inteiros em toda tela nao ajudam ninguem.
+    const ns = [nota({ path: 'a.md', title: 'Longe', tipo: 'data-comemorativa',
+      campos: { dia: 1, mes: 3 } })]
+    expect(datasComemorativas(ns, HOJE, 60)).toEqual([])
+    expect(datasComemorativas(ns, HOJE, 200)).toHaveLength(1)
+  })
+
+  it('pessoa sem data de nascimento nao entra', () => {
+    // E o caso normal de quem foi cadastrado so pelo telefone.
+    const ns = [nota({ path: 'p.md', title: 'Fisio', tipo: 'pessoa',
+      campos: { telefone: '19 99999-0000' } })]
+    expect(datasComemorativas(ns, HOJE)).toEqual([])
+  })
+
+  it('data impossivel no frontmatter nao vira linha', () => {
+    const ns = [nota({ path: 'a.md', title: 'Torta', tipo: 'data-comemorativa',
+      campos: { dia: 31, mes: 2 } })]
+    expect(datasComemorativas(ns, HOJE)).toEqual([])
+  })
+
+  it('sem ano de origem, nao inventa idade', () => {
+    const ns = [nota({ path: 'a.md', title: 'Sem ano', tipo: 'data-comemorativa',
+      campos: { dia: 20, mes: 9 } })]
+    expect(datasComemorativas(ns, HOJE)[0].anos).toBeNull()
   })
 })

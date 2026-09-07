@@ -331,7 +331,14 @@ export const FORMULARIOS: Record<string, Formulario> = {
     campos: [
       { k: 'titulo', rotulo: 'Nome', tipo: 'texto', obrigatorio: true },
       { k: 'papel', rotulo: 'Papel', tipo: 'texto', placeholder: 'nutricionista, fisio…' },
-      { k: 'telefone', rotulo: 'Telefone', tipo: 'texto' }
+      { k: 'telefone', rotulo: 'Telefone', tipo: 'texto' },
+      // Sem estes dois, o jeito de guardar um aniversário era escrever
+      // "aniversário 27/09" dentro do campo `papel` — foi o que uma usuária
+      // acabou fazendo. Aqui eles alimentam a agenda sozinhos.
+      { k: 'nascimento_dia', rotulo: 'Nasceu — dia', tipo: 'numero' },
+      { k: 'nascimento_mes', rotulo: 'Nasceu — mês', tipo: 'numero' },
+      { k: 'nascimento_ano', rotulo: 'Nasceu — ano', tipo: 'numero',
+        dica: 'Opcional. Com ele aparece quantos anos a pessoa faz.' }
     ]
   },
   documento: {
@@ -362,10 +369,34 @@ export const FORMULARIOS: Record<string, Formulario> = {
   evento: {
     tipo: 'evento', nome: 'Compromisso', pasta: 'Agenda', nomearPor: 'titulo',
     campos: [
-      { k: 'titulo', rotulo: 'O quê', tipo: 'texto', obrigatorio: true, placeholder: 'Aniversário da Ana' },
+      // O exemplo aqui era "Aniversário da Ana", e ensinava o uso errado:
+      // aniversário volta todo ano e compromisso não. Quem seguia o exemplo
+      // recadastrava tudo em janeiro. Agora existe `data-comemorativa`.
+      { k: 'titulo', rotulo: 'O quê', tipo: 'texto', obrigatorio: true, placeholder: 'Reunião na escola' },
       { k: 'date', rotulo: 'Data', tipo: 'data', obrigatorio: true },
       { k: 'hora', rotulo: 'Hora', tipo: 'hora' },
       { k: 'local', rotulo: 'Onde', tipo: 'texto' },
+      { k: 'nota', rotulo: 'Detalhes', tipo: 'longo' }
+    ]
+  },
+  'data-comemorativa': {
+    tipo: 'data-comemorativa', nome: 'Data comemorativa', pasta: 'Agenda',
+    nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'De quem, ou de quê', tipo: 'texto', obrigatorio: true,
+        placeholder: 'Aniversário da minha mãe' },
+      // Dia e mês separados, e não um campo de data: o ano de uma data que
+      // se repete não é "quando ela acontece", é "quando ela começou".
+      { k: 'dia', rotulo: 'Dia', tipo: 'numero', obrigatorio: true },
+      { k: 'mes', rotulo: 'Mês', tipo: 'numero', obrigatorio: true },
+      { k: 'ano', rotulo: 'Ano em que começou', tipo: 'numero',
+        dica: 'Opcional. Com ele o Cortex mostra quantos anos faz.' },
+      {
+        k: 'oque', rotulo: 'O que é', tipo: 'select',
+        opcoes: ['aniversário', 'casamento', 'formatura', 'falecimento', 'outro']
+      },
+      { k: 'pessoa', rotulo: 'Pessoa', tipo: 'texto',
+        dica: 'O nome da nota de pessoa, para ligar as duas.' },
       { k: 'nota', rotulo: 'Detalhes', tipo: 'longo' }
     ]
   },
