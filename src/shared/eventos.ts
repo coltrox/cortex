@@ -35,7 +35,15 @@ export const TIPOS_EVENTO = [
   // Agua bebida, em ml. Nao e um check: cada garrafa SOMA ao total do dia, e
   // um `ml` negativo desfaz o gole registrado sem querer. Por isso tem tipo
   // proprio em vez de virar mais uma `rotina`.
-  'agua'
+  'agua',
+  // A sessao de estudo: materia, minutos e, quando houve, questoes e acertos.
+  //
+  // Vira LINHA no diario do dia, e nao nota propria: estudar duas vezes no
+  // mesmo dia e o caso normal, e uma nota por dia faria a segunda sessao
+  // sobrescrever a primeira. Da lista sai a conta de horas por dia e por
+  // semana -- o dado que nao existia, e sem o qual todo grafico de estudo
+  // seria um grafico de zero.
+  'estudo'
 ] as const
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number]
@@ -102,11 +110,28 @@ export const ESPECIES_CARDAPIO = [
   'rotina',
   // A água do dia: quanto já foi, qual é a meta, e de quanto é a garrafa.
   'hidratacao',
-  // A anotação do dia. Não é item de catálogo como as outras espécies: é
-  // registro, e vai para o celular só para ele conseguir MOSTRAR de volta o
-  // que acabou de escrever. Não tem check, não tem prazo, e some na virada
-  // do dia — o histórico fica no vault, que é onde histórico mora.
-  'anotacao'
+  // A anotação. Não é item de catálogo como as outras espécies: é registro, e
+  // vai para o celular para ele conseguir MOSTRAR de volta o que foi
+  // escrito. Sobem TODAS; quem corta pelo dia é a tela.
+  'anotacao',
+  /*
+   * Uma área ligada no Cortex — `saude`, `conhecimento`, `financas`…
+   *
+   * Não é conteúdo: é o mapa do que o dono escolheu usar. O celular espelha
+   * a escolha feita no computador, e uma área desligada não aparece por lá —
+   * nem a tela, nem o atalho, nem a seção no Hoje.
+   *
+   * Vai como um item por área, e não uma lista dentro de um item, porque o
+   * cardápio é uma tabela com chave (especie, nome) no banco: uma lista
+   * dentro de `detalhe` seria um campo que o banco não sabe indexar nem
+   * deduplicar, e a espécie inteira viraria uma linha só que se sobrescreve.
+   *
+   * NENHUM item desta espécie quer dizer "não sei" — Cortex antigo, ou SQL
+   * ainda não rodado —, e aí o celular mostra tudo. Ausência não pode
+   * significar "desligue tudo": isso apagaria o app inteiro de quem só
+   * esqueceu de atualizar.
+   */
+  'area'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

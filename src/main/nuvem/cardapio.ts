@@ -167,8 +167,28 @@ function corpoPublicavel(corpo: string | undefined): string | undefined {
   return t.length <= TETO_CORPO ? t : t.slice(0, TETO_CORPO) + '\n\n… (cortado)'
 }
 
-export function montarCardapio(notas: NotaParaCardapio[], hoje: string): ItemCardapio[] {
+/**
+ * Monta o cardápio.
+ *
+ * `areasLigadas` são as áreas que o dono marcou no Cortex (ver `AREAS` em
+ * `main/config.ts`). Elas viajam para o celular espelharem a mesma escolha:
+ * quem não liga Estudos não vê nada de estudos no app do celular — nem tela,
+ * nem atalho, nem seção. O parâmetro é obrigatório de propósito, para que
+ * esquecer de passá-lo seja erro de compilação e não uma tela vazia.
+ */
+export function montarCardapio(
+  notas: NotaParaCardapio[], hoje: string, areasLigadas: string[]
+): ItemCardapio[] {
   const out: ItemCardapio[] = []
+
+  /*
+   * As áreas ligadas, uma por item.
+   *
+   * Um item por área, e não uma lista dentro de um item, porque o cardápio é
+   * uma tabela com chave `(especie, nome)` no banco — uma lista dentro de
+   * `detalhe` viraria uma linha só, que se sobrescreve.
+   */
+  for (const a of areasLigadas) out.push({ especie: 'area', nome: a, detalhe: {} })
 
   /*
    * O que já foi marcado HOJE, lido do diário do dia.
@@ -340,27 +360,54 @@ export function montarCardapio(notas: NotaParaCardapio[], hoje: string): ItemCar
    * serve para conferir nada. `validarEvento` já limita a 8 KB na entrada, e
    * `titulo` e `texto` são os dois únicos campos que uma anotação tem.
    */
-  for (const n of notas.filter(x => x.tipo === 'anotacao')) {
+  /*
+   * TODAS as anotações — e não só as de hoje.
+   *
+   * Antes o corte era aqui: só subia `date === hoje` ou sem data. Isso fazia
+   * do celular uma janela para o dia, e a anotação de terça-feira sumia na
+   * quarta mesmo continuando no vault. Agora sobem todas, e quem decide o
+   * que mostrar é a TELA: o Hoje filtra pelo dia, a tela Notas mostra o
+   * conjunto. Separar assim tira uma regra de produto de dentro do
+   * publicador, que é o lugar onde ela era invisível.
+   *
+   * O que NÃO mudou é o corte de segurança: pasta protegida continua fora,
+   * porque uma anotação em `Vida/Contas` fala do que está guardado lá e o
+   * nome dela já entrega o assunto.
+   *
+   * Ordem: permanente primeiro, depois da mais nova para a mais velha. É
+   * essa ordem que o teto embaixo corta — se um dia houver anotação demais,
+   * o que se perde é a mais antiga, nunca a que fica.
+   */
+  const anotacoes = notas
+    .filter(x => x.tipo === 'anotacao' && !emPastaProtegida(x.path))
+    .sort((a, b) => {
+      const da = txt(a.date)
+      const db = txt(b.date)
+      if (!da !== !db) return da ? 1 : -1
+      if (da !== db) return db.localeCompare(da)
+      return txt(a.title).localeCompare(txt(b.title))
+    })
     /*
-     * As de hoje, e as que não têm data.
+     * Teto de anotações publicadas.
      *
-     * Antes era só `date === hoje`, e isso escondia uma classe inteira de
-     * anotação: a permanente. Quem escreve "senha do wifi da casa da minha
-     * mãe" não põe data nisso — não é registro do dia, é coisa para
-     * consultar. Sem data, a nota nunca casava com `hoje` e nunca subia,
-     * então o celular jamais a via. Com data, continua valendo o dia: um
-     * diário de anotações antigas encheria a tela de coisa velha.
+     * Hoje são três, e por muito tempo serão poucas. O teto existe porque
+     * esta lista passou a crescer para sempre: sem ele, daqui a dois anos o
+     * cardápio inteiro viaja a cada publicação e o celular baixa tudo por
+     * causa de uma marcação de água.
      */
+    .slice(0, 300)
+
+  for (const n of anotacoes) {
     const data = txt(n.date)
-    if (data && data !== hoje) continue
-    // Nem o título: uma anotação guardada em `Vida/Contas` fala do que está
-    // guardado lá, e o nome dela já entrega o assunto.
-    if (emPastaProtegida(n.path)) continue
     out.push({
       especie: 'anotacao',
       nome: txt(n.title),
       detalhe: comValor({
         path: n.path,
+        // A data agora VIAJA: é com ela que a tela separa o recado de hoje
+        // do de semana passada. Sem ela o celular receberia tudo junto e não
+        // teria como voltar a mostrar só o dia.
+        data: data || undefined,
         texto: txt(n.campos.texto),
         // Só quando é verdade — uma anotação comum não carrega
         // `prioridade: false` para o celular só para ele ignorar.

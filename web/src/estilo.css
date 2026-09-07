@@ -76,6 +76,11 @@
 .tema-treino  { --acento:#f08a4b; --acento-fraco:rgba(240,138,75,.14);  --acento-linha:rgba(240,138,75,.34);  }
 .tema-agenda  { --acento:#9b8ef2; --acento-fraco:rgba(155,142,242,.15); --acento-linha:rgba(155,142,242,.34); }
 .tema-dinheiro{ --acento:#d9b357; --acento-fraco:rgba(217,179,87,.14);  --acento-linha:rgba(217,179,87,.34);  }
+/* Verde para estudo e rosa para as notas — as duas cores que faltavam na
+   roda, para nenhuma tela dividir acento com outra. Tela que empresta a cor
+   de outra parece a mesma tela com o título trocado. */
+.tema-estudo  { --acento:#5ec98a; --acento-fraco:rgba(94,201,138,.14);  --acento-linha:rgba(94,201,138,.34);  }
+.tema-vida    { --acento:#e08fb4; --acento-fraco:rgba(224,143,180,.14); --acento-linha:rgba(224,143,180,.34); }
 
 *,*::before,*::after{ box-sizing:border-box; }
 
@@ -389,6 +394,33 @@ body{
   border-color:var(--acento-linha); background:var(--acento-fraco);
 }
 .anotada-estrela{ color:var(--acento); font-size:14px; line-height:1.45; flex:none; }
+
+/* A nota na tela Notas.
+ *
+ * Parecida com `.anotada` do Hoje, e de propósito NÃO é a mesma classe: lá
+ * ela é um recado do dia numa lista curta; aqui é item de um arquivo que
+ * cresce, com seta de abrir à direita. O que muda é a estrutura, não o
+ * enfeite — reaproveitar a classe obrigaria a desfazer metade dela.
+ */
+.nota{
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  overflow:hidden;
+}
+.nota + .nota{ margin-top:var(--e2); }
+.nota[data-prioridade='sim']{
+  border-color:var(--acento-linha); background:var(--acento-fraco);
+}
+.nota-linha{ display:flex; align-items:stretch; }
+.nota-corpo{
+  flex:1; min-width:0;
+  padding:var(--e3) var(--e4);
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--e2);
+}
+/* O texto aberto encosta no cartão em vez de flutuar embaixo dele: aqui os
+   dois são a mesma nota, e não uma tarefa mais o passo a passo dela. */
+.nota .corpo-texto{
+  margin:0; border:none; border-top:1px solid var(--borda); border-radius:0;
+}
 
 .anotada-texto{
   margin:0; flex:1; min-width:0;

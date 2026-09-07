@@ -127,6 +127,36 @@ export function eventoRefeicaoExtra(
   })
 }
 
+/**
+ * Uma sessão de estudo que já aconteceu.
+ *
+ * Registrar DEPOIS, e não um cronômetro: no cursinho das 14h ninguém vai
+ * mexer no celular para apertar começar, e um cronômetro esquecido ligado
+ * grava seis horas de estudo que não houve — pior do que não ter o dado.
+ *
+ * `questoes` e `acertos` são opcionais porque nem todo estudo tem exercício:
+ * ler a teoria de uma matéria é estudo, e obrigar um número ali faria a
+ * pessoa inventar um.
+ */
+export function eventoEstudo(
+  materia: string,
+  minutos: number,
+  extras: { questoes?: number; acertos?: number; obs?: string } = {},
+  dia: string = diaLocal()
+): Evento {
+  return validarEvento({
+    tipo: 'estudo',
+    dia,
+    dados: comValor({
+      materia: texto(materia, 'matéria'),
+      minutos: numero(minutos, 'minutos'),
+      questoes: extras.questoes,
+      acertos: extras.acertos,
+      obs: extras.obs
+    })
+  })
+}
+
 export function eventoGasto(
   item: string,
   valor: number,

@@ -10,7 +10,7 @@ import { TIPOS_NOTA_CARDAPIO } from '../../shared/eventos'
 const HOJE = '2026-08-28'
 
 /** Chama com o `hoje` fixo -- a maioria dos testes nao fala de data. */
-const montar = (notas: Parameters<typeof montarCardapio>[0]) => montarCardapio(notas, HOJE)
+const montar = (notas: Parameters<typeof montarCardapio>[0]) => montarCardapio(notas, HOJE, [])
 
 const nota = (p: Partial<NoteComCampos> & { path: string }): NoteComCampos => ({
   path: p.path, title: p.title ?? p.path, tipo: p.tipo ?? 'nota',
@@ -194,7 +194,7 @@ describe('a Vida nunca sobe', () => {
       nota({ path: 'Estudos/Provas/ENEM.md', title: 'ENEM', tipo: 'prova', date: HOJE_2,
              campos: { materia: 'humanas' } })
     ]
-    const json = JSON.stringify(montarCardapio(vault, HOJE_2))
+    const json = JSON.stringify(montarCardapio(vault, HOJE_2, []))
 
     expect(json).toContain('ENEM')  // o cardápio não veio vazio
     for (const proibido of [
@@ -216,7 +216,7 @@ describe('o que esta chegando', () => {
     const c = montarCardapio([nota({
       path: 'Estudos/Provas/ENEM.md', title: 'ENEM 1o dia', tipo: 'prova',
       date: '2026-09-10', campos: { materia: 'linguagens', local: 'UFPR' }
-    })], HOJE_3)
+    })], HOJE_3, [])
     expect(c).toEqual([{
       especie: 'prova', nome: 'ENEM 1o dia',
       // `path` sobe porque é como o celular devolve a referência ao dizer
@@ -230,7 +230,7 @@ describe('o que esta chegando', () => {
     const c = montarCardapio([nota({
       path: 'p.md', title: 'P1', tipo: 'prova', date: '2026-09-10',
       campos: { estudado: true }
-    })], HOJE_3)
+    })], HOJE_3, [])
     expect(c[0].detalhe.estudado).toBe(true)
   })
 
@@ -238,14 +238,14 @@ describe('o que esta chegando', () => {
     const c = montarCardapio([nota({
       path: 'p.md', title: 'P1', tipo: 'prova', date: '2026-09-10',
       campos: { estudado: 'sim' }
-    })], HOJE_3)
+    })], HOJE_3, [])
     expect(c[0].detalhe.estudado).toBeUndefined()
   })
 
   it('publica simulado como prova', () => {
     const c = montarCardapio([nota({
       path: 's.md', title: 'Simulado 3', tipo: 'simulado', date: '2026-09-01'
-    })], HOJE_3)
+    })], HOJE_3, [])
     expect(c[0].especie).toBe('prova')
   })
 
@@ -253,7 +253,7 @@ describe('o que esta chegando', () => {
     const c = montarCardapio([nota({
       path: 'Agenda/Dentista.md', title: 'Dentista', tipo: 'evento',
       date: '2026-08-30', campos: { hora: '14:00', local: 'Centro' }
-    })], HOJE_3)
+    })], HOJE_3, [])
     expect(c).toEqual([{
       especie: 'compromisso', nome: 'Dentista',
       detalhe: { path: 'Agenda/Dentista.md', data: '2026-08-30', hora: '14:00', local: 'Centro' }
@@ -266,7 +266,7 @@ describe('o que esta chegando', () => {
     const c = montarCardapio([nota({
       path: 'a.md', title: 'Reuniao', tipo: 'evento', date: '2026-08-30',
       campos: { cancelado: true }
-    })], HOJE_3)
+    })], HOJE_3, [])
     expect(c).toEqual([])
   })
 
@@ -274,7 +274,7 @@ describe('o que esta chegando', () => {
     const c = montarCardapio([nota({
       path: 'Estudos/Trabalho.md', title: 'Trabalho de historia', tipo: 'tarefa',
       date: '2026-09-05', campos: { materia: 'historia' }
-    })], HOJE_3)
+    })], HOJE_3, [])
     expect(c[0]).toEqual({
       especie: 'tarefa', nome: 'Trabalho de historia',
       detalhe: { path: 'Estudos/Trabalho.md', prazo: '2026-09-05', materia: 'historia' }
@@ -285,17 +285,17 @@ describe('o que esta chegando', () => {
     // Publicar o histórico encheria a tela do celular com prova de 2023, e o
     // banco junto.
     const antiga = nota({ path: 'v.md', title: 'Velha', tipo: 'prova', date: '2026-08-01' })
-    expect(montarCardapio([antiga], HOJE_3)).toEqual([])
+    expect(montarCardapio([antiga], HOJE_3, [])).toEqual([])
   })
 
   it('publica o que passou ontem -- marcar "estudei" acontece depois do fato', () => {
     const ontem = nota({ path: 'o.md', title: 'Ontem', tipo: 'prova', date: '2026-08-27' })
-    expect(montarCardapio([ontem], HOJE_3)).toHaveLength(1)
+    expect(montarCardapio([ontem], HOJE_3, [])).toHaveLength(1)
   })
 
   it('nota sem data nao entra -- nao da para saber se esta chegando', () => {
     const semData = nota({ path: 'x.md', title: 'Sem data', tipo: 'prova', date: null })
-    expect(montarCardapio([semData], HOJE_3)).toEqual([])
+    expect(montarCardapio([semData], HOJE_3, [])).toEqual([])
   })
 })
 
@@ -335,7 +335,7 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       })
     }
     for (const [tipo, n] of Object.entries(porTipo)) {
-      const c = montarCardapio([n as never], HOJE)
+      const c = montarCardapio([n as never], HOJE, [])
       expect(c.length, tipo + ' nao virou item').toBeGreaterThan(0)
     }
     // Tres excecoes ao laco acima, porque nao viram um item cada:
@@ -345,7 +345,7 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       nota({ path: 'm1.md', title: 'Guardei', tipo: 'porquinho', campos: { valor: 100, direcao: 'deposito' } }),
       nota({ path: 'm2.md', title: 'Tirei', tipo: 'porquinho', campos: { valor: 30, direcao: 'sangria' } }),
       nota({ path: 'meta.md', title: 'Notebook', tipo: 'meta-cofre', campos: { ativa: true, alvo: 4000 } })
-    ], HOJE)
+    ], HOJE, [])
     expect(comPorquinho).toHaveLength(1)
     expect(comPorquinho[0]).toEqual({
       especie: 'porquinho', nome: 'Notebook', detalhe: { saldo: 70, alvo: 4000 }
@@ -355,7 +355,7 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     const comPlano = montarCardapio([nota({
       path: 'g.md', title: 'Plano', tipo: 'plano',
       campos: { ativo: true, refeicoes: [{ nome: 'Cafe', hora: '07:00' }] }
-    })], HOJE)
+    })], HOJE, [])
     expect(comPlano.map(i => i.especie)).toEqual(['refeicao'])
   })
 })
@@ -380,14 +380,14 @@ describe('o que ja foi feito hoje sobe junto', () => {
     itens.find(i => i.especie === 'suplemento')
 
   it('marca o suplemento que esta no diario de hoje', () => {
-    const c = montarCardapio([creatina, diario({ suplementos_feitos: ['Creatina'] })], HOJE)
+    const c = montarCardapio([creatina, diario({ suplementos_feitos: ['Creatina'] })], HOJE, [])
     expect(so(c)?.detalhe.feito).toBe(true)
   })
 
   it('sem diario, o campo nem existe -- e nao `feito: false`', () => {
     // `comValor` tira o undefined: um `feito: false` em todo item seria uma
     // chave a mais em cada linha que sobe, dizendo o padrao.
-    const c = montarCardapio([creatina], HOJE)
+    const c = montarCardapio([creatina], HOJE, [])
     expect(so(c)?.detalhe).not.toHaveProperty('feito')
   })
 
@@ -398,7 +398,7 @@ describe('o que ja foi feito hoje sobe junto', () => {
       path: 'Diario/2026-08-31.md', title: '2026-08-31', tipo: 'diario',
       date: '2026-08-31', campos: { suplementos_feitos: ['Creatina'] }
     })
-    const c = montarCardapio([creatina, ontem], HOJE)
+    const c = montarCardapio([creatina, ontem], HOJE, [])
     expect(so(c)?.detalhe).not.toHaveProperty('feito')
   })
 
@@ -409,7 +409,7 @@ describe('o que ja foi feito hoje sobe junto', () => {
       suplementos_feitos: ['Creatina'],
       gastos: [{ item: 'SEGREDO-GASTO', valor: 99 }],
       anotacao: 'SEGREDO-ANOTACAO'
-    })], HOJE)
+    })], HOJE, [])
     const json = JSON.stringify(c)
     expect(json).not.toContain('SEGREDO-GASTO')
     expect(json).not.toContain('SEGREDO-ANOTACAO')
@@ -420,7 +420,7 @@ describe('o que ja foi feito hoje sobe junto', () => {
       path: 'Saude/Dieta/Plano.md', title: 'Plano', tipo: 'plano',
       campos: { ativo: true, refeicoes: [{ nome: 'Café da manhã', hora: '07:00' }] }
     })
-    const c = montarCardapio([plano, diario({ dieta_feitas: ['Café da manhã'] })], HOJE)
+    const c = montarCardapio([plano, diario({ dieta_feitas: ['Café da manhã'] })], HOJE, [])
     expect(c.find(i => i.especie === 'refeicao')?.detalhe.feito).toBe(true)
   })
 })
@@ -434,11 +434,14 @@ describe('a anotacao do dia volta para o celular', () => {
     const c = montarCardapio([anotacao({
       path: 'Vida/Fui bem no simulado.md', title: 'Fui bem no simulado',
       date: HOJE4, campos: { texto: 'Fui bem no simulado\nErrei duas de humanas' }
-    })], HOJE4)
+    })], HOJE4, [])
     expect(c).toEqual([{
       especie: 'anotacao', nome: 'Fui bem no simulado',
       detalhe: {
         path: 'Vida/Fui bem no simulado.md',
+        // A data VIAJA agora: e com ela que a tela do celular separa o
+        // recado de hoje do de semana passada.
+        data: HOJE4,
         texto: 'Fui bem no simulado\nErrei duas de humanas'
       }
     }])
@@ -447,7 +450,7 @@ describe('a anotacao do dia volta para o celular', () => {
   it('a marca de prioridade so aparece quando e verdade', () => {
     const comum = montarCardapio([anotacao({
       path: 'a.md', title: 'Dormi mal', date: HOJE4, campos: { texto: 'Dormi mal' }
-    })], HOJE4)
+    })], HOJE4, [])
     // Nem `prioridade: false`: seria uma linha em todo item do cardapio para
     // o celular so ignorar.
     expect(comum[0].detalhe).not.toHaveProperty('prioridade')
@@ -455,32 +458,46 @@ describe('a anotacao do dia volta para o celular', () => {
     const marcada = montarCardapio([anotacao({
       path: 'b.md', title: 'Ligar pro dentista', date: HOJE4,
       campos: { texto: 'Ligar pro dentista', prioridade: true }
-    })], HOJE4)
+    })], HOJE4, [])
     expect(marcada[0].detalhe.prioridade).toBe(true)
   })
 
-  it('a de ONTEM nao sobe; a de hoje e a sem data, sim', () => {
-    // Anotacao com data e registro do dia: nao ganha a janela de dois dias
-    // das provas, porque nao ha prazo a cumprir e o historico fica no vault.
-    //
-    // Sem data e outra coisa -- e anotacao permanente. Ela nao casava com
-    // `hoje` e por isso nunca subia, e foi o que fez uma usuaria relatar que
-    // "as anotacoes nunca aparecem no celular": as dela nao tinham data.
+  it('TODAS sobem, cada uma com a sua data', () => {
+    // O corte por dia saiu daqui de proposito. Antes so subia a de hoje, e o
+    // celular era uma janela para o dia: a anotacao de terca sumia na quarta
+    // mesmo continuando no vault. Agora sobem todas, e quem escolhe o que
+    // mostrar e a TELA -- o Hoje corta pelo dia, a tela Notas mostra tudo.
     const ontem = anotacao({ path: 'c.md', title: 'Ontem', date: '2026-09-03', campos: { texto: 'Ontem' } })
     const hoje = anotacao({ path: 'd.md', title: 'Hoje', date: HOJE4, campos: { texto: 'Hoje' } })
     const semData = anotacao({ path: 'e.md', title: 'Sem data', date: null, campos: { texto: 'Sem data' } })
 
-    const c = montarCardapio([ontem, hoje, semData], HOJE4)
-    expect(c.map(i => i.nome).sort()).toEqual(['Hoje', 'Sem data'])
+    const c = montarCardapio([ontem, hoje, semData], HOJE4, [])
+    expect(c.map(i => i.nome).sort()).toEqual(['Hoje', 'Ontem', 'Sem data'])
+    expect(c.find(i => i.nome === 'Ontem')?.detalhe.data).toBe('2026-09-03')
+    expect(c.find(i => i.nome === 'Hoje')?.detalhe.data).toBe(HOJE4)
+    // Sem data continua sendo a permanente: nao e registro do dia, e coisa
+    // para consultar, e a tela do Hoje mostra ela todo dia.
     expect(c.find(i => i.nome === 'Sem data')?.detalhe.permanente).toBe(true)
+    expect(c.find(i => i.nome === 'Sem data')?.detalhe).not.toHaveProperty('data')
     expect(c.find(i => i.nome === 'Hoje')?.detalhe).not.toHaveProperty('permanente')
+  })
+
+  it('permanente primeiro, depois da mais nova para a mais velha', () => {
+    // A ordem e a do teto de 300: se um dia houver anotacao demais, o que se
+    // perde e a mais antiga, nunca a que fica.
+    const c = montarCardapio([
+      anotacao({ path: 'a.md', title: 'Velha', date: '2026-01-01', campos: { texto: 'x' } }),
+      anotacao({ path: 'b.md', title: 'Nova', date: HOJE4, campos: { texto: 'x' } }),
+      anotacao({ path: 'c.md', title: 'Fixa', date: null, campos: { texto: 'x' } })
+    ], HOJE4, [])
+    expect(c.map(i => i.nome)).toEqual(['Fixa', 'Nova', 'Velha'])
   })
 
   it('sem o campo texto, o titulo salva a linha', () => {
     // O titulo E a primeira linha da anotacao (ver `planejar.ts`), entao ele
     // e a melhor aproximacao quando `texto` faltar -- melhor do que publicar
     // um item cujo conteudo e uma string vazia.
-    const c = montarCardapio([anotacao({ path: 'f.md', title: 'So o titulo', date: HOJE4 })], HOJE4)
+    const c = montarCardapio([anotacao({ path: 'f.md', title: 'So o titulo', date: HOJE4 })], HOJE4, [])
     expect(c[0].detalhe).not.toHaveProperty('texto')
     expect(c[0].nome).toBe('So o titulo')
   })
@@ -494,7 +511,7 @@ describe('a tarefa diaria sobe como especie propria', () => {
   })
 
   it('publica com quando e dias', () => {
-    const c = montarCardapio([rotina], HOJE2)
+    const c = montarCardapio([rotina], HOJE2, [])
     expect(c).toEqual([{
       especie: 'rotina', nome: 'Tomar 3 L de agua',
       detalhe: { quando: 'manhã', dias: ['seg', 'qua'] }
@@ -506,7 +523,7 @@ describe('a tarefa diaria sobe como especie propria', () => {
       path: `Diario/${HOJE2}.md`, title: HOJE2, tipo: 'diario', date: HOJE2,
       campos: { rotinas_feitas: ['Tomar 3 L de agua'] }
     })
-    expect(montarCardapio([rotina, diario], HOJE2)[0].detalhe.feito).toBe(true)
+    expect(montarCardapio([rotina, diario], HOJE2, [])[0].detalhe.feito).toBe(true)
   })
 
   it('o conjunto dos suplementos NAO marca a rotina', () => {
@@ -516,7 +533,7 @@ describe('a tarefa diaria sobe como especie propria', () => {
       path: `Diario/${HOJE2}.md`, title: HOJE2, tipo: 'diario', date: HOJE2,
       campos: { suplementos_feitos: ['Tomar 3 L de agua'] }
     })
-    expect(montarCardapio([rotina, diario], HOJE2)[0].detalhe).not.toHaveProperty('feito')
+    expect(montarCardapio([rotina, diario], HOJE2, [])[0].detalhe).not.toHaveProperty('feito')
   })
 
   it('e uma especie diferente de `tarefa`', () => {
@@ -527,7 +544,7 @@ describe('a tarefa diaria sobe como especie propria', () => {
       path: 'Estudos/Trabalho.md', title: 'Trabalho de historia', tipo: 'tarefa',
       date: HOJE2, campos: { materia: 'historia' }
     })
-    const especies = montarCardapio([rotina, tarefa], HOJE2).map(i => i.especie).sort()
+    const especies = montarCardapio([rotina, tarefa], HOJE2, []).map(i => i.especie).sort()
     expect(especies).toEqual(['rotina', 'tarefa'])
   })
 })
@@ -551,14 +568,14 @@ describe('hidratacao', () => {
       path: `Diario/${HOJE3}.md`, title: HOJE3, tipo: 'diario', date: HOJE3,
       campos: { agua_ml: 1600 }
     })
-    expect(montarCardapio([nascente, diario], HOJE3)).toEqual([{
+    expect(montarCardapio([nascente, diario], HOJE3, [])).toEqual([{
       especie: 'hidratacao', nome: 'Água',
       detalhe: { meta: 3500, copo: 800, ml: 1600 }
     }])
   })
 
   it('sem nada bebido, `ml` nao vai -- e ausencia, nao zero', () => {
-    expect(montarCardapio([nascente], HOJE3)[0].detalhe).not.toHaveProperty('ml')
+    expect(montarCardapio([nascente], HOJE3, [])[0].detalhe).not.toHaveProperty('ml')
   })
 
   it('o total e o de HOJE, nao o de ontem', () => {
@@ -568,7 +585,7 @@ describe('hidratacao', () => {
       path: 'Diario/2026-09-02.md', title: 'ontem', tipo: 'diario',
       date: '2026-09-02', campos: { agua_ml: 3500 }
     })
-    expect(montarCardapio([nascente, ontem], HOJE3)[0].detalhe).not.toHaveProperty('ml')
+    expect(montarCardapio([nascente, ontem], HOJE3, [])[0].detalhe).not.toHaveProperty('ml')
   })
 
   it('sem a nota, nao ha secao de hidratacao', () => {
@@ -578,7 +595,7 @@ describe('hidratacao', () => {
       path: `Diario/${HOJE3}.md`, title: HOJE3, tipo: 'diario', date: HOJE3,
       campos: { agua_ml: 800 }
     })
-    expect(montarCardapio([diario], HOJE3)).toEqual([])
+    expect(montarCardapio([diario], HOJE3, [])).toEqual([])
   })
 
   it('NAO leva junto o resto do diario', () => {
@@ -588,7 +605,7 @@ describe('hidratacao', () => {
       path: `Diario/${HOJE3}.md`, title: HOJE3, tipo: 'diario', date: HOJE3,
       campos: { agua_ml: 800, peso: 78.4, anotacao: 'briga com o chefe' }
     })
-    const json = JSON.stringify(montarCardapio([nascente, diario], HOJE3))
+    const json = JSON.stringify(montarCardapio([nascente, diario], HOJE3, []))
     expect(json).not.toContain('chefe')
     expect(json).not.toContain('78.4')
   })
@@ -604,24 +621,24 @@ describe('as etapas do vestibular sobem para o celular', () => {
   it('sem `inscricao`, o celular nao ganha etapa nenhuma', () => {
     // Prova de cursinho continua com o "estudei" de sempre: publicar tres
     // campos vazios so para a tela decidir nao usa-los seria peso a toa.
-    const d = montarCardapio([prova({ materia: 'geral' })], HOJE5)[0].detalhe
+    const d = montarCardapio([prova({ materia: 'geral' })], HOJE5, [])[0].detalhe
     expect(d).not.toHaveProperty('inscricao')
     expect(d).not.toHaveProperty('inscrito')
     expect(d).not.toHaveProperty('pago')
   })
 
   it('`inscricao: true` sobe, e e o que liga o fluxo na tela', () => {
-    const d = montarCardapio([prova({ inscricao: true })], HOJE5)[0].detalhe
+    const d = montarCardapio([prova({ inscricao: true })], HOJE5, [])[0].detalhe
     expect(d.inscricao).toBe(true)
   })
 
   it('inscrito e pago sobem so quando sao verdade', () => {
-    const meio = montarCardapio([prova({ inscricao: true, inscrito: true })], HOJE5)[0].detalhe
+    const meio = montarCardapio([prova({ inscricao: true, inscrito: true })], HOJE5, [])[0].detalhe
     expect(meio.inscrito).toBe(true)
     expect(meio).not.toHaveProperty('pago')
 
     const fim = montarCardapio(
-      [prova({ inscricao: true, inscrito: true, pago: true })], HOJE5
+      [prova({ inscricao: true, inscrito: true, pago: true })], HOJE5, []
     )[0].detalhe
     expect(fim.pago).toBe(true)
   })
@@ -633,7 +650,7 @@ describe('as etapas do vestibular sobem para o celular', () => {
     const d = montarCardapio([prova({
       inscricao: true, inscrito: true, inscrito_em: '2026-09-01',
       pago: true, pago_em: '2026-09-02'
-    })], HOJE5)[0].detalhe
+    })], HOJE5, [])[0].detalhe
     expect(d).not.toHaveProperty('inscrito_em')
     expect(d).not.toHaveProperty('pago_em')
   })
@@ -641,7 +658,7 @@ describe('as etapas do vestibular sobem para o celular', () => {
   it('valor torto nao vira `true`', () => {
     // O frontmatter e escrito a mao: `inscricao: sim` nao pode ligar o fluxo
     // por acidente, porque a comparacao e estrita.
-    const d = montarCardapio([prova({ inscricao: 'sim', inscrito: 1 })], HOJE5)[0].detalhe
+    const d = montarCardapio([prova({ inscricao: 'sim', inscrito: 1 })], HOJE5, [])[0].detalhe
     expect(d).not.toHaveProperty('inscricao')
     expect(d).not.toHaveProperty('inscrito')
   })
@@ -656,7 +673,7 @@ describe('o corpo da nota, que agora sobe', () => {
     const c = montarCardapio([{
       ...nota({ path: 'Vida/Oracao.md', title: 'Oracao da manha', tipo: 'rotina' }),
       corpo: '1. Respirar\n2. Ouvir [o audio](https://exemplo.com/a.mp3)'
-    }], HOJE6)
+    }], HOJE6, [])
     expect(c[0].detalhe.corpo).toContain('Ouvir [o audio]')
   })
 
@@ -666,25 +683,28 @@ describe('o corpo da nota, que agora sobe', () => {
     const c = montarCardapio([nota({
       path: 'Vida/Wifi.md', title: 'Senha do wifi do cursinho', tipo: 'anotacao',
       campos: { texto: 'Senha do wifi do cursinho' }
-    })], HOJE6)
+    })], HOJE6, [])
     expect(c).toHaveLength(1)
     expect(c[0].detalhe.permanente).toBe(true)
   })
 
-  it('anotacao de OUTRO dia continua fora', () => {
-    // Com data, vale o dia: um diario de anotacoes antigas encheria a tela.
+  it('anotacao de OUTRO dia sobe, e leva a data para a tela cortar', () => {
+    // Mudou: o corte por dia era feito aqui e passou para a tela. O que o
+    // publicador garante e que a data VAI JUNTO -- sem ela o celular
+    // receberia tudo misturado e nao teria como voltar a mostrar so o dia.
     const c = montarCardapio([nota({
       path: 'Vida/a.md', title: 'De ontem', tipo: 'anotacao', date: '2026-09-06',
       campos: { texto: 'De ontem' }
-    })], HOJE6)
-    expect(c).toEqual([])
+    })], HOJE6, [])
+    expect(c).toHaveLength(1)
+    expect(c[0].detalhe.data).toBe('2026-09-06')
   })
 
   it('a de hoje sobe, e nao e marcada como fixa', () => {
     const c = montarCardapio([nota({
       path: 'Vida/b.md', title: 'Hoje', tipo: 'anotacao', date: HOJE6,
       campos: { texto: 'Hoje' }
-    })], HOJE6)
+    })], HOJE6, [])
     expect(c).toHaveLength(1)
     expect(c[0].detalhe).not.toHaveProperty('permanente')
   })
@@ -693,7 +713,7 @@ describe('o corpo da nota, que agora sobe', () => {
     const c = montarCardapio([{
       ...nota({ path: 'Vida/r.md', title: 'R', tipo: 'rotina' }),
       corpo: 'x'.repeat(20000)
-    }], HOJE6)
+    }], HOJE6, [])
     const corpo = c[0].detalhe.corpo as string
     expect(corpo.length).toBeLessThan(20000)
     expect(corpo).toContain('cortado')
@@ -703,7 +723,7 @@ describe('o corpo da nota, que agora sobe', () => {
     const c = montarCardapio([{
       ...nota({ path: 'Vida/r.md', title: 'R', tipo: 'rotina' }),
       corpo: '\n\n   \n'
-    }], HOJE6)
+    }], HOJE6, [])
     expect(c[0].detalhe).not.toHaveProperty('corpo')
   })
 })
@@ -827,5 +847,32 @@ describe('o corpo publicado ja sai limpo', () => {
       corpo: '### Dependencias da Rede\n- [[A]]\n'
     }])
     expect(c).toEqual([{ especie: 'rotina', nome: 'X', detalhe: { dias: [] } }])
+  })
+})
+
+describe('as areas ligadas viajam para o celular', () => {
+  it('cada area vira um item proprio', () => {
+    // Um item por area, e nao uma lista dentro de um item: o cardapio e uma
+    // tabela com chave (especie, nome) no banco, e uma lista dentro de
+    // `detalhe` viraria uma linha so, que se sobrescreve.
+    const c = montarCardapio([], HOJE, ['saude', 'conhecimento'])
+    expect(c).toEqual([
+      { especie: 'area', nome: 'saude', detalhe: {} },
+      { especie: 'area', nome: 'conhecimento', detalhe: {} }
+    ])
+  })
+
+  it('sem area ligada, nenhum item de area sobe', () => {
+    // E o celular le isso como "nao sei" e mostra tudo -- ver `areasLigadas`
+    // no app web. Ausencia nao pode significar "desligue tudo".
+    expect(montarCardapio([], HOJE, [])).toEqual([])
+  })
+
+  it('a area nao mistura com o conteudo', () => {
+    const c = montarCardapio([nota({
+      path: 's.md', title: 'Whey', tipo: 'suplemento', campos: { dose: '30 g' }
+    })], HOJE, ['saude'])
+    expect(c.filter(i => i.especie === 'area').map(i => i.nome)).toEqual(['saude'])
+    expect(c.filter(i => i.especie === 'suplemento').map(i => i.nome)).toEqual(['Whey'])
   })
 })

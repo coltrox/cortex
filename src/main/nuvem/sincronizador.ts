@@ -226,7 +226,11 @@ export class Sincronizador {
     // o que publica; isto só reduz o que passa por perto dela.
     const notas = TIPOS_CARDAPIO.flatMap(tipo => listNotesWithFields(this.session.db, { tipo }))
     return this.cliente.publicarCardapio(
-      montarCardapio(await this.comCorpos(notas), this.hoje())
+      // As áreas ligadas sobem junto: é assim que o celular sabe que não deve
+      // mostrar nada de Estudos para quem não ligou Estudos aqui. Sem isto o
+      // app do celular seria o app de outra pessoa, com telas que o dono
+      // deste vault escolheu não usar.
+      montarCardapio(await this.comCorpos(notas), this.hoje(), this.session.config.areas)
     )
   }
 

@@ -11,6 +11,8 @@ import { Cardio } from './telas/Cardio'
 import { Medidas } from './telas/Medidas'
 import { Gasto } from './telas/Gasto'
 import { Anotacao } from './telas/Anotacao'
+import { Notas } from './telas/Notas'
+import { Estudo } from './telas/Estudo'
 import { Agenda } from './telas/Agenda'
 import { NovoItem, type EdicaoItem, type TipoNovo } from './telas/NovoItem'
 import { Porquinho } from './telas/Porquinho'
@@ -33,6 +35,9 @@ const LerQr = lazy(() => import('./telas/LerQr').then(m => ({ default: m.LerQr }
 export type Tela =
   | 'hoje' | 'agenda' | 'compromisso' | 'treino' | 'cardio'
   | 'medidas' | 'gasto' | 'porquinho' | 'anotacao' | 'ajustes' | 'lerqr' | 'novo'
+  // A sessão de estudo, e a lista de todas as notas. `anotacao` continua
+  // sendo a tela de ESCREVER uma; `notas` é a de LER as que existem.
+  | 'estudo' | 'notas'
 
 /**
  * O id que a câmera trouxe no endereço, gravado antes de qualquer tela abrir.
@@ -152,6 +157,8 @@ export function App() {
       {tela === 'gasto' && <Gasto envio={envio} irPara={setTela} />}
       {tela === 'porquinho' && <Porquinho envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'anotacao' && <Anotacao envio={envio} irPara={setTela} />}
+      {tela === 'notas' && <Notas cardapio={cardapio} irPara={setTela} />}
+      {tela === 'estudo' && <Estudo envio={envio} irPara={setTela} />}
       {tela === 'ajustes' && <Ajustes cardapio={cardapio} irPara={setTela} />}
       {tela === 'lerqr' && (
         <Suspense fallback={<Aviso>Abrindo a câmera…</Aviso>}>
