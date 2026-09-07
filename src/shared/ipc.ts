@@ -212,6 +212,14 @@ export const IPC_SCHEMAS = {
   'links:backlinks': z.object({ path: caminho }).strict(),
   'links:outlinks': z.object({ path: caminho }).strict(),
   'links:broken': z.object({}).strict(),
+  /*
+   * O vault inteiro como rede, para a tela do cérebro.
+   *
+   * Sem payload e sem paginação: são as notas e as ligações do vault, e o
+   * grafo só faz sentido inteiro — metade de uma rede não é uma rede menor,
+   * é uma rede errada.
+   */
+  'vault:grafo': z.object({}).strict(),
 
   // Canais da captura rápida: id do vault, credenciais do Supabase, puxar
   // eventos e publicar o cardápio. Ver `Sincronizador`/`ClienteNuvem`.

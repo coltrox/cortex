@@ -6,6 +6,15 @@ import { FORMULARIOS } from './formularios'
 
 export type Lente =
   | 'hoje' | 'vida' | 'saude' | 'dev' | 'conhecimento' | 'financas' | 'calendario'
+  /*
+   * A rede inteira, em forma de cérebro.
+   *
+   * NÃO é uma área do vault, e por isso não entra em `IDS_AREAS` nem em
+   * `PASTAS_POR_AREA`: não tem pasta, não tem tipo de nota e não é coisa que
+   * se ligue ou desligue na abertura. É uma forma de olhar para tudo o que
+   * as outras lentes mostram em pedaços.
+   */
+  | 'cerebro'
 
 export type Link = { dst: string; resolvedPath: string | null; line: number }
 export type Backlink = { path: string; title: string; line: number }

@@ -592,27 +592,32 @@ describe('planejar — sessao de estudo', () => {
   it('acertar mais do que se resolveu vira o maximo possivel', () => {
     // Quem digitou 10 de 8 errou o campo, nao a sessao inteira: limitar
     // guarda o estudo, descartar perderia as duas horas junto.
-    const [op] = planejar(ev('estudo', {
+    expect(planejar(ev('estudo', {
       materia: 'Biologia', minutos: 45, questoes: 8, acertos: 10
-    })) as [{ item: Record<string, unknown> }]
-    expect(op.item.acertos).toBe(8)
+    }))).toEqual([{
+      acao: 'diario-lista', dia: '2026-08-27', campo: 'estudos',
+      item: { materia: 'Biologia', minutos: 45, questoes: 8, acertos: 8 }
+    }])
   })
 
   it('nao deixa o evento escolher o que entra no diario', () => {
     // Os campos sao copiados um a um, e nao espalhados: este item vai para o
     // frontmatter de um arquivo do vault, e um evento vindo de fora nao
-    // escolhe o que se escreve la.
-    const [op] = planejar(ev('estudo', {
+    // escolhe o que se escreve la. Comparar a operacao INTEIRA e o que pega
+    // um campo a mais: checar so `item.materia` deixaria `senha` passar.
+    expect(planejar(ev('estudo', {
       materia: 'Redação', minutos: 30,
       tipo: 'documento', date: '1999-01-01', senha: 'SEGREDO'
-    })) as [{ item: Record<string, unknown> }]
-    expect(op.item).toEqual({ materia: 'Redação', minutos: 30 })
+    }))).toEqual([{
+      acao: 'diario-lista', dia: '2026-08-27', campo: 'estudos',
+      item: { materia: 'Redação', minutos: 30 }
+    }])
   })
 
   it('arredonda os minutos -- meio minuto de estudo nao existe', () => {
-    const [op] = planejar(ev('estudo', {
-      materia: 'Inglês', minutos: 45.7
-    })) as [{ item: Record<string, unknown> }]
-    expect(op.item.minutos).toBe(46)
+    expect(planejar(ev('estudo', { materia: 'Inglês', minutos: 45.7 }))).toEqual([{
+      acao: 'diario-lista', dia: '2026-08-27', campo: 'estudos',
+      item: { materia: 'Inglês', minutos: 46 }
+    }])
   })
 })
