@@ -265,6 +265,31 @@ body{
 .item + .item{ margin-top:var(--e2); }
 .lista .item + .item{ margin-top:0; }
 
+/* ─────────────── Busca na agenda ─────────────── */
+
+.busca{ margin-bottom:var(--e3); }
+.busca-campo{
+  width:100%; min-height:var(--toque); padding:0 var(--e4);
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  color:var(--txt); font:400 16px/1 var(--fonte);
+}
+/* 16px no campo não é escolha estética: abaixo disso o Safari do iPhone dá
+   zoom ao focar, e a tela inteira salta de lugar quando o teclado abre. */
+.busca-campo::placeholder{ color:var(--txt-3); }
+.busca-campo:focus{ outline:2px solid var(--acento-linha); outline-offset:1px; }
+/* O "x" nativo do `type=search` some no WebKit; sem isto ele fica invisível
+   sobre fundo escuro e a pessoa não acha como limpar. */
+.busca-campo::-webkit-search-cancel-button{
+  -webkit-appearance:none; appearance:none;
+  width:18px; height:18px; border-radius:50%;
+  background:var(--painel-topo);
+  /* Um "×" desenhado com dois gradientes: sem imagem, sem fonte de ícone. */
+  background-image:
+    linear-gradient(45deg, transparent 45%, var(--txt-2) 45% 55%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, var(--txt-2) 45% 55%, transparent 55%);
+  cursor:pointer;
+}
+
 /* ─────────────── Corpo da nota (markdown) ─────────────── */
 
 /* O item e o corpo dele viram um bloco só, para o "ver como faz" não parecer

@@ -51,6 +51,24 @@ export function NotaPainel({
 }: Props) {
   const area = useRef<HTMLTextAreaElement>(null)
 
+  /*
+   * A pasta desta nota, para resolver o caminho dos anexos.
+   *
+   * `Vida/Oracao.md` → `Vida`. Nota na raiz do vault vira string vazia, e aí
+   * `resolverAnexo` trata o `..` como saída do vault e devolve `null` — que é
+   * o certo: não há pasta acima da raiz.
+   */
+  const pastaDaNota = caminho.split('/').slice(0, -1).join('/')
+
+  /** Abre o anexo no programa padrão do sistema. Quem valida é o main. */
+  const abrirAnexo = (rel: string): void => {
+    void window.vaultApi.invoke('vault:abrir-anexo', { path: rel }).catch((e: unknown) => {
+      // Falhar em silêncio aqui seria um clique que não faz nada e não diz
+      // por quê — o caso comum é o arquivo ter sido movido ou renomeado.
+      window.alert(e instanceof Error ? e.message : 'não consegui abrir o arquivo')
+    })
+  }
+
   useEffect(() => {
     if (editando) area.current?.focus()
   }, [editando])
@@ -110,6 +128,10 @@ export function NotaPainel({
               texto={corpoAlinhado(conteudo)}
               aoAbrirLink={aoAbrirNome}
               aoMarcarTarefa={marcarTarefa}
+              // A pasta da nota vai junto porque o caminho escrito nela é
+              // relativo a ela: `../Anexos/audio.mp4` numa nota de `Vida/`
+              // é `Anexos/audio.mp4` a partir da raiz do vault.
+              aoAbrirAnexo={{ pasta: pastaDaNota, chamar: abrirAnexo }}
             />
           )}
         </div>

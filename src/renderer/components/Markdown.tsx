@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { ehAnexoDoVault, resolverAnexo } from '../../shared/ipc'
 
 /**
  * Renderizador de markdown do Cortex.
@@ -149,7 +150,13 @@ type AoAbrirLink = (alvo: string) => void
  * A ordem importa: `$…$` e crase são fechados antes de negrito e itálico,
  * senão um `*` dentro de uma fórmula viraria ênfase e comeria a expressão.
  */
-function inline(texto: string, aoAbrirLink?: AoAbrirLink, chave = 'i'): ReactNode[] {
+/** Abre um anexo do vault. `pasta` é a pasta da nota, para resolver o `..`. */
+type AoAbrirAnexo = { chamar: (caminho: string) => void; pasta: string }
+
+function inline(
+  texto: string, aoAbrirLink?: AoAbrirLink, chave = 'i',
+  aoAbrirAnexo?: AoAbrirAnexo
+): ReactNode[] {
   const out: ReactNode[] = []
   let resto = texto
   let n = 0
@@ -184,19 +191,40 @@ function inline(texto: string, aoAbrirLink?: AoAbrirLink, chave = 'i'): ReactNod
       const corte = t.indexOf('](')
       const rotulo = t.slice(1, corte)
       const url = t.slice(corte + 2, -1)
-      // Só http(s) vira link clicável. `javascript:` num arquivo de texto é a
-      // porta clássica; aqui ela simplesmente não abre.
-      out.push(/^https?:\/\//.test(url)
-        ? <a key={k} href={url} target="_blank" rel="noreferrer">{rotulo || url}</a>
-        : <span key={k}>{rotulo || url}</span>)
+      // Três destinos possíveis, e só três.
+      //
+      // `http(s)` abre no navegador. Um caminho de anexo do vault abre no
+      // programa do sistema — é o que faz `[gravação](Anexos/audio.mp4)`
+      // tocar, em vez de ser um texto morto no meio da nota. Todo o resto
+      // vira texto: `javascript:` num arquivo é a porta clássica, e aqui ela
+      // simplesmente não abre.
+      const alvoAnexo = aoAbrirAnexo && ehAnexoDoVault(url)
+        ? resolverAnexo(aoAbrirAnexo.pasta, url)
+        : null
+      out.push(
+        /^https?:\/\//.test(url)
+          ? <a key={k} href={url} target="_blank" rel="noreferrer">{rotulo || url}</a>
+          : alvoAnexo && aoAbrirAnexo
+            ? (
+              <button
+                key={k}
+                className="anexo-link"
+                onClick={() => aoAbrirAnexo.chamar(alvoAnexo)}
+                title={`Abrir ${alvoAnexo}`}
+              >
+                {rotulo || url}
+              </button>
+            )
+            : <span key={k}>{rotulo || url}</span>
+      )
     } else if (t.startsWith('**')) {
-      out.push(<strong key={k}>{inline(t.slice(2, -2), aoAbrirLink, k)}</strong>)
+      out.push(<strong key={k}>{inline(t.slice(2, -2), aoAbrirLink, k, aoAbrirAnexo)}</strong>)
     } else if (t.startsWith('==')) {
-      out.push(<mark key={k}>{inline(t.slice(2, -2), aoAbrirLink, k)}</mark>)
+      out.push(<mark key={k}>{inline(t.slice(2, -2), aoAbrirLink, k, aoAbrirAnexo)}</mark>)
     } else if (t.startsWith('~~')) {
-      out.push(<s key={k}>{inline(t.slice(2, -2), aoAbrirLink, k)}</s>)
+      out.push(<s key={k}>{inline(t.slice(2, -2), aoAbrirLink, k, aoAbrirAnexo)}</s>)
     } else {
-      out.push(<em key={k}>{inline(t.slice(1, -1), aoAbrirLink, k)}</em>)
+      out.push(<em key={k}>{inline(t.slice(1, -1), aoAbrirLink, k, aoAbrirAnexo)}</em>)
     }
 
     resto = resto.slice(m.index + t.length)
@@ -212,9 +240,17 @@ type Props = {
   aoAbrirLink?: AoAbrirLink
   /** Marcar/desmarcar `- [ ]` direto no texto renderizado. */
   aoMarcarTarefa?: (linha: number, feito: boolean) => void
+  /**
+   * Abre um anexo do vault, como `[gravação](../Anexos/audio.mp4)`.
+   *
+   * Precisa da pasta da nota junto porque o caminho na nota é relativo a ela.
+   * Sem quem passe isto, o link continua sendo texto — que é o que se quer
+   * onde não há um vault por trás (uma prévia, por exemplo).
+   */
+  aoAbrirAnexo?: AoAbrirAnexo
 }
 
-export function Markdown({ texto, aoAbrirLink, aoMarcarTarefa }: Props) {
+export function Markdown({ texto, aoAbrirLink, aoMarcarTarefa, aoAbrirAnexo }: Props) {
   // O corpo pode ter CRLF: o mesmo split que já corrigiu o parser de tarefas.
   const linhas = texto.split(/\r\n|\n/)
   const out: ReactNode[] = []
@@ -257,7 +293,7 @@ export function Markdown({ texto, aoAbrirLink, aoMarcarTarefa }: Props) {
     if (h) {
       const nivel = Math.min(h[1].length, 6)
       const Tag = `h${nivel}` as 'h1'
-      out.push(<Tag key={`b${n++}`}>{inline(h[2], aoAbrirLink, `b${n}`)}</Tag>)
+      out.push(<Tag key={`b${n++}`}>{inline(h[2], aoAbrirLink, `b${n}`, aoAbrirAnexo)}</Tag>)
       i++
       continue
     }
@@ -274,11 +310,11 @@ export function Markdown({ texto, aoAbrirLink, aoMarcarTarefa }: Props) {
         <div className="md-tabela-caixa" key={`b${n++}`}>
           <table className="md-tabela">
             <thead>
-              <tr>{cabecalho.map((c, j) => <th key={j}>{inline(c, aoAbrirLink, `h${j}`)}</th>)}</tr>
+              <tr>{cabecalho.map((c, j) => <th key={j}>{inline(c, aoAbrirLink, `h${j}`, aoAbrirAnexo)}</th>)}</tr>
             </thead>
             <tbody>
               {corpo.map((linha, j) => (
-                <tr key={j}>{linha.map((c, k) => <td key={k}>{inline(c, aoAbrirLink, `c${k}`)}</td>)}</tr>
+                <tr key={j}>{linha.map((c, k) => <td key={k}>{inline(c, aoAbrirLink, `c${k}`, aoAbrirAnexo)}</td>)}</tr>
               ))}
             </tbody>
           </table>
@@ -331,7 +367,7 @@ export function Markdown({ texto, aoAbrirLink, aoMarcarTarefa }: Props) {
                   {it.tarefa ? '✓' : ''}
                 </span>
               )}
-              <span data-feito={it.tarefa === true}>{inline(it.conteudo, aoAbrirLink, `l${it.linha}`)}</span>
+              <span data-feito={it.tarefa === true}>{inline(it.conteudo, aoAbrirLink, `l${it.linha}`, aoAbrirAnexo)}</span>
             </li>
           ))}
         </Lista>
@@ -346,7 +382,7 @@ export function Markdown({ texto, aoAbrirLink, aoMarcarTarefa }: Props) {
       i++
     }
     if (paragrafo.length === 0) { i++; continue }
-    out.push(<p key={`b${n++}`}>{inline(paragrafo.join(' '), aoAbrirLink, `p${n}`)}</p>)
+    out.push(<p key={`b${n++}`}>{inline(paragrafo.join(" "), aoAbrirLink, `p${n}`, aoAbrirAnexo)}</p>)
   }
 
   return <div className="md">{out}</div>

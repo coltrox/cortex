@@ -1413,6 +1413,17 @@ kbd {
 .wikilink:hover { border-bottom-color: var(--accent); }
 .wikilink:disabled { cursor: default; }
 
+/* Anexo do vault: um clique abre no programa do sistema.
+   Tracejado para não se confundir com o wikilink, que navega dentro do app —
+   sair para o player de áudio é outra coisa, e a seta avisa. */
+.anexo-link {
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: var(--accent);
+  border-bottom: 1px dashed var(--accent-bg);
+}
+.anexo-link::before { content: "↗ "; opacity: .7; font-size: .9em; }
+.anexo-link:hover { border-bottom-color: var(--accent); }
+
 /* fórmulas */
 .formula { font-family: var(--serif); font-size: 1.04em; white-space: nowrap; }
 .formula.bloco {

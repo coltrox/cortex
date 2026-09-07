@@ -18,6 +18,84 @@ const caminho = z.string().min(1).max(1024)
   })
 
 /**
+ * O que o app aceita ABRIR do vault com um clique.
+ *
+ * Abrir um arquivo é entregá-lo ao sistema operacional, que decide o que
+ * fazer com ele pela extensão — e para `.exe`, `.bat`, `.ps1` ou `.lnk` a
+ * decisão é EXECUTAR. Um clique numa nota não pode rodar programa, então a
+ * lista é branca: o que não está aqui não abre.
+ *
+ * Áudio, vídeo, PDF, imagem e texto. É o que se anexa a uma nota — a gravação
+ * que acompanha uma tarefa, o edital em PDF, a foto do documento.
+ *
+ * `.svg` fica de fora de propósito: é XML e pode carregar script, e abrir um
+ * no navegador padrão executaria esse script na origem do arquivo local.
+ */
+export const EXTENSOES_ANEXO = [
+  'mp3', 'm4a', 'wav', 'ogg', 'oga', 'opus', 'flac',
+  'mp4', 'm4v', 'webm', 'mov',
+  'pdf',
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp',
+  'txt', 'csv', 'md'
+]
+
+/**
+ * Este endereço, escrito numa nota, aponta para um anexo do vault?
+ *
+ * Serve à tela: é o que decide se `[gravação](Anexos/audio.mp4)` vira botão
+ * de abrir ou fica texto. Quem manda de verdade é o schema `anexo` abaixo,
+ * no processo main — isto aqui só evita desenhar um botão que o main
+ * recusaria.
+ *
+ * Endereço com esquema (`http:`, `mailto:`, `javascript:`) nunca é anexo:
+ * link externo já tem seu caminho, e o resto não abre.
+ */
+export function ehAnexoDoVault(url: string): boolean {
+  const u = url.trim()
+  if (u === '' || /^[a-z][a-z0-9+.-]*:/i.test(u) || u.startsWith('//')) return false
+  return EXTENSOES_ANEXO.includes(u.split('.').pop()?.toLowerCase() ?? '')
+}
+
+/**
+ * Transforma o endereço escrito na nota num caminho a partir da RAIZ do vault.
+ *
+ * Numa nota, `../Anexos/audio.mp4` é relativo à pasta dela — é assim que se
+ * escreve, e é assim que o Obsidian entende. O `..` é resolvido aqui, contra
+ * a pasta da nota, e não mandado adiante: quem recebe espera um caminho a
+ * partir da raiz.
+ *
+ * Devolve `null` quando o caminho sobe demais e sai do vault. Isso não é a
+ * trava de segurança — a trava é `toAbsolute`, no processo main, que compara
+ * caminhos resolvidos de verdade. Isto aqui evita desenhar um botão que só
+ * daria erro ao ser clicado.
+ */
+export function resolverAnexo(pastaDaNota: string, url: string): string | null {
+  const partes = pastaDaNota.split('/').filter(s => s !== '' && s !== '.')
+  for (const seg of url.trim().split('/')) {
+    if (seg === '' || seg === '.') continue
+    if (seg === '..') {
+      // Subiu além da raiz: não existe pasta acima do vault.
+      if (partes.length === 0) return null
+      partes.pop()
+      continue
+    }
+    // Um segmento oculto (`.vault`) nunca entra: aquela pasta é do app.
+    if (seg.startsWith('.')) return null
+    partes.push(seg)
+  }
+  return partes.length > 0 ? partes.join('/') : null
+}
+
+const anexo = z.string().min(1).max(1024)
+  .refine(p => !p.includes(BARRA_INVERTIDA), { message: 'caminho deve usar apenas "/" (POSIX)' })
+  .refine(p => p.split('/').every(seg => !seg.startsWith('.')), {
+    message: 'caminho não pode conter segmentos que comecem com "." (ex.: .vault, ou ".." usado para escapar da raiz)'
+  })
+  .refine(p => EXTENSOES_ANEXO.includes(p.split('.').pop()?.toLowerCase() ?? ''), {
+    message: 'tipo de arquivo que o Cortex não abre — só áudio, vídeo, PDF, imagem e texto'
+  })
+
+/**
  * Caminho de pasta dentro do vault. Mesmas regras do caminho de nota menos a
  * extensão — e a mesma recusa a segmentos com ponto, que é o que impede
  * `..` de escapar da raiz e `.vault` de ser mexido pelo renderer.
@@ -44,6 +122,7 @@ const relDev = z.string().max(4096)
   .refine(p => !p.split('/').includes('..'), { message: 'caminho não pode subir de nível' })
 
 export const IPC_SCHEMAS = {
+  'vault:abrir-anexo': z.object({ path: anexo }).strict(),
   'note:read': z.object({ path: caminho }).strict(),
   'note:write': z.object({ path: caminho, content: z.string().max(5_000_000) }).strict(),
   'note:list': z.object({

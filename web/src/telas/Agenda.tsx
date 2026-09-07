@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoProvaEstudada, eventoProvaEtapa, eventoItemApagado } from '../montar'
 import type { Evento } from '@compartilhado/eventos'
+import { dobra, pontuar } from '@compartilhado/busca'
 import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
@@ -31,6 +32,7 @@ export function Agenda(p: {
   const [escolhendo, setEscolhendo] = useState(false)
   /** O caminho da nota cujas ações estão abertas — uma de cada vez. */
   const [aberto, setAberto] = useState<string | null>(null)
+  const [busca, setBusca] = useState('')
 
   const txt = (v: unknown): string => (typeof v === 'string' ? v : '')
 
@@ -142,9 +144,35 @@ export function Agenda(p: {
     return { qual: 'pronto', feito: true }
   }
 
-  const ps = provas(p.cardapio.cardapio)
-  const cs = compromissos(p.cardapio.cardapio)
-  const ts = tarefas(p.cardapio.cardapio)
+  /*
+   * A busca.
+   *
+   * Conforme a agenda enche, achar uma coisa vira rolagem — e no celular a
+   * lista de provas sozinha já passa da tela. A regra vem de `shared/busca`,
+   * a mesma do Ctrl+K do Cortex: digitar "unicamp" tem que achar o mesmo
+   * item, na mesma ordem, nos dois lugares.
+   *
+   * Ordena pelo acerto, e não pela data: quem digitou um nome quer aquele
+   * item na frente, não o mais próximo que também bateu.
+   */
+  const termo = dobra(busca.trim())
+  const filtrar = (itens: ItemCardapio[]): ItemCardapio[] => {
+    if (!termo) return itens
+    return itens
+      .map(i => ({
+        i,
+        // Nome primeiro; depois o que descreve o item; a data por último,
+        // para "18 out" ainda achar, sem ganhar de um acerto no nome.
+        nota: pontuar([i.nome, txt(i.detalhe.materia), txt(i.detalhe.local), dataDe(i)], termo)
+      }))
+      .filter((x): x is { i: ItemCardapio; nota: number } => x.nota !== null)
+      .sort((a, b) => a.nota - b.nota)
+      .map(x => x.i)
+  }
+
+  const ps = filtrar(provas(p.cardapio.cardapio))
+  const cs = filtrar(compromissos(p.cardapio.cardapio))
+  const ts = filtrar(tarefas(p.cardapio.cardapio))
   const vazio = ps.length === 0 && cs.length === 0 && ts.length === 0
 
   return (
@@ -185,10 +213,29 @@ export function Agenda(p: {
           </div>
         )}
 
+        {/* A busca fica acima das listas e some quando não há o que buscar:
+            com dois itens na agenda, um campo de procurar é só ruído. */}
+        {(provas(p.cardapio.cardapio).length
+          + compromissos(p.cardapio.cardapio).length
+          + tarefas(p.cardapio.cardapio).length) > 4 && (
+          <div className="busca">
+            <input
+              className="busca-campo"
+              type="search"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="procurar por nome, matéria ou local"
+              aria-label="procurar na agenda"
+            />
+          </div>
+        )}
+
         {vazio && !p.cardapio.erro && (
           <p className="secao-vazia">
-            Nada marcado nos próximos dias. Provas, compromissos e tarefas
-            aparecem aqui assim que existirem no Cortex.
+            {termo
+              ? `Nada com "${busca.trim()}".`
+              : `Nada marcado nos próximos dias. Provas, compromissos e tarefas
+                 aparecem aqui assim que existirem no Cortex.`}
           </p>
         )}
 
