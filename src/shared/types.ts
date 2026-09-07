@@ -87,6 +87,8 @@ declare global {
   interface Window {
     vaultApi: {
       invoke(canal: string, payload: unknown): Promise<unknown>
+      /** A versão do app, lida do `package.json` empacotado pelo main. */
+      versaoDoApp(): Promise<string>
       estadoVault(): Promise<EstadoVault>
       pickVault(): Promise<EstadoVault | null>
       criarVault(): Promise<EstadoVault | null>
