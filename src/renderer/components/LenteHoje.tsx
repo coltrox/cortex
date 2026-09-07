@@ -1,8 +1,10 @@
 import {
-  Cartao, Secao, Titulo, Linha, ListaNotas, Check, Vazio, Progresso,
+  Cartao, Secao, Titulo, Linha, ListaNotas, Check, Vazio, Progresso, Prazo,
   moeda, nf, num, txt, lista, textos, porData, type PropsLente
 } from './base'
-import { suplementosDoDia, rotinasDoDia, anotacoesDoDia, totaisDoDia } from '../dados'
+import {
+  suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia
+} from '../dados'
 
 /**
  * Hoje.
@@ -67,6 +69,7 @@ export function LenteHoje({
   // rotina de outro dia da semana, e "4/3 feitas" seria um número impossível.
   const rotinasDeHojeFeitas = rotinas.filter(r => rotinasFeitas.includes(r.title)).length
   const anotacoes = anotacoesDoDia(notas, hoje)
+  const comemorativas = datasComemorativas(notas, hoje)
 
   const compromissosHoje = doDia.filter(n =>
     n.tipo === 'evento' || n.tipo === 'consulta' || n.tipo === 'prova')
@@ -300,6 +303,33 @@ export function LenteHoje({
         aoClicar={() => aoAdicionar('evento', { date: hoje })} />
       <ListaNotas notas={compromissosHoje} aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
         vazio="Nada marcado para hoje." />
+
+      {/* Datas comemorativas ficam em lista própria, e não misturadas com
+          consulta médica e reunião: são a única coisa da agenda que volta
+          todo ano, e a única em que "faz 18 anos" quer dizer alguma coisa. */}
+      <Secao nome="Datas comemorativas" acao="Data"
+        aoClicar={() => aoAdicionar('data-comemorativa')} />
+      {comemorativas.length === 0 ? (
+        <Vazio>Nenhuma nos próximos dois meses.</Vazio>
+      ) : (
+        <div className="lista-notas">
+          {comemorativas.map(d => (
+            <Linha key={`${d.path}:${d.quando}`} aoAbrir={() => aoAbrir(d.path)}>
+              <span className="pin">🎂</span>
+              <span className="linha-titulo">{d.titulo}</span>
+              {d.oque && <span className="tipo">{d.oque}</span>}
+              <span className="linha-valor">
+                {/* "faz 18" para aniversário; "há 3 anos" para o que já
+                    aconteceu e se lembra — falecimento, formatura. */}
+                {d.anos === null ? '' : d.oque === 'falecimento'
+                  ? `há ${d.anos} anos`
+                  : `faz ${d.anos}`}
+              </span>
+              <Prazo data={d.quando} hoje={hoje} feito={false} />
+            </Linha>
+          ))}
+        </div>
+      )}
 
       <h3 className="secao">Vem por aí</h3>
       <ListaNotas notas={proximos} aoAbrir={aoAbrir} aoEditar={aoEditar}

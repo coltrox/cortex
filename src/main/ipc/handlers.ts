@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, shell } from 'electron'
 import { IPC_SCHEMAS, type IpcChannel } from '../../shared/ipc'
 import type { Session } from '../session'
 import {
@@ -98,6 +98,27 @@ export async function handle(
   const p = parsed.data as any
 
   switch (canal) {
+    /*
+     * Abre um anexo do vault no programa padrão do sistema.
+     *
+     * Duas travas, e as duas precisam passar. O schema já recusou extensão
+     * fora da lista branca — nada que o sistema executaria em vez de abrir.
+     * E `toAbsolute` recusa qualquer caminho que não caia DENTRO da raiz do
+     * vault, comparando o resolvido e não o texto: `Anexos/../../.ssh/id_rsa`
+     * não vira um caminho válido só por começar com `Anexos/`.
+     *
+     * O renderer manda o caminho relativo e nunca o absoluto — quem sabe onde
+     * o vault está é o processo main, e é assim que continua.
+     */
+    case 'vault:abrir-anexo': {
+      const abs = session.vault.toAbsolute(p.path)
+      // `openPath` devolve string vazia quando deu certo, e a mensagem de
+      // erro do sistema quando não. Arquivo que não existe cai aqui.
+      const erro = await shell.openPath(abs)
+      if (erro) throw new Error(`não consegui abrir: ${erro}`)
+      return { ok: true }
+    }
+
     case 'note:read': {
       const content = await session.vault.read(p.path)
       return { content, meta: getNote(session.db, p.path) ?? null }
@@ -291,6 +312,20 @@ export async function handle(
         if (chave) session.cofre.destrancar(chave)
       }
       session.cofre.definirPastas(pastasProtegidas(session.config.paineisTrancados))
+      /*
+       * Reindexa o que ficou de fora enquanto o painel estava trancado.
+       *
+       * `syncAll` pula toda nota cifrada com o cofre fechado (ver
+       * `ErroTrancado` em `indexer.ts`) — ela some do índice, e com ela somem
+       * a busca, as lentes e o que sobe para o celular. Abrir o cofre não
+       * desfazia isso sozinho: a nota só voltava se alguém editasse o arquivo
+       * e o watcher percebesse. Não havia caminho pela interface — e quem
+       * tranca o painel de Vida guarda ali justamente as tarefas do dia.
+       *
+       * `syncAll` compara mtime e tamanho, então num vault já em dia isto
+       * custa uma varredura de diretório, não uma releitura de tudo.
+       */
+      await session.indexer.syncAll()
       return true
     }
 

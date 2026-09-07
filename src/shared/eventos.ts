@@ -16,6 +16,14 @@ export const TIPOS_EVENTO = [
   'prova_estudada', 'compromisso', 'item_apagado', 'compromisso_editado',
   // Marcar do celular o que antes so nascia no Cortex.
   'prova_nova', 'tarefa_nova',
+  // As etapas de quem presta vestibular: inscricao e pagamento.
+  //
+  // Tipo proprio, e nao mais um `prova_estudada` com outro campo, porque a
+  // pergunta e outra. "Estudei" e sobre preparo e se repete; a inscricao
+  // acontece uma vez, tem prazo proprio, e perder esse prazo tira a pessoa da
+  // prova -- e a unica das duas cuja falha nao da para recuperar estudando
+  // mais.
+  'prova_etapa',
   // Porquinho: guardar e tirar. Movimento, nao saldo -- o saldo e a soma dos
   // movimentos, e quem faz essa conta e o Cortex.
   'porquinho',

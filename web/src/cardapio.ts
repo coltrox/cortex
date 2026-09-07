@@ -111,7 +111,15 @@ export function momentoDe(i: ItemCardapio): string {
   return typeof q === 'string' && q.trim() !== '' ? q : 'qualquer hora'
 }
 
-export type AnotacaoPublicada = { titulo: string; texto: string; prioridade: boolean }
+export type AnotacaoPublicada = {
+  titulo: string
+  texto: string
+  prioridade: boolean
+  /** O markdown escrito no Cortex, quando há. */
+  corpo?: string
+  /** Sem data: fica na tela todo dia, em vez de sumir na virada. */
+  permanente?: boolean
+}
 
 /**
  * As anotações que o Cortex devolveu.
@@ -134,7 +142,11 @@ export function anotacoesDoDia(c: Cardapio): AnotacaoPublicada[] {
       texto: typeof i.detalhe.texto === 'string' && i.detalhe.texto !== ''
         ? i.detalhe.texto
         : i.nome,
-      prioridade: i.detalhe.prioridade === true
+      prioridade: i.detalhe.prioridade === true,
+      corpo: typeof i.detalhe.corpo === 'string' && i.detalhe.corpo !== ''
+        ? i.detalhe.corpo
+        : undefined,
+      permanente: i.detalhe.permanente === true ? true : undefined
     }))
     .sort((a, b) =>
       a.prioridade === b.prioridade

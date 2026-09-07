@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useState, type ReactElement, type ReactNode } from 'react'
 import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from '../guardado'
+import { Marcacao } from '../marcacao'
 import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua } from '../montar'
 import {
   suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros,
@@ -63,17 +64,55 @@ const ATALHOS: { tela: Tela; nome: string; icone: ReactElement }[] = [
  * — e omitir isso faria a anotação parecer guardada no vault quando ela está
  * só no aparelho.
  */
-function Anotada(p: { texto: string; prioridade: boolean; soAqui?: boolean }) {
+function Anotada(p: {
+  texto: string; prioridade: boolean; soAqui?: boolean
+  corpo?: string; permanente?: boolean
+}) {
   return (
     <div className="anotada" data-prioridade={p.prioridade ? 'sim' : undefined}>
       {p.prioridade && <span className="anotada-estrela" aria-label="prioridade">★</span>}
       {/* `pre-wrap` no CSS: a anotação foi escrita num campo de 8 linhas, e
           amassar as quebras faria a lista de recados virar um parágrafo só. */}
       <p className="anotada-texto">{p.texto}</p>
+      {p.permanente && <span className="anotada-marca">fixa</span>}
       {p.soAqui && <span className="anotada-marca">só neste aparelho</span>}
+      {/* O corpo escrito no Cortex, com os links clicáveis. Fica embaixo e
+          ocupa a linha toda: é onde moram as observações e o passo a passo,
+          e antes nada disso saía do computador. */}
+      {p.corpo && <div className="anotada-corpo"><Marcacao texto={p.corpo} /></div>}
     </div>
   )
 }
+
+/**
+ * O item, e o corpo dele logo abaixo quando existe.
+ *
+ * Recolhido por padrão, e não aberto: a lista do Hoje é para bater o olho e
+ * marcar. Uma tarefa com dez passos aberta o tempo todo empurraria as outras
+ * para fora da tela — e quem quer o passo a passo quer no momento de fazer,
+ * não o dia inteiro.
+ */
+function Corpo(p: { texto: string; children: ReactNode }) {
+  const [aberto, setAberto] = useState(false)
+  if (!p.texto) return <>{p.children}</>
+  return (
+    <div className="com-corpo">
+      {p.children}
+      <button
+        className="corpo-abrir"
+        type="button"
+        aria-expanded={aberto}
+        onClick={() => setAberto(v => !v)}
+      >
+        {aberto ? 'esconder' : 'ver como faz'}
+      </button>
+      {aberto && <div className="corpo-texto"><Marcacao texto={p.texto} /></div>}
+    </div>
+  )
+}
+
+/** O que veio do banco pode não ser texto. */
+const txtDe = (v: unknown): string => (typeof v === 'string' ? v : '')
 
 export function Hoje(p: {
   envio: ReturnType<typeof useEnvio>
@@ -314,17 +353,18 @@ export function Hoje(p: {
         {/* Mesma regra do suplemento, logo acima: a tarefa sem hora marcada é
             "qualquer hora", e não uma linha sem resposta. */}
         {rotinas.map(t => (
-          <Check
-            key={t.nome}
-            rotulo={t.nome}
-            detalhe={<Detalhe partes={[momentoDe(t)]} />}
-            feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
-            aoMarcar={() => alternar(
-              `rotina:${t.nome}`,
-              estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
-              feito => eventoRotina(t.nome, dia, feito)
-            )}
-          />
+          <Corpo key={t.nome} texto={txtDe(t.detalhe.corpo)}>
+            <Check
+              rotulo={t.nome}
+              detalhe={<Detalhe partes={[momentoDe(t)]} />}
+              feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
+              aoMarcar={() => alternar(
+                `rotina:${t.nome}`,
+                estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
+                feito => eventoRotina(t.nome, dia, feito)
+              )}
+            />
+          </Corpo>
         ))}
 
         {/* Logo abaixo das tarefas: o que estava para fazer, e em seguida o
@@ -333,7 +373,8 @@ export function Hoje(p: {
             própria que ninguém abriria. */}
         {(publicadas.length > 0 || locais.length > 0) && <Secao nome="Anotações de hoje" />}
         {publicadas.map(a => (
-          <Anotada key={`vault:${a.titulo}`} texto={a.texto} prioridade={a.prioridade} />
+          <Anotada key={`vault:${a.titulo}`} texto={a.texto} prioridade={a.prioridade}
+            corpo={a.corpo} permanente={a.permanente} />
         ))}
         {locais.map((a, i) => (
           <Anotada key={`aqui:${i}:${a.texto}`} texto={a.texto} prioridade={a.prioridade} soAqui />

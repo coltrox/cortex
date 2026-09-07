@@ -1,5 +1,6 @@
 import type { NoteComCampos } from './tipos'
 import { diaDaSemana } from './formularios'
+import { proximaOcorrencia, anosCompletados } from '../shared/datas'
 
 /**
  * Leituras sobre as notas.
@@ -155,6 +156,70 @@ export function rotinasDoDia(notas: NoteComCampos[], dia: string): NoteComCampos
     const d = textos(n.campos.dias)
     return d.length === 0 || d.includes(semana)
   })
+}
+
+/* ---------- datas que voltam todo ano ---------- */
+
+export type DataComemorativa = {
+  path: string
+  titulo: string
+  /** Quando cai da próxima vez, já resolvida para um ano concreto. */
+  quando: string
+  /** `aniversário`, `casamento`, `falecimento`… vazio quando não se disse. */
+  oque: string
+  /** Quantos anos faz nessa ocorrência — `null` sem o ano de origem. */
+  anos: number | null
+}
+
+/**
+ * As datas comemorativas que vêm por aí, do mais próximo ao mais distante.
+ *
+ * Duas fontes, e de propósito. A nota `data-comemorativa` cobre casamento,
+ * formatura e falecimento; a nota `pessoa` cobre o aniversário de quem já
+ * está cadastrado — sem isso, cadastrar alguém e depois criar a data dela
+ * seria digitar o mesmo nome duas vezes, e o aniversário acabaria escrito
+ * dentro do campo `papel`, que foi o que aconteceu de verdade.
+ *
+ * `dias` limita a janela. Sem limite, trinta aniversários apareceriam
+ * inteiros em toda tela, e o que interessa é o que está chegando.
+ */
+export function datasComemorativas(
+  notas: NoteComCampos[], hoje: string, dias = 60
+): DataComemorativa[] {
+  const limite = emDias(hoje, dias)
+  const out: DataComemorativa[] = []
+
+  const juntar = (
+    n: NoteComCampos, titulo: string, d: unknown, m: unknown, ano: unknown, oque: string
+  ): void => {
+    const quando = proximaOcorrencia(num(d), num(m), hoje)
+    if (!quando || quando > limite) return
+    out.push({ path: n.path, titulo, quando, oque, anos: anosCompletados(ano, quando) })
+  }
+
+  for (const n of notas.filter(x => x.tipo === 'data-comemorativa')) {
+    juntar(n, n.title, n.campos.dia, n.campos.mes, n.campos.ano, txt(n.campos.oque))
+  }
+  for (const n of notas.filter(x => x.tipo === 'pessoa')) {
+    // Sem dia e mês a pessoa simplesmente não tem aniversário cadastrado —
+    // não é erro, é o caso normal de quem foi cadastrado pelo telefone.
+    if (n.campos.nascimento_dia === undefined) continue
+    juntar(
+      n, `Aniversário — ${n.title}`,
+      n.campos.nascimento_dia, n.campos.nascimento_mes, n.campos.nascimento_ano,
+      'aniversário'
+    )
+  }
+
+  return out.sort((a, b) => (a.quando < b.quando ? -1 : a.quando > b.quando ? 1 : 0))
+}
+
+/** `hoje` mais N dias, em ISO. Monta pelo `Date` local, nunca por UTC. */
+function emDias(hoje: string, dias: number): string {
+  const [a, m, d] = hoje.split('-').map(Number)
+  const data = new Date(a, m - 1, d + dias)
+  const dois = (n: number): string => String(n).padStart(2, '0')
+  return `${data.getFullYear()}-${dois(data.getMonth() + 1)}-${dois(data.getDate())}`
 }
 
 /* ---------- vida ---------- */

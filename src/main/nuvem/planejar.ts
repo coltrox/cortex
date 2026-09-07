@@ -221,6 +221,37 @@ export function planejar(evento: Evento): Operacao[] {
       }]
     }
 
+    /*
+     * A inscrição e o pagamento do vestibular.
+     *
+     * Duas etapas, uma de cada vez, e a ordem importa: não há como pagar uma
+     * inscrição que não foi feita. Quem cuida de mostrar a etapa certa é a
+     * tela; aqui só se grava o que ela mandou.
+     *
+     * Guarda a data de cada uma (`inscrito_em`, `pago_em`) porque prazo de
+     * vestibular se discute depois — "paguei dia 12" é o que resolve uma
+     * dúvida com a banca, e o dia em que se apertou o botão é a única fonte
+     * disso que existe.
+     */
+    case 'prova_etapa': {
+      const path = txt(dados.path)
+      const etapa = txt(dados.etapa)
+      if (!path || (etapa !== 'inscrito' && etapa !== 'pago')) return []
+      // Ausente quer dizer "marcou", como em `prova_estudada`: um evento
+      // parado na fila desde antes não pode virar uma desmarcação.
+      const feito = dados.feito !== false
+      return [{
+        acao: 'marcar', path,
+        tiposPermitidos: ['prova', 'simulado'],
+        // `null` apaga a chave, devolvendo a nota ao estado de quem nunca fez
+        // a etapa — em vez de deixar `inscrito: false` e uma data de quando
+        // não se inscreveu, que não quer dizer nada.
+        campos: feito
+          ? { [etapa]: true, [`${etapa}_em`]: dia }
+          : { [etapa]: null, [`${etapa}_em`]: null }
+      }]
+    }
+
     case 'item_apagado': {
       const path = txt(dados.path)
       if (!path) return []

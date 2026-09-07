@@ -265,6 +265,83 @@ body{
 .item + .item{ margin-top:var(--e2); }
 .lista .item + .item{ margin-top:0; }
 
+/* ─────────────── Busca na agenda ─────────────── */
+
+.busca{ margin-bottom:var(--e3); }
+.busca-campo{
+  width:100%; min-height:var(--toque); padding:0 var(--e4);
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  color:var(--txt); font:400 16px/1 var(--fonte);
+}
+/* 16px no campo não é escolha estética: abaixo disso o Safari do iPhone dá
+   zoom ao focar, e a tela inteira salta de lugar quando o teclado abre. */
+.busca-campo::placeholder{ color:var(--txt-3); }
+.busca-campo:focus{ outline:2px solid var(--acento-linha); outline-offset:1px; }
+/* O "x" nativo do `type=search` some no WebKit; sem isto ele fica invisível
+   sobre fundo escuro e a pessoa não acha como limpar. */
+.busca-campo::-webkit-search-cancel-button{
+  -webkit-appearance:none; appearance:none;
+  width:18px; height:18px; border-radius:50%;
+  background:var(--painel-topo);
+  /* Um "×" desenhado com dois gradientes: sem imagem, sem fonte de ícone. */
+  background-image:
+    linear-gradient(45deg, transparent 45%, var(--txt-2) 45% 55%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, var(--txt-2) 45% 55%, transparent 55%);
+  cursor:pointer;
+}
+
+/* ─────────────── Corpo da nota (markdown) ─────────────── */
+
+/* O item e o corpo dele viram um bloco só, para o "ver como faz" não parecer
+   um botão solto entre duas tarefas diferentes. */
+.com-corpo + .com-corpo, .com-corpo + .item, .item + .com-corpo{ margin-top:var(--e2); }
+
+.corpo-abrir{
+  display:block; width:100%; min-height:36px; margin-top:2px;
+  background:transparent; border:none;
+  color:var(--txt-3); font:500 12.5px/1 var(--fonte); text-align:left;
+  padding:0 var(--e4); cursor:pointer;
+}
+.corpo-abrir[aria-expanded='true']{ color:var(--acento); }
+
+.corpo-texto{
+  padding:var(--e3) var(--e4);
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  margin-top:2px;
+}
+
+.md{ font:400 14.5px/1.5 var(--fonte); color:var(--txt-2); }
+.md > :first-child{ margin-top:0; }
+.md > :last-child{ margin-bottom:0; }
+.md-p{ margin:0 0 var(--e2); overflow-wrap:anywhere; }
+.md-titulo{
+  margin:var(--e3) 0 var(--e1);
+  font:600 13px/1.35 var(--fonte); color:var(--txt);
+  letter-spacing:.02em;
+}
+/* O nível vira recuo, e não tamanho: seis tamanhos de fonte não cabem num
+   card de celular, mas a hierarquia ainda precisa se ler. */
+.md-titulo[data-nivel='3']{ padding-left:var(--e2); }
+.md-titulo[data-nivel='4'],
+.md-titulo[data-nivel='5'],
+.md-titulo[data-nivel='6']{ padding-left:var(--e3); }
+
+.md-lista{ margin:0 0 var(--e2); padding-left:var(--e4); }
+.md-lista li{ margin:0 0 var(--e1); overflow-wrap:anywhere; }
+
+.md code{
+  font:400 13px/1.4 var(--fonte-num);
+  background:var(--painel-alto); border-radius:4px; padding:1px 5px;
+}
+/* O link tem que se ver e ter onde tocar: sublinhado com folga, e não só
+   uma cor diferente — o alvo aqui é o dedo, não o cursor. */
+.md-link{
+  color:var(--acento); text-decoration:underline; text-underline-offset:3px;
+  overflow-wrap:anywhere;
+}
+
+.anotada-corpo{ flex-basis:100%; margin-top:var(--e2); }
+
 /* ─────────────── Anotação do dia ─────────────── */
 
 /* Parece um item, mas não é marcável: sem caixa, sem cursor de clique, e o
@@ -510,6 +587,35 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 }
 .acao-feita{ background:var(--ok-fraco); border-color:rgba(79,201,140,.3); color:var(--ok); }
 .acao-destrutiva{ background:transparent; border-color:rgba(234,106,114,.3); color:var(--erro); }
+
+/* A etapa da vez: é o que a pessoa veio fazer, então tem o peso do botão
+   principal. Perder o prazo da inscrição tira ela da prova — isso não pode
+   ter o mesmo tamanho visual de "excluir". */
+.acao-etapa{
+  flex:1;
+  background:var(--acento-fraco); border-color:var(--acento-linha); color:var(--acento);
+}
+
+/* Inscrito e pago: acabou o que fazer, e o que fica é um estado, não um
+   botão. Texto em vez de controle, para ninguém tocar procurando ação. */
+.acao-pronta{
+  flex:1; min-height:var(--toque);
+  display:inline-flex; align-items:center;
+  color:var(--ok); font:600 13.5px/1 var(--fonte);
+}
+
+/* O "⋯" some no canto: é a porta de editar e excluir, que se usa pouco. */
+.acao-mais{
+  flex:none; width:var(--toque); min-height:var(--toque);
+  display:inline-flex; align-items:center; justify-content:center;
+  background:transparent; border:1px solid var(--borda); border-radius:var(--r1);
+  color:var(--txt-2); font:600 17px/1 var(--fonte); cursor:pointer;
+}
+.acao-mais[aria-expanded='true']{ background:var(--painel-alto); color:var(--txt); }
+
+/* A gaveta aberta desce por baixo da linha da etapa, e não ao lado dela:
+   lado a lado, os quatro botões voltariam a espremer o que importa. */
+.item-acoes-abertas{ margin-top:var(--e2); }
 
 /* linha de dados chave→valor */
 .linha-dado{

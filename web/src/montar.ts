@@ -265,6 +265,24 @@ export function eventoProvaEstudada(
   })
 }
 
+/** As duas etapas de quem presta vestibular. */
+export type EtapaProva = 'inscrito' | 'pago'
+
+/**
+ * Marca (ou desmarca) a inscrição e o pagamento de uma prova.
+ *
+ * Separado de `eventoProvaEstudada` porque a pergunta é outra: estudar se
+ * repete e não tem prazo fatal; a inscrição acontece uma vez, e perder o
+ * prazo dela tira a pessoa da prova.
+ */
+export function eventoProvaEtapa(
+  path: string, etapa: EtapaProva, dia: string = diaLocal(), feito = true
+): Evento {
+  return validarEvento({
+    tipo: 'prova_etapa', dia, dados: { path: texto(path, 'prova'), etapa, feito }
+  })
+}
+
 /**
  * Apaga um item da agenda ou dos estudos.
  *

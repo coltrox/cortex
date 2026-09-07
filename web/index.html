@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#070f1c" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/icone-192.png" />
+    <!-- O iOS ignora os ícones do manifest e usa só este. Tem que ser 180x180
+         e OPACO: transparência ali é composta sobre preto, e a arte escura
+         sumiria contra ele. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icone-192.png" />
     <title>Cortex</title>
   </head>
   <body>

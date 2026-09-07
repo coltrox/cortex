@@ -46,7 +46,10 @@ describe('validarEvento', () => {
       // `agua` entrou com o contador de hidratação: é o único tipo que soma
       // um número no diário em vez de marcar um check.
       'agua', 'anotacao', 'cardio', 'compromisso', 'compromisso_editado',
-      'gasto', 'item_apagado', 'medida', 'peso', 'porquinho', 'prova_estudada',
+      'gasto', 'item_apagado', 'medida', 'peso', 'porquinho',
+      // `prova_etapa` sao a inscricao e o pagamento do vestibular: uma vez
+      // cada, com prazo proprio, ao contrario de `prova_estudada`.
+      'prova_estudada', 'prova_etapa',
       'prova_nova', 'refeicao_extra', 'refeicao_plano', 'rotina_feita',
       'sessao', 'suplemento', 'tarefa_nova'
     ])
