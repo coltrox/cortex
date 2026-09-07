@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { NoteComCampos } from '../index/queries'
-import { montarCardapio } from './cardapio'
+import { montarCardapio, podePublicarCorpo } from './cardapio'
 import { TIPOS_NOTA_CARDAPIO } from '../../shared/eventos'
 
 /**
@@ -81,7 +81,11 @@ describe('montarCardapio', () => {
              campos: { transacoes: [{ item: 'Almoço', valor: 32.5, cat: 'alimentacao' }] } }),
       nota({ path: 'Saude/Treinos/s.md', title: 'Push A — 2026-08-27', tipo: 'sessao',
              campos: { modelo: 'Push A', exercicios: [{ nome: 'Supino', carga: '60 kg' }] } }),
-      nota({ path: 'Vida/n.md', title: 'Ideia', tipo: 'anotacao',
+      // Anotacao dentro da pasta das senhas. O corte normal e por TIPO, e
+      // `anotacao` E um tipo que sobe -- entao so o corte por PASTA segura
+      // esta. O nome dela ja entregaria o assunto, por isso nem o titulo sai.
+      nota({ path: 'Vida/Contas/Wifi da mae.md', title: 'SEGREDO-TITULO-ANOTACAO',
+             tipo: 'anotacao',
              campos: { texto: 'texto pessoal que nao pode vazar' } }),
       // e o que PODE subir — mas com campos sensíveis embutidos DENTRO dos três
       // tipos que montarCardapio de fato processa. Filtrar por tipo não basta
@@ -147,7 +151,8 @@ describe('montarCardapio', () => {
       'combinar com consulta psiquiátrica', 'prescrito pelo psiquiatra',
       'restrição renal detectada em exame recente',
       'SEGREDO-ARRAY-GRUPO', 'SEGREDO-DOSE-ARRAY', 'SEGREDO-ITENS-ARRAY',
-      'SEGREDO-TITLE-TREINO', 'SEGREDO-TITLE-SUPLEMENTO'
+      'SEGREDO-TITLE-TREINO', 'SEGREDO-TITLE-SUPLEMENTO',
+      'SEGREDO-TITULO-ANOTACAO'
     ]) {
       expect(json).not.toContain(proibido)
     }
@@ -454,14 +459,21 @@ describe('a anotacao do dia volta para o celular', () => {
     expect(marcada[0].detalhe.prioridade).toBe(true)
   })
 
-  it('so as de HOJE sobem', () => {
-    // Anotacao nao tem prazo para cumprir, entao nao ganha a janela de dois
-    // dias das provas: e o registro do dia, e o historico fica no vault.
+  it('a de ONTEM nao sobe; a de hoje e a sem data, sim', () => {
+    // Anotacao com data e registro do dia: nao ganha a janela de dois dias
+    // das provas, porque nao ha prazo a cumprir e o historico fica no vault.
+    //
+    // Sem data e outra coisa -- e anotacao permanente. Ela nao casava com
+    // `hoje` e por isso nunca subia, e foi o que fez uma usuaria relatar que
+    // "as anotacoes nunca aparecem no celular": as dela nao tinham data.
     const ontem = anotacao({ path: 'c.md', title: 'Ontem', date: '2026-09-03', campos: { texto: 'Ontem' } })
     const hoje = anotacao({ path: 'd.md', title: 'Hoje', date: HOJE4, campos: { texto: 'Hoje' } })
     const semData = anotacao({ path: 'e.md', title: 'Sem data', date: null, campos: { texto: 'Sem data' } })
 
-    expect(montarCardapio([ontem, hoje, semData], HOJE4).map(i => i.nome)).toEqual(['Hoje'])
+    const c = montarCardapio([ontem, hoje, semData], HOJE4)
+    expect(c.map(i => i.nome).sort()).toEqual(['Hoje', 'Sem data'])
+    expect(c.find(i => i.nome === 'Sem data')?.detalhe.permanente).toBe(true)
+    expect(c.find(i => i.nome === 'Hoje')?.detalhe).not.toHaveProperty('permanente')
   })
 
   it('sem o campo texto, o titulo salva a linha', () => {
@@ -632,5 +644,94 @@ describe('as etapas do vestibular sobem para o celular', () => {
     const d = montarCardapio([prova({ inscricao: 'sim', inscrito: 1 })], HOJE5)[0].detalhe
     expect(d).not.toHaveProperty('inscricao')
     expect(d).not.toHaveProperty('inscrito')
+  })
+})
+
+describe('o corpo da nota, que agora sobe', () => {
+  const HOJE6 = '2026-09-07'
+
+  it('rotina leva o corpo junto', () => {
+    // O caso que motivou: tarefas com passo a passo e link de audio ficavam
+    // presas no computador, e o celular mostrava so o nome.
+    const c = montarCardapio([{
+      ...nota({ path: 'Vida/Oracao.md', title: 'Oracao da manha', tipo: 'rotina' }),
+      corpo: '1. Respirar\n2. Ouvir [o audio](https://exemplo.com/a.mp3)'
+    }], HOJE6)
+    expect(c[0].detalhe.corpo).toContain('Ouvir [o audio]')
+  })
+
+  it('anotacao SEM data sobe, e vem marcada como fixa', () => {
+    // Antes o filtro era `date === hoje`, e anotacao permanente nao tem data:
+    // ela nunca casava, e o celular jamais a via.
+    const c = montarCardapio([nota({
+      path: 'Vida/Wifi.md', title: 'Senha do wifi do cursinho', tipo: 'anotacao',
+      campos: { texto: 'Senha do wifi do cursinho' }
+    })], HOJE6)
+    expect(c).toHaveLength(1)
+    expect(c[0].detalhe.permanente).toBe(true)
+  })
+
+  it('anotacao de OUTRO dia continua fora', () => {
+    // Com data, vale o dia: um diario de anotacoes antigas encheria a tela.
+    const c = montarCardapio([nota({
+      path: 'Vida/a.md', title: 'De ontem', tipo: 'anotacao', date: '2026-09-06',
+      campos: { texto: 'De ontem' }
+    })], HOJE6)
+    expect(c).toEqual([])
+  })
+
+  it('a de hoje sobe, e nao e marcada como fixa', () => {
+    const c = montarCardapio([nota({
+      path: 'Vida/b.md', title: 'Hoje', tipo: 'anotacao', date: HOJE6,
+      campos: { texto: 'Hoje' }
+    })], HOJE6)
+    expect(c).toHaveLength(1)
+    expect(c[0].detalhe).not.toHaveProperty('permanente')
+  })
+
+  it('corpo gigante e cortado, com aviso', () => {
+    const c = montarCardapio([{
+      ...nota({ path: 'Vida/r.md', title: 'R', tipo: 'rotina' }),
+      corpo: 'x'.repeat(20000)
+    }], HOJE6)
+    const corpo = c[0].detalhe.corpo as string
+    expect(corpo.length).toBeLessThan(20000)
+    expect(corpo).toContain('cortado')
+  })
+
+  it('corpo so de espaco nao vira campo', () => {
+    const c = montarCardapio([{
+      ...nota({ path: 'Vida/r.md', title: 'R', tipo: 'rotina' }),
+      corpo: '\n\n   \n'
+    }], HOJE6)
+    expect(c[0].detalhe).not.toHaveProperty('corpo')
+  })
+})
+
+describe('quem pode ter o corpo publicado', () => {
+  it('so rotina e anotacao', () => {
+    // Corpo e texto livre: o que cabe ali e qualquer coisa, e por isso a
+    // lista se decide num lugar so.
+    expect(podePublicarCorpo('rotina', 'Vida/x.md')).toBe(true)
+    expect(podePublicarCorpo('anotacao', 'Vida/x.md')).toBe(true)
+    for (const t of ['conta', 'documento', 'diario', 'prova', 'treino-modelo', 'compra', null]) {
+      expect(podePublicarCorpo(t, 'Vida/x.md'), t + ' nao pode').toBe(false)
+    }
+  })
+
+  it('nem rotina nem anotacao escapam da pasta protegida', () => {
+    // O tipo e escolhido no formulario; a pasta e onde o arquivo esta. Uma
+    // anotacao salva em Vida/Contas passaria pelo corte por tipo.
+    expect(podePublicarCorpo('anotacao', 'Vida/Contas/Banco.md')).toBe(false)
+    expect(podePublicarCorpo('rotina', 'Vida/Documentos/RG.md')).toBe(false)
+  })
+
+  it('barra invertida do Windows nao dribla a regra', () => {
+    expect(podePublicarCorpo('anotacao', 'Vida\\Contas\\Banco.md')).toBe(false)
+  })
+
+  it('pasta de nome parecido nao e a protegida', () => {
+    // `Vida/Contaspublicas` comeca igual, mas nao e `Vida/Contas/`.
+    expect(podePublicarCorpo('anotacao', 'Vida/Contaspublicas/x.md')).toBe(true)
   })
 })

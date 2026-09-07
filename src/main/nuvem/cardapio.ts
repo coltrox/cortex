@@ -52,7 +52,69 @@ function aindaInteressa(data: string | null, hoje: string): boolean {
   return data >= limite
 }
 
-export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardapio[] {
+/**
+ * Uma nota com o corpo já lido, quando ele importa.
+ *
+ * O corpo não vem do índice — a tabela `notes` guarda metadado, e o texto só
+ * existe no FTS, que é para buscar. Quem lê do disco é `publicar()`, e só
+ * para os dois tipos que publicam corpo. Assim `montarCardapio` continua uma
+ * função pura sobre o que recebe, testável sem vault nem disco.
+ */
+export type NotaParaCardapio = NoteComCampos & { corpo?: string }
+
+/**
+ * Teto do corpo que sobe, em caracteres.
+ *
+ * Não é limite do banco: é a tela. Uma tarefa com passo a passo e links cabe
+ * folgada aqui; o que passa disso é documento, e documento não se lê no
+ * celular entre uma coisa e outra. Cortar avisando é melhor do que mandar
+ * 200 KB de texto por item a cada publicação.
+ */
+const TETO_CORPO = 8000
+
+/**
+ * Esta nota pode ter o CORPO publicado?
+ *
+ * Duas perguntas, e as duas precisam ser sim.
+ *
+ * O tipo: só `rotina` e `anotacao`. Corpo é texto livre — o que cabe ali é
+ * qualquer coisa —, e por isso quem entra nesta lista se decide aqui, uma
+ * vez, e não caso a caso lá embaixo.
+ *
+ * A pasta: `Vida/Contas` e `Vida/Documentos` ficam de fora mesmo que uma nota
+ * de tipo publicável apareça lá dentro. Hoje aquelas pastas guardam `conta` e
+ * `documento`, que não sobem de jeito nenhum; mas uma anotação salva na pasta
+ * errada não pode virar vazamento por causa de onde foi parar.
+ *
+ * Mora aqui, e exportada, porque é uma regra de segurança: precisa de teste
+ * próprio, e não de um teste que a alcance de raspão por outro caminho.
+ */
+export function podePublicarCorpo(tipo: string | null | undefined, caminho: string): boolean {
+  if (tipo !== 'rotina' && tipo !== 'anotacao') return false
+  return !emPastaProtegida(caminho)
+}
+
+/**
+ * A nota está numa pasta que nunca sai do computador?
+ *
+ * Senha e número de documento moram nessas duas. O corte normal é por TIPO —
+ * `conta` e `documento` não estão em `TIPOS_NOTA_CARDAPIO` e nem chegam aqui
+ * —, mas o tipo é escolhido no formulário e a pasta é onde o arquivo está.
+ * Uma anotação salva em `Vida/Contas` seria uma nota de tipo publicável em
+ * cima do lugar mais íntimo do vault, e passaria pelo corte por tipo.
+ */
+export function emPastaProtegida(caminho: string): boolean {
+  const p = caminho.split('\\').join('/')
+  return ['Vida/Contas/', 'Vida/Documentos/'].some(f => p.startsWith(f))
+}
+
+function corpoPublicavel(corpo: string | undefined): string | undefined {
+  const t = (corpo ?? '').trim()
+  if (!t) return undefined
+  return t.length <= TETO_CORPO ? t : t.slice(0, TETO_CORPO) + '\n\n… (cortado)'
+}
+
+export function montarCardapio(notas: NotaParaCardapio[], hoje: string): ItemCardapio[] {
   const out: ItemCardapio[] = []
 
   /*
@@ -120,7 +182,11 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
       detalhe: comValor({
         quando: txt(n.campos.quando),
         dias: listaDeTexto(n.campos.dias),
-        feito: feitosHoje.rotina.has(txt(n.title)) ? true : undefined
+        feito: feitosHoje.rotina.has(txt(n.title)) ? true : undefined,
+        // O corpo da tarefa: passo a passo, links, o que for. Antes ele
+        // ficava preso no computador e o celular mostrava só o nome — o
+        // que não basta para quem escreveu instruções ali para seguir.
+        corpo: corpoPublicavel(n.corpo)
       })
     })
   }
@@ -222,7 +288,21 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
    * `titulo` e `texto` são os dois únicos campos que uma anotação tem.
    */
   for (const n of notas.filter(x => x.tipo === 'anotacao')) {
-    if (txt(n.date) !== hoje) continue
+    /*
+     * As de hoje, e as que não têm data.
+     *
+     * Antes era só `date === hoje`, e isso escondia uma classe inteira de
+     * anotação: a permanente. Quem escreve "senha do wifi da casa da minha
+     * mãe" não põe data nisso — não é registro do dia, é coisa para
+     * consultar. Sem data, a nota nunca casava com `hoje` e nunca subia,
+     * então o celular jamais a via. Com data, continua valendo o dia: um
+     * diário de anotações antigas encheria a tela de coisa velha.
+     */
+    const data = txt(n.date)
+    if (data && data !== hoje) continue
+    // Nem o título: uma anotação guardada em `Vida/Contas` fala do que está
+    // guardado lá, e o nome dela já entrega o assunto.
+    if (emPastaProtegida(n.path)) continue
     out.push({
       especie: 'anotacao',
       nome: txt(n.title),
@@ -231,7 +311,14 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
         texto: txt(n.campos.texto),
         // Só quando é verdade — uma anotação comum não carrega
         // `prioridade: false` para o celular só para ele ignorar.
-        prioridade: n.campos.prioridade === true ? true : undefined
+        prioridade: n.campos.prioridade === true ? true : undefined,
+        // O corpo em markdown. `texto` é o resumo que o celular mandou ao
+        // criar; o corpo é o que foi escrito no Cortex depois, e é onde
+        // moram os links e as observações.
+        corpo: corpoPublicavel(n.corpo),
+        // Só quando é permanente: assim o celular sabe separar o recado de
+        // hoje da anotação que fica.
+        permanente: data ? undefined : true
       })
     })
   }

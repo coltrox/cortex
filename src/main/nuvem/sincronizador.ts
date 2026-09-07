@@ -1,7 +1,8 @@
 import { join } from 'node:path'
 import type { Session } from '../session'
-import { listNotesWithFields } from '../index/queries'
-import { montarCardapio } from './cardapio'
+import { listNotesWithFields, type NoteComCampos } from '../index/queries'
+import { parseFrontmatter } from '../parser/frontmatter'
+import { montarCardapio, podePublicarCorpo, type NotaParaCardapio } from './cardapio'
 import { TIPOS_NOTA_CARDAPIO } from '../../shared/eventos'
 import { planejar } from './planejar'
 import { executar } from './executar'
@@ -224,6 +225,38 @@ export class Sincronizador {
     // do processo de filtragem. `montarCardapio` continua sendo quem decide
     // o que publica; isto só reduz o que passa por perto dela.
     const notas = TIPOS_CARDAPIO.flatMap(tipo => listNotesWithFields(this.session.db, { tipo }))
-    return this.cliente.publicarCardapio(montarCardapio(notas, this.hoje()))
+    return this.cliente.publicarCardapio(
+      montarCardapio(await this.comCorpos(notas), this.hoje())
+    )
+  }
+
+  /**
+   * Lê do disco o corpo das notas que publicam corpo — e só delas.
+   *
+   * O corpo não está no índice: `notes` guarda metadado, e o texto só existe
+   * no FTS, que é para buscar. Então ele vem do arquivo, que é a verdade.
+   *
+   * Dois tipos, e a lista é curta de propósito. Corpo é texto livre: o que
+   * cabe ali é qualquer coisa, e é justamente por isso que quem entra nesta
+   * lista se decide aqui, uma vez, e não caso a caso lá embaixo.
+   *
+   * `Vida/Contas` e `Vida/Documentos` ficam de fora mesmo que uma nota de
+   * tipo publicável apareça lá dentro. Hoje isso não acontece — aquelas
+   * pastas guardam `conta` e `documento`, que não sobem —, mas uma anotação
+   * salva na pasta errada não pode virar vazamento por causa de onde foi
+   * parar.
+   */
+  private async comCorpos(notas: NoteComCampos[]): Promise<NotaParaCardapio[]> {
+    return Promise.all(notas.map(async n => {
+      if (!podePublicarCorpo(n.tipo, n.path)) return n
+      try {
+        return { ...n, corpo: parseFrontmatter(await this.session.vault.read(n.path)).body }
+      } catch {
+        // Arquivo sumido, ou trancado com o cofre fechado. Publicar sem o
+        // corpo é melhor do que não publicar o item: o nome e o check
+        // continuam servindo, e o corpo volta na próxima rodada.
+        return n
+      }
+    }))
   }
 }

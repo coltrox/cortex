@@ -291,6 +291,20 @@ export async function handle(
         if (chave) session.cofre.destrancar(chave)
       }
       session.cofre.definirPastas(pastasProtegidas(session.config.paineisTrancados))
+      /*
+       * Reindexa o que ficou de fora enquanto o painel estava trancado.
+       *
+       * `syncAll` pula toda nota cifrada com o cofre fechado (ver
+       * `ErroTrancado` em `indexer.ts`) — ela some do índice, e com ela somem
+       * a busca, as lentes e o que sobe para o celular. Abrir o cofre não
+       * desfazia isso sozinho: a nota só voltava se alguém editasse o arquivo
+       * e o watcher percebesse. Não havia caminho pela interface — e quem
+       * tranca o painel de Vida guarda ali justamente as tarefas do dia.
+       *
+       * `syncAll` compara mtime e tamanho, então num vault já em dia isto
+       * custa uma varredura de diretório, não uma releitura de tudo.
+       */
+      await session.indexer.syncAll()
       return true
     }
 
