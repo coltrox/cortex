@@ -292,17 +292,45 @@ body{
 
 /* ─────────────── Corpo da nota (markdown) ─────────────── */
 
-/* O item e o corpo dele viram um bloco só, para o "ver como faz" não parecer
-   um botão solto entre duas tarefas diferentes. */
-.com-corpo + .com-corpo, .com-corpo + .item, .item + .com-corpo{ margin-top:var(--e2); }
+/* O item e o corpo dele viram um bloco só, para o texto aberto não parecer
+   um cartão solto entre duas tarefas diferentes. */
+.com-corpo + .com-corpo, .com-corpo + .item, .item + .com-corpo,
+.com-corpo + .item-par, .item-par + .com-corpo,
+.item-par + .item-par, .item + .item-par, .item-par + .item{ margin-top:var(--e2); }
 
-.corpo-abrir{
-  display:block; width:100%; min-height:36px; margin-top:2px;
-  background:transparent; border:none;
-  color:var(--txt-3); font:500 12.5px/1 var(--fonte); text-align:left;
-  padding:0 var(--e4); cursor:pointer;
+/* O cartão de uma tarefa que abre.
+ *
+ * A moldura mora AQUI, e não no botão de marcar: dois botões precisam caber
+ * lado a lado dentro do mesmo cartão, e botão dentro de botão não existe. O
+ * `.item` de dentro perde fundo e borda e vira só a área de toque da esquerda.
+ */
+.item-par{
+  display:flex; align-items:stretch;
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
+  transition:background .15s ease, border-color .15s ease, opacity .15s ease;
 }
-.corpo-abrir[aria-expanded='true']{ color:var(--acento); }
+.item-par > .item{
+  background:transparent; border:none; border-radius:0;
+  flex:1; min-width:0; padding-right:var(--e2);
+}
+
+/* A seta, encostada na direita e alta como o cartão inteiro: o alvo do dedo é
+   a coluna toda, não só os 18 px do desenho. */
+.item-ver{
+  flex:none; width:52px;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent; border:none; border-left:1px solid var(--borda);
+  color:var(--txt-3); cursor:pointer;
+  border-radius:0 var(--r2) var(--r2) 0;
+}
+.item-ver svg{ transition:transform .18s ease; }
+.item-ver[aria-expanded='true']{ color:var(--acento); }
+.item-ver[aria-expanded='true'] svg{ transform:rotate(180deg); }
+/* Sem movimento para quem pediu sem movimento: a seta troca de estado na
+   hora, e a cor continua dizendo se está aberta. */
+@media (prefers-reduced-motion: reduce){
+  .item-ver svg{ transition:none; }
+}
 
 .corpo-texto{
   padding:var(--e3) var(--e4);
@@ -384,6 +412,9 @@ body{
 
 /* feito: verde e esmaecido, mas continua na lista e continua legível */
 .item-feito{ background:var(--ok-fraco); border-color:rgba(79,201,140,.26); opacity:.62; }
+/* A divisória da seta acompanha a borda do cartão quando ele fica verde —
+   senão sobra um risco cinza atravessando o meio de um cartão marcado. */
+.item-feito .item-ver{ border-left-color:rgba(79,201,140,.26); }
 .item-feito .caixa{ background:var(--ok); border-color:var(--ok); color:#06120c; }
 .item-feito .item-nome{ text-decoration:line-through; text-decoration-color:rgba(230,236,245,.35); }
 

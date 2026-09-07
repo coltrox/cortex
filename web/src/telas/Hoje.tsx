@@ -85,28 +85,57 @@ function Anotada(p: {
 }
 
 /**
- * O item, e o corpo dele logo abaixo quando existe.
+ * A tarefa do dia: marcar à esquerda, abrir à direita.
  *
- * Recolhido por padrão, e não aberto: a lista do Hoje é para bater o olho e
+ * O texto fica recolhido, e não aberto: a lista do Hoje é para bater o olho e
  * marcar. Uma tarefa com dez passos aberta o tempo todo empurraria as outras
  * para fora da tela — e quem quer o passo a passo quer no momento de fazer,
  * não o dia inteiro.
+ *
+ * O que abre é uma seta DENTRO do cartão, encostada na direita, e não mais um
+ * botão de largura inteira embaixo dele: aquele ficava boiando entre duas
+ * tarefas e não se lia como parte de nenhuma das duas.
+ *
+ * Sem texto, o cartão volta a ser o item simples — sem seta que não abre nada.
  */
-function Corpo(p: { texto: string; children: ReactNode }) {
+function Tarefa(p: {
+  nome: string
+  detalhe: ReactNode
+  feito: boolean
+  aoMarcar: () => void
+  corpo: string
+}) {
   const [aberto, setAberto] = useState(false)
-  if (!p.texto) return <>{p.children}</>
+
+  if (!p.corpo) {
+    return <Check rotulo={p.nome} detalhe={p.detalhe} feito={p.feito} aoMarcar={p.aoMarcar} />
+  }
+
   return (
     <div className="com-corpo">
-      {p.children}
-      <button
-        className="corpo-abrir"
-        type="button"
-        aria-expanded={aberto}
-        onClick={() => setAberto(v => !v)}
-      >
-        {aberto ? 'esconder' : 'ver como faz'}
-      </button>
-      {aberto && <div className="corpo-texto"><Marcacao texto={p.texto} /></div>}
+      <Check
+        rotulo={p.nome}
+        detalhe={p.detalhe}
+        feito={p.feito}
+        aoMarcar={p.aoMarcar}
+        acao={
+          <button
+            className="item-ver"
+            type="button"
+            aria-expanded={aberto}
+            // O nome vai no rótulo porque numa lista de oito tarefas há oito
+            // destas setas, e "abrir" sozinho não diz qual delas é.
+            aria-label={`${aberto ? 'Esconder' : 'Ver'} ${p.nome}`}
+            onClick={() => setAberto(v => !v)}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5.5 7 9 10.5 12.5 7" />
+            </svg>
+          </button>
+        }
+      />
+      {aberto && <div className="corpo-texto"><Marcacao texto={p.corpo} /></div>}
     </div>
   )
 }
@@ -353,18 +382,18 @@ export function Hoje(p: {
         {/* Mesma regra do suplemento, logo acima: a tarefa sem hora marcada é
             "qualquer hora", e não uma linha sem resposta. */}
         {rotinas.map(t => (
-          <Corpo key={t.nome} texto={txtDe(t.detalhe.corpo)}>
-            <Check
-              rotulo={t.nome}
-              detalhe={<Detalhe partes={[momentoDe(t)]} />}
-              feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
-              aoMarcar={() => alternar(
-                `rotina:${t.nome}`,
-                estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
-                feito => eventoRotina(t.nome, dia, feito)
-              )}
-            />
-          </Corpo>
+          <Tarefa
+            key={t.nome}
+            nome={t.nome}
+            detalhe={<Detalhe partes={[momentoDe(t)]} />}
+            corpo={txtDe(t.detalhe.corpo)}
+            feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
+            aoMarcar={() => alternar(
+              `rotina:${t.nome}`,
+              estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
+              feito => eventoRotina(t.nome, dia, feito)
+            )}
+          />
         ))}
 
         {/* Logo abaixo das tarefas: o que estava para fazer, e em seguida o

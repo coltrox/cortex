@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { NoteComCampos } from '../index/queries'
-import { montarCardapio, podePublicarCorpo } from './cardapio'
+import { montarCardapio, podePublicarCorpo, semDependenciasDaRede } from './cardapio'
 import { TIPOS_NOTA_CARDAPIO } from '../../shared/eventos'
 
 /**
@@ -733,5 +733,99 @@ describe('quem pode ter o corpo publicado', () => {
   it('pasta de nome parecido nao e a protegida', () => {
     // `Vida/Contaspublicas` comeca igual, mas nao e `Vida/Contas/`.
     expect(podePublicarCorpo('anotacao', 'Vida/Contaspublicas/x.md')).toBe(true)
+  })
+})
+
+describe('semDependenciasDaRede', () => {
+  it('tira a secao de links e a regua que a fecha', () => {
+    // A forma real de uma nota deste vault: o bloco de links no topo, logo
+    // depois do frontmatter, fechado por uma regua.
+    const corpo = [
+      '### Dependencias da Rede',
+      '- [[Esteira 30 min]]',
+      '- [[Perfil fisico]]',
+      '',
+      '---',
+      '',
+      'Trinta minutos, de segunda a sexta.'
+    ].join('\n')
+    expect(semDependenciasDaRede(corpo)).toBe('Trinta minutos, de segunda a sexta.')
+  })
+
+  it('um titulo de mesmo nivel fecha a secao e fica', () => {
+    const corpo = [
+      '### Dependencias da Rede',
+      '- [[A]]',
+      '### Como faz',
+      'Primeiro isto.'
+    ].join('\n')
+    expect(semDependenciasDaRede(corpo)).toBe('### Como faz\nPrimeiro isto.')
+  })
+
+  it('um titulo de nivel mais alto tambem fecha', () => {
+    const corpo = ['### Dependencias da Rede', '- [[A]]', '# Titulo', 'Corpo.'].join('\n')
+    expect(semDependenciasDaRede(corpo)).toBe('# Titulo\nCorpo.')
+  })
+
+  it('so link, branco e regua somem; o resto encerra o corte', () => {
+    // O limite e este, e nao o nivel do titulo: assim que aparece uma linha
+    // que nao pertence a um bloco de links, o corte para.
+    const corpo = [
+      '### Dependencias da Rede',
+      '- [[A]]',
+      '#### Notas irmas',
+      'Isto fica.'
+    ].join('\n')
+    expect(semDependenciasDaRede(corpo)).toBe('#### Notas irmas\nIsto fica.')
+  })
+
+  it('sem regua e sem outro titulo, o texto da nota nao e comido', () => {
+    // Este e o caso que derrubou a primeira versao desta funcao: ela ia do
+    // titulo ate o proximo titulo de nivel igual ou maior, e numa nota sem
+    // nenhum dos dois publicava a tarefa vazia.
+    const corpo = '### Dependencias da Rede\n- [[A]]\n\nTrinta minutos, de segunda a sexta.'
+    expect(semDependenciasDaRede(corpo)).toBe('Trinta minutos, de segunda a sexta.')
+  })
+
+  it('nao mexe em texto que nao tem a secao', () => {
+    const corpo = '## Como faz\n\n- Um passo\n- Outro passo'
+    expect(semDependenciasDaRede(corpo)).toBe(corpo)
+  })
+
+  it('acento e caixa nao escondem a secao', () => {
+    // A nota de verdade escreve "Dependencias" com acento e com uma aranha
+    // na frente. Nenhum dos dois pode fazer a regra errar.
+    const comAcento = '### DEPENDENCIAS DA REDE\n- [[A]]\n\nFica.'
+    expect(semDependenciasDaRede(comAcento)).toBe('Fica.')
+    expect(semDependenciasDaRede('### Dependencias da Rede\n- [[A]]\n\nFica.')).toBe('Fica.')
+  })
+
+  it('uma regua no meio do texto normal nao e engolida', () => {
+    // A regua so fecha a secao quando estamos DENTRO dela. Fora, e conteudo.
+    const corpo = 'Antes.\n\n---\n\nDepois.'
+    expect(semDependenciasDaRede(corpo)).toBe(corpo)
+  })
+})
+
+describe('o corpo publicado ja sai limpo', () => {
+  it('a rotina que sobe nao leva o bloco de links junto', () => {
+    // O teste que importa: nao e a funcao isolada, e o que de fato viaja
+    // para o celular.
+    const c = montar([{
+      ...nota({ path: 'Vida/Escada 30 min.md', title: 'Escada 30 min', tipo: 'rotina' }),
+      corpo: '### Dependencias da Rede\n- [[Esteira 30 min]]\n\n---\n\nTrinta minutos.'
+    }])
+    expect(c).toEqual([{
+      especie: 'rotina', nome: 'Escada 30 min', detalhe: { dias: [], corpo: 'Trinta minutos.' }
+    }])
+  })
+
+  it('rotina que so tem o bloco de links sobe sem corpo nenhum', () => {
+    // Sem isto o celular ganharia uma seta de abrir que abre o vazio.
+    const c = montar([{
+      ...nota({ path: 'Vida/x.md', title: 'X', tipo: 'rotina' }),
+      corpo: '### Dependencias da Rede\n- [[A]]\n'
+    }])
+    expect(c).toEqual([{ especie: 'rotina', nome: 'X', detalhe: { dias: [] } }])
   })
 })

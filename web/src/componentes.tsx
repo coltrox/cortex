@@ -74,15 +74,33 @@ export function CampoNumero({ rotulo, valor, aoMudar, dica, grande }: {
   )
 }
 
-export function Check({ rotulo, detalhe, feito, aoMarcar }: {
+/**
+ * O item marcável, com um segundo botão à direita quando `acao` vem.
+ *
+ * Um botão dentro de outro é HTML inválido, e no dedo é pior do que inválido:
+ * o toque fica ambíguo entre marcar e abrir. Então com `acao` o cartão deixa
+ * de ser o próprio botão e passa a ser o contêiner — `.item-par` — com dois
+ * botões irmãos dentro dele. Visualmente é o mesmo cartão de sempre; a
+ * moldura só mudou de dono.
+ *
+ * Sem `acao` nada disso acontece: o item continua sendo um `<button>` só, que
+ * é o caso da maioria das linhas.
+ */
+export function Check({ rotulo, detalhe, feito, aoMarcar, acao }: {
   rotulo: string
   detalhe?: ReactNode
   feito: boolean
   aoMarcar: () => void
+  /** Botão à direita, dentro do mesmo cartão. */
+  acao?: ReactNode
 }) {
-  return (
+  const marcar = (
     <button
-      className={`item ${feito ? 'item-feito' : ''}`}
+      // Com `acao`, quem fica verde é o cartão de fora: `item-feito` carrega
+      // fundo e borda, e aqui dentro não há mais nem um nem outro. Os
+      // seletores que dependem dele (`.item-feito .caixa`, `.item-feito
+      // .item-nome`) continuam valendo — são de descendente.
+      className={`item ${feito && !acao ? 'item-feito' : ''}`}
       onClick={aoMarcar}
       // Sem `disabled` quando feito: é o mesmo botão que desmarca. Antes,
       // marcar sem querer não tinha volta pelo celular — o item ficava morto
@@ -96,6 +114,14 @@ export function Check({ rotulo, detalhe, feito, aoMarcar }: {
         {detalhe && <span className="item-meta">{detalhe}</span>}
       </span>
     </button>
+  )
+
+  if (!acao) return marcar
+  return (
+    <div className={`item-par ${feito ? 'item-feito' : ''}`}>
+      {marcar}
+      {acao}
+    </div>
   )
 }
 
