@@ -1,7 +1,7 @@
 {
   "name": "cortex",
   "productName": "Cortex",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Vault pessoal em markdown, com lentes para estudos, saúde, grana, vida e código.",
   "main": "out/main/index.js",
   "scripts": {
