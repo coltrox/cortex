@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { guardadoDoNavegador } from '../guardado'
-import { diaLocal, eventoProvaEstudada, eventoItemApagado } from '../montar'
+import { diaLocal, eventoProvaEstudada, eventoProvaEtapa, eventoItemApagado } from '../montar'
+import type { Evento } from '@compartilhado/eventos'
 import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
@@ -26,6 +27,10 @@ export function Agenda(p: {
 }) {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
+  /** O "+ Marcar" foi tocado e a tela está perguntando de que tipo. */
+  const [escolhendo, setEscolhendo] = useState(false)
+  /** O caminho da nota cujas ações estão abertas — uma de cada vez. */
+  const [aberto, setAberto] = useState<string | null>(null)
 
   const txt = (v: unknown): string => (typeof v === 'string' ? v : '')
 
@@ -55,14 +60,18 @@ export function Agenda(p: {
   useEffect(() => {
     const atuais = jaFeitos(guardadoDoNavegador, dia)
     let mexeu = false
+    const conferir = (chave: string, doCardapio: boolean): void => {
+      const confirmado = doCardapio ? chave : `nao-${chave}`
+      if (!atuais.includes(confirmado)) return
+      desmarcarFeito(guardadoDoNavegador, dia, confirmado)
+      mexeu = true
+    }
     for (const i of provas(p.cardapio.cardapio)) {
       const path = caminhoDe(i)
       if (!path) continue
-      const confirmado = i.detalhe.estudado === true ? `prova:${path}` : `nao-prova:${path}`
-      if (atuais.includes(confirmado)) {
-        desmarcarFeito(guardadoDoNavegador, dia, confirmado)
-        mexeu = true
-      }
+      conferir(`prova:${path}`, i.detalhe.estudado === true)
+      conferir(`insc:${path}`, i.detalhe.inscrito === true)
+      conferir(`pago:${path}`, i.detalhe.pago === true)
     }
     if (mexeu) setFeitos(jaFeitos(guardadoDoNavegador, dia))
     // `feitos` fora das dependências de propósito: o efeito lê do disco, não
@@ -85,8 +94,9 @@ export function Agenda(p: {
    * Sem essa marca de "desfiz", a tela continuaria com o check nesse intervalo
    * e o toque seguinte não faria nada — o botão já se daria por marcado.
    */
-  const alternarEstudei = (path: string, estava: boolean): void => {
-    const chave = `prova:${path}`
+  const alternar = (
+    chave: string, estava: boolean, montar: (feito: boolean) => Evento
+  ): void => {
     const anti = `nao-${chave}`
     if (estava) {
       marcarFeito(guardadoDoNavegador, dia, anti)
@@ -96,7 +106,40 @@ export function Agenda(p: {
       desmarcarFeito(guardadoDoNavegador, dia, anti)
     }
     setFeitos(jaFeitos(guardadoDoNavegador, dia))
-    p.envio.registrar(eventoProvaEstudada(path, dia, !estava))
+    p.envio.registrar(montar(!estava))
+  }
+
+  /** O estado de uma marca: o cardápio decide, a marca local só adianta. */
+  const marcado = (chave: string, doCardapio: boolean): boolean =>
+    !feitos.includes(`nao-${chave}`) && (doCardapio || feitos.includes(chave))
+
+  /*
+   * Em que pé está uma prova.
+   *
+   * `inscricao` no cardápio quer dizer "esta prova tem inscrição a fazer" —
+   * é o que separa um vestibular de uma prova de cursinho. Sem ela, a prova
+   * segue com o velho "estudei", que é o que serve para quem só precisa
+   * lembrar de estudar.
+   *
+   * Com ela, a tela mostra UMA etapa de cada vez, na ordem em que a vida
+   * acontece: inscrever, pagar, e depois nada — a partir daí a prova é só a
+   * data se aproximando, e um botão a mais ali seria um botão que não tem o
+   * que fazer.
+   */
+  const etapaDe = (i: ItemCardapio, path: string): {
+    qual: 'estudo' | 'inscricao' | 'pagamento' | 'pronto'
+    feito: boolean
+  } => {
+    if (i.detalhe.inscricao !== true) {
+      return { qual: 'estudo', feito: marcado(`prova:${path}`, i.detalhe.estudado === true) }
+    }
+    if (!marcado(`insc:${path}`, i.detalhe.inscrito === true)) {
+      return { qual: 'inscricao', feito: false }
+    }
+    if (!marcado(`pago:${path}`, i.detalhe.pago === true)) {
+      return { qual: 'pagamento', feito: false }
+    }
+    return { qual: 'pronto', feito: true }
   }
 
   const ps = provas(p.cardapio.cardapio)
@@ -112,18 +155,35 @@ export function Agenda(p: {
       <div className="bloco">
         {/* Os mesmos chips do Cortex: marcar algo daqui e um toque, e a
             fileira mostra de uma vez o que da para marcar. */}
+        {/* Um botão só, e a escolha do tipo em seguida.
+            Três chips lado a lado ocupavam a largura inteira da tela para uma
+            coisa que se faz de vez em quando, e empurravam para baixo o que a
+            aba existe para mostrar: o que está chegando. */}
         <Secao nome="Marcar" />
-        <div className="chips">
-          {([
-            ['compromisso', '+ Compromisso'],
-            ['prova', '+ Prova'],
-            ['tarefa', '+ Tarefa']
-          ] as [TipoNovo, string][]).map(([t, rotulo]) => (
-            <button key={t} className="chip" type="button" onClick={() => p.aoMarcar(t)}>
-              {rotulo}
+        {escolhendo ? (
+          <div className="chips">
+            {([
+              ['compromisso', 'Compromisso'],
+              ['prova', 'Prova'],
+              ['tarefa', 'Tarefa']
+            ] as [TipoNovo, string][]).map(([t, rotulo]) => (
+              <button key={t} className="chip" type="button"
+                onClick={() => { setEscolhendo(false); p.aoMarcar(t) }}>
+                {rotulo}
+              </button>
+            ))}
+            <button className="chip" type="button" onClick={() => setEscolhendo(false)}>
+              cancelar
             </button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="chips">
+            <button className="chip chip-ligado" type="button"
+              onClick={() => setEscolhendo(true)}>
+              + Marcar
+            </button>
+          </div>
+        )}
 
         {vazio && !p.cardapio.erro && (
           <p className="secao-vazia">
@@ -136,47 +196,117 @@ export function Agenda(p: {
         {ps.map(i => {
           const path = caminhoDe(i)
           const apagada = feitos.includes(`apagar:${path}`)
-          const feito = !feitos.includes(`nao-prova:${path}`)
-            && (i.detalhe.estudado === true || feitos.includes(`prova:${path}`))
+          const etapa = etapaDe(i, path)
+          const travado = apagada || path === ''
           return (
-            <div className={`item item-acao ${feito || apagada ? 'item-feito' : ''}`}
-              key={path || i.nome}>
+            <div
+              className={`item item-acao ${etapa.feito || apagada ? 'item-feito' : ''}`}
+              key={path || i.nome}
+            >
               <div className="item-corpo">
                 <div className="item-nome">{i.nome}</div>
                 <Quando data={dataCurta(dataDe(i), dia)} falta={faltam(dataDe(i), dia)} />
                 <Sobre partes={[i.detalhe.materia, i.detalhe.local]} />
               </div>
+
+              {/* A etapa da vez ocupa a linha inteira, e o resto se recolhe
+                  atrás do "⋯". Antes eram três botões competindo pelo mesmo
+                  espaço em cada card, e o que a pessoa realmente vai fazer
+                  agora — se inscrever — ficava do tamanho de "excluir". */}
               <div className="item-acoes">
+                {etapa.qual === 'estudo' && (
+                  <button
+                    className={`acao-lado ${etapa.feito ? 'acao-feita' : ''}`}
+                    type="button"
+                    // Sem `disabled` quando feito: é o mesmo botão que desmarca.
+                    disabled={travado}
+                    aria-pressed={etapa.feito}
+                    onClick={() => alternar(
+                      `prova:${path}`, etapa.feito,
+                      feito => eventoProvaEstudada(path, dia, feito)
+                    )}
+                  >
+                    {etapa.feito ? 'estudei ✓' : 'estudei'}
+                  </button>
+                )}
+                {etapa.qual === 'inscricao' && (
+                  <button
+                    className="acao-lado acao-etapa"
+                    type="button"
+                    disabled={travado}
+                    onClick={() => alternar(
+                      `insc:${path}`, false,
+                      feito => eventoProvaEtapa(path, 'inscrito', dia, feito)
+                    )}
+                  >
+                    fazer inscrição
+                  </button>
+                )}
+                {etapa.qual === 'pagamento' && (
+                  <button
+                    className="acao-lado acao-etapa"
+                    type="button"
+                    disabled={travado}
+                    onClick={() => alternar(
+                      `pago:${path}`, false,
+                      feito => eventoProvaEtapa(path, 'pago', dia, feito)
+                    )}
+                  >
+                    fazer pagamento
+                  </button>
+                )}
+                {/* `pronto` não ganha botão nenhum: inscrito e pago, o que
+                    sobra da prova é a data chegando. */}
+                {etapa.qual === 'pronto' && (
+                  <span className="acao-pronta">inscrição paga ✓</span>
+                )}
                 <button
-                  className={`acao-lado ${feito ? 'acao-feita' : ''}`}
+                  className="acao-mais"
                   type="button"
-                  // Sem `disabled` quando feito: é o mesmo botão que desmarca.
-                  disabled={apagada || path === ''}
-                  aria-pressed={feito}
-                  onClick={() => alternarEstudei(path, feito)}
+                  aria-label={`ações de ${i.nome}`}
+                  aria-expanded={aberto === path}
+                  onClick={() => setAberto(aberto === path ? null : path)}
                 >
-                  {feito ? 'estudei ✓' : 'estudei'}
-                </button>
-                <button
-                  className="acao-lado"
-                  type="button"
-                  disabled={apagada || path === ''}
-                  onClick={() => p.aoEditar('prova', paraEditar(i))}
-                >
-                  editar
-                </button>
-                <button
-                  className="acao-lado acao-destrutiva"
-                  type="button"
-                  disabled={apagada || path === ''}
-                  onClick={() => {
-                    if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
-                    marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
-                  }}
-                >
-                  {apagada ? 'excluída' : 'excluir'}
+                  ⋯
                 </button>
               </div>
+
+              {aberto === path && (
+                <div className="item-acoes item-acoes-abertas">
+                  <button className="acao-lado" type="button" disabled={travado}
+                    onClick={() => { setAberto(null); p.aoEditar('prova', paraEditar(i)) }}>
+                    editar
+                  </button>
+                  {/* Desfazer a etapa vive aqui, e não no botão da frente: o
+                      da frente é para andar, e um toque errado nele não pode
+                      custar o registro da inscrição. */}
+                  {i.detalhe.inscricao === true && etapa.qual !== 'inscricao' && (
+                    <button className="acao-lado" type="button" disabled={travado}
+                      onClick={() => {
+                        setAberto(null)
+                        const desfazPagamento = etapa.qual === 'pronto'
+                        const chave = desfazPagamento ? `pago:${path}` : `insc:${path}`
+                        alternar(chave, true, feito => eventoProvaEtapa(
+                          path, desfazPagamento ? 'pago' : 'inscrito', dia, feito
+                        ))
+                      }}>
+                      desfazer {etapa.qual === 'pronto' ? 'pagamento' : 'inscrição'}
+                    </button>
+                  )}
+                  <button
+                    className="acao-lado acao-destrutiva"
+                    type="button"
+                    disabled={travado}
+                    onClick={() => {
+                      if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
+                      setAberto(null)
+                      marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+                    }}
+                  >
+                    {apagada ? 'excluída' : 'excluir'}
+                  </button>
+                </div>
+              )}
             </div>
           )
         })}

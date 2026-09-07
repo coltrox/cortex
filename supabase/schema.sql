@@ -49,7 +49,11 @@ language sql immutable as $$
                -- A tarefa diaria, marcada e desmarcada como o suplemento.
                'rotina_feita',
                -- Agua bebida, em ml. Soma ao total do dia; ml negativo desfaz.
-               'agua']
+               'agua',
+               -- Inscricao e pagamento do vestibular. Separados de
+               -- 'prova_estudada' porque acontecem uma vez e tem prazo
+               -- proprio: perder o da inscricao tira a pessoa da prova.
+               'prova_etapa']
 $$;
 
 create or replace function registrar_evento(

@@ -492,3 +492,59 @@ describe('planejar — agua', () => {
     expect(planejar(ev('agua', { ml: 333.7 }))).toMatchObject([{ quanto: 334 }])
   })
 })
+
+describe('as etapas do vestibular', () => {
+  const P = 'Estudos/Provas/Unicamp 1a fase.md'
+
+  it('inscricao marcada grava o campo e o dia', () => {
+    // A data fica porque prazo de vestibular se discute depois: "paguei dia
+    // 12" e o que resolve uma duvida com a banca, e o dia do toque e a unica
+    // fonte disso que existe.
+    expect(planejar(ev('prova_etapa', { path: P, etapa: 'inscrito', feito: true }))).toEqual([
+      {
+        acao: 'marcar', path: P, tiposPermitidos: ['prova', 'simulado'],
+        campos: { inscrito: true, inscrito_em: '2026-08-27' }
+      }
+    ])
+  })
+
+  const marcar = (campos: Record<string, unknown>) =>
+    [{ acao: 'marcar', path: P, tiposPermitidos: ['prova', 'simulado'], campos }]
+
+  it('pagamento tem o seu proprio par de campos', () => {
+    expect(planejar(ev('prova_etapa', { path: P, etapa: 'pago', feito: true })))
+      .toEqual(marcar({ pago: true, pago_em: '2026-08-27' }))
+  })
+
+  it('desfazer apaga a chave, e nao grava `false`', () => {
+    // `inscrito: false` com uma data de quando NAO se inscreveu nao quer
+    // dizer nada -- `null` devolve a nota ao estado de quem nunca fez.
+    expect(planejar(ev('prova_etapa', { path: P, etapa: 'inscrito', feito: false })))
+      .toEqual(marcar({ inscrito: null, inscrito_em: null }))
+  })
+
+  it('sem o campo `feito`, conta como marcar', () => {
+    // Um evento parado na fila do celular desde antes deste campo existir nao
+    // pode virar uma desmarcacao ao ser aplicado.
+    expect(planejar(ev('prova_etapa', { path: P, etapa: 'inscrito' })))
+      .toEqual(marcar({ inscrito: true, inscrito_em: '2026-08-27' }))
+  })
+
+  it('etapa desconhecida nao vira operacao nenhuma', () => {
+    // O evento vem do banco, que e dado de fora: uma etapa inventada nao pode
+    // gravar uma chave qualquer no frontmatter da nota.
+    expect(planejar(ev('prova_etapa', { path: P, etapa: 'matriculado' }))).toEqual([])
+    expect(planejar(ev('prova_etapa', { path: P, etapa: 'estudado' }))).toEqual([])
+  })
+
+  it('sem caminho, nao mexe em nada', () => {
+    expect(planejar(ev('prova_etapa', { etapa: 'inscrito' }))).toEqual([])
+  })
+
+  it('so alcanca prova e simulado', () => {
+    // A mesma trava do `prova_estudada`: este evento nao pode marcar
+    // "inscrito" numa conta ou num documento.
+    expect(planejar(ev('prova_etapa', { path: P, etapa: 'pago' })))
+      .toEqual(marcar({ pago: true, pago_em: '2026-08-27' }))
+  })
+})

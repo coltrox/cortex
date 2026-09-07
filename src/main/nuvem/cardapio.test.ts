@@ -581,3 +581,56 @@ describe('hidratacao', () => {
     expect(json).not.toContain('78.4')
   })
 })
+
+describe('as etapas do vestibular sobem para o celular', () => {
+  const HOJE5 = '2026-09-07'
+  const prova = (campos: Record<string, unknown>) => nota({
+    path: 'Estudos/Provas/Unicamp.md', title: 'Unicamp 1a fase', tipo: 'prova',
+    date: '2026-10-18', campos
+  })
+
+  it('sem `inscricao`, o celular nao ganha etapa nenhuma', () => {
+    // Prova de cursinho continua com o "estudei" de sempre: publicar tres
+    // campos vazios so para a tela decidir nao usa-los seria peso a toa.
+    const d = montarCardapio([prova({ materia: 'geral' })], HOJE5)[0].detalhe
+    expect(d).not.toHaveProperty('inscricao')
+    expect(d).not.toHaveProperty('inscrito')
+    expect(d).not.toHaveProperty('pago')
+  })
+
+  it('`inscricao: true` sobe, e e o que liga o fluxo na tela', () => {
+    const d = montarCardapio([prova({ inscricao: true })], HOJE5)[0].detalhe
+    expect(d.inscricao).toBe(true)
+  })
+
+  it('inscrito e pago sobem so quando sao verdade', () => {
+    const meio = montarCardapio([prova({ inscricao: true, inscrito: true })], HOJE5)[0].detalhe
+    expect(meio.inscrito).toBe(true)
+    expect(meio).not.toHaveProperty('pago')
+
+    const fim = montarCardapio(
+      [prova({ inscricao: true, inscrito: true, pago: true })], HOJE5
+    )[0].detalhe
+    expect(fim.pago).toBe(true)
+  })
+
+  it('a DATA de cada etapa nao sobe', () => {
+    // `inscrito_em` e `pago_em` ficam no vault. O celular so precisa saber SE
+    // foi feito para desenhar a etapa da vez; quando foi nao muda nada na
+    // tela, e cada campo que sobe e um campo a mais no banco.
+    const d = montarCardapio([prova({
+      inscricao: true, inscrito: true, inscrito_em: '2026-09-01',
+      pago: true, pago_em: '2026-09-02'
+    })], HOJE5)[0].detalhe
+    expect(d).not.toHaveProperty('inscrito_em')
+    expect(d).not.toHaveProperty('pago_em')
+  })
+
+  it('valor torto nao vira `true`', () => {
+    // O frontmatter e escrito a mao: `inscricao: sim` nao pode ligar o fluxo
+    // por acidente, porque a comparacao e estrita.
+    const d = montarCardapio([prova({ inscricao: 'sim', inscrito: 1 })], HOJE5)[0].detalhe
+    expect(d).not.toHaveProperty('inscricao')
+    expect(d).not.toHaveProperty('inscrito')
+  })
+})

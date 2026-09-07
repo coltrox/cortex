@@ -199,7 +199,12 @@ export const FORMULARIOS: Record<string, Formulario> = {
       { k: 'titulo', rotulo: 'Prova', tipo: 'texto', obrigatorio: true, placeholder: 'ENEM 1º dia' },
       { k: 'date', rotulo: 'Data', tipo: 'data', obrigatorio: true },
       { k: 'materia', rotulo: 'Matérias', tipo: 'texto', placeholder: 'linguagens, humanas' },
-      { k: 'local', rotulo: 'Local', tipo: 'texto' }
+      { k: 'local', rotulo: 'Local', tipo: 'texto' },
+      {
+        k: 'inscricao', rotulo: 'Tem inscrição a fazer', tipo: 'bool',
+        dica: 'Vestibular e concurso têm. No celular, a prova passa a cobrar '
+          + 'inscrição e pagamento em vez de "estudei".'
+      }
     ],
     corpo: '## O que cai\n\n## O que revisar\n- [ ] \n'
   },

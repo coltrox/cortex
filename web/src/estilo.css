@@ -511,6 +511,35 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 .acao-feita{ background:var(--ok-fraco); border-color:rgba(79,201,140,.3); color:var(--ok); }
 .acao-destrutiva{ background:transparent; border-color:rgba(234,106,114,.3); color:var(--erro); }
 
+/* A etapa da vez: é o que a pessoa veio fazer, então tem o peso do botão
+   principal. Perder o prazo da inscrição tira ela da prova — isso não pode
+   ter o mesmo tamanho visual de "excluir". */
+.acao-etapa{
+  flex:1;
+  background:var(--acento-fraco); border-color:var(--acento-linha); color:var(--acento);
+}
+
+/* Inscrito e pago: acabou o que fazer, e o que fica é um estado, não um
+   botão. Texto em vez de controle, para ninguém tocar procurando ação. */
+.acao-pronta{
+  flex:1; min-height:var(--toque);
+  display:inline-flex; align-items:center;
+  color:var(--ok); font:600 13.5px/1 var(--fonte);
+}
+
+/* O "⋯" some no canto: é a porta de editar e excluir, que se usa pouco. */
+.acao-mais{
+  flex:none; width:var(--toque); min-height:var(--toque);
+  display:inline-flex; align-items:center; justify-content:center;
+  background:transparent; border:1px solid var(--borda); border-radius:var(--r1);
+  color:var(--txt-2); font:600 17px/1 var(--fonte); cursor:pointer;
+}
+.acao-mais[aria-expanded='true']{ background:var(--painel-alto); color:var(--txt); }
+
+/* A gaveta aberta desce por baixo da linha da etapa, e não ao lado dela:
+   lado a lado, os quatro botões voltariam a espremer o que importa. */
+.item-acoes-abertas{ margin-top:var(--e2); }
+
 /* linha de dados chave→valor */
 .linha-dado{
   display:flex; align-items:center; justify-content:space-between; gap:var(--e3);

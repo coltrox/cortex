@@ -176,7 +176,14 @@ export function montarCardapio(notas: NoteComCampos[], hoje: string): ItemCardap
         materia: txt(n.campos.materia),
         local: txt(n.campos.local),
         // Só sobe quando é verdade; `comValor` tira o `undefined`.
-        estudado: n.campos.estudado === true ? true : undefined
+        estudado: n.campos.estudado === true ? true : undefined,
+        // As etapas do vestibular. `inscricao` é a CONFIGURAÇÃO — esta prova
+        // tem inscrição a fazer —, e as outras duas são o ESTADO. Sem a
+        // primeira o celular mostra "estudei", que é o que serve para prova
+        // de cursinho; com ela, mostra a etapa que ainda falta.
+        inscricao: n.campos.inscricao === true ? true : undefined,
+        inscrito: n.campos.inscrito === true ? true : undefined,
+        pago: n.campos.pago === true ? true : undefined
       })
     })
   }
