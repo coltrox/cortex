@@ -8,6 +8,7 @@ import { ligarCampainha, desligarCampainha } from './nuvem/campainha'
 import { Processos, scriptsDoProjeto } from './dev/processos'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 import { ehOuContem } from './caminhos'
+import { ligarAtualizacaoAutomatica } from './atualizador'
 
 const session = new Session()
 
@@ -444,6 +445,11 @@ ipcMain.handle('dev:reveal', async (_e, payload: unknown) => {
 app.on('before-quit', () => processos.pararTudo())
 
 app.whenReady().then(async () => {
+  // A checagem acontece no processo main, e não no renderer: a CSP logo
+  // abaixo põe `connect-src 'none'` na janela, e uma busca de rede feita de
+  // lá seria barrada. Vale para qualquer chamada externa futura.
+  ligarAtualizacaoAutomatica()
+
   // Em produção o renderer é um arquivo local e não deve poder buscar nada na
   // rede. Em dev a CSP fica de fora porque o HMR do Vite usa websocket e
   // eval — travar isso quebraria o ciclo de desenvolvimento sem tornar o app

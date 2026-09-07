@@ -38,6 +38,21 @@ asarUnpack:
 # propósito. Escolhemos esta biblioteca justamente para não precisar delas.
 npmRebuild: false
 
+# De onde o app procura versão nova.
+#
+# É esta seção que gera o `app-update.yml` dentro do pacote — o arquivo que o
+# `electron-updater` lê para saber onde olhar. Ele já existia no build
+# anterior, apontando para cá, mas a biblioteca que o usa não estava
+# empacotada: a configuração estava pronta e o motor faltava.
+#
+# `releaseType: release` não pega rascunho nem pré-lançamento: uma release
+# ainda sendo escrita não pode ser oferecida a quem está usando o app.
+publish:
+  provider: github
+  owner: coltrox
+  repo: cortex
+  releaseType: release
+
 win:
   icon: build/icon.ico
   target:
