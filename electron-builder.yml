@@ -1,6 +1,9 @@
 appId: dev.pedrocosta.cortex
 productName: Cortex
-copyright: Pedro Costa
+# O nome que o Windows mostra em Propriedades › Detalhes e no instalador.
+# Sem isto o campo fica com o valor do `package.json` ou vazio, e o app
+# aparece como de origem desconhecida mesmo antes do aviso do SmartScreen.
+copyright: Pedro Coltro
 
 directories:
   buildResources: build
@@ -69,6 +72,26 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: Cortex
   artifactName: Cortex-${version}-instalador.${ext}
+
+  # As imagens do assistente. BMP de 24 bits, e não PNG: o NSIS não lê PNG
+  # nesses dois lugares, e um arquivo com canal alfa aqui sai com o fundo
+  # preto ou simplesmente não aparece.
+  #
+  # 164x314 é a faixa lateral das telas de boas-vindas e de conclusão;
+  # 150x57 é o cabeçalho das telas do meio. Geradas do ícone de 2000x2000
+  # sobre o mesmo fundo escuro da janela do app, para o instalador parecer do
+  # mesmo produto que o programa que ele instala.
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/uninstallerSidebar.bmp
+  installerHeader: build/installerHeader.bmp
+
+  # A tela de boas-vindas, com o texto em `build/instalador.nsh`. Sem isto o
+  # assistente abre direto na escolha da pasta — que serve para quem já
+  # conhece o app, e não diz nada para quem está instalando pela primeira vez.
+  include: build/instalador.nsh
+
+  # A última tela oferece abrir o app, já marcado.
+  runAfterFinish: true
   # Ao desinstalar, o vault NÃO é tocado: ele vive numa pasta do usuário,
   # escolhida por ele. O desinstalador só remove o app.
   deleteAppDataOnUninstall: false
