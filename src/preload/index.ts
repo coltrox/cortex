@@ -15,6 +15,18 @@ const api = {
     return ipcRenderer.invoke(canal, payload)
   },
 
+  /**
+   * A versão do app.
+   *
+   * Canal próprio, e não junto da config do vault: aquela projeção é uma
+   * lista branca de segurança — o que passa por ela é decisão sobre o que o
+   * renderer PODE saber do vault. Versão não é dado do vault, é do programa,
+   * e misturar as duas coisas embaçaria o critério de lá.
+   */
+  versaoDoApp(): Promise<string> {
+    return ipcRenderer.invoke('app:versao')
+  },
+
   /** Estado atual — usado na abertura, quando o app reabre o último vault sozinho. */
   estadoVault(): Promise<EstadoVault> {
     return ipcRenderer.invoke('vault:state')

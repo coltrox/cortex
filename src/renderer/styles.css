@@ -959,6 +959,24 @@ kbd {
 
 .form-topo, .form-rodape { flex: none; }
 
+/* A versão do app, no canto do título das Configurações.
+
+   O `:has()` escopa a mudança de layout ao único cabeçalho que tem versão:
+   `.form-topo` é o topo de TODO formulário do app, e virar flex para todos
+   mudaria o alinhamento de uma dúzia de telas por causa de uma. */
+.form-topo:has(.config-versao) {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.config-versao {
+  margin-left: auto;
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: .02em;
+  color: var(--text-3);
+}
+
 .form-topo {
   padding: 15px 20px;
   font-family: var(--serif);

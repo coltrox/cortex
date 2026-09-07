@@ -28,6 +28,16 @@ export function Configuracoes({
   sincronizacaoFalhando: boolean
 }) {
   const [marcadas, setMarcadas] = useState<string[]>(config.areas)
+  /*
+   * A versão vem do processo principal, e não de uma constante aqui.
+   *
+   * `app.getVersion()` lê o `package.json` empacotado — a mesma fonte que o
+   * instalador e o atualizador usam. Um número escrito à mão no renderer
+   * viraria mentira na primeira release em que alguém trocasse num lugar e
+   * esquecesse do outro. E versão errada na tela é pior do que versão
+   * nenhuma: é o primeiro dado que se olha quando algo dá errado.
+   */
+  const [versao, setVersao] = useState('')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') aoFechar() }
@@ -35,10 +45,22 @@ export function Configuracoes({
     return () => window.removeEventListener('keydown', onKey)
   }, [aoFechar])
 
+  useEffect(() => {
+    // Falha em silêncio: sem a versão a linha some, e nada mais nas
+    // Configurações depende dela.
+    void window.vaultApi.versaoDoApp().then(setVersao).catch(() => {})
+  }, [])
+
   return (
     <div className="paleta-fundo" onClick={aoFechar}>
       <div className="form largo" onClick={e => e.stopPropagation()}>
-        <div className="form-topo">Configurações</div>
+        <div className="form-topo">
+          Configurações
+          {/* Junto do título, e não escondida no fim: é o dado que se procura
+              primeiro quando algo não funciona, e o primeiro que alguém pede
+              quando você conta que algo não funcionou. */}
+          {versao && <span className="config-versao">Cortex {versao}</span>}
+        </div>
         <div className="form-corpo config-corpo">
 
           <section className="config-bloco">

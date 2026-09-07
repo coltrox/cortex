@@ -209,6 +209,16 @@ function createWindow(): void {
  * qualquer pasta do disco.
  */
 
+/*
+ * A versão do app, para a tela de Configurações.
+ *
+ * Sem payload, então não há o que validar — como `vault:state`. E vem de
+ * `app.getVersion()`, que lê o `package.json` empacotado: um número escrito à
+ * mão no renderer viraria mentira na primeira release em que alguém
+ * esquecesse de trocá-lo nos dois lugares.
+ */
+ipcMain.handle('app:versao', async () => app.getVersion())
+
 ipcMain.handle('vault:state', async () => {
   if (session.isOpen) return { root: session.vault.root, config: projetarConfigParaRenderer(session.config) }
   return { root: null, config: null }
