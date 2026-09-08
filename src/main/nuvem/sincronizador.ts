@@ -3,7 +3,7 @@ import type { Session } from '../session'
 import { listNotesWithFields, type NoteComCampos } from '../index/queries'
 import { parseFrontmatter } from '../parser/frontmatter'
 import { montarCardapio, podePublicarCorpo, type NotaParaCardapio } from './cardapio'
-import { TIPOS_NOTA_CARDAPIO } from '../../shared/eventos'
+import { TIPOS_NOTA_CARDAPIO, TIPOS_EVENTO } from '../../shared/eventos'
 import { planejar } from './planejar'
 import { executar } from './executar'
 import { Recebidos } from './recebidos'
@@ -21,6 +21,18 @@ const RETENCAO_DIAS_PADRAO = 90
  * teste de vazamento de `cardapio.test.ts` quebrar, que é o combinado.
  */
 const TIPOS_CARDAPIO = TIPOS_NOTA_CARDAPIO
+
+/**
+ * Os tipos de evento que ESTA versão do Cortex sabe que existem.
+ *
+ * Serve para uma distinção só, e importante: separar "não tenho o que fazer
+ * com este evento" de "não sei o que é este evento". O primeiro se descarta;
+ * o segundo se guarda para uma versão futura aplicar. Ver o laço de
+ * `aplicarEventos`.
+ *
+ * `Set` porque a comparação roda por evento, a cada rodada.
+ */
+const TIPOS_EVENTO_CONHECIDOS: ReadonlySet<string> = new Set(TIPOS_EVENTO)
 
 /**
  * Vaults com uma sincronização em andamento agora mesmo, por raiz absoluta.
@@ -170,8 +182,32 @@ export class Sincronizador {
       try {
         const ops = planejar(e)
         if (ops.length === 0) {
-          // Tipo desconhecido ou dado vazio: marca como visto para não voltar
-          // toda rodada, mas conta como ignorado.
+          /*
+           * Nada a fazer — e o MOTIVO decide se este evento morre aqui.
+           *
+           * Tipo que esta versão não conhece: NÃO marca. O celular se
+           * atualiza sozinho pela web, e o Cortex só quando a pessoa fecha o
+           * app: existe uma janela em que o telefone já sabe registrar algo
+           * que este computador ainda não sabe aplicar. Marcar aqui apagaria
+           * esse registro para sempre, em silêncio.
+           *
+           * Não é hipótese: aconteceu com a sessão de estudo. O tipo foi
+           * liberado no banco, o app web ganhou a tela na mesma hora, e o
+           * Cortex instalado ainda era a versão anterior — todo estudo
+           * registrado nessa janela teria sido engolido.
+           *
+           * Sem marca, o evento volta a cada rodada e é aplicado assim que a
+           * versão que o entende for instalada. O custo é replanejar um
+           * punhado de eventos a cada dois minutos, o que é nada — e não
+           * cresce sem fim, porque `listarEventos` só devolve o que está
+           * dentro de `janelaDias`.
+           *
+           * Tipo CONHECIDO que não gerou operação (falta a matéria, minutos
+           * zerados, dado vazio): esse marca. Não é falta de versão, é um
+           * evento que não tem o que aplicar, e tentar de novo daria sempre
+           * no mesmo.
+           */
+          if (!TIPOS_EVENTO_CONHECIDOS.has(e.tipo)) { ignorados++; continue }
           await this.recebidos.marcar(e.id)
           ignorados++
           continue

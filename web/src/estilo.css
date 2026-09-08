@@ -347,6 +347,12 @@ body{
 .md > :first-child{ margin-top:0; }
 .md > :last-child{ margin-bottom:0; }
 .md-p{ margin:0 0 var(--e2); overflow-wrap:anywhere; }
+/* A régua do markdown. Antes os três hifens caíam no caso do parágrafo e
+   apareciam como texto solto no meio da nota. */
+.md-regua{
+  border:none; border-top:1px solid var(--borda);
+  margin:var(--e3) 0; height:0;
+}
 .md-titulo{
   margin:var(--e3) 0 var(--e1);
   font:600 13px/1.35 var(--fonte); color:var(--txt);

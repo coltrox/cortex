@@ -1,6 +1,6 @@
 import type { ItemCardapio } from '../../shared/eventos'
 import type { NoteComCampos } from '../index/queries'
-import { dobra } from '../../shared/busca'
+import { semDependenciasDaRede } from '../../shared/corpo'
 import { txt, num, lista, listaDeTexto, comValor } from './util'
 
 /*
@@ -109,58 +109,16 @@ export function emPastaProtegida(caminho: string): boolean {
   return ['Vida/Contas/', 'Vida/Documentos/'].some(f => p.startsWith(f))
 }
 
-/** O título é o da seção de links? Sem acento e sem caixa, como se digita. */
-const ehDependencias = (titulo: string): boolean =>
-  dobra(titulo).includes('dependencias da rede')
-
 /**
- * Tira a seção "Dependências da Rede" do texto que vai para o celular.
+ * Prepara o corpo que sobe.
  *
- * Toda nota deste vault começa com esse bloco de `[[links]]` — é a rede que
- * dá sentido ao vault no computador, e o protocolo de escrita exige que ela
- * esteja logo depois do frontmatter. No celular ela não serve para nada: os
- * `[[links]]` não abrem coisa alguma ali, e por estarem no topo eram as
- * primeiras cinco linhas de TODA tarefa — abrir "Escada 30 min" mostrava
- * quatro links antes de dizer o que fazer.
+ * A limpeza mora em `shared/corpo`, e não aqui, porque o celular precisa dela
+ * também: ele desenha na hora o que já está publicado, sem esperar o Cortex
+ * republicar. Duas cópias divergiriam.
  *
- * O corte é APERTADO de propósito: depois do título, some só o que a seção
- * de fato contém — linha em branco e item de lista —, mais a régua `---` que
- * a fecha no formato das notas. Qualquer outra linha encerra o corte e fica.
- *
- * A primeira versão desta função ia do título até o próximo título de nível
- * igual ou mais alto. Numa nota sem régua e sem outro título — que existe —
- * isso comia o texto inteiro e publicava a tarefa vazia. Perder conteúdo em
- * silêncio é muito pior do que deixar escapar um subtítulo perdido dentro do
- * bloco de links, então a regra passou a ser esta.
- *
- * Roda ANTES do corte de tamanho, de propósito: o teto de caracteres passa a
- * medir o texto que a pessoa vai ler.
+ * A limpeza roda ANTES do corte de tamanho, de propósito: assim o teto de
+ * caracteres mede o texto que a pessoa vai de fato ler.
  */
-export function semDependenciasDaRede(corpo: string): string {
-  const linhas = corpo.split(/\r?\n/)
-  const out: string[] = []
-  let pulando = false
-
-  for (const linha of linhas) {
-    const t = linha.trim()
-
-    if (pulando) {
-      // A régua fecha a seção e sai junto: é o rodapé do bloco de links, e
-      // sozinha no topo do texto seria lixo herdado de algo que não está lá.
-      if (/^-{3,}$/.test(t)) { pulando = false; continue }
-      if (t === '' || /^[-*+]\s+/.test(t)) continue
-      // Qualquer outra coisa já é o texto da nota.
-      pulando = false
-    }
-
-    const titulo = /^(#{1,6})\s+(.*)$/.exec(t)
-    if (titulo && ehDependencias(titulo[2])) { pulando = true; continue }
-    out.push(linha)
-  }
-
-  return out.join('\n').trim()
-}
-
 function corpoPublicavel(corpo: string | undefined): string | undefined {
   const t = semDependenciasDaRede((corpo ?? '').trim())
   if (!t) return undefined
