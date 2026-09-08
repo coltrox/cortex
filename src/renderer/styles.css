@@ -858,9 +858,9 @@ kbd {
 }
 .cerebro-busca:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* O fundo escuro é fixo, e não acompanha o tema claro: os nós brilham, e
-   brilho sobre branco não brilha — vira mancha cinza. É a única tela do app
-   que se comporta assim, e é porque ela É o logotipo, que também é escuro. */
+/* O fundo escuro é fixo, e não acompanha o tema claro: são pontos coloridos
+   ligados por linhas finas e cinzas, e linha fina sobre branco simplesmente
+   some. É a única tela do app que se comporta assim. */
 .cerebro-tela {
   position: relative;
   flex: 1;
@@ -868,9 +868,40 @@ kbd {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 45%, #10202c 0%, #0b1219 55%, #080c11 100%);
+  /* Chapado, e não em degradê: o degradê da versão anterior clareava o miolo
+     e escurecia as bordas, e com isso a MESMA aresta parecia mais forte no
+     centro do que na periferia. */
+  background: #14171a;
 }
+
+/* A legenda das cores. Sem ela são sete cores; com ela, sete pastas. */
+.cerebro-legenda {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  max-width: 70%;
+  /* Não intercepta o mouse: mora em cima do canvas, e um retângulo clicável
+     ali comeria o arrasto de quem passasse por perto. */
+  pointer-events: none;
+}
+
+.cerebro-grupo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #9aa4ae;
+}
+.cerebro-grupo i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.cerebro-grupo b { font-family: var(--mono); color: #6f7680; font-weight: 400; }
 
 .cerebro-tela canvas {
   display: block;
