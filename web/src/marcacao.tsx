@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { semDependenciasDaRede, semColchetesDeLink } from '@compartilhado/corpo'
 
 /**
  * O markdown do corpo de uma nota, desenhado no celular.
@@ -25,9 +26,31 @@ import type { ReactNode } from 'react'
  * uma navegação no lugar tiraria a pessoa de dentro dele sem botão de voltar.
  */
 export function Marcacao({ texto }: { texto: string }) {
-  const linhas = texto.split(/\r?\n/)
+  /*
+   * A limpeza roda AQUI também, e não só na hora de publicar.
+   *
+   * O Cortex já corta o bloco de links antes de mandar — mas ele só
+   * republica quando o computador é aberto, e o celular se atualiza sozinho
+   * pela web. Entre uma coisa e outra existe uma janela em que o corpo
+   * guardado na nuvem ainda é o antigo, com a seção inteira. Sem esta linha,
+   * a pessoa abre a tarefa e continua vendo quatro `[[links]]` antes do
+   * passo a passo, sem entender por que "não mudou nada".
+   *
+   * É idempotente: sobre um corpo já limpo, não faz nada.
+   */
+  const linhas = semDependenciasDaRede(texto).split(/\r?\n/)
   const blocos: ReactNode[] = []
   let lista: string[] = []
+  /*
+   * As linhas do parágrafo que está sendo montado.
+   *
+   * Markdown junta linhas seguidas num parágrafo só, e é isso que faz falta
+   * aqui: as notas do vault são escritas com quebra por volta da coluna 76,
+   * e tratar cada linha como um parágrafo próprio quebrava a frase no meio
+   * da tela. Pior: um `**negrito**` que começasse numa linha e terminasse na
+   * seguinte não casava, e os asteriscos apareciam crus no meio do texto.
+   */
+  let paragrafo: string[] = []
 
   const fecharLista = (): void => {
     if (lista.length === 0) return
@@ -40,13 +63,31 @@ export function Marcacao({ texto }: { texto: string }) {
     lista = []
   }
 
+  const fecharParagrafo = (): void => {
+    if (paragrafo.length === 0) return
+    const junto = paragrafo.join(' ')
+    blocos.push(<p key={`p${blocos.length}`} className="md-p">{inline(junto)}</p>)
+    paragrafo = []
+  }
+
+  /** Fecha os dois: qualquer bloco novo interrompe lista e parágrafo. */
+  const fechar = (): void => { fecharLista(); fecharParagrafo() }
+
   for (const linha of linhas) {
     const t = linha.trim()
-    if (t === '') { fecharLista(); continue }
+    if (t === '') { fechar(); continue }
+
+    // A régua vira uma linha de verdade. Antes caía no caso do parágrafo e
+    // aparecia como três hifens soltos no meio do texto.
+    if (/^-{3,}$/.test(t)) {
+      fechar()
+      blocos.push(<hr key={`r${blocos.length}`} className="md-regua" />)
+      continue
+    }
 
     const titulo = /^(#{1,6})\s+(.*)$/.exec(t)
     if (titulo) {
-      fecharLista()
+      fechar()
       // Todo título vira o mesmo elemento, com o nível só no dado: dentro de
       // um card do celular não há espaço para seis tamanhos de fonte, e um
       // `<h1>` aqui competiria com o nome da tarefa logo acima.
@@ -63,23 +104,37 @@ export function Marcacao({ texto }: { texto: string }) {
     // dentro do texto seria uma segunda verdade sobre a mesma coisa.
     const tarefa = /^[-*]\s+\[( |x|X)\]\s+(.*)$/.exec(t)
     if (tarefa) {
+      fecharParagrafo()
       lista.push((tarefa[1] === ' ' ? '☐ ' : '☑ ') + tarefa[2])
       continue
     }
 
     const item = /^[-*]\s+(.*)$/.exec(t)
-    if (item) { lista.push(item[1]); continue }
+    if (item) { fecharParagrafo(); lista.push(item[1]); continue }
 
+    // Sobrou: é linha de parágrafo. Vai para a fila e só vira bloco quando o
+    // parágrafo terminar — ver `fecharParagrafo`.
     fecharLista()
-    blocos.push(<p key={`p${blocos.length}`} className="md-p">{inline(t)}</p>)
+    paragrafo.push(t)
   }
-  fecharLista()
+  fechar()
 
   return <div className="md">{blocos}</div>
 }
 
 /** Negrito, código e link, na ordem em que aparecem. */
-function inline(texto: string): ReactNode[] {
+function inline(bruto: string): ReactNode[] {
+  /*
+   * Os `[[colchetes]]` saem antes de qualquer outra coisa.
+   *
+   * Eles são sintaxe de link do vault e, aqui, não levam a lugar nenhum — o
+   * que a pessoa via era o nome de uma nota embrulhado em dois pares de
+   * colchetes, sem nada para clicar. O nome fica; os colchetes, não.
+   *
+   * Primeiro de tudo porque o `[[` seria mordido pela regra de link em
+   * markdown (`[texto](url)`) logo abaixo, que também começa com colchete.
+   */
+  const texto = semColchetesDeLink(bruto)
   const out: ReactNode[] = []
   // Um `exec` em laço com `g` percorre a string uma vez só, e o que sobra
   // entre as marcas vai como texto puro — nada é interpretado duas vezes.

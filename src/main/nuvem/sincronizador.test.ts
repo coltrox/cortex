@@ -571,3 +571,60 @@ describe('somar a agua no diario', () => {
     expect(fm.suplementos_feitos).toEqual(['Creatina'])
   })
 })
+
+describe('evento de um tipo que esta versao nao conhece', () => {
+  it('NAO e marcado como visto -- fica guardado para a versao que o entender', async () => {
+    // O celular se atualiza sozinho pela web; o Cortex so quando a pessoa
+    // fecha o app. Existe uma janela em que o telefone ja sabe registrar algo
+    // que este computador ainda nao sabe aplicar, e marcar o evento aqui
+    // apagaria o registro para sempre, em silencio.
+    //
+    // Nao e hipotese: aconteceu com a sessao de estudo, entre liberar o tipo
+    // no banco e instalar a versao nova do Cortex.
+    // Os dois juntos de proposito: o conhecido garante que o arquivo de
+    // recebidos EXISTE e foi gravado. Sem ele, "o arquivo nao contem e1"
+    // passaria de graca so por o arquivo nao existir.
+    const cliente = new ClienteFalso([
+      ev('e1', 'coisa_do_futuro', { x: 1 }),
+      ev('e2', 'suplemento', { nome: 'Whey' })
+    ])
+    const primeira = await sinc(cliente).sincronizar()
+    expect(primeira.aplicados).toBe(1)
+    expect(primeira.ignorados).toBe(1)
+
+    const recebidos = await session.vault.read('.vault/recebidos.json')
+    expect(recebidos).toContain('e2')     // o conhecido foi marcado
+    expect(recebidos).not.toContain('e1') // o do futuro, nao
+
+    // E a segunda rodada tem de VER o do futuro de novo, em vez de pula-lo
+    // por ja estar marcado. E isso que o guarda ate a atualizacao chegar.
+    const segunda = await sinc(cliente).sincronizar()
+    expect(segunda.aplicados).toBe(0)
+    expect(segunda.ignorados).toBe(2)
+  })
+
+  it('tipo CONHECIDO sem o que aplicar e marcado, e nao volta', async () => {
+    // Aqui nao falta versao: falta dado. O evento nao tem o que aplicar, e
+    // tentar de novo daria sempre no mesmo -- entao marca e para de voltar.
+    const cliente = new ClienteFalso([ev('e2', 'estudo', { minutos: 60 })])
+    const primeira = await sinc(cliente).sincronizar()
+    expect(primeira.aplicados).toBe(0)
+    expect(primeira.ignorados).toBe(1)
+
+    const recebidos = await session.vault.read('.vault/recebidos.json').catch(() => '{}')
+    expect(recebidos).toContain('e2')
+  })
+
+  it('o estudo bem formado vira linha no diario', async () => {
+    const cliente = new ClienteFalso([
+      ev('e3', 'estudo', { materia: 'Matemática', minutos: 120, questoes: 20, acertos: 14 })
+    ])
+    const r = await sinc(cliente).sincronizar()
+    expect(r.aplicados).toBe(1)
+
+    const md = await session.vault.read('Diario/2026-08-27.md')
+    expect(md).toContain('estudos')
+    expect(md).toContain('Matemática')
+    expect(md).toContain('120')
+  })
+})
