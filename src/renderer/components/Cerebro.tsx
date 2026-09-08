@@ -43,7 +43,14 @@ type No = {
   /** Deslocamento acumulado no quadro; zerado a cada passo. */
   dx: number
   dy: number
-  /** Preso pelo dedo: a física não mexe nele enquanto está sendo arrastado. */
+  /**
+   * Fixado: a física não mexe nele.
+   *
+   * Vale durante o arrasto e CONTINUA valendo depois de soltar, quando o nó
+   * de fato foi arrastado. Quem move um nó quer que ele fique onde foi posto
+   * — devolvê-lo à física o traria de volta sozinho, e o arrasto não teria
+   * servido para nada. O botão Reorganizar solta todos.
+   */
   preso: boolean
 }
 
@@ -129,6 +136,14 @@ const CALOR_TOQUE = 0.02
 /** A escala em que os pontos têm o tamanho de desenho. */
 const ESCALA_BASE = 600
 
+/**
+ * Quantos pixels o dedo pode escorregar e ainda ser um clique.
+ *
+ * A mão treme, e o mouse anda um ou dois pixels entre apertar e soltar. Sem
+ * essa folga, metade dos cliques viraria arrasto e a nota não abriria.
+ */
+const FOLGA_CLIQUE = 4
+
 export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [dados, setDados] = useState<{ nos: No[]; arestas: Aresta[] } | null>(null)
@@ -145,7 +160,19 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
    * canvas: o nome sob o cursor, o erro, a busca.
    */
   const camera = useRef({ x: 0.5, y: 0.5, escala: ESCALA_BASE })
-  const arrastando = useRef<{ no: No | null; px: number; py: number } | null>(null)
+  /**
+   * O arrasto em curso.
+   *
+   * `px`/`py` são a última posição (para mover a câmera passo a passo);
+   * `ox`/`oy` são onde o dedo desceu, e servem para uma pergunta só: isto foi
+   * um clique ou um arrasto? `mexeu` guarda a resposta.
+   */
+  const arrastando = useRef<{
+    no: No | null
+    px: number; py: number
+    ox: number; oy: number
+    mexeu: boolean
+  } | null>(null)
   const calor = useRef(CALOR_INICIAL)
   /** Enquadra assim que a simulação assentar — uma vez só, ver `laco`. */
   const precisaEnquadrar = useRef(true)
@@ -405,6 +432,18 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         ctx.beginPath()
         ctx.arc(px, py, r, 0, Math.PI * 2)
         ctx.fill()
+
+        // Um anel em volta do que foi fixado no arrasto. Sem ele o nó fica
+        // parado e ninguém sabe por quê — e "Reorganizar" vira um botão que
+        // conserta algo que a pessoa não sabia estar quebrado.
+        if (n.preso) {
+          ctx.strokeStyle = 'rgba(232,236,241,.55)'
+          ctx.lineWidth = 1.2
+          ctx.beginPath()
+          ctx.arc(px, py, r + 3, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.lineWidth = 1
+        }
         ctx.globalAlpha = 1
 
         // O nome só aparece de perto, no que está sob o cursor, e no que a
@@ -458,11 +497,12 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       const [px, py] = posicao(e)
       const n = noPonto(px, py)
       canvas.setPointerCapture(e.pointerId)
-      arrastando.current = { no: n, px, py }
+      arrastando.current = { no: n, px, py, ox: px, oy: py, mexeu: false }
       if (n) {
         n.preso = true
         // Reaquece: arrastar um nó tem de mexer a vizinhança dele, senão
-        // parece que o grafo congelou.
+        // parece que o grafo congelou. O calor some sozinho ao soltar, e por
+        // isso ele NÃO puxa o nó de volta — ver `aoSubir`.
         calor.current = Math.max(calor.current, CALOR_TOQUE)
       }
     }
@@ -472,6 +512,13 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       const arr = arrastando.current
 
       if (arr) {
+        // Passou da folga? Então isto é arrasto, e não clique. A folga existe
+        // porque a mão treme: sem ela, um clique com dois pixels de tremor
+        // vira arrasto e a nota não abre.
+        if (!arr.mexeu && Math.hypot(px - arr.ox, py - arr.oy) > FOLGA_CLIQUE) {
+          arr.mexeu = true
+        }
+
         if (arr.no) {
           const [gx, gy] = paraGrafo(px, py)
           arr.no.x = gx
@@ -493,22 +540,35 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       canvas.style.cursor = n ? 'pointer' : 'grab'
     }
 
+    /*
+     * Soltar decide as duas coisas: se o nó fica onde foi largado, e se a
+     * nota abre.
+     *
+     * ARRASTOU → o nó FICA. Antes ele era devolvido à física e voltava
+     * sozinho para o lugar de origem, o que fazia o arrasto não servir para
+     * nada: mover um nó para enxergar melhor uma parte da rede é justamente
+     * para que ele fique ali.
+     *
+     * CLICOU (sem arrastar) → a nota abre, e o nó volta para a física — não
+     * faz sentido pregar um nó porque alguém clicou nele.
+     *
+     * Abrir aqui, e não num ouvinte de `click`, é o conserto do defeito que o
+     * dono descreveu: o navegador dispara `click` no fim de QUALQUER arrasto
+     * que comece e termine no mesmo elemento, então arrastar um nó abria a
+     * nota. Não dava para distinguir de dentro do `click`; daqui dá.
+     */
     const aoSubir = (e: PointerEvent): void => {
       const arr = arrastando.current
       if (arr?.no) {
-        // Solta o nó de volta para a física. Sem isto ele ficaria pregado
-        // onde o dedo largou, e a rede perderia o equilíbrio aos poucos.
-        arr.no.preso = false
-        calor.current = Math.max(calor.current, CALOR_TOQUE)
+        if (arr.mexeu) {
+          arr.no.preso = true
+        } else {
+          arr.no.preso = false
+          aoAbrir(arr.no.path)
+        }
       }
       arrastando.current = null
       canvas.releasePointerCapture(e.pointerId)
-    }
-
-    const aoClicar = (e: MouseEvent): void => {
-      const r = canvas.getBoundingClientRect()
-      const n = noPonto(e.clientX - r.left, e.clientY - r.top)
-      if (n) aoAbrir(n.path)
     }
 
     const aoRolar = (e: WheelEvent): void => {
@@ -528,7 +588,6 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     canvas.addEventListener('pointerdown', aoDescer)
     canvas.addEventListener('pointermove', aoMover)
     canvas.addEventListener('pointerup', aoSubir)
-    canvas.addEventListener('click', aoClicar)
     canvas.addEventListener('wheel', aoRolar, { passive: false })
 
     return () => {
@@ -537,7 +596,6 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       canvas.removeEventListener('pointerdown', aoDescer)
       canvas.removeEventListener('pointermove', aoMover)
       canvas.removeEventListener('pointerup', aoSubir)
-      canvas.removeEventListener('click', aoClicar)
       canvas.removeEventListener('wheel', aoRolar)
     }
   }, [dados, sobre, vizinhos, busca, aoAbrir])
@@ -566,10 +624,14 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         <button
           className="btn-fantasma"
           onClick={() => {
+            // Solta todos os nós fixados no arrasto. Sem isto, "Reorganizar"
+            // deixaria de reorganizar depois de um punhado de arrastos — e
+            // este é o único caminho de volta.
+            for (const n of dados?.nos ?? []) n.preso = false
             calor.current = CALOR_INICIAL
             precisaEnquadrar.current = true
           }}
-          title="Sacudir a rede e reenquadrar"
+          title="Soltar os nós fixados, sacudir a rede e reenquadrar"
         >
           Reorganizar
         </button>
