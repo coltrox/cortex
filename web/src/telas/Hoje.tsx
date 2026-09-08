@@ -310,12 +310,23 @@ export function Hoje(p: {
 
       <Cabecalho
         titulo="Hoje"
+        /*
+         * O selo só aparece quando há o que dizer.
+         *
+         * "tudo enviado" é o estado normal — quase o tempo todo. Um aviso que
+         * fica permanentemente aceso não avisa nada: vira parte do cenário e
+         * o olho para de ler. Sem ele, a própria PRESENÇA do selo passa a ser
+         * a informação: se há algo escrito ali, é porque falta enviar.
+         *
+         * `enviando…` e `N na fila` continuam — são os dois casos em que a
+         * pessoa precisa saber que o registro ainda não deu a volta.
+         */
         estado={
           enviando
             ? { texto: 'enviando…', tom: 'envia' as const }
             : naFila > 0
               ? { texto: `${naFila} na fila`, tom: 'fila' as const }
-              : { texto: 'tudo enviado', tom: 'ok' as const }
+              : undefined
         }
       />
 
