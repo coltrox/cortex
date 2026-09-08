@@ -148,6 +148,46 @@ export function planejar(evento: Evento): Operacao[] {
     case 'refeicao_extra':
       return [{ acao: 'diario-lista', dia, campo: 'extras', item: comValor(dados) }]
 
+    /*
+     * A sessão de estudo.
+     *
+     * Linha no diário, e não nota própria: estudar duas vezes no mesmo dia é
+     * o caso normal, e uma nota por dia faria a segunda sessão apagar a
+     * primeira. A soma da lista é a hora estudada do dia.
+     *
+     * Aqui NÃO se espalha `dados`, ao contrário do gasto e da refeição
+     * extra: os campos são copiados um a um. É a mesma regra do cardápio,
+     * pelo mesmo motivo — este item vai para o frontmatter do diário, e um
+     * evento vindo de fora não escolhe o que entra num arquivo do vault.
+     */
+    case 'estudo': {
+      const materia = txt(dados.materia)
+      const minutos = num(dados.minutos)
+      if (!materia) return []
+      // Sem minutos não há o que somar, e uma sessão de doze horas seguidas
+      // é app com defeito, não estudo. Descartar é melhor do que contaminar
+      // o total da semana com um número que ninguém vai conferir.
+      if (minutos === undefined || minutos <= 0 || minutos > 720) return []
+
+      const questoes = num(dados.questoes)
+      const acertos = num(dados.acertos)
+      const feitas = questoes !== undefined && questoes >= 0 ? Math.round(questoes) : undefined
+      return [{
+        acao: 'diario-lista', dia, campo: 'estudos',
+        item: comValor({
+          materia,
+          minutos: Math.round(minutos),
+          questoes: feitas,
+          // Acertar mais do que se resolveu não existe. Limitar em vez de
+          // descartar: quem digitou 10 de 8 errou o campo, não a sessão.
+          acertos: acertos !== undefined && acertos >= 0
+            ? (feitas !== undefined ? Math.min(Math.round(acertos), feitas) : Math.round(acertos))
+            : undefined,
+          obs: txt(dados.obs) || undefined
+        })
+      }]
+    }
+
     case 'gasto':
       // Só a string exata 'entrada' produz entrada; qualquer outra coisa
       // (ausente, com caixa diferente, lixo qualquer) vira saída — entre

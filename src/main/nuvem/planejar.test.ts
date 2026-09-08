@@ -548,3 +548,76 @@ describe('as etapas do vestibular', () => {
       .toEqual(marcar({ pago: true, pago_em: '2026-08-27' }))
   })
 })
+
+describe('planejar — sessao de estudo', () => {
+  it('vira linha no diario do dia, e nao nota', () => {
+    // Linha, e nao nota propria: estudar duas vezes no mesmo dia e o caso
+    // normal, e uma nota por dia faria a segunda sessao apagar a primeira.
+    expect(planejar(ev('estudo', { materia: 'Matemática', minutos: 120 }))).toEqual([
+      {
+        acao: 'diario-lista', dia: '2026-08-27', campo: 'estudos',
+        item: { materia: 'Matemática', minutos: 120 }
+      }
+    ])
+  })
+
+  it('leva questoes e acertos quando houve', () => {
+    const [op] = planejar(ev('estudo', {
+      materia: 'Física', minutos: 60, questoes: 20, acertos: 14, obs: 'travei em ondas'
+    }))
+    expect(op).toEqual({
+      acao: 'diario-lista', dia: '2026-08-27', campo: 'estudos',
+      item: {
+        materia: 'Física', minutos: 60, questoes: 20, acertos: 14, obs: 'travei em ondas'
+      }
+    })
+  })
+
+  it('sem materia ou sem minutos, nada acontece', () => {
+    // Sem minutos nao ha o que somar, e sem materia o dado nao entra em
+    // grafico nenhum. Descartar e melhor do que guardar meia sessao.
+    expect(planejar(ev('estudo', { minutos: 60 }))).toEqual([])
+    expect(planejar(ev('estudo', { materia: 'Química' }))).toEqual([])
+    expect(planejar(ev('estudo', { materia: 'Química', minutos: 0 }))).toEqual([])
+    expect(planejar(ev('estudo', { materia: 'Química', minutos: -30 }))).toEqual([])
+  })
+
+  it('doze horas seguidas e app com defeito, nao estudo', () => {
+    // O teto existe para um numero absurdo nao contaminar o total da semana
+    // sem ninguem notar -- ninguem confere a soma de um grafico.
+    expect(planejar(ev('estudo', { materia: 'História', minutos: 721 }))).toEqual([])
+    expect(planejar(ev('estudo', { materia: 'História', minutos: 720 }))).toHaveLength(1)
+  })
+
+  it('acertar mais do que se resolveu vira o maximo possivel', () => {
+    // Quem digitou 10 de 8 errou o campo, nao a sessao inteira: limitar
+    // guarda o estudo, descartar perderia as duas horas junto.
+    expect(planejar(ev('estudo', {
+      materia: 'Biologia', minutos: 45, questoes: 8, acertos: 10
+    }))).toEqual([{
+      acao: 'diario-lista', dia: '2026-08-27', campo: 'estudos',
+      item: { materia: 'Biologia', minutos: 45, questoes: 8, acertos: 8 }
+    }])
+  })
+
+  it('nao deixa o evento escolher o que entra no diario', () => {
+    // Os campos sao copiados um a um, e nao espalhados: este item vai para o
+    // frontmatter de um arquivo do vault, e um evento vindo de fora nao
+    // escolhe o que se escreve la. Comparar a operacao INTEIRA e o que pega
+    // um campo a mais: checar so `item.materia` deixaria `senha` passar.
+    expect(planejar(ev('estudo', {
+      materia: 'Redação', minutos: 30,
+      tipo: 'documento', date: '1999-01-01', senha: 'SEGREDO'
+    }))).toEqual([{
+      acao: 'diario-lista', dia: '2026-08-27', campo: 'estudos',
+      item: { materia: 'Redação', minutos: 30 }
+    }])
+  })
+
+  it('arredonda os minutos -- meio minuto de estudo nao existe', () => {
+    expect(planejar(ev('estudo', { materia: 'Inglês', minutos: 45.7 }))).toEqual([{
+      acao: 'diario-lista', dia: '2026-08-27', campo: 'estudos',
+      item: { materia: 'Inglês', minutos: 46 }
+    }])
+  })
+})

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { NoteComCampos } from '../tipos'
+import { feriadosDoAno, type Feriado } from '../../shared/feriados'
 import { Linha, txt } from './base'
 
 const MESES = [
@@ -30,6 +31,24 @@ function diasNoMes(ano: number, mes: number): number {
 function rotulo(isoData: string): string {
   const [a, m, d] = isoData.split('-').map(Number)
   return `${SEMANA[new Date(a, m - 1, d).getDay()]}, ${d} de ${MESES[m - 1]} de ${a}`
+}
+
+const ONDE: Record<Feriado['abrangencia'], string> = {
+  nacional: 'Nacional',
+  estadual: 'Estadual (SP)',
+  municipal: 'Municipal (Campinas)'
+}
+
+/**
+ * O feriado descrito em uma linha: onde vale, e de que espécie é.
+ *
+ * "Municipal · feriado" e "Nacional · ponto facultativo" dizem coisas
+ * diferentes sobre o mesmo quadradinho do calendário — a segunda depende de
+ * decreto do ano. É a diferença entre um prazo que corre e um que não corre,
+ * e por isso ela aparece escrita, e não só numa cor.
+ */
+function legenda(f: Feriado): string {
+  return `${ONDE[f.abrangencia]} · ${f.especie === 'feriado' ? 'feriado' : 'ponto facultativo'}`
 }
 
 /**
@@ -73,6 +92,15 @@ export function Calendario({
     return m
   }, [notas])
 
+  /*
+   * Os feriados do ano na tela.
+   *
+   * Calculados, não lidos do vault — ver `shared/feriados`. Um mês pode
+   * mostrar dias do ano seguinte na última linha? Não: a grade só habilita
+   * dias do próprio mês, então um ano por vez basta.
+   */
+  const feriados = useMemo(() => feriadosDoAno(ano), [ano])
+
   const celulas = useMemo(() => {
     const primeiroDiaSemana = new Date(ano, mes, 1).getDay()
     const total = diasNoMes(ano, mes)
@@ -104,6 +132,7 @@ export function Calendario({
   }
 
   const doDia = dia ? porDia.get(dia) ?? [] : []
+  const feriadosDoDia = dia ? feriados.get(dia) ?? [] : []
   const noMes = celulas
     .filter(c => c.data)
     .reduce((s, c) => s + (porDia.get(c.data as string)?.length ?? 0), 0)
@@ -127,6 +156,11 @@ export function Calendario({
       <div className="cal-grade">
         {celulas.map((c, i) => {
           const eventos = c.data ? porDia.get(c.data) ?? [] : []
+          // O primeiro basta para pintar a célula; o popup mostra todos.
+          const feriado = c.data ? feriados.get(c.data)?.[0] : undefined
+          // Com feriado cabe um compromisso a menos: a célula tem altura fixa,
+          // e a quarta linha vazaria por baixo da borda.
+          const cabem = feriado ? 2 : 3
           return (
             <button
               key={i}
@@ -134,15 +168,17 @@ export function Calendario({
               data-fora={c.foraDoMes}
               data-hoje={c.data === hoje}
               data-sel={c.data !== null && c.data === dia}
+              data-feriado={feriado?.especie}
               disabled={c.foraDoMes}
-              title={c.data ? 'Clique para ver e marcar' : undefined}
+              title={feriado ? `${feriado.nome} — ${legenda(feriado)}` : c.data ? 'Clique para ver e marcar' : undefined}
               onClick={() => c.data && setDia(c.data)}
             >
               <span className="cal-num">{c.dia}</span>
-              {eventos.slice(0, 3).map(e => (
+              {feriado && <span className="cal-feriado">{feriado.nome}</span>}
+              {eventos.slice(0, cabem).map(e => (
                 <span key={e.path} className="cal-chip" data-t={e.tipo}>{e.title}</span>
               ))}
-              {eventos.length > 3 && <span className="cal-mais">+{eventos.length - 3}</span>}
+              {eventos.length > cabem && <span className="cal-mais">+{eventos.length - cabem}</span>}
             </button>
           )
         })}
@@ -158,6 +194,17 @@ export function Calendario({
             </div>
 
             <div className="popup-corpo">
+              {/* O feriado vem antes do que está marcado: é a informação que
+                  muda o sentido de tudo o que vier depois na mesma tela. A
+                  lei fica visível porque é ela que responde "e por que este
+                  dia é feriado, e aquele não?". */}
+              {feriadosDoDia.map(f => (
+                <div key={f.nome} className="popup-feriado" data-e={f.especie}>
+                  <strong>{f.nome}</strong>
+                  <span>{legenda(f)}</span>
+                  <span className="popup-feriado-lei">{f.lei}</span>
+                </div>
+              ))}
               {doDia.length === 0 ? (
                 <div className="vazio">Nada marcado neste dia.</div>
               ) : (

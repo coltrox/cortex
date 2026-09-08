@@ -46,6 +46,10 @@ describe('validarEvento', () => {
       // `agua` entrou com o contador de hidratação: é o único tipo que soma
       // um número no diário em vez de marcar um check.
       'agua', 'anotacao', 'cardio', 'compromisso', 'compromisso_editado',
+      // `estudo` e a sessao de estudo -- materia, minutos, questoes e
+      // acertos. Vira linha no diario, e nao nota: estudar duas vezes no
+      // mesmo dia e o caso normal.
+      'estudo',
       'gasto', 'item_apagado', 'medida', 'peso', 'porquinho',
       // `prova_etapa` sao a inscricao e o pagamento do vestibular: uma vez
       // cada, com prazo proprio, ao contrario de `prova_estudada`.

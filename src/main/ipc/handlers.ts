@@ -2,7 +2,8 @@ import { ipcMain, shell } from 'electron'
 import { IPC_SCHEMAS, type IpcChannel } from '../../shared/ipc'
 import type { Session } from '../session'
 import {
-  getNote, listNotes, listNotesWithFields, searchFullText, getBacklinks, getOutlinks, getBrokenLinks
+  getNote, listNotes, listNotesWithFields, searchFullText, getBacklinks, getOutlinks,
+  getBrokenLinks, grafoDoVault
 } from '../index/queries'
 import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
 import { resolveLinks } from '../index/resolver'
@@ -128,6 +129,11 @@ export async function handle(
       await session.vault.writeAtomic(p.path, p.content)
       await session.indexer.indexFile(p.path)
       return { ok: true }
+
+    // O vault inteiro como rede. Leitura pura do índice: nenhum caminho vai
+    // para disco, e por isso não há o que validar além do payload vazio.
+    case 'vault:grafo':
+      return grafoDoVault(session.db)
 
     case 'note:list':
       return listNotes(session.db, { tipo: p.tipo, project: p.project })

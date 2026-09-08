@@ -111,10 +111,40 @@ export function momentoDe(i: ItemCardapio): string {
   return typeof q === 'string' && q.trim() !== '' ? q : 'qualquer hora'
 }
 
+/**
+ * As áreas que o dono ligou no Cortex — ou `null` quando não dá para saber.
+ *
+ * `null` é a resposta honesta para um cardápio que não traz nenhuma área:
+ * Cortex antigo, ou o SQL da espécie `area` ainda não rodado. Quem chama
+ * trata `null` como "mostra tudo".
+ *
+ * A distinção importa porque as duas situações se parecem no dado e são
+ * opostas na intenção. Se ausência virasse lista vazia, quem só esqueceu de
+ * atualizar o Cortex abriria o celular e encontraria um app sem nada dentro —
+ * e concluiria, com razão, que quebrou.
+ */
+export function areasLigadas(c: Cardapio): string[] | null {
+  const ligadas = c.itens.filter(i => i.especie === 'area').map(i => i.nome)
+  return ligadas.length > 0 ? ligadas : null
+}
+
+/**
+ * Esta área está ligada?
+ *
+ * Sem saber, responde que sim — ver `areasLigadas`. É a resposta que mantém
+ * o app inteiro na tela enquanto o Cortex não republica.
+ */
+export function areaLigada(c: Cardapio, area: string): boolean {
+  const ligadas = areasLigadas(c)
+  return ligadas === null || ligadas.includes(area)
+}
+
 export type AnotacaoPublicada = {
   titulo: string
   texto: string
   prioridade: boolean
+  /** O dia em que foi escrita, ISO. Ausente na permanente. */
+  data?: string
   /** O markdown escrito no Cortex, quando há. */
   corpo?: string
   /** Sem data: fica na tela todo dia, em vez de sumir na virada. */
@@ -122,17 +152,20 @@ export type AnotacaoPublicada = {
 }
 
 /**
- * As anotações que o Cortex devolveu.
+ * TODAS as anotações que o Cortex devolveu.
  *
- * Ele publica só as de hoje (ver `montarCardapio`), então não há data para
- * filtrar aqui — o que chegou é o que é de hoje.
+ * O Cortex passou a publicar o conjunto inteiro, e não mais só o do dia — a
+ * decisão de o que mostrar mudou de lado, e agora é da tela. Esta função é a
+ * da tela Notas; o Hoje usa `anotacoesDoDia`, logo abaixo.
  *
- * Prioridade primeiro, e depois em ordem de título. Ordenar por hora seria
- * melhor, mas anotação no vault guarda só o DIA: inventar uma ordem
+ * Prioridade primeiro, depois da mais nova para a mais velha, e por último em
+ * ordem de título. A permanente não tem data e vai junto das mais novas: ela
+ * não é velha, é atemporal. Dentro de um mesmo dia a ordem é por título, e
+ * não por hora, porque anotação no vault guarda só o DIA — inventar uma ordem
  * cronológica a partir do que não existe daria uma lista que muda de ordem
  * sozinha a cada publicação.
  */
-export function anotacoesDoDia(c: Cardapio): AnotacaoPublicada[] {
+export function todasAnotacoes(c: Cardapio): AnotacaoPublicada[] {
   return c.itens
     .filter(i => i.especie === 'anotacao')
     .map(i => ({
@@ -143,15 +176,41 @@ export function anotacoesDoDia(c: Cardapio): AnotacaoPublicada[] {
         ? i.detalhe.texto
         : i.nome,
       prioridade: i.detalhe.prioridade === true,
+      data: typeof i.detalhe.data === 'string' && i.detalhe.data !== ''
+        ? i.detalhe.data
+        : undefined,
       corpo: typeof i.detalhe.corpo === 'string' && i.detalhe.corpo !== ''
         ? i.detalhe.corpo
         : undefined,
       permanente: i.detalhe.permanente === true ? true : undefined
     }))
-    .sort((a, b) =>
-      a.prioridade === b.prioridade
-        ? a.titulo.localeCompare(b.titulo)
-        : a.prioridade ? -1 : 1)
+    .sort((a, b) => {
+      if (a.prioridade !== b.prioridade) return a.prioridade ? -1 : 1
+      // Sem data vem antes: a permanente não é antiga, é de todo dia.
+      if (!a.data !== !b.data) return a.data ? 1 : -1
+      if (a.data && b.data && a.data !== b.data) return b.data.localeCompare(a.data)
+      return a.titulo.localeCompare(b.titulo)
+    })
+}
+
+/**
+ * Só as de hoje — e as que não têm dia nenhum.
+ *
+ * A sem data entra todo dia de propósito, por dois motivos que apontam para
+ * a mesma regra:
+ *
+ * 1. A permanente. Quem escreve "senha do wifi da casa da minha mãe" não põe
+ *    data nisso — não é registro do dia, é coisa para consultar, e sumiria
+ *    da tela se o corte fosse só pelo dia.
+ * 2. O cardápio antigo. Até esta versão o Cortex publicava só as de hoje e
+ *    NÃO mandava a data. Se "sem data" quisesse dizer "não é de hoje", a
+ *    seção de anotações do celular ficaria vazia entre o app web atualizar e
+ *    o Cortex republicar — e ninguém entenderia por quê.
+ *
+ * As duas leituras dão na mesma conta, então a regra é uma só.
+ */
+export function anotacoesDoDia(c: Cardapio, dia: string): AnotacaoPublicada[] {
+  return todasAnotacoes(c).filter(a => a.data === undefined || a.data === dia)
 }
 
 export type Hidratacao = { nome: string; meta: number; copo: number; ml: number }

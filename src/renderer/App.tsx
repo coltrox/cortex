@@ -7,7 +7,7 @@ import { SUBS } from './subnav'
 import { FORMULARIOS, ITENS } from './formularios'
 import {
   IconeHoje, IconeVida, IconeSaude, IconeDev,
-  IconeConhecimento, IconeFinancas, IconeCalendario
+  IconeConhecimento, IconeFinancas, IconeCalendario, IconeCerebro
 } from './icons'
 import { Abertura } from './components/Abertura'
 import { Configuracoes } from './components/Configuracoes'
@@ -16,6 +16,7 @@ import { Confirmar } from './components/Confirmar'
 import { Nuvem } from './components/Nuvem'
 import { Paleta } from './components/Paleta'
 import { Calendario } from './components/Calendario'
+import { Cerebro } from './components/Cerebro'
 import { NotaPainel } from './components/NotaPainel'
 import { ModalFormulario } from './components/ModalFormulario'
 import { RegistroTreino } from './components/RegistroTreino'
@@ -43,6 +44,9 @@ function IconeConfig({ size = 18 }: { size?: number }) {
 const LIMIAR_ALERTA_SYNC = 3
 
 const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactElement }[] = [
+  // O cérebro em primeiro, como o dono pediu: é a visão do vault inteiro, e
+  // as lentes abaixo dele são recortes dessa mesma rede.
+  { id: 'cerebro',      nome: 'Cérebro', Icone: IconeCerebro },
   { id: 'hoje',         nome: 'Hoje',    Icone: IconeHoje },
   { id: 'conhecimento', nome: 'Estudos', Icone: IconeConhecimento },
   { id: 'saude',        nome: 'Saúde',   Icone: IconeSaude },
@@ -165,7 +169,12 @@ export function App() {
     )
   }
 
-  const visiveis = LENTES.filter(l => l.id === 'hoje' || v.config.areas.includes(l.id))
+  // `cerebro` e `hoje` não são áreas: não se ligam nem se desligam na
+  // abertura, e por isso não passam pelo filtro de `config.areas` — o cérebro
+  // mostra a rede toda, e o que ele desenha já obedece ao que existe no vault.
+  const visiveis = LENTES.filter(
+    l => l.id === 'hoje' || l.id === 'cerebro' || v.config.areas.includes(l.id)
+  )
   const lenteAtual = visiveis.find(l => l.id === v.lente) ?? visiveis[0]
   const subs = SUBS[v.lente]
 
@@ -191,6 +200,10 @@ export function App() {
 
     const comuns = { notas: v.notas, sub: v.sub, hoje, ...acoes }
     switch (v.lente) {
+      // Fora de `comuns` de propósito: o cérebro não lê `v.notas`, porque
+      // precisa das LIGAÇÕES, e essas não estão ali — vêm do índice pelo
+      // canal `vault:grafo`.
+      case 'cerebro':      return <Cerebro aoAbrir={acoes.aoAbrir} />
       case 'hoje':         return <LenteHoje {...comuns} />
       case 'vida':         return <LenteVida {...comuns} />
       case 'saude':        return <LenteSaude {...comuns} />

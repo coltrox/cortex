@@ -4,7 +4,7 @@ import {
   lerCardapio, gravarCardapio, diaDaSemana,
   suplementosDoDia, refeicoesDoPlano, treinos, exerciciosDoTreino,
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, haQuantoTempo,
-  hidratacao, litros, anotacoesDoDia, momentoDe
+  hidratacao, litros, anotacoesDoDia, momentoDe, todasAnotacoes, areasLigadas, areaLigada
 } from './cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from './feitos'
 import type { ItemCardapio } from '@compartilhado/eventos'
@@ -358,10 +358,11 @@ describe('litros', () => {
 
 describe('anotações do dia', () => {
   const com = (itens: ItemCardapio[]) => ({ itens, atualizadoEm: null })
+  const HOJE_ANOT = '2026-09-07'
 
   it('sem nenhuma, a lista vem vazia -- não é erro', () => {
     // A seção some da tela; um dia sem anotação nenhuma é um dia normal.
-    expect(anotacoesDoDia(com(ITENS))).toEqual([])
+    expect(anotacoesDoDia(com(ITENS), HOJE_ANOT)).toEqual([])
   })
 
   it('traz texto e prioridade', () => {
@@ -369,7 +370,7 @@ describe('anotações do dia', () => {
       especie: 'anotacao', nome: 'Fui bem no simulado',
       detalhe: { texto: 'Fui bem no simulado\nErrei duas de humanas', prioridade: true }
     }])
-    expect(anotacoesDoDia(c)).toEqual([{
+    expect(anotacoesDoDia(c, HOJE_ANOT)).toEqual([{
       titulo: 'Fui bem no simulado',
       texto: 'Fui bem no simulado\nErrei duas de humanas',
       prioridade: true
@@ -378,14 +379,14 @@ describe('anotações do dia', () => {
 
   it('sem a marca, prioridade é falsa -- e não `undefined` na tela', () => {
     const c = com([{ especie: 'anotacao', nome: 'Dormi mal', detalhe: { texto: 'Dormi mal' } }])
-    expect(anotacoesDoDia(c)[0].prioridade).toBe(false)
+    expect(anotacoesDoDia(c, HOJE_ANOT)[0].prioridade).toBe(false)
   })
 
   it('sem texto, o título salva a linha', () => {
     // O título É a primeira linha da anotação, então é a melhor aproximação
     // -- melhor do que uma linha em branco no meio da lista.
     const c = com([{ especie: 'anotacao', nome: 'Só o título', detalhe: {} }])
-    expect(anotacoesDoDia(c)[0].texto).toBe('Só o título')
+    expect(anotacoesDoDia(c, HOJE_ANOT)[0].texto).toBe('Só o título')
   })
 
   it('as marcadas vêm primeiro', () => {
@@ -393,7 +394,7 @@ describe('anotações do dia', () => {
       { especie: 'anotacao', nome: 'A comum', detalhe: { texto: 'A comum' } },
       { especie: 'anotacao', nome: 'Z urgente', detalhe: { texto: 'Z urgente', prioridade: true } }
     ])
-    expect(anotacoesDoDia(c).map(a => a.titulo)).toEqual(['Z urgente', 'A comum'])
+    expect(anotacoesDoDia(c, HOJE_ANOT).map(a => a.titulo)).toEqual(['Z urgente', 'A comum'])
   })
 
   it('ignora as outras espécies', () => {
@@ -401,7 +402,7 @@ describe('anotações do dia', () => {
       ...ITENS,
       { especie: 'anotacao', nome: 'A única', detalhe: { texto: 'A única' } }
     ])
-    expect(anotacoesDoDia(c).map(a => a.titulo)).toEqual(['A única'])
+    expect(anotacoesDoDia(c, HOJE_ANOT).map(a => a.titulo)).toEqual(['A única'])
   })
 })
 
@@ -430,5 +431,73 @@ describe('o momento de tomar', () => {
     // Vem do banco, que é dado de fora: um número aqui viraria "[object]" na
     // linha do suplemento.
     expect(momentoDe(item({ quando: 7 }))).toBe('qualquer hora')
+  })
+})
+
+describe('as areas ligadas', () => {
+  const com = (itens: ItemCardapio[]) => ({ itens, atualizadoEm: null })
+  const area = (nome: string): ItemCardapio => ({ especie: 'area', nome, detalhe: {} })
+
+  it('sem nenhuma area, a resposta e "nao sei" -- e nao "nenhuma"', () => {
+    // As duas situacoes se parecem no dado e sao opostas na intencao. Se
+    // ausencia virasse lista vazia, quem so esqueceu de atualizar o Cortex
+    // abriria o celular e encontraria um app sem nada dentro.
+    expect(areasLigadas(com(ITENS))).toBeNull()
+  })
+
+  it('com areas, devolve exatamente as que subiram', () => {
+    expect(areasLigadas(com([area('saude'), area('vida')]))).toEqual(['saude', 'vida'])
+  })
+
+  it('sem saber, toda area conta como ligada', () => {
+    expect(areaLigada(com(ITENS), 'conhecimento')).toBe(true)
+    expect(areaLigada(com(ITENS), 'qualquer-coisa')).toBe(true)
+  })
+
+  it('sabendo, so as ligadas contam', () => {
+    const c = com([area('saude'), area('vida')])
+    expect(areaLigada(c, 'saude')).toBe(true)
+    expect(areaLigada(c, 'conhecimento')).toBe(false)
+  })
+})
+
+describe('todas as notas, e as de hoje', () => {
+  const com = (itens: ItemCardapio[]) => ({ itens, atualizadoEm: null })
+  const HOJE_N = '2026-09-07'
+  const anot = (nome: string, detalhe: Record<string, unknown>): ItemCardapio =>
+    ({ especie: 'anotacao', nome, detalhe: { texto: nome, ...detalhe } })
+
+  it('todasAnotacoes traz o conjunto, de qualquer dia', () => {
+    const c = com([
+      anot('Ontem', { data: '2026-09-06' }),
+      anot('Hoje', { data: HOJE_N }),
+      anot('Fixa', { permanente: true })
+    ])
+    expect(todasAnotacoes(c).map(a => a.titulo)).toEqual(['Fixa', 'Hoje', 'Ontem'])
+  })
+
+  it('a do dia corta pela data, e a fixa fica', () => {
+    const c = com([
+      anot('Ontem', { data: '2026-09-06' }),
+      anot('Hoje', { data: HOJE_N }),
+      anot('Fixa', { permanente: true })
+    ])
+    expect(anotacoesDoDia(c, HOJE_N).map(a => a.titulo)).toEqual(['Fixa', 'Hoje'])
+  })
+
+  it('cardapio velho, sem data nenhuma, continua aparecendo no Hoje', () => {
+    // Ate esta versao o Cortex publicava so as de hoje e NAO mandava a data.
+    // Se "sem data" quisesse dizer "nao e de hoje", a secao de anotacoes do
+    // celular ficaria vazia entre o app web atualizar e o Cortex republicar.
+    const c = com([anot('Do jeito antigo', {})])
+    expect(anotacoesDoDia(c, HOJE_N).map(a => a.titulo)).toEqual(['Do jeito antigo'])
+  })
+
+  it('a marcada vem antes de tudo, mesmo sendo velha', () => {
+    const c = com([
+      anot('Nova comum', { data: HOJE_N }),
+      anot('Velha urgente', { data: '2026-01-01', prioridade: true })
+    ])
+    expect(todasAnotacoes(c).map(a => a.titulo)).toEqual(['Velha urgente', 'Nova comum'])
   })
 })

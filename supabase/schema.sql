@@ -53,7 +53,11 @@ language sql immutable as $$
                -- Inscricao e pagamento do vestibular. Separados de
                -- 'prova_estudada' porque acontecem uma vez e tem prazo
                -- proprio: perder o da inscricao tira a pessoa da prova.
-               'prova_etapa']
+               'prova_etapa',
+               -- A sessao de estudo: materia, minutos, questoes e acertos.
+               -- Vira linha no diario do dia, e nao nota, porque estudar
+               -- duas vezes no mesmo dia e o caso normal.
+               'estudo']
 $$;
 
 create or replace function registrar_evento(
@@ -128,11 +132,15 @@ begin
                                -- Chegando; esta se repete todo dia e vive no
                                -- Hoje, ao lado dos suplementos.
                                'rotina',
+                               -- Uma area ligada no Cortex. Nao e conteudo: e
+                               -- o mapa do que o dono escolheu usar, para o
+                               -- celular nao mostrar tela de area desligada.
+                               'area',
                                -- A agua do dia: quanto ja foi, a meta e a garrafa.
                                'hidratacao',
-                               -- A anotacao de hoje, voltando para o celular
-                               -- mostrar embaixo das tarefas do dia. So as de
-                               -- hoje sobem; quem corta e montarCardapio.
+                               -- A anotacao. Sobem TODAS: a tela Notas do
+                               -- celular mostra o conjunto, e o Hoje corta
+                               -- pelo dia. Quem corta e a tela, nao o banco.
                                'anotacao')
         and coalesce(el->>'nome','') <> ''
     ) item

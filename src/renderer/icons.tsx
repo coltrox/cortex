@@ -88,3 +88,24 @@ export function IconeCalendario({ size = 19 }: Props) {
     </svg>
   )
 }
+
+/**
+ * O cérebro, para a tela da rede.
+ *
+ * É o logotipo do app reduzido ao essencial: o contorno, três nós e as
+ * ligações entre eles. Os pontos são cheios de propósito — num ícone de
+ * 19 px, círculo vazado com traço de 1,6 px fecha no meio e vira borrão.
+ */
+export function IconeCerebro({ size = 19 }: Props) {
+  return (
+    <svg {...base(size)}>
+      <path d="M12 4.5c-2-1.6-5-1-6.2 1-1.9.4-2.9 2.3-2.3 4-.9 1.4-.5 3.3 1 4.2.2 1.9 2 3.2 3.9 2.8.9 1.3 2.8 1.6 4 .6" />
+      <path d="M12 4.5c2-1.6 5-1 6.2 1 1.9.4 2.9 2.3 2.3 4 .9 1.4.5 3.3-1 4.2-.2 1.9-2 3.2-3.9 2.8-.6.9-1.7 1.3-2.6 1.1" />
+      <path d="M12 4.5v15" />
+      <path d="M8 9.5l4 2.5 4-2.5M9 14l3-2M15 14l-3-2" />
+      <circle cx="8" cy="9.5" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="9.5" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}

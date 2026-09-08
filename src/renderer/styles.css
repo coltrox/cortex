@@ -735,6 +735,38 @@ kbd {
 .cal-dia:hover:not(:disabled) { background: var(--surface-sunk); }
 .cal-dia[data-fora="true"] { background: var(--canvas); cursor: default; }
 .cal-dia[data-fora="true"] .cal-num { color: var(--border-strong); }
+/* Feriado.
+ *
+ * Vermelho para o que a lei fecha, amarelo para o ponto facultativo — a mesma
+ * paleta dos chips de compromisso, sem cor nova. Quem muda de fundo é a
+ * CÉLULA inteira, e não um chip dentro dela: o dia todo é diferente, não uma
+ * coisa marcada nele.
+ *
+ * A cor sozinha não conta a história — o nome vai escrito na célula e a
+ * espécie, por extenso, no popup. Vermelho e amarelo lado a lado são o par
+ * que mais se confunde em daltonismo.
+ */
+.cal-dia[data-feriado="feriado"]     { background: var(--pale-red-bg); }
+.cal-dia[data-feriado="facultativo"] { background: var(--pale-yel-bg); }
+/* Sem isto o `:hover` genérico, mais específico, apagaria o tom ao passar o
+   mouse — e o dia perderia a cor justo na hora em que se olha para ele. */
+.cal-dia[data-feriado]:hover:not(:disabled) { filter: brightness(0.97); }
+
+.cal-feriado {
+  font-size: 10.5px;
+  line-height: 1.35;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-dia[data-feriado="feriado"] .cal-feriado     { color: var(--pale-red); }
+.cal-dia[data-feriado="facultativo"] .cal-feriado { color: var(--pale-yel); }
+
+/* Depois do feriado de propósito: mesma especificidade, e o dia selecionado é
+   o estado que responde ao clique de agora. */
 .cal-dia[data-sel="true"] { background: var(--accent-bg); }
 
 .cal-num {
@@ -767,6 +799,107 @@ kbd {
 .cal-chip[data-t="diario"]   { background: var(--accent-bg);   color: var(--accent);   border-left-color: var(--accent); }
 
 .cal-mais { font-family: var(--mono); font-size: 9.5px; color: var(--text-3); padding-left: 6px; }
+
+/* O feriado no popup do dia. A lei fica visível porque é ela que responde
+   "e por que este dia é feriado, e aquele não?" — pergunta que aparece toda
+   vez que alguém estranha 14 de julho não estar aqui. */
+.popup-feriado {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: var(--pale-red-bg);
+}
+.popup-feriado[data-e="facultativo"] { background: var(--pale-yel-bg); }
+.popup-feriado strong { font-size: 13px; color: var(--pale-red); }
+.popup-feriado[data-e="facultativo"] strong { color: var(--pale-yel); }
+.popup-feriado span { font-size: 11.5px; color: var(--text-2); }
+.popup-feriado-lei {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+  margin-left: auto;
+}
+
+/* ─────────────── A rede, em forma de cérebro ─────────────── */
+
+.cerebro {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Ocupa a altura toda: um grafo com metade da tela é um grafo onde não
+     cabe nada, e a rolagem da página brigaria com o zoom da roda do mouse. */
+  height: 100%;
+  min-height: 0;
+}
+
+.cerebro-topo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cerebro-conta { font-size: 12.5px; color: var(--text-2); margin-right: auto; }
+.cerebro-conta strong { color: var(--text); font-family: var(--mono); }
+
+.cerebro-busca {
+  min-width: 180px;
+  height: 30px;
+  padding: 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.cerebro-busca:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* O fundo escuro é fixo, e não acompanha o tema claro: os nós brilham, e
+   brilho sobre branco não brilha — vira mancha cinza. É a única tela do app
+   que se comporta assim, e é porque ela É o logotipo, que também é escuro. */
+.cerebro-tela {
+  position: relative;
+  flex: 1;
+  min-height: 380px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, #10202c 0%, #0b1219 55%, #080c11 100%);
+}
+
+.cerebro-tela canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* `grab` é o padrão porque o gesto principal aqui é arrastar. O JS troca
+     para `pointer` quando o cursor encosta num nó. */
+  cursor: grab;
+  touch-action: none;
+}
+
+.cerebro-nome {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 11px;
+  border-radius: 7px;
+  background: rgba(8, 12, 17, .82);
+  border: 1px solid rgba(95, 170, 221, .22);
+  /* Não intercepta o mouse: mora em cima do canvas, e um retângulo clicável
+     ali comeria o arrasto de quem passasse por perto. */
+  pointer-events: none;
+  max-width: 60%;
+}
+.cerebro-nome strong { font-size: 13px; color: #e8ecf1; }
+.cerebro-nome span { font-size: 11px; color: #9aa4ae; font-family: var(--mono); }
 
 .cal-painel { margin-top: 26px; }
 

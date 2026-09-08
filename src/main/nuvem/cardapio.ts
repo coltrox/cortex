@@ -1,5 +1,6 @@
 import type { ItemCardapio } from '../../shared/eventos'
 import type { NoteComCampos } from '../index/queries'
+import { dobra } from '../../shared/busca'
 import { txt, num, lista, listaDeTexto, comValor } from './util'
 
 /*
@@ -108,14 +109,86 @@ export function emPastaProtegida(caminho: string): boolean {
   return ['Vida/Contas/', 'Vida/Documentos/'].some(f => p.startsWith(f))
 }
 
+/** O título é o da seção de links? Sem acento e sem caixa, como se digita. */
+const ehDependencias = (titulo: string): boolean =>
+  dobra(titulo).includes('dependencias da rede')
+
+/**
+ * Tira a seção "Dependências da Rede" do texto que vai para o celular.
+ *
+ * Toda nota deste vault começa com esse bloco de `[[links]]` — é a rede que
+ * dá sentido ao vault no computador, e o protocolo de escrita exige que ela
+ * esteja logo depois do frontmatter. No celular ela não serve para nada: os
+ * `[[links]]` não abrem coisa alguma ali, e por estarem no topo eram as
+ * primeiras cinco linhas de TODA tarefa — abrir "Escada 30 min" mostrava
+ * quatro links antes de dizer o que fazer.
+ *
+ * O corte é APERTADO de propósito: depois do título, some só o que a seção
+ * de fato contém — linha em branco e item de lista —, mais a régua `---` que
+ * a fecha no formato das notas. Qualquer outra linha encerra o corte e fica.
+ *
+ * A primeira versão desta função ia do título até o próximo título de nível
+ * igual ou mais alto. Numa nota sem régua e sem outro título — que existe —
+ * isso comia o texto inteiro e publicava a tarefa vazia. Perder conteúdo em
+ * silêncio é muito pior do que deixar escapar um subtítulo perdido dentro do
+ * bloco de links, então a regra passou a ser esta.
+ *
+ * Roda ANTES do corte de tamanho, de propósito: o teto de caracteres passa a
+ * medir o texto que a pessoa vai ler.
+ */
+export function semDependenciasDaRede(corpo: string): string {
+  const linhas = corpo.split(/\r?\n/)
+  const out: string[] = []
+  let pulando = false
+
+  for (const linha of linhas) {
+    const t = linha.trim()
+
+    if (pulando) {
+      // A régua fecha a seção e sai junto: é o rodapé do bloco de links, e
+      // sozinha no topo do texto seria lixo herdado de algo que não está lá.
+      if (/^-{3,}$/.test(t)) { pulando = false; continue }
+      if (t === '' || /^[-*+]\s+/.test(t)) continue
+      // Qualquer outra coisa já é o texto da nota.
+      pulando = false
+    }
+
+    const titulo = /^(#{1,6})\s+(.*)$/.exec(t)
+    if (titulo && ehDependencias(titulo[2])) { pulando = true; continue }
+    out.push(linha)
+  }
+
+  return out.join('\n').trim()
+}
+
 function corpoPublicavel(corpo: string | undefined): string | undefined {
-  const t = (corpo ?? '').trim()
+  const t = semDependenciasDaRede((corpo ?? '').trim())
   if (!t) return undefined
   return t.length <= TETO_CORPO ? t : t.slice(0, TETO_CORPO) + '\n\n… (cortado)'
 }
 
-export function montarCardapio(notas: NotaParaCardapio[], hoje: string): ItemCardapio[] {
+/**
+ * Monta o cardápio.
+ *
+ * `areasLigadas` são as áreas que o dono marcou no Cortex (ver `AREAS` em
+ * `main/config.ts`). Elas viajam para o celular espelharem a mesma escolha:
+ * quem não liga Estudos não vê nada de estudos no app do celular — nem tela,
+ * nem atalho, nem seção. O parâmetro é obrigatório de propósito, para que
+ * esquecer de passá-lo seja erro de compilação e não uma tela vazia.
+ */
+export function montarCardapio(
+  notas: NotaParaCardapio[], hoje: string, areasLigadas: string[]
+): ItemCardapio[] {
   const out: ItemCardapio[] = []
+
+  /*
+   * As áreas ligadas, uma por item.
+   *
+   * Um item por área, e não uma lista dentro de um item, porque o cardápio é
+   * uma tabela com chave `(especie, nome)` no banco — uma lista dentro de
+   * `detalhe` viraria uma linha só, que se sobrescreve.
+   */
+  for (const a of areasLigadas) out.push({ especie: 'area', nome: a, detalhe: {} })
 
   /*
    * O que já foi marcado HOJE, lido do diário do dia.
@@ -287,27 +360,54 @@ export function montarCardapio(notas: NotaParaCardapio[], hoje: string): ItemCar
    * serve para conferir nada. `validarEvento` já limita a 8 KB na entrada, e
    * `titulo` e `texto` são os dois únicos campos que uma anotação tem.
    */
-  for (const n of notas.filter(x => x.tipo === 'anotacao')) {
+  /*
+   * TODAS as anotações — e não só as de hoje.
+   *
+   * Antes o corte era aqui: só subia `date === hoje` ou sem data. Isso fazia
+   * do celular uma janela para o dia, e a anotação de terça-feira sumia na
+   * quarta mesmo continuando no vault. Agora sobem todas, e quem decide o
+   * que mostrar é a TELA: o Hoje filtra pelo dia, a tela Notas mostra o
+   * conjunto. Separar assim tira uma regra de produto de dentro do
+   * publicador, que é o lugar onde ela era invisível.
+   *
+   * O que NÃO mudou é o corte de segurança: pasta protegida continua fora,
+   * porque uma anotação em `Vida/Contas` fala do que está guardado lá e o
+   * nome dela já entrega o assunto.
+   *
+   * Ordem: permanente primeiro, depois da mais nova para a mais velha. É
+   * essa ordem que o teto embaixo corta — se um dia houver anotação demais,
+   * o que se perde é a mais antiga, nunca a que fica.
+   */
+  const anotacoes = notas
+    .filter(x => x.tipo === 'anotacao' && !emPastaProtegida(x.path))
+    .sort((a, b) => {
+      const da = txt(a.date)
+      const db = txt(b.date)
+      if (!da !== !db) return da ? 1 : -1
+      if (da !== db) return db.localeCompare(da)
+      return txt(a.title).localeCompare(txt(b.title))
+    })
     /*
-     * As de hoje, e as que não têm data.
+     * Teto de anotações publicadas.
      *
-     * Antes era só `date === hoje`, e isso escondia uma classe inteira de
-     * anotação: a permanente. Quem escreve "senha do wifi da casa da minha
-     * mãe" não põe data nisso — não é registro do dia, é coisa para
-     * consultar. Sem data, a nota nunca casava com `hoje` e nunca subia,
-     * então o celular jamais a via. Com data, continua valendo o dia: um
-     * diário de anotações antigas encheria a tela de coisa velha.
+     * Hoje são três, e por muito tempo serão poucas. O teto existe porque
+     * esta lista passou a crescer para sempre: sem ele, daqui a dois anos o
+     * cardápio inteiro viaja a cada publicação e o celular baixa tudo por
+     * causa de uma marcação de água.
      */
+    .slice(0, 300)
+
+  for (const n of anotacoes) {
     const data = txt(n.date)
-    if (data && data !== hoje) continue
-    // Nem o título: uma anotação guardada em `Vida/Contas` fala do que está
-    // guardado lá, e o nome dela já entrega o assunto.
-    if (emPastaProtegida(n.path)) continue
     out.push({
       especie: 'anotacao',
       nome: txt(n.title),
       detalhe: comValor({
         path: n.path,
+        // A data agora VIAJA: é com ela que a tela separa o recado de hoje
+        // do de semana passada. Sem ela o celular receberia tudo junto e não
+        // teria como voltar a mostrar só o dia.
+        data: data || undefined,
         texto: txt(n.campos.texto),
         // Só quando é verdade — uma anotação comum não carrega
         // `prioridade: false` para o celular só para ele ignorar.
