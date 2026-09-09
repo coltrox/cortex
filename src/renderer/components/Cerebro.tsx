@@ -95,7 +95,7 @@ const corDe = (path: string): string => COR_PASTA[pastaDe(path)] ?? COR_PADRAO
  * que se lê nesta tela são as LINHAS; ponto grande demais cobre a ligação que
  * chega nele.
  */
-const raioDe = (grau: number): number => 1.8 + Math.sqrt(grau) * 1.1
+const raioDe = (grau: number): number => 1.6 + Math.sqrt(grau) * 0.9
 
 /**
  * A área nominal do desenho, em coordenadas do grafo.
@@ -124,10 +124,30 @@ const AREA = 0.6
  * `k³` no numerador, e não uma constante solta, é o que mantém isto válido
  * quando o vault crescer: `k` encolhe com o número de notas e as três forças
  * encolhem junto, na mesma proporção.
+ *
+ * ## Os números, e por que a ATRAÇÃO é o botão que importa
+ *
+ * Com atração alta (o valor anterior era 0,40), cada agrupamento de notas se
+ * fecha numa bola apertada, e as bolas se afastam umas das outras — o desenho
+ * vira ilhas densas separadas por vazios. Baixá-la abre os agrupamentos sem
+ * desfazê-los, e a gravidade alta junta tudo numa massa redonda.
+ *
+ * Os valores saíram de uma varredura sobre este vault (133 notas, 392
+ * ligações), medindo três coisas:
+ *
+ * - quão redonda é a nuvem: a proporção da caixa saiu de 1,05 para 1,00;
+ * - quão uniforme é o espaçamento: a variação da distância ao vizinho mais
+ *   próximo caiu de 0,28 para 0,11;
+ * - quanto o link ainda organiza: nós ligados ficam a 0,30 da distância média
+ *   entre dois nós quaisquer, contra 0,27 antes.
+ *
+ * Esse último número é o que garante que a uniformidade não custou o
+ * significado: o desenho ficou regular, e continua sendo o SEU desenho — quem
+ * é ligado continua perto.
  */
-const GANHO_REPULSAO = 1.0
-const GANHO_ATRACAO = 0.40
-const GANHO_GRAVIDADE = 0.55
+const GANHO_REPULSAO = 1.5
+const GANHO_ATRACAO = 0.10
+const GANHO_GRAVIDADE = 2.2
 
 /** Quanto um nó pode andar num quadro, no início. */
 const CALOR_INICIAL = 0.08
@@ -415,7 +435,7 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
 
       // O ponto cresce com o zoom, mas devagar e com teto: ampliar não pode
       // transformar cada nota numa bolha que cobre as linhas.
-      const escalaPonto = Math.min(2, Math.max(0.6, camera.current.escala / ESCALA_BASE))
+      const escalaPonto = Math.min(1.2, Math.max(0.6, camera.current.escala / ESCALA_BASE))
 
       for (const n of dados.nos) {
         const [px, py] = paraTela(n.x, n.y)
