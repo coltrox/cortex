@@ -291,33 +291,31 @@ const ATRASO_FOCO = 420
 /*
  * O giro em torno do centro.
  *
- * Deixar o cursor no nó Cortex põe a rede a girar devagar em volta dele, no
- * sentido anti-horário. É uma rotação de DESENHO: acontece dentro de
+ * Segurar o nó Cortex e mexer o ponteiro vira a rede em volta dele, no
+ * sentido em que a mão anda. É uma rotação de DESENHO: acontece dentro de
  * `paraTela`/`paraGrafo`, e as posições guardadas não mudam. Girar as
  * posições de verdade brigaria com a física — a gravidade puxa para o centro,
  * não para uma órbita — e o layout se desfaria a cada volta.
  */
 
-/** Quadros de espera depois do foco, antes de o giro sequer começar. */
-const ESPERA_GIRO = 42
-
 /**
  * Quadros até o giro chegar à velocidade cheia, e até parar de novo.
  *
- * Dois segundos e pouco. A rampa longa é o que faz não haver instante em que
- * o movimento "começa": ele já está andando quando se percebe.
+ * Quatro segundos de cada lado. A rampa longa é o efeito, e não um detalhe:
+ * a rede sai quase parada e vai ganhando velocidade até ficar uniforme, o
+ * que dá tempo de largar cedo se a intenção era só virar um pouco. Ao soltar,
+ * ela desacelera pela mesma curva em vez de travar no lugar.
  */
-const RAMPA_GIRO = 135
+const RAMPA_GIRO = 240
 
 /**
- * A velocidade cheia, em radianos por quadro.
+ * A velocidade de cruzeiro, em radianos por quadro.
  *
- * 0,0010 dá uma volta em pouco menos de dois minutos. É devagar de propósito:
- * o giro é ambiente, não é a informação. Devagar assim, ninguém perde de
- * vista o nó que estava olhando, e o movimento se lê como a rede respirando
- * em vez de como uma animação querendo atenção.
+ * 0,009 dá uma volta em doze segundos — a rede rodando com vontade, que é o
+ * que se quer depois de a rampa terminar. O começo é quase imóvel, então
+ * nada disso chega de supetão.
  */
-const GIRO_MAX = 0.0010
+const GIRO_MAX = 0.009
 
 /** Quantos pixels o dedo pode escorregar e ainda ser um clique. */
 const FOLGA_CLIQUE = 4
@@ -887,40 +885,39 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       focoRef.current === null || nos[i].grupo === focoRef.current
 
     /*
-     * O ângulo do giro, e a velocidade dele.
+     * O giro é ligado por um BOTÃO SEGURADO, e não pelo cursor descansando.
      *
-     * `giro` só cresce; ninguém o zera. Ao tirar o cursor do centro a rede
-     * DESACELERA e para onde estiver, como um globo que se solta. Voltar o
-     * ângulo a zero seria rebobinar a cena na frente de quem está olhando.
+     * A primeira versão girava quando o cursor ficava parado em cima do
+     * centro. Começava sem ninguém pedir. Agora se segura o nó do meio e a
+     * rede gira enquanto o dedo estiver ali; soltou, ela desacelera e para
+     * onde está.
      *
-     * `quadrosNoCentro` conta o tempo de cursor parado no centro, e é dele
-     * que sai a espera antes de começar — ver `ESPERA_GIRO`.
+     * Enquanto se segura, mexer o mouse e rolar a roda não interrompem nada:
+     * o gesto é o botão apertado, não a posição do ponteiro. Segurar no
+     * centro também não move a câmera — pegar ali é girar, e só.
+     *
+     * `giro` nunca volta a zero. Rebobinar a cena na frente de quem está
+     * olhando seria pior do que deixá-la no ângulo em que ficou.
      */
     let giro = 0
     let velGiro = 0
-    let quadrosNoCentro = 0
-    /** O dedo está segurando o nó do meio? Também põe a rede a girar. */
+    let quadrosGirando = 0
+    /** O botão está apertado em cima do nó do meio? */
     let segurandoCentro = false
 
     const andarGiro = (): boolean => {
-      const noCentro = focadoRef.current?.id === CENTRO_ID
-      if (segurandoCentro) {
-        // Segurar é uma intenção declarada, e não um cursor que passou por
-        // ali: não faz sentido esperar o tempo do foco. A rampa continua
-        // valendo, então ele começa suave do mesmo jeito.
-        quadrosNoCentro = Math.max(quadrosNoCentro + 1, ESPERA_GIRO)
-      } else if (noCentro) quadrosNoCentro++
-      else quadrosNoCentro = 0
-      // Fração da velocidade cheia que se quer AGORA. Ela sobe da espera até
-      // a rampa e desce de volta a zero quando o cursor sai — nunca salta.
-      const querida = noCentro || segurandoCentro
-        ? Math.min(1, Math.max(0, (quadrosNoCentro - ESPERA_GIRO) / RAMPA_GIRO))
+      if (segurandoCentro) quadrosGirando++
+      else quadrosGirando = 0
+      // Fração da velocidade cheia que se quer AGORA: sobe pela rampa ao
+      // segurar e desce de volta a zero ao soltar. Nunca salta.
+      const querida = segurandoCentro
+        ? Math.min(1, quadrosGirando / RAMPA_GIRO)
         : 0
-      // A própria velocidade persegue a fração querida, o que arredonda os
-      // dois cantos: o começo do giro e a parada.
+      // A velocidade PERSEGUE essa fração, o que arredonda os dois cantos —
+      // a partida e a parada.
       const alvo = suavizar(querida) * GIRO_MAX
       velGiro += (alvo - velGiro) / RAMPA_GIRO * 6
-      if (Math.abs(velGiro) < 1e-6) { velGiro = 0; return false }
+      if (Math.abs(velGiro) < 1e-7) { velGiro = 0; return false }
       // Negativo porque o y da tela cresce para BAIXO: com o sinal positivo a
       // rotação sairia no sentido horário.
       giro -= velGiro
@@ -1729,12 +1726,11 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       e.preventDefault()
       if (deslize) return
       const [cx, cy] = posicao(e)
-      // O centro é cravado: pegar nele não arrasta nada, arrasta a câmera —
-      // como pegar no fundo. `-2` vira `-1` aqui e o resto do arrasto nem
-      // precisa saber que ele existe. O que ele faz é pôr a rede a girar.
-      const alvoPonteiro = noPonto(cx, cy)
-      segurandoCentro = alvoPonteiro === -2
-      const i = Math.max(-1, alvoPonteiro)
+      // `-2` é o centro, e segurar nele não arrasta nem move a câmera: VIRA
+      // a rede. O índice atravessa o arrasto inteiro dizendo qual dos três
+      // gestos está em curso — nó, giro, ou câmera.
+      const i = noPonto(cx, cy)
+      segurandoCentro = i === -2
       canvas.setPointerCapture(e.pointerId)
       arrastando.current = { i, px: cx, py: cy, ox: cx, oy: cy, mexeu: false }
       // A mãozinha fechada é a única vez em que o cursor muda: ela diz que
@@ -1755,7 +1751,14 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         if (!arr.mexeu && Math.hypot(cx - arr.ox, cy - arr.oy) > FOLGA_CLIQUE) {
           arr.mexeu = true
         }
-        if (arr.i >= 0) {
+        if (arr.i === -2) {
+          // Segurando o centro: quem gira é o botão apertado, não o
+          // ponteiro. Mexer o mouse aqui não faz NADA de propósito — nem
+          // gira mais, nem move a câmera —, e é isso que deixa o gesto
+          // sobreviver a mexer e a rolar a roda no meio dele.
+          arr.px = cx
+          arr.py = cy
+        } else if (arr.i >= 0) {
           const [gx, gy] = paraGrafo(cx, cy)
           px[arr.i] = gx
           py[arr.i] = gy
@@ -1814,8 +1817,8 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         }
       }
       arrastando.current = null
-      // Soltou: o giro desacelera pela rampa e para onde estiver, como
-      // quando o cursor sai de cima do centro.
+      // Soltou: a velocidade cai pela mesma rampa e a rede encosta no ângulo
+      // em que ficou.
       segurandoCentro = false
       canvas.style.cursor = 'default'
       canvas.releasePointerCapture(e.pointerId)
@@ -1890,9 +1893,23 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       sujo.current = true
     }
 
+    /*
+     * O sistema pode cancelar o ponteiro no meio do gesto — a janela perde o
+     * foco, o toque vira rolagem, o dispositivo some. Sem isto, um cancelamento
+     * enquanto se segura o centro deixaria a rede girando para sempre, porque
+     * o `pointerup` que desliga nunca chegaria.
+     */
+    const aoCancelar = (): void => {
+      arrastando.current = null
+      segurandoCentro = false
+      canvas.style.cursor = 'default'
+      sujo.current = true
+    }
+
     canvas.addEventListener('pointerdown', aoDescer)
     canvas.addEventListener('pointermove', aoMover)
     canvas.addEventListener('pointerup', aoSubir)
+    canvas.addEventListener('pointercancel', aoCancelar)
     canvas.addEventListener('pointerleave', aoSair)
     canvas.addEventListener('wheel', aoRolar, { passive: false })
 
@@ -1911,6 +1928,7 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       canvas.removeEventListener('pointerdown', aoDescer)
       canvas.removeEventListener('pointermove', aoMover)
       canvas.removeEventListener('pointerup', aoSubir)
+      canvas.removeEventListener('pointercancel', aoCancelar)
       canvas.removeEventListener('pointerleave', aoSair)
       canvas.removeEventListener('wheel', aoRolar)
     }
