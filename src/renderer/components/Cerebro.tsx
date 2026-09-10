@@ -118,7 +118,15 @@ const CENTRO = 0.5
  */
 const CENTRO_ID = '::centro::'
 const CENTRO_NOME = 'Cortex'
-const COR_CENTRO = '#f0f3f7'
+/*
+ * Cinza claro, e não branco.
+ *
+ * Era `#f0f3f7`, quase branco puro: sobre o fundo `#1e1e1e` isso é o maior
+ * contraste que a tela consegue dar, e o ponto acendia mais que qualquer nota
+ * do vault. O centro precisa se destacar do emaranhado de linhas, não ganhar
+ * de todo o resto — ele é a âncora do desenho, não o assunto dele.
+ */
+const COR_CENTRO = '#b9c2cc'
 /** O raio do ponto do meio, em pixels de tela. Ele é a âncora: destaca. */
 const RAIO_CENTRO = 9
 
@@ -304,12 +312,12 @@ const RAMPA_GIRO = 135
 /**
  * A velocidade cheia, em radianos por quadro.
  *
- * 0,0016 dá uma volta em pouco mais de um minuto. É devagar de propósito: o
- * giro é ambiente, não é a informação. Devagar assim, ninguém perde de vista
- * o nó que estava olhando, e o movimento se lê como a rede respirando em vez
- * de como uma animação querendo atenção.
+ * 0,0010 dá uma volta em pouco menos de dois minutos. É devagar de propósito:
+ * o giro é ambiente, não é a informação. Devagar assim, ninguém perde de
+ * vista o nó que estava olhando, e o movimento se lê como a rede respirando
+ * em vez de como uma animação querendo atenção.
  */
-const GIRO_MAX = 0.0016
+const GIRO_MAX = 0.0010
 
 /** Quantos pixels o dedo pode escorregar e ainda ser um clique. */
 const FOLGA_CLIQUE = 4
@@ -891,14 +899,21 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     let giro = 0
     let velGiro = 0
     let quadrosNoCentro = 0
+    /** O dedo está segurando o nó do meio? Também põe a rede a girar. */
+    let segurandoCentro = false
 
     const andarGiro = (): boolean => {
       const noCentro = focadoRef.current?.id === CENTRO_ID
-      if (noCentro) quadrosNoCentro++
+      if (segurandoCentro) {
+        // Segurar é uma intenção declarada, e não um cursor que passou por
+        // ali: não faz sentido esperar o tempo do foco. A rampa continua
+        // valendo, então ele começa suave do mesmo jeito.
+        quadrosNoCentro = Math.max(quadrosNoCentro + 1, ESPERA_GIRO)
+      } else if (noCentro) quadrosNoCentro++
       else quadrosNoCentro = 0
       // Fração da velocidade cheia que se quer AGORA. Ela sobe da espera até
       // a rampa e desce de volta a zero quando o cursor sai — nunca salta.
-      const querida = noCentro
+      const querida = noCentro || segurandoCentro
         ? Math.min(1, Math.max(0, (quadrosNoCentro - ESPERA_GIRO) / RAMPA_GIRO))
         : 0
       // A própria velocidade persegue a fração querida, o que arredonda os
@@ -1495,12 +1510,12 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       const rc = Math.max(2, Math.min(RAIO_CENTRO * escalaPonto, folgaPx * 0.5))
       // Halo curto e fraco. Ele existe para destacar o centro do emaranhado
       // de linhas atrás dele, não para iluminar a tela.
-      const halo = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, rc * 2.4)
-      halo.addColorStop(0, 'rgba(240,243,247,.13)')
-      halo.addColorStop(1, 'rgba(240,243,247,0)')
+      const halo = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, rc * 2.1)
+      halo.addColorStop(0, 'rgba(200,210,222,.07)')
+      halo.addColorStop(1, 'rgba(200,210,222,0)')
       ctx.fillStyle = halo
       ctx.beginPath()
-      ctx.arc(ccx, ccy, rc * 2.4, 0, Math.PI * 2)
+      ctx.arc(ccx, ccy, rc * 2.1, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = COR_CENTRO
       ctx.beginPath()
@@ -1716,8 +1731,10 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       const [cx, cy] = posicao(e)
       // O centro é cravado: pegar nele não arrasta nada, arrasta a câmera —
       // como pegar no fundo. `-2` vira `-1` aqui e o resto do arrasto nem
-      // precisa saber que ele existe.
-      const i = Math.max(-1, noPonto(cx, cy))
+      // precisa saber que ele existe. O que ele faz é pôr a rede a girar.
+      const alvoPonteiro = noPonto(cx, cy)
+      segurandoCentro = alvoPonteiro === -2
+      const i = Math.max(-1, alvoPonteiro)
       canvas.setPointerCapture(e.pointerId)
       arrastando.current = { i, px: cx, py: cy, ox: cx, oy: cy, mexeu: false }
       // A mãozinha fechada é a única vez em que o cursor muda: ela diz que
@@ -1797,6 +1814,9 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         }
       }
       arrastando.current = null
+      // Soltou: o giro desacelera pela rampa e para onde estiver, como
+      // quando o cursor sai de cima do centro.
+      segurandoCentro = false
       canvas.style.cursor = 'default'
       canvas.releasePointerCapture(e.pointerId)
       sujo.current = true
