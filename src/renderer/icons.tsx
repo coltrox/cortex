@@ -92,20 +92,26 @@ export function IconeCalendario({ size = 19 }: Props) {
 /**
  * O cérebro, para a tela da rede.
  *
- * É o logotipo do app reduzido ao essencial: o contorno, três nós e as
- * ligações entre eles. Os pontos são cheios de propósito — num ícone de
- * 19 px, círculo vazado com traço de 1,6 px fecha no meio e vira borrão.
+ * De PERFIL, e meio cérebro só — um hemisfério visto de lado, com o tronco
+ * descendo. A versão anterior era o cérebro de frente, com os dois lados e
+ * três nós no meio: de frente ele fica simétrico, e a 19 px silhueta
+ * simétrica com traços dentro lê como nuvem, flor ou pulmão, dependendo de
+ * quem olha. O perfil tem uma frente e uma nuca, e isso ninguém confunde.
  */
 export function IconeCerebro({ size = 19 }: Props) {
   return (
     <svg {...base(size)}>
-      <path d="M12 4.5c-2-1.6-5-1-6.2 1-1.9.4-2.9 2.3-2.3 4-.9 1.4-.5 3.3 1 4.2.2 1.9 2 3.2 3.9 2.8.9 1.3 2.8 1.6 4 .6" />
-      <path d="M12 4.5c2-1.6 5-1 6.2 1 1.9.4 2.9 2.3 2.3 4 .9 1.4.5 3.3-1 4.2-.2 1.9-2 3.2-3.9 2.8-.6.9-1.7 1.3-2.6 1.1" />
-      <path d="M12 4.5v15" />
-      <path d="M8 9.5l4 2.5 4-2.5M9 14l3-2M15 14l-3-2" />
-      <circle cx="8" cy="9.5" r="1.3" fill="currentColor" stroke="none" />
-      <circle cx="16" cy="9.5" r="1.3" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      {/* O contorno de perfil: um hemisfério visto de lado, do lobo frontal
+          (à esquerda) à nuca (à direita). */}
+      <path d="M7.7 16.9c-2.2-.2-3.6-2-3.3-3.9-1.4-1.3-1.3-3.6.3-4.7 0-2.4 2.3-4.2 4.7-3.8C10.8 2.9 13.5 3 14.9 4.6c2.6-.1 4.8 1.9 5 4.5 1.3 1.3 1.2 3.6-.3 4.8-.1 1.8-1.6 3.1-3.4 3" />
+      {/* A base e o tronco. É o tronco que faz o desenho virar cérebro de
+          lado em vez de nuvem: sem ele a silhueta fica ambígua. */}
+      <path d="M7.7 16.9h6.5" />
+      <path d="M14.2 16.9c.1 1.6.5 2.8 1.4 4.1" />
+      {/* Dois sulcos, e não seis: a 19 px, mais traços fecham entre si e o
+          miolo do ícone vira um borrão. */}
+      <path d="M8.2 8.6c1.4 1.1 1.4 3 .1 4.2" />
+      <path d="M12.4 5.6c1.5 1.5 1.4 3.8-.3 5.1 1.3 1.2 1.5 3.1.4 4.5" />
     </svg>
   )
 }

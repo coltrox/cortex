@@ -46,7 +46,10 @@ const LIMIAR_ALERTA_SYNC = 3
 const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactElement }[] = [
   // O cérebro em primeiro, como o dono pediu: é a visão do vault inteiro, e
   // as lentes abaixo dele são recortes dessa mesma rede.
-  { id: 'cerebro',      nome: 'Cérebro', Icone: IconeCerebro },
+  // O `id` continua `cerebro` mesmo com o rótulo virando Cortex: ele é chave
+  // de `paineisTrancados` na config, e renomeá-lo destrancaria o painel de
+  // quem já tivesse escolhido trancar esta lente.
+  { id: 'cerebro',      nome: 'Cortex',  Icone: IconeCerebro },
   { id: 'hoje',         nome: 'Hoje',    Icone: IconeHoje },
   { id: 'conhecimento', nome: 'Estudos', Icone: IconeConhecimento },
   { id: 'saude',        nome: 'Saúde',   Icone: IconeSaude },
@@ -203,7 +206,12 @@ export function App() {
       // Fora de `comuns` de propósito: o cérebro não lê `v.notas`, porque
       // precisa das LIGAÇÕES, e essas não estão ali — vêm do índice pelo
       // canal `vault:grafo`.
-      case 'cerebro':      return <Cerebro aoAbrir={acoes.aoAbrir} />
+      // `v.abrir` direto, e não `acoes.aoAbrir`: `acoes` é um objeto literal
+      // recriado a cada render, então `acoes.aoAbrir` é uma função NOVA
+      // sempre. Ela está nas dependências do efeito que monta o canvas, e
+      // aquele efeito refaz o layout inteiro. Medido: 8,8 s de tela travada
+      // a cada render do App. `v.abrir` é `useCallback` e não muda.
+      case 'cerebro':      return <Cerebro aoAbrir={v.abrir} />
       case 'hoje':         return <LenteHoje {...comuns} />
       case 'vida':         return <LenteVida {...comuns} />
       case 'saude':        return <LenteSaude {...comuns} />
