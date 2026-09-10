@@ -1,9 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
    CORTEX — sistema de design
-   Tema escuro único. Fonte de sistema.
+   Claro por padrão, escuro por escolha ou pelo sistema.
+   Instrument Sans para texto, JetBrains Mono para número.
 
-   Portado do desenho feito no Claude Design. As diferenças em relação a
-   ele são estruturais, não estéticas: lá cada tela era uma maquete de
+   Portado do desenho `Rotina` feito no Claude Design. As diferenças em
+   relação a ele são estruturais, não estéticas: lá cada tela era uma
+   maquete de
    390×788 com rolagem interna; aqui o aparelho é a própria janela. Então
    `.cabecalho`, `.barra-baixo`, `.progresso` e `.acao-fixa` deixam de ser
    `absolute` dentro de uma moldura e passam a ser `fixed` na viewport, e o
@@ -13,30 +15,45 @@
 :root{
   /* — Superfícies em camadas: quanto mais alto, mais claro.
        Profundidade por luminância, não por sombra. — */
-  --fundo:        #080b10;
-  --painel:       #10151d;
-  --painel-alto:  #19202b;
-  --painel-topo:  #222b38;   /* campos, chips, botões de passo */
-  --borda:        #232c39;
-  --borda-forte:  #33404f;
+  --fundo:        #faf9f6;   /* o papel: fundo de tela */
+  --painel:       #ffffff;   /* o cartão */
+  --painel-alto:  #f7f6f2;
+  --painel-topo:  #f2f1ec;   /* campos, chips, botões de passo */
+  --borda:        rgba(21,23,26,.09);
+  --borda-forte:  rgba(21,23,26,.17);
+  /* A moldura — barra de status e barra de abas — num tom ABAIXO do papel.
+     É o que separa o conteúdo do casco sem precisar de sombra. */
+  --casco:        #efede8;
+  --casco-linha:  rgba(21,23,26,.08);
 
-  /* — Texto: três níveis, todos AA sobre --painel — */
-  --txt:          #e6ecf5;
-  --txt-2:        #9aa8bb;
-  --txt-3:        #7f8da1;   /* piso AA: 5.3:1 sobre --painel */
+  /* — Texto: quatro níveis. —
+       Os três primeiros passam AA sobre `--fundo`; o quarto NÃO passa, e
+       por isso só serve para decoração — rótulo de eixo, marca d'água,
+       texto de espaço reservado. Nunca para informação.
 
-  /* — Acento padrão (geral / hoje): o ciano do ícone — */
-  --acento:       #3fc9e8;
-  --acento-fraco: rgba(63,201,232,.14);
-  --acento-linha: rgba(63,201,232,.34);
+       O desenho usava `#8C918C` no texto miúdo, o que dá 3,4:1 e some no
+       sol. `--txt-3` é o mesmo cinza puxado até 4,6:1: a mesma família de
+       cor, legível de verdade num celular na rua. */
+  --txt:          #14161a;   /* 16,1:1 */
+  --txt-2:        #6c716c;   /*  5,0:1 */
+  --txt-3:        #767b76;   /*  4,6:1 — piso AA */
+  --txt-4:        #b2b6b1;   /*  2,2:1 — só decoração */
 
-  /* — Estados — */
-  --ok:      #4fc98c;
-  --ok-fraco:rgba(79,201,140,.13);
-  --erro:    #ea6a72;
-  --erro-fraco:rgba(234,106,114,.13);
-  --atencao: #e0ab4d;
-  --atencao-fraco:rgba(224,171,77,.13);
+  /* — Acento único, do desenho: um azul para o app inteiro. — */
+  --acento:       #2f5bea;
+  --acento-fraco: #e8edfd;
+  --acento-forte: #2246b8;   /* texto sobre `--acento-fraco` */
+  --acento-linha: rgba(47,91,234,.34);
+
+  /* — Estados, escurecidos em relação ao tema antigo: aqueles tons foram
+       escolhidos para brilhar sobre preto, e sobre papel branco viram
+       pastel ilegível. — */
+  --ok:      #1f7a4d;
+  --ok-fraco:rgba(31,122,77,.11);
+  --erro:    #b3352f;
+  --erro-fraco:rgba(179,53,47,.10);
+  --atencao: #8a6212;
+  --atencao-fraco:rgba(138,98,18,.12);
 
   /* — Raio — */
   --r1: 8px;
@@ -47,9 +64,14 @@
   --e1: 4px;  --e2: 8px;  --e3: 12px;
   --e4: 16px; --e5: 24px; --e6: 32px;
 
-  /* — Tipografia — */
-  --fonte: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --fonte-num: ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* — Tipografia —
+       As duas do desenho, cada uma com a pilha de sistema atrás. A pilha
+       não é formalidade: as fontes vêm de outro domínio, o service worker
+       só guarda o que é do nosso, e na PRIMEIRA abertura sem rede elas não
+       chegam. Com a pilha, o app abre com a fonte do aparelho em vez de
+       abrir com a fonte de desenho do navegador. */
+  --fonte: 'Instrument Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-num: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* — Altura mínima de toque. Nada abaixo disto. — */
   --toque: 52px;
@@ -71,16 +93,56 @@
   --largura: 480px;
 }
 
-/* — Cor por assunto: classe na raiz da tela, componentes só leem --acento — */
-.tema-hoje    { --acento:#3fc9e8; --acento-fraco:rgba(63,201,232,.14); --acento-linha:rgba(63,201,232,.34); }
-.tema-treino  { --acento:#f08a4b; --acento-fraco:rgba(240,138,75,.14);  --acento-linha:rgba(240,138,75,.34);  }
-.tema-agenda  { --acento:#9b8ef2; --acento-fraco:rgba(155,142,242,.15); --acento-linha:rgba(155,142,242,.34); }
-.tema-dinheiro{ --acento:#d9b357; --acento-fraco:rgba(217,179,87,.14);  --acento-linha:rgba(217,179,87,.34);  }
-/* Verde para estudo e rosa para as notas — as duas cores que faltavam na
-   roda, para nenhuma tela dividir acento com outra. Tela que empresta a cor
-   de outra parece a mesma tela com o título trocado. */
-.tema-estudo  { --acento:#5ec98a; --acento-fraco:rgba(94,201,138,.14);  --acento-linha:rgba(94,201,138,.34);  }
-.tema-vida    { --acento:#e08fb4; --acento-fraco:rgba(224,143,180,.14); --acento-linha:rgba(224,143,180,.34); }
+/* — O TEMA ESCURO —
+     Vale por escolha explícita (`data-tema="escuro"`) ou por acompanhar o
+     sistema (`data-tema="sistema"`, que é o padrão de quem nunca escolheu).
+     Só os valores mudam; nenhum seletor abaixo sabe que existe tema.
+
+     O azul clareia no escuro porque `#2f5bea` sobre `#101215` dá 3,4:1 e
+     não segura texto. `#6f92f8` dá 6,1:1 sobre o mesmo fundo. */
+html[data-tema="escuro"],
+html[data-tema="sistema"] {
+  color-scheme: dark;
+  --fundo:#101215; --painel:#191c21; --painel-alto:#1f232a; --painel-topo:#262b33;
+  --borda:rgba(255,255,255,.1); --borda-forte:rgba(255,255,255,.2);
+  --casco:#0c0e11; --casco-linha:rgba(255,255,255,.08);
+  --txt:#f2f3f5; --txt-2:#a9afb9; --txt-3:#949aa4; --txt-4:#6e747e;
+  --acento:#6f92f8; --acento-fraco:rgba(111,146,248,.16); --acento-forte:#a8c0ff;
+  --acento-linha:rgba(111,146,248,.36);
+  --ok:#5ac98c; --ok-fraco:rgba(90,201,140,.14);
+  --erro:#f0797f; --erro-fraco:rgba(240,121,127,.14);
+  --atencao:#e2b25c; --atencao-fraco:rgba(226,178,92,.14);
+}
+/* `sistema` só escurece quando o aparelho está escuro. A regra acima já
+   pintou tudo de escuro, então aqui o claro é REPOSTO — é mais curto que
+   repetir a paleta inteira dentro de uma media query. */
+@media (prefers-color-scheme: light) {
+  html[data-tema="sistema"] {
+    color-scheme: light;
+    --fundo:#faf9f6; --painel:#fff; --painel-alto:#f7f6f2; --painel-topo:#f2f1ec;
+    --borda:rgba(21,23,26,.09); --borda-forte:rgba(21,23,26,.17);
+    --casco:#efede8; --casco-linha:rgba(21,23,26,.08);
+    --txt:#14161a; --txt-2:#6c716c; --txt-3:#767b76; --txt-4:#b2b6b1;
+    --acento:#2f5bea; --acento-fraco:#e8edfd; --acento-forte:#2246b8;
+    --acento-linha:rgba(47,91,234,.34);
+    --ok:#1f7a4d; --ok-fraco:rgba(31,122,77,.11);
+    --erro:#b3352f; --erro-fraco:rgba(179,53,47,.10);
+    --atencao:#8a6212; --atencao-fraco:rgba(138,98,18,.12);
+  }
+}
+
+/* — Cor por assunto: as classes ficam, os valores não. —
+     O app tinha seis acentos, um por assunto. O desenho `Rotina` usa UM azul
+     de ponta a ponta, e há razão para isso: com seis, a cor deixa de
+     significar "isto é tocável" e passa a significar "você está na tela X" —
+     que o título já diz. Um acento só devolve à cor o trabalho dela.
+
+     As classes continuam existindo, e vazias, porque as telas as aplicam.
+     Removê-las seria mexer em sete arquivos para não mudar nada; deixá-las
+     aqui, com o motivo escrito, evita que alguém "conserte" o app repintando
+     cada tela de novo. */
+.tema-hoje, .tema-treino, .tema-agenda,
+.tema-dinheiro, .tema-estudo, .tema-vida { /* sem acento próprio, de propósito */ }
 
 *,*::before,*::after{ box-sizing:border-box; }
 
@@ -150,7 +212,7 @@ body{
   height:calc(58px + var(--topo-seguro));
   padding: var(--topo-seguro) var(--e4) 0 var(--e4);
   display:flex; align-items:center; gap:var(--e3);
-  background:rgba(8,11,16,.72);
+  background:color-mix(in srgb, var(--casco) 88%, transparent);
   -webkit-backdrop-filter:blur(18px) saturate(140%);
   backdrop-filter:blur(18px) saturate(140%);
   border-bottom:1px solid var(--borda);
@@ -787,11 +849,45 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   height:calc(68px + var(--baixo-seguro));
   padding-bottom:var(--baixo-seguro);
   display:grid; grid-template-columns:repeat(3,1fr);
-  background:rgba(8,11,16,.78);
+  background:color-mix(in srgb, var(--casco) 90%, transparent);
   -webkit-backdrop-filter:blur(18px) saturate(140%);
   backdrop-filter:blur(18px) saturate(140%);
   border-top:1px solid var(--borda);
 }
+/* — O ícone da aba —
+     Uma caixa de 20 px por aba, com um canto diferente em cada uma, cheia
+     quando a aba está ativa. É o que o desenho `Rotina` usa no lugar de
+     pictogramas: sem seis desenhos para manter, e sem nenhuma metáfora
+     ambígua, porque a diferença entre as abas é de forma pura. */
+.aba-forma{
+  width:20px; height:20px; display:block;
+  border:2px solid currentColor; background:transparent;
+  transition:background 160ms;
+}
+.aba-ativa .aba-forma{ background:currentColor; }
+
+/* — A conta do topo da Dieta — */
+.dieta-topo{
+  display:flex; align-items:flex-end; justify-content:space-between;
+  gap:var(--e3); margin-bottom:var(--e3);
+}
+.dieta-conta{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.dieta-conta-dir{ text-align:right; }
+.dieta-numero{
+  font-family:var(--fonte-num); font-size:26px; font-weight:700;
+  letter-spacing:-.04em; color:var(--txt); line-height:1;
+}
+.dieta-de{ font-family:var(--fonte-num); font-size:11px; color:var(--txt-3); }
+.dieta-barra{
+  height:10px; border-radius:99px; background:var(--painel-topo);
+  overflow:hidden; margin-bottom:var(--e2);
+}
+.dieta-barra-cheia{
+  height:100%; border-radius:99px; background:var(--acento);
+  transition:width 260ms ease;
+}
+.dieta-nota{ margin:0 0 var(--e4); font-size:12.5px; color:var(--txt-2); }
+
 .aba{
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
   min-height:68px; border:0; background:transparent; cursor:pointer;
