@@ -829,25 +829,60 @@ kbd {
 .cerebro {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   /* Ocupa a altura toda: um grafo com metade da tela é um grafo onde não
      cabe nada, e a rolagem da página brigaria com o zoom da roda do mouse. */
   height: 100%;
   min-height: 0;
+  /* O mesmo respiro lateral das outras lentes (`.main .lente`).
+     Esta tela não usa o invólucro `.lente` — ela precisa da altura inteira,
+     e aquele tem `padding-bottom: 60px` — então repete o ritmo aqui, em vez
+     de encostar o conteúdo na parede. */
+  padding: 22px 34px 26px;
+  box-sizing: border-box;
+  /* Arrastar sobre o canvas selecionava o texto em volta — a contagem, a
+     legenda — e o realce de seleção do Chromium em fundo escuro é um roxo
+     que piscava a cada clique e a cada soltar. Aqui nada é para ler
+     selecionando; é para arrastar. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.cerebro-topo {
+/* Busca e botões andam juntos: assim descem para a linha de baixo em bloco
+   quando a janela aperta, e não um de cada vez. */
+.cerebro-acoes {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.cerebro-conta { font-size: 12.5px; color: var(--text-2); margin-right: auto; }
+/* A barra de cima.
+ *
+ * `gap` generoso e `flex-wrap`: numa janela estreita os botões descem para a
+ * linha de baixo em vez de se espremerem uns nos outros. A contagem empurra o
+ * resto para a direita com `margin-right: auto`. */
+.cerebro-topo {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  padding-bottom: 2px;
+}
+
+.cerebro-conta {
+  font-size: 12.5px;
+  color: var(--text-2);
+  margin-right: auto;
+  /* Não quebra no meio: espremida, a contagem partia "ligações" e o número
+     ficava órfão numa linha sozinha. */
+  white-space: nowrap;
+}
 .cerebro-conta strong { color: var(--text); font-family: var(--mono); }
+.cerebro-conta .sep { color: var(--text-3); padding: 0 6px; }
 
 .cerebro-busca {
-  min-width: 180px;
+  width: 200px;
   height: 30px;
   padding: 0 10px;
   background: var(--surface);
@@ -868,21 +903,21 @@ kbd {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  /* Chapado, e não em degradê: o degradê da versão anterior clareava o miolo
-     e escurecia as bordas, e com isso a MESMA aresta parecia mais forte no
-     centro do que na periferia. */
-  background: #14171a;
+  /* Cinza escuro chapado, como o do Obsidian. Chapado e não em degradê: o
+     degradê clareava o miolo e escurecia as bordas, e com isso a MESMA
+     aresta parecia mais forte no centro do que na periferia. */
+  background: #1e1e1e;
 }
 
 /* A legenda das cores. Sem ela são sete cores; com ela, sete pastas. */
 .cerebro-legenda {
   position: absolute;
-  left: 12px;
-  top: 12px;
+  left: 16px;
+  top: 14px;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 12px;
-  max-width: 70%;
+  gap: 6px 16px;
+  max-width: calc(100% - 32px);
   /* Não intercepta o mouse: mora em cima do canvas, e um retângulo clicável
      ali comeria o arrasto de quem passasse por perto. */
   pointer-events: none;
@@ -891,39 +926,127 @@ kbd {
 .cerebro-grupo {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: #9aa4ae;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #b3bac2;
 }
 .cerebro-grupo i {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   display: inline-block;
+  flex: none;
 }
-.cerebro-grupo b { font-family: var(--mono); color: #6f7680; font-weight: 400; }
+.cerebro-grupo b { font-family: var(--mono); color: #7c848d; font-weight: 400; }
 
 .cerebro-tela canvas {
   display: block;
   width: 100%;
   height: 100%;
-  /* `grab` é o padrão porque o gesto principal aqui é arrastar. O JS troca
-     para `pointer` quando o cursor encosta num nó. */
-  cursor: grab;
+  /* A seta é o padrão. A mãozinha fechada só aparece enquanto algo está sendo
+     segurado, e quem a liga é o JS no `pointerdown` — trocar o cursor a cada
+     nó por que se passa deixa o ponteiro piscando pela tela. */
+  cursor: default;
   touch-action: none;
 }
 
-.cerebro-nome {
+/* ── O painel de ajustes ── */
+
+.cerebro-painel {
   position: absolute;
-  left: 12px;
-  bottom: 12px;
+  right: 14px;
+  top: 14px;
+  bottom: 14px;
+  width: 250px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 11px;
-  border-radius: 7px;
-  background: rgba(8, 12, 17, .82);
-  border: 1px solid rgba(95, 170, 221, .22);
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(28, 28, 28, .96);
+  border: 1px solid #343434;
+  /* Rola sozinho: com muitas pastas a lista de cores passa da altura da
+     janela, e sem isto o botão de restaurar ficaria inalcançável. */
+  overflow-y: auto;
+  color: #d7dce2;
+}
+
+.cerebro-painel-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cerebro-painel-topo strong { font-size: 13px; }
+
+.cerebro-secao {
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #7c848d;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #313131;
+}
+/* A primeira seção não precisa de risco: já vem logo abaixo do título. */
+.cerebro-painel .cerebro-secao:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+
+.cerebro-chave {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11.5px;
+  color: #b3bac2;
+  cursor: pointer;
+}
+.cerebro-chave input { accent-color: var(--accent); cursor: pointer; flex: none; }
+
+.cerebro-faixa { display: flex; flex-direction: column; gap: 5px; }
+.cerebro-faixa-nome {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #b3bac2;
+}
+.cerebro-faixa-nome b { font-family: var(--mono); font-weight: 400; color: #8d959e; }
+.cerebro-faixa input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+.cerebro-cor {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11.5px;
+  color: #b3bac2;
+  cursor: pointer;
+}
+.cerebro-cor input[type="color"] {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #3d3d3d;
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+  flex: none;
+}
+.cerebro-cor span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cerebro-cor b { font-family: var(--mono); font-weight: 400; color: #7c848d; }
+
+.cerebro-restaurar { margin-top: 8px; align-self: flex-start; }
+
+.cerebro-nome {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 13px;
+  border-radius: 8px;
+  background: rgba(24, 24, 24, .94);
+  border: 1px solid #3a3a3a;
   /* Não intercepta o mouse: mora em cima do canvas, e um retângulo clicável
      ali comeria o arrasto de quem passasse por perto. */
   pointer-events: none;

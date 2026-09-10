@@ -124,64 +124,153 @@ export function getBrokenLinks(db: Db): { src: string; dst: string; line: number
   `).all() as { src: string; dst: string; line: number }[]
 }
 
-/** Um nó do grafo: uma nota, e quantas ligações ela tem. */
-export type NoGrafo = { path: string; title: string; tipo: string; grau: number }
-
-/** Uma ligação resolvida entre duas notas do vault. */
-export type ArestaGrafo = { de: string; para: string }
+/**
+ * O que um nó do grafo É.
+ *
+ * `nota` existe como arquivo. `tag` é uma etiqueta, que não é arquivo nenhum
+ * mas liga notas entre si tanto quanto um `[[link]]`. `inexistente` é o alvo
+ * de um `[[link]]` que ainda não virou arquivo — uma intenção escrita.
+ */
+export type EspecieNo = 'nota' | 'tag' | 'inexistente'
 
 /**
- * O vault inteiro como rede: notas e as ligações entre elas.
+ * Um nó do grafo.
  *
- * Só links RESOLVIDOS entram. Um `[[link]]` para nota que não existe é
- * intenção, não ligação — desenhá-lo obrigaria a inventar um nó fantasma para
- * ele apontar, e o grafo passaria a mostrar mais coisa que não existe do que
- * coisa que existe.
+ * `id` é a chave, e não `path`, porque tag e nota inexistente não têm
+ * caminho: a tag é `#tech`, e a nota que falta é o nome que alguém escreveu
+ * entre colchetes. Só quando `especie` é `nota` o `id` é um caminho de
+ * arquivo — e é essa a condição para o nó poder ser aberto.
  *
- * A ligação é tratada como SEM DIREÇÃO: `A → B` e `B → A` são a mesma aresta,
- * e as duas pontas ganham grau. É como o vault funciona de verdade — quem
- * escreve `[[Esteira]]` dentro de Escada considera as duas ligadas, e duas
- * setas entre os mesmos dois pontos só engrossariam a linha.
+ * `grupo` é o que decide a cor: a pasta de primeiro nível para as notas,
+ * `#tags` para as etiquetas, `(inexistente)` para o que falta. Sai daqui, e
+ * não da tela, para a tela não precisar saber como um caminho é feito.
+ */
+export type NoGrafo = {
+  id: string
+  title: string
+  especie: EspecieNo
+  grupo: string
+  grau: number
+}
+
+/** Uma ligação entre dois nós, pelos ids. */
+export type ArestaGrafo = { de: string; para: string }
+
+/** O prefixo dos ids que não são arquivo — nunca colide com um caminho. */
+const ID_TAG = '#'
+const ID_FALTA = '?'
+
+/**
+ * O vault inteiro como rede: notas, etiquetas, o que falta, e o que liga tudo.
  *
- * `grau` sai daqui, e não da tela, porque é a contagem que decide o tamanho
- * do ponto: o índice resolve isso numa consulta, e o renderer teria de varrer
- * todas as arestas por nó.
+ * ## Três espécies, e por quê
+ *
+ * A primeira versão só trazia notas e links resolvidos — 133 nós. Ficava
+ * rala perto do grafo que o dono já conhecia, e o motivo não era desenho:
+ * metade da rede dele não estava sendo contada.
+ *
+ * - **Tags.** São 151 neste vault, com 479 ligações. Uma etiqueta liga notas
+ *   tanto quanto um `[[link]]`: quem marca `#supabase` em catorze notas está
+ *   dizendo que aquelas catorze conversam. Deixá-las de fora era jogar fora
+ *   a metade mais densa da rede.
+ * - **Notas que ainda não existem.** O alvo de um `[[link]]` sem arquivo. Eu
+ *   tinha argumentado que "é intenção, não ligação" — e estava errado num
+ *   vault escrito assim: a intenção é o que falta fazer, e é ela que aponta
+ *   para onde a rede vai crescer.
+ *
+ * Quem decide o que aparece é a TELA, com filtros. Daqui vem tudo.
+ *
+ * ## Sem direção
+ *
+ * `A → B` e `B → A` são a mesma aresta, e as duas pontas ganham grau. É como
+ * o vault funciona: quem escreve `[[Esteira]]` dentro de Escada considera as
+ * duas ligadas, e duas setas entre os mesmos pontos só engrossariam a linha.
+ *
+ * `grau` sai daqui porque é o que decide o tamanho do ponto: o índice conta
+ * numa passada, e a tela teria de varrer todas as arestas por nó.
  */
 export function grafoDoVault(db: Db): { nos: NoGrafo[]; arestas: ArestaGrafo[] } {
-  const brutas = db.prepare(`
-    SELECT DISTINCT l.src AS de, l.resolved_path AS para
-    FROM links l
-    JOIN notes n ON n.path = l.resolved_path
-    WHERE l.resolved_path IS NOT NULL AND l.src <> l.resolved_path
-  `).all() as ArestaGrafo[]
-
-  /*
-   * Deduplica o par nos dois sentidos.
-   *
-   * A chave é o par ordenado alfabeticamente — a única forma de os dois
-   * sentidos caírem no mesmo lugar sem depender de qual apareceu primeiro.
-   */
   const vistas = new Set<string>()
   const arestas: ArestaGrafo[] = []
   const grau = new Map<string, number>()
-  for (const a of brutas) {
-    const chave = a.de < a.para ? `${a.de} ${a.para}` : `${a.para} ${a.de}`
-    if (vistas.has(chave)) continue
+
+  /** Acrescenta a aresta uma vez só, venha ela de que lado vier. */
+  const ligar = (de: string, para: string): void => {
+    if (de === para) return
+    // A chave é o par ordenado alfabeticamente — a única forma de os dois
+    // sentidos caírem no mesmo lugar sem depender de qual apareceu primeiro.
+    const chave = de < para ? `${de} ${para}` : `${para} ${de}`
+    if (vistas.has(chave)) return
     vistas.add(chave)
-    arestas.push(a)
-    grau.set(a.de, (grau.get(a.de) ?? 0) + 1)
-    grau.set(a.para, (grau.get(a.para) ?? 0) + 1)
+    arestas.push({ de, para })
+    grau.set(de, (grau.get(de) ?? 0) + 1)
+    grau.set(para, (grau.get(para) ?? 0) + 1)
   }
+
+  // Nota ↔ nota, pelos links resolvidos.
+  const entreNotas = db.prepare(`
+    SELECT DISTINCT l.src AS de, l.resolved_path AS para
+    FROM links l
+    JOIN notes n ON n.path = l.resolved_path
+    WHERE l.resolved_path IS NOT NULL
+  `).all() as ArestaGrafo[]
+  for (const a of entreNotas) ligar(a.de, a.para)
+
+  // Nota ↔ tag.
+  const etiquetas = db.prepare(
+    'SELECT path, tag FROM note_tags'
+  ).all() as { path: string; tag: string }[]
+  for (const t of etiquetas) ligar(t.path, ID_TAG + t.tag)
+
+  // Nota ↔ nota que ainda não existe.
+  const faltando = db.prepare(
+    'SELECT src, dst FROM links WHERE resolved_path IS NULL'
+  ).all() as { src: string; dst: string }[]
+  for (const f of faltando) ligar(f.src, ID_FALTA + f.dst)
+
+  /** A pasta de primeiro nível. Nota na raiz não tem pasta. */
+  const grupoDa = (path: string): string => {
+    const barra = path.indexOf('/')
+    return barra < 0 ? '(raiz)' : path.slice(0, barra)
+  }
+
+  const nos: NoGrafo[] = []
 
   // TODAS as notas viram nó, inclusive as sem ligação nenhuma. Elas são a
-  // parte do cérebro que ainda não conectou, e escondê-las seria esconder
+  // parte da rede que ainda não conectou, e escondê-las seria esconder
   // justamente o que falta ligar.
   const notas = db.prepare(
-    'SELECT path, title, tipo FROM notes ORDER BY path'
-  ).all() as { path: string; title: string; tipo: string }[]
-
-  return {
-    nos: notas.map(n => ({ ...n, grau: grau.get(n.path) ?? 0 })),
-    arestas
+    'SELECT path, title FROM notes ORDER BY path'
+  ).all() as { path: string; title: string }[]
+  for (const n of notas) {
+    nos.push({
+      id: n.path,
+      title: n.title,
+      especie: 'nota',
+      grupo: grupoDa(n.path),
+      grau: grau.get(n.path) ?? 0
+    })
   }
+
+  for (const t of new Set(etiquetas.map(e => e.tag))) {
+    nos.push({
+      id: ID_TAG + t,
+      title: ID_TAG + t,
+      especie: 'tag',
+      grupo: '#tags',
+      grau: grau.get(ID_TAG + t) ?? 0
+    })
+  }
+
+  for (const d of new Set(faltando.map(f => f.dst))) {
+    nos.push({
+      id: ID_FALTA + d,
+      title: d,
+      especie: 'inexistente',
+      grupo: '(inexistente)',
+      grau: grau.get(ID_FALTA + d) ?? 0
+    })
+  }
+
+  return { nos, arestas }
 }
