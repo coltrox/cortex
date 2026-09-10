@@ -301,12 +301,17 @@ const ATRASO_FOCO = 420
 /**
  * Quadros até o giro chegar à velocidade cheia, e até parar de novo.
  *
- * Quatro segundos de cada lado. A rampa longa é o efeito, e não um detalhe:
- * a rede sai quase parada e vai ganhando velocidade até ficar uniforme, o
- * que dá tempo de largar cedo se a intenção era só virar um pouco. Ao soltar,
- * ela desacelera pela mesma curva em vez de travar no lugar.
+ * Sete segundos de cada lado. A rampa longa é o efeito, e não um detalhe: a
+ * rede sai quase parada e vai ganhando velocidade até ficar uniforme, o que
+ * dá tempo de largar cedo se a intenção era só virar um pouco. Ao soltar, ela
+ * desacelera pela mesma curva em vez de travar no lugar.
+ *
+ * A curva é cúbica nos dois cantos (`suavizar`), então o primeiro segundo é
+ * quase imóvel: em 60 quadros ela está a 1% da velocidade de cruzeiro. É de
+ * propósito — o começo tem de ser devagarzinho de verdade, não devagar de
+ * fachada.
  */
-const RAMPA_GIRO = 240
+const RAMPA_GIRO = 420
 
 /**
  * A velocidade de cruzeiro, em radianos por quadro.
@@ -1429,8 +1434,17 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
 
       /** Candidatos a rótulo, resolvidos depois dos pontos. */
       const rotulos: { no: No; cx: number; cy: number; r: number; peso: number }[] = []
-      // Acima de que escala todo nome aparece. `limiarNome` 1 = sempre.
-      const escalaDoNome = ESCALA_BASE * (4 - Math.min(1, Math.max(0, aj.limiarNome)) * 3.9)
+      /*
+       * Acima de que escala todo nome aparece. `limiarNome` 1 = sempre.
+       *
+       * A faixa ia de 4 a 0,1 vezes a escala base, e com isso os nomes
+       * entravam cedo demais: no enquadramento de abertura já saíam dezenas
+       * deles, e o desenho virava uma parede de texto com pontos atrás. A
+       * faixa agora vai de 9 a 0,2, ou seja, é preciso mais que o dobro de
+       * zoom para o nome aparecer — quem quiser o comportamento antigo empurra
+       * o controle "Quando o nome aparece" para cima.
+       */
+      const escalaDoNome = ESCALA_BASE * (9 - Math.min(1, Math.max(0, aj.limiarNome)) * 8.8)
 
       for (let i = 0; i < n; i++) {
         if (!dentro(i)) continue
@@ -1751,14 +1765,7 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         if (!arr.mexeu && Math.hypot(cx - arr.ox, cy - arr.oy) > FOLGA_CLIQUE) {
           arr.mexeu = true
         }
-        if (arr.i === -2) {
-          // Segurando o centro: quem gira é o botão apertado, não o
-          // ponteiro. Mexer o mouse aqui não faz NADA de propósito — nem
-          // gira mais, nem move a câmera —, e é isso que deixa o gesto
-          // sobreviver a mexer e a rolar a roda no meio dele.
-          arr.px = cx
-          arr.py = cy
-        } else if (arr.i >= 0) {
+        if (arr.i >= 0) {
           const [gx, gy] = paraGrafo(cx, cy)
           px[arr.i] = gx
           py[arr.i] = gy
@@ -1768,9 +1775,18 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
           restantes.current = Math.max(restantes.current, PASSOS_ARRASTO)
           suaves.current = PASSOS_RETORNO
         } else {
-          // Arrasto no vazio move a câmera. Dividido pela escala porque o
-          // deslocamento do dedo é em pixels e a câmera vive no espaço do
-          // grafo — sem isso o mundo escorrega mais rápido que o dedo.
+          /*
+           * Arrasto no vazio — e no nó do meio — move a câmera.
+           *
+           * Segurar o centro faz duas coisas ao mesmo tempo: a rede gira, e a
+           * tela acompanha o ponteiro. Não são gestos concorrentes; o giro
+           * vem do botão apertado e o deslocamento vem da mão andando, então
+           * dá para virar a rede e passear por ela sem soltar.
+           *
+           * Dividido pela escala porque o deslocamento do dedo é em pixels e
+           * a câmera vive no espaço do grafo — sem isso o mundo escorrega
+           * mais rápido que o dedo.
+           */
           camera.current.x -= (cx - arr.px) / camera.current.escala
           camera.current.y -= (cy - arr.py) / camera.current.escala
           // O alvo acompanha, senão a câmera desliza de volta no quadro
