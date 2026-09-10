@@ -304,12 +304,12 @@ const RAMPA_GIRO = 135
 /**
  * A velocidade cheia, em radianos por quadro.
  *
- * 0,0032 dá uma volta em pouco mais de meio minuto. É devagar de propósito:
- * o giro é ambiente, não é a informação. Rápido o bastante para se ver que a
- * rede está viva, lento o bastante para ninguém perder de vista o nó que
- * estava olhando.
+ * 0,0016 dá uma volta em pouco mais de um minuto. É devagar de propósito: o
+ * giro é ambiente, não é a informação. Devagar assim, ninguém perde de vista
+ * o nó que estava olhando, e o movimento se lê como a rede respirando em vez
+ * de como uma animação querendo atenção.
  */
-const GIRO_MAX = 0.0032
+const GIRO_MAX = 0.0016
 
 /** Quantos pixels o dedo pode escorregar e ainda ser um clique. */
 const FOLGA_CLIQUE = 4
@@ -325,11 +325,13 @@ const DURACAO_ANIMACAO = 9000
  * só move o ALVO, e a câmera caminha até ele. O mesmo vale para o
  * enquadramento: ele move o alvo, e o desenho desliza até lá.
  *
- * 0,18 por quadro dá uns 15 quadros para cobrir quase toda a distância: um
- * quarto de segundo. Rápido o bastante para não parecer atraso, lento o
- * bastante para o olho acompanhar o movimento em vez de ver um corte.
+ * 0,11 por quadro cobre quase toda a distância em uns 25 quadros: quatro
+ * décimos de segundo. Era 0,18, e com o passo da roda maior o salto de cada
+ * entalhe ficou grande demais para ser percorrido em 15 quadros — via-se o
+ * degrau. Rápido o bastante para não parecer atraso, lento o bastante para o
+ * olho acompanhar o movimento em vez de ver um corte.
  */
-const SUAVIDADE_ZOOM = 0.18
+const SUAVIDADE_ZOOM = 0.11
 
 /** O enquadramento é uma viagem maior que um entalhe de roda; anda mais devagar. */
 const SUAVIDADE_ENQUADRE = 0.09
@@ -337,10 +339,12 @@ const SUAVIDADE_ENQUADRE = 0.09
 /**
  * Quanto a escala muda por entalhe da roda.
  *
- * 1,35 — um terço a mais por giro. Com o passo anterior era preciso rolar
- * muito para chegar perto de alguma coisa, e o gesto virava trabalho.
+ * 1,55 — metade a mais por entalhe. Quatro entalhes multiplicam a escala por
+ * quase seis, então atravessar do enquadramento inteiro até ler uma nota é um
+ * gesto curto. Com o passo anterior era preciso rolar muito, e o gesto virava
+ * trabalho.
  */
-const PASSO_ZOOM = 1.35
+const PASSO_ZOOM = 1.55
 
 /** Espera antes de reler o grafo depois de o vault mudar, em ms. */
 const ESPERA_RELEITURA = 400
@@ -972,6 +976,29 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     const k = Math.sqrt(AREA / Math.max(1, n))
 
     /**
+     * O respiro em volta do nó do meio, em coordenadas do grafo.
+     *
+     * Fica aqui em cima porque três lugares precisam dele e precisam do MESMO
+     * número: a física, que empurra quem entra nele; o deslize, que não pode
+     * atravessá-lo a caminho do destino; e o desenho, que limita o tamanho do
+     * ponto central a ele.
+     */
+    const margemCentro = k * FOLGA_CENTRO
+
+    /** Empurra um ponto para fora do respiro do centro, se estiver dentro. */
+    const foraDoCentro = (x: number, y: number): [number, number] => {
+      const rx = x - CENTRO, ry = y - CENTRO
+      const q = rx * rx + ry * ry
+      if (q >= margemCentro * margemCentro) return [x, y]
+      const r = Math.sqrt(q)
+      if (r < 1e-9) {
+        const ang = Math.random() * Math.PI * 2
+        return [CENTRO + Math.cos(ang) * margemCentro, CENTRO + Math.sin(ang) * margemCentro]
+      }
+      return [CENTRO + (rx / r) * margemCentro, CENTRO + (ry / r) * margemCentro]
+    }
+
+    /**
      * O espaçamento típico da rede, e o raio da nuvem.
      *
      * O espaçamento é a MEDIANA da distância ao vizinho mais próximo, e não a
@@ -1040,7 +1067,7 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       // O comprimento de repouso do link. Maior = links mais compridos.
       const kLink = k * Math.max(0.05, aj.distanciaLink)
       // O respiro em volta do nó do meio — ver `FOLGA_CENTRO`.
-      const margem = k * FOLGA_CENTRO
+      const margem = margemCentro
 
       // Deslocamento, e não velocidade: cada quadro parte do zero, e por isso
       // não há energia acumulada para o grafo explodir.
@@ -1245,8 +1272,22 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       deslize.q++
       const t = suavizar(Math.min(1, deslize.q / PASSOS_DESLIZE))
       for (let i = 0; i < n; i++) {
-        px[i] = deslize.ax[i] + (deslize.bx[i] - deslize.ax[i]) * t
-        py[i] = deslize.ay[i] + (deslize.by[i] - deslize.ay[i]) * t
+        /*
+         * O caminho é reto, mas não pode atravessar o meio.
+         *
+         * Origem e destino ficam os dois fora do respiro do centro, e mesmo
+         * assim a reta entre eles passa por dentro quando o nó vai de um lado
+         * ao outro da rede. No meio do percurso ele desaparecia atrás do
+         * ponto central — mais visível no zoom afastado, onde a folga vale
+         * poucos pixels. Empurrar para a borda do respiro desvia o trajeto e
+         * o nó contorna o meio em vez de sumir dentro dele.
+         */
+        const [gx, gy] = foraDoCentro(
+          deslize.ax[i] + (deslize.bx[i] - deslize.ax[i]) * t,
+          deslize.ay[i] + (deslize.by[i] - deslize.ay[i]) * t
+        )
+        px[i] = gx
+        py[i] = gy
       }
       sujo.current = true
       if (deslize.q >= PASSOS_DESLIZE) {
@@ -1430,11 +1471,23 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
        */
       const apagadoCentro = alvo !== null && !centroAceso
       ctx.globalAlpha = apagadoCentro ? 0.25 : 1
-      // Pelo MESMO fator dos outros pontos, e não por um tamanho fixo em
-      // pixels. A folga em volta dele vive em unidades do grafo, então
-      // encolhe com o zoom; se o ponto não encolhesse junto, no zoom afastado
-      // ele voltaria a cobrir o vizinho que a folga existe para afastar.
-      const rc = RAIO_CENTRO * escalaPonto
+      /*
+       * O ponto do meio nunca é maior que o respiro em volta dele.
+       *
+       * O fator dos outros pontos tem piso (0,6), então no zoom afastado ele
+       * parava de encolher — enquanto a folga, que vive em coordenadas do
+       * grafo, continuava encolhendo em pixels. A partir de certo ponto o
+       * ponto central passava a cobrir o vizinho mais próximo, e era isso que
+       * escondia notas atrás dele com pouco zoom.
+       *
+       * Limitar o RAIO em vez de afastar os nós é o certo: mexer na folga
+       * faria o layout mudar conforme o zoom, e o desenho tem de ser o mesmo
+       * desenho de perto e de longe.
+       */
+      // Metade do vão, e não um número fixo de pixels a menos: o vizinho
+      // ocupa a outra metade com o raio DELE, que também cresce e encolhe.
+      const folgaPx = margemCentro * camera.current.escala
+      const rc = Math.max(2, Math.min(RAIO_CENTRO * escalaPonto, folgaPx * 0.5))
       // Halo curto e fraco. Ele existe para destacar o centro do emaranhado
       // de linhas atrás dele, não para iluminar a tela.
       const halo = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, rc * 2.4)
@@ -1591,7 +1644,12 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       // O centro primeiro, e com prioridade: ele é desenhado por cima de
       // todo mundo, e o que está por cima é o que o dedo espera pegar.
       const [ccx, ccy] = paraTela(CENTRO, CENTRO)
-      if (Math.hypot(cx - ccx, cy - ccy) < Math.max(14, RAIO_CENTRO * escalaPonto + 8)) return -2
+      // O mesmo raio limitado do desenho — ver `folgaPx` em `desenhar`.
+      const rc = Math.max(2, Math.min(
+        RAIO_CENTRO * escalaPonto,
+        margemCentro * camera.current.escala * 0.5
+      ))
+      if (Math.hypot(cx - ccx, cy - ccy) < Math.max(14, rc + 8)) return -2
       for (let i = 0; i < n; i++) {
         // O que o filtro escondeu não é clicável: pegar um nó invisível é
         // pior do que não pegar nada.
@@ -1729,11 +1787,37 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
      * evento chegando aos trancos, e continua respondendo na hora, porque a
      * primeira fração é a maior.
      */
+    let ultimoRolar = 0
     const aoRolar = (e: WheelEvent): void => {
       e.preventDefault()
       const [cx, cy] = posicao(e)
-      const [gx, gy] = paraGrafo(cx, cy)
-      ancora.current = { gx, gy, px: cx, py: cy }
+      const agora = performance.now()
+
+      /*
+       * A âncora é do GESTO, e não do evento.
+       *
+       * Cada entalhe da roda recalculava que ponto do grafo estava sob o
+       * cursor. Só que a escala ainda está caminhando quando o entalhe
+       * seguinte chega, então o ponto sob aquele mesmo pixel já é outro — e
+       * a câmera passava a perseguir uma nota diferente a cada entalhe. Era
+       * isso o zoom "mudando de ângulo": ele ia trocando de alvo no meio do
+       * movimento e derivava de lado.
+       *
+       * Enquanto o cursor fica parado e os entalhes vêm em sequência, a
+       * âncora é a MESMA: o zoom entra em linha reta no ponto onde o cursor
+       * estava quando o gesto começou. Mover o cursor, ou parar de rolar por
+       * um quarto de segundo, começa um gesto novo.
+       */
+      const anc = ancora.current
+      const mesmoGesto = anc !== null &&
+        agora - ultimoRolar < 260 &&
+        Math.hypot(cx - anc.px, cy - anc.py) < 6
+      ultimoRolar = agora
+      if (!mesmoGesto) {
+        const [gx, gy] = paraGrafo(cx, cy)
+        ancora.current = { gx, gy, px: cx, py: cy }
+      }
+
       suavidadeCamera.current = SUAVIDADE_ZOOM
       alvoCamera.current.escala = Math.min(
         9000,
