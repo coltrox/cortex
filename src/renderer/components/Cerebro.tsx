@@ -325,13 +325,14 @@ const DURACAO_ANIMACAO = 9000
  * só move o ALVO, e a câmera caminha até ele. O mesmo vale para o
  * enquadramento: ele move o alvo, e o desenho desliza até lá.
  *
- * 0,11 por quadro cobre quase toda a distância em uns 25 quadros: quatro
- * décimos de segundo. Era 0,18, e com o passo da roda maior o salto de cada
- * entalhe ficou grande demais para ser percorrido em 15 quadros — via-se o
- * degrau. Rápido o bastante para não parecer atraso, lento o bastante para o
- * olho acompanhar o movimento em vez de ver um corte.
+ * 0,085 por quadro cobre quase toda a distância em uns 35 quadros: seis
+ * décimos de segundo. Era 0,18 quando o entalhe valia 1,35; com o entalhe em
+ * 1,8 o salto ficou grande demais para caber em 15 quadros, e via-se o
+ * degrau. O primeiro quadro ainda anda 8,5% da distância, então a roda
+ * responde na hora — o que fica longo é a chegada, que é justamente a parte
+ * que o olho acompanha.
  */
-const SUAVIDADE_ZOOM = 0.11
+const SUAVIDADE_ZOOM = 0.085
 
 /** O enquadramento é uma viagem maior que um entalhe de roda; anda mais devagar. */
 const SUAVIDADE_ENQUADRE = 0.09
@@ -339,12 +340,16 @@ const SUAVIDADE_ENQUADRE = 0.09
 /**
  * Quanto a escala muda por entalhe da roda.
  *
- * 1,55 — metade a mais por entalhe. Quatro entalhes multiplicam a escala por
- * quase seis, então atravessar do enquadramento inteiro até ler uma nota é um
- * gesto curto. Com o passo anterior era preciso rolar muito, e o gesto virava
- * trabalho.
+ * 1,8 — quase o dobro por entalhe. Três entalhes multiplicam a escala por
+ * quase seis, então atravessar do enquadramento inteiro até ler uma nota são
+ * três giros de roda. Com o passo anterior era preciso rolar muito, e o gesto
+ * virava trabalho.
+ *
+ * Passo grande exige perseguição lenta: é o par `PASSO_ZOOM`/`SUAVIDADE_ZOOM`
+ * que decide se o gesto sai contínuo ou aos degraus, e mexer num sem o outro
+ * quebra os dois.
  */
-const PASSO_ZOOM = 1.55
+const PASSO_ZOOM = 1.8
 
 /** Espera antes de reler o grafo depois de o vault mudar, em ms. */
 const ESPERA_RELEITURA = 400
@@ -1556,24 +1561,49 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       const perto = Math.abs(alvo.escala - c.escala) < c.escala * 0.001 &&
         Math.abs(alvo.x - c.x) * c.escala < 0.4 &&
         Math.abs(alvo.y - c.y) * c.escala < 0.4
+      /*
+       * A âncora manda no zoom da roda: o ponto que estava sob o cursor
+       * continua sob o MESMO pixel enquanto a escala caminha. Sem ela, o zoom
+       * afasta justamente daquilo que a pessoa está olhando.
+       *
+       * `girado` aqui não é detalhe — era um defeito de verdade. A âncora é
+       * guardada em coordenadas do grafo, sem rotação (é o que `paraGrafo`
+       * devolve), mas `paraTela` gira o ponto ANTES de aplicar a câmera. Com
+       * a rede girada, a conta pinava o pixel errado, e como o ângulo nunca
+       * volta a zero, todo zoom depois de um giro saía torto — o erro medido
+       * chegou a 1806 px com 0,9 rad de rotação. Girar o ponto a cada quadro
+       * põe os dois lados no mesmo espaço, e o erro vai a zero mesmo com a
+       * rede rodando durante o gesto.
+       */
+      const anc = ancora.current
+      const fixarNaAncora = (): void => {
+        if (!anc) return
+        const [ax, ay] = girado(anc.gx, anc.gy)
+        c.x = ax - (anc.px - l / 2) / c.escala
+        c.y = ay - (anc.py - a / 2) / c.escala
+        alvo.x = c.x
+        alvo.y = c.y
+      }
+
       if (perto) {
         if (c.escala !== alvo.escala || c.x !== alvo.x || c.y !== alvo.y) {
-          camera.current = { ...alvo }
+          if (anc) {
+            // O último quadro também respeita a âncora. Fechar com
+            // `{ ...alvo }` levava a escala ao valor exato sem recolocar o
+            // centro, e o desenho dava um pulinho de um pixel no fim.
+            c.escala = alvo.escala
+            fixarNaAncora()
+          } else {
+            camera.current = { ...alvo }
+          }
           return true
         }
         return false
       }
       const s = suavidadeCamera.current
       c.escala += (alvo.escala - c.escala) * s
-      const anc = ancora.current
       if (anc) {
-        // No zoom pela roda, quem manda é a âncora: o ponto que estava sob o
-        // cursor continua sob o mesmo pixel enquanto a escala caminha. Sem
-        // isso o zoom afasta justamente do que a pessoa está olhando.
-        c.x = anc.gx - (anc.px - l / 2) / c.escala
-        c.y = anc.gy - (anc.py - a / 2) / c.escala
-        alvo.x = c.x
-        alvo.y = c.y
+        fixarNaAncora()
       } else {
         c.x += (alvo.x - c.x) * s
         c.y += (alvo.y - c.y) * s
@@ -1818,10 +1848,24 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         ancora.current = { gx, gy, px: cx, py: cy }
       }
 
+      /*
+       * O tamanho do evento conta, e não só o sinal dele.
+       *
+       * Um entalhe de roda manda `deltaY` de 100 (ou 3, quando o sistema
+       * reporta em linhas). Um trackpad manda dezenas de eventos de 4 ou 5.
+       * Tratando todo evento como um entalhe cheio, o trackpad multiplicava a
+       * escala dezenas de vezes num gesto só e o desenho saltava de nota em
+       * nota. Aqui cada evento vale a fração de entalhe que ele de fato é.
+       */
+      const unidade = e.deltaMode === 1 ? 3 : e.deltaMode === 2 ? 1 : 100
+      // Teto de 2,5 entalhes: roda de rolagem acelerada manda `deltaY` de
+      // 400 e mais, e sem teto um giro forte atravessava o grafo inteiro.
+      const entalhes = Math.min(2.5, Math.abs(e.deltaY) / unidade || 1)
+      const fator = Math.pow(PASSO_ZOOM, e.deltaY < 0 ? entalhes : -entalhes)
+
       suavidadeCamera.current = SUAVIDADE_ZOOM
       alvoCamera.current.escala = Math.min(
-        9000,
-        Math.max(60, alvoCamera.current.escala * (e.deltaY < 0 ? PASSO_ZOOM : 1 / PASSO_ZOOM))
+        9000, Math.max(60, alvoCamera.current.escala * fator)
       )
       sujo.current = true
     }
