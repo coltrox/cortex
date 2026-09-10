@@ -6,7 +6,10 @@ export type Tipo = 'nota' | 'projeto' | 'diario' | 'treino' | 'exercicio'
 // Exportada porque `src/main/nuvem/executar.ts` também monta notas novas e
 // precisa do mesmo rodapé — sem isto o texto ficava duplicado à mão nos dois
 // lugares, e um dia divergiria.
-export const DEPENDENCIAS = '### 🕸️ Dependências da Rede\n-'
+// Sem emoji no título, a pedido do dono em 10/09/2026. O corte que esconde
+// esta seção no celular casa pelo texto sem acento (`dependencias da rede`),
+// então tirar o emoji não mexe naquilo — ver `semDependenciasDaRede`.
+export const DEPENDENCIAS = '### Dependências da Rede\n-'
 
 /**
  * Devolve o markdown (frontmatter + corpo) de uma nota nova para `tipo`,

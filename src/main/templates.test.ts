@@ -22,7 +22,7 @@ describe('template', () => {
 
     it(`${tipo}: contém a seção de Dependências da Rede`, () => {
       const md = template(tipo, HOJE)
-      expect(md).toContain('### 🕸️ Dependências da Rede')
+      expect(md).toContain('### Dependências da Rede')
     })
   }
 

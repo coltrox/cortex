@@ -1,5 +1,5 @@
 import type { NoteComCampos } from './tipos'
-import { diaDaSemana } from './formularios'
+import { diaDaSemana, FORMULARIOS, type TipoCampo } from './formularios'
 import { proximaOcorrencia, anosCompletados } from '../shared/datas'
 
 /**
@@ -29,6 +29,122 @@ export function textos(v: unknown): string[] {
   if (Array.isArray(v)) return v.map(x => String(x))
   if (typeof v === 'string' && v.trim()) return v.split(',').map(s => s.trim()).filter(Boolean)
   return []
+}
+
+/* ---------- os campos de uma nota ---------- */
+
+/**
+ * As chaves que NÃO viram linha na nota aberta.
+ *
+ * Ou já aparecem no cabeçalho (`title`, `tipo`, `date`, `project`), ou são
+ * encanamento do arquivo (`created`, `updated`, `origem`). Repetir o título
+ * logo abaixo do título é ruído.
+ */
+const CHAVES_DE_CABECALHO = new Set([
+  'titulo', 'title', 'tipo', 'date', 'data', 'project', 'created', 'updated', 'origem'
+])
+
+export type CampoExibido = {
+  k: string
+  rotulo: string
+  tipo: TipoCampo
+  valor: unknown
+}
+
+/** `dataNascimento` → `Data nascimento`. Para campo que ninguém declarou. */
+function humanizar(k: string): string {
+  const solto = k.replace(/[_-]+/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase()
+  return solto.charAt(0).toUpperCase() + solto.slice(1)
+}
+
+/** Vazio de verdade: nem string em branco, nem lista sem itens. */
+function vazio(v: unknown): boolean {
+  if (v === null || v === undefined) return true
+  if (typeof v === 'string') return v.trim() === ''
+  if (Array.isArray(v)) return v.length === 0
+  if (typeof v === 'object') return Object.keys(v as object).length === 0
+  return false
+}
+
+/**
+ * Os campos de uma nota, prontos para desenhar.
+ *
+ * Existe porque a nota criada por formulário abria EM BRANCO: os dados iam
+ * todos para o frontmatter, o corpo ficava vazio, e quem achasse a nota pela
+ * busca via um título e mais nada. A senha estava lá no arquivo — só não na
+ * tela.
+ *
+ * A ordem é a do formulário do tipo, porque é a ordem em que a pessoa
+ * digitou. O que o formulário não conhece vem depois, em ordem alfabética:
+ * nota escrita à mão, ou campo de uma versão antiga do app, também aparece.
+ *
+ * Ler do frontmatter em vez de escrever no corpo é o que faz isto valer para
+ * as notas que JÁ existem, e o que evita ter o mesmo dado em dois lugares se
+ * desencontrando na primeira edição.
+ */
+export function camposExibiveis(nota: NoteComCampos): CampoExibido[] {
+  const campos = nota.campos ?? {}
+  const definidos = FORMULARIOS[nota.tipo]?.campos ?? []
+  const saida: CampoExibido[] = []
+  const vistos = new Set<string>()
+
+  for (const d of definidos) {
+    vistos.add(d.k)
+    if (CHAVES_DE_CABECALHO.has(d.k)) continue
+    const valor = campos[d.k]
+    if (vazio(valor)) continue
+    saida.push({ k: d.k, rotulo: d.rotulo, tipo: d.tipo, valor })
+  }
+
+  const sobras = Object.keys(campos)
+    .filter(k => !vistos.has(k) && !CHAVES_DE_CABECALHO.has(k) && !vazio(campos[k]))
+    .sort()
+  for (const k of sobras) {
+    // `tags` é lista de palavras e já tem lugar próprio no cabeçalho de quem
+    // desenha; aqui ela entraria como texto solto sem dizer que é etiqueta.
+    saida.push({ k, rotulo: humanizar(k), tipo: k === 'tags' ? 'itens' : 'texto', valor: campos[k] })
+  }
+  return saida
+}
+
+/**
+ * O valor de um campo em texto.
+ *
+ * Lista de objetos — o tipo `itens`, usado por exercícios e refeições — vira
+ * uma linha por item, com os valores separados por ponto. Sem isto ela sairia
+ * como `[object Object]`, que foi exatamente o que apareceu na primeira
+ * versão desta tela.
+ */
+export function textoDoCampo(valor: unknown): string {
+  if (valor === null || valor === undefined) return ''
+  if (typeof valor === 'boolean') return valor ? 'sim' : 'não'
+  if (typeof valor === 'number') return String(valor)
+  if (typeof valor === 'string') return valor.trim()
+  if (Array.isArray(valor)) {
+    // Lista de OBJETOS — exercícios, refeições, transações — sai uma por
+    // linha, porque cada item é um registro com vários dados. Lista de
+    // palavras — os dias da semana, as tags — sai em linha, com vírgula:
+    // quebrar `seg` e `qua` em duas linhas transforma duas palavras num
+    // parágrafo.
+    const registros = valor.some(item => item !== null && typeof item === 'object')
+    return valor
+      .map(item =>
+        item && typeof item === 'object'
+          ? Object.values(item as Record<string, unknown>)
+              .filter(v => !vazio(v))
+              .map(v => textoDoCampo(v))
+              .join(' · ')
+          : textoDoCampo(item))
+      .filter(s => s !== '')
+      .join(registros ? '\n' : ', ')
+  }
+  if (typeof valor === 'object') {
+    return Object.entries(valor as Record<string, unknown>)
+      .filter(([, v]) => !vazio(v))
+      .map(([k, v]) => `${humanizar(k)}: ${textoDoCampo(v)}`)
+      .join('\n')
+  }
+  return String(valor)
 }
 
 /* ---------- notas ---------- */

@@ -104,7 +104,19 @@ const CENTRO = 0.5
  * aprovou some nos dois casos. Aqui ele é uma CAMADA por cima do layout, e o
  * layout continua sendo o do vault.
  */
-const CENTRO_ID = '#cortex'
+/*
+ * O id do centro não pode PARECER um id de verdade.
+ *
+ * Ele era `#cortex`, e isso colidiu de frente com a realidade: etiqueta vira
+ * nó com id `#` mais o nome, então a tag `#cortex` do vault e o nó do meio
+ * tinham a mesma identidade. Parar o cursor na etiqueta punha a rede a girar,
+ * e o realce saía no nó errado.
+ *
+ * `::centro::` não colide com nada: os dois-pontos são ilegais em nome de
+ * arquivo no Windows, então nenhum caminho de nota tem essa forma, e etiqueta
+ * e nota inexistente sempre começam por `#` ou `?`.
+ */
+const CENTRO_ID = '::centro::'
 const CENTRO_NOME = 'Cortex'
 const COR_CENTRO = '#f0f3f7'
 /** O raio do ponto do meio, em pixels de tela. Ele é a âncora: destaca. */
@@ -254,8 +266,50 @@ const FOLGA_PAREDE = 1.12
  */
 const RETORNO_PAREDE = 0.06
 
+/**
+ * A folga em volta do nó do meio, em múltiplos do espaçamento de equilíbrio.
+ *
+ * O centro não entra na física, então nada impedia uma nota de assentar em
+ * cima dele — e aí o ponto grande e claro comia o vizinho. 1,1 abre um
+ * respiro do tamanho de um vizinho: no zoom de abertura são cerca de vinte
+ * pixels entre a borda do centro e o primeiro nó. O bastante para o centro se
+ * ler sozinho, pouco o bastante para não virar uma cratera no meio da rede.
+ */
+const FOLGA_CENTRO = 1.1
+
 /** Quanto o cursor precisa ficar parado para o realce pesado entrar, em ms. */
 const ATRASO_FOCO = 420
+
+/*
+ * O giro em torno do centro.
+ *
+ * Deixar o cursor no nó Cortex põe a rede a girar devagar em volta dele, no
+ * sentido anti-horário. É uma rotação de DESENHO: acontece dentro de
+ * `paraTela`/`paraGrafo`, e as posições guardadas não mudam. Girar as
+ * posições de verdade brigaria com a física — a gravidade puxa para o centro,
+ * não para uma órbita — e o layout se desfaria a cada volta.
+ */
+
+/** Quadros de espera depois do foco, antes de o giro sequer começar. */
+const ESPERA_GIRO = 42
+
+/**
+ * Quadros até o giro chegar à velocidade cheia, e até parar de novo.
+ *
+ * Dois segundos e pouco. A rampa longa é o que faz não haver instante em que
+ * o movimento "começa": ele já está andando quando se percebe.
+ */
+const RAMPA_GIRO = 135
+
+/**
+ * A velocidade cheia, em radianos por quadro.
+ *
+ * 0,0032 dá uma volta em pouco mais de meio minuto. É devagar de propósito:
+ * o giro é ambiente, não é a informação. Rápido o bastante para se ver que a
+ * rede está viva, lento o bastante para ninguém perder de vista o nó que
+ * estava olhando.
+ */
+const GIRO_MAX = 0.0032
 
 /** Quantos pixels o dedo pode escorregar e ainda ser um clique. */
 const FOLGA_CLIQUE = 4
@@ -815,15 +869,69 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     const noFoco = (i: number): boolean =>
       focoRef.current === null || nos[i].grupo === focoRef.current
 
-    /** Câmera simples: um centro e uma escala em pixels por unidade. */
-    const paraTela = (x: number, y: number): [number, number] => [
-      (x - camera.current.x) * camera.current.escala + l / 2,
-      (y - camera.current.y) * camera.current.escala + a / 2
-    ]
-    const paraGrafo = (cx: number, cy: number): [number, number] => [
-      (cx - l / 2) / camera.current.escala + camera.current.x,
-      (cy - a / 2) / camera.current.escala + camera.current.y
-    ]
+    /*
+     * O ângulo do giro, e a velocidade dele.
+     *
+     * `giro` só cresce; ninguém o zera. Ao tirar o cursor do centro a rede
+     * DESACELERA e para onde estiver, como um globo que se solta. Voltar o
+     * ângulo a zero seria rebobinar a cena na frente de quem está olhando.
+     *
+     * `quadrosNoCentro` conta o tempo de cursor parado no centro, e é dele
+     * que sai a espera antes de começar — ver `ESPERA_GIRO`.
+     */
+    let giro = 0
+    let velGiro = 0
+    let quadrosNoCentro = 0
+
+    const andarGiro = (): boolean => {
+      const noCentro = focadoRef.current?.id === CENTRO_ID
+      if (noCentro) quadrosNoCentro++
+      else quadrosNoCentro = 0
+      // Fração da velocidade cheia que se quer AGORA. Ela sobe da espera até
+      // a rampa e desce de volta a zero quando o cursor sai — nunca salta.
+      const querida = noCentro
+        ? Math.min(1, Math.max(0, (quadrosNoCentro - ESPERA_GIRO) / RAMPA_GIRO))
+        : 0
+      // A própria velocidade persegue a fração querida, o que arredonda os
+      // dois cantos: o começo do giro e a parada.
+      const alvo = suavizar(querida) * GIRO_MAX
+      velGiro += (alvo - velGiro) / RAMPA_GIRO * 6
+      if (Math.abs(velGiro) < 1e-6) { velGiro = 0; return false }
+      // Negativo porque o y da tela cresce para BAIXO: com o sinal positivo a
+      // rotação sairia no sentido horário.
+      giro -= velGiro
+      return true
+    }
+
+    /**
+     * Câmera simples: um centro, uma escala em pixels por unidade, e o giro.
+     *
+     * O giro entra aqui, e não nas posições, para a física não ter de saber
+     * que ele existe. `paraGrafo` desfaz exatamente a mesma rotação, então o
+     * dedo continua pegando o nó que está desenhado sob ele mesmo com a rede
+     * girando.
+     */
+    const girado = (x: number, y: number): [number, number] => {
+      if (giro === 0) return [x, y]
+      const rx = x - CENTRO, ry = y - CENTRO
+      const c = Math.cos(giro), s = Math.sin(giro)
+      return [CENTRO + rx * c - ry * s, CENTRO + rx * s + ry * c]
+    }
+    const paraTela = (x: number, y: number): [number, number] => {
+      const [gx, gy] = girado(x, y)
+      return [
+        (gx - camera.current.x) * camera.current.escala + l / 2,
+        (gy - camera.current.y) * camera.current.escala + a / 2
+      ]
+    }
+    const paraGrafo = (cx: number, cy: number): [number, number] => {
+      const gx = (cx - l / 2) / camera.current.escala + camera.current.x
+      const gy = (cy - a / 2) / camera.current.escala + camera.current.y
+      if (giro === 0) return [gx, gy]
+      const rx = gx - CENTRO, ry = gy - CENTRO
+      const c = Math.cos(-giro), s = Math.sin(-giro)
+      return [CENTRO + rx * c - ry * s, CENTRO + rx * s + ry * c]
+    }
 
     /**
      * Ajusta o ALVO da câmera para tudo caber, com uma folga curta.
@@ -836,10 +944,13 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
       for (let i = 0; i < n; i++) {
         if (!noFoco(i)) continue
-        if (px[i] < x0) x0 = px[i]
-        if (py[i] < y0) y0 = py[i]
-        if (px[i] > x1) x1 = px[i]
-        if (py[i] > y1) y1 = py[i]
+        // As coordenadas GIRADAS: a moldura tem de caber o que está
+        // desenhado, e com o giro em curso as duas não coincidem.
+        const [gx, gy] = girado(px[i], py[i])
+        if (gx < x0) x0 = gx
+        if (gy < y0) y0 = gy
+        if (gx > x1) x1 = gx
+        if (gy > y1) y1 = gy
       }
       if (!Number.isFinite(x0)) return
       const largura = Math.max(1e-6, x1 - x0)
@@ -928,6 +1039,8 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       const aj = ajustesRef.current
       // O comprimento de repouso do link. Maior = links mais compridos.
       const kLink = k * Math.max(0.05, aj.distanciaLink)
+      // O respiro em volta do nó do meio — ver `FOLGA_CENTRO`.
+      const margem = k * FOLGA_CENTRO
 
       // Deslocamento, e não velocidade: cada quadro parte do zero, e por isso
       // não há energia acumulada para o grafo explodir.
@@ -1029,6 +1142,29 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
             const puxa = (r - parede) * RETORNO_PAREDE
             X[i] -= (rx / r) * puxa
             Y[i] -= (ry / r) * puxa
+          }
+        }
+
+        /*
+         * E a folga em volta do centro, que é a mesma ideia ao contrário.
+         *
+         * O nó do meio não participa da física, então nenhuma repulsão o
+         * protege: sem isto uma nota assenta em cima dele. Vale sempre,
+         * inclusive no assentamento inicial — ver `FOLGA_CENTRO`.
+         */
+        const mx = X[i] - CENTRO, my = Y[i] - CENTRO
+        const mq = mx * mx + my * my
+        if (mq < margem * margem) {
+          const r = Math.sqrt(mq)
+          if (r < 1e-9) {
+            // Exatamente no centro não há direção para empurrar; sorteia uma.
+            const ang = Math.random() * Math.PI * 2
+            X[i] = CENTRO + Math.cos(ang) * margem
+            Y[i] = CENTRO + Math.sin(ang) * margem
+          } else {
+            const empurra = (margem - r) * RETORNO_PAREDE
+            X[i] += (mx / r) * empurra
+            Y[i] += (my / r) * empurra
           }
         }
       }
@@ -1172,7 +1308,9 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
           temRaio = true
         }
         if (temRaio) {
-          ctx.strokeStyle = centroAceso ? 'rgba(200,225,250,.30)' : 'rgba(170,185,205,.04)'
+          // Aceso, mas discreto: são trezentas linhas saindo do mesmo ponto,
+          // e a soma delas perto do centro é muito mais clara que uma só.
+          ctx.strokeStyle = centroAceso ? 'rgba(190,215,240,.13)' : 'rgba(170,185,205,.04)'
           ctx.lineWidth = 1
           ctx.stroke(raios)
         }
@@ -1292,20 +1430,41 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
        */
       const apagadoCentro = alvo !== null && !centroAceso
       ctx.globalAlpha = apagadoCentro ? 0.25 : 1
-      const rc = RAIO_CENTRO * Math.max(0.1, aj.tamanhoNo)
-      const halo = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, rc * 3.4)
-      halo.addColorStop(0, 'rgba(240,243,247,.30)')
+      // Pelo MESMO fator dos outros pontos, e não por um tamanho fixo em
+      // pixels. A folga em volta dele vive em unidades do grafo, então
+      // encolhe com o zoom; se o ponto não encolhesse junto, no zoom afastado
+      // ele voltaria a cobrir o vizinho que a folga existe para afastar.
+      const rc = RAIO_CENTRO * escalaPonto
+      // Halo curto e fraco. Ele existe para destacar o centro do emaranhado
+      // de linhas atrás dele, não para iluminar a tela.
+      const halo = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, rc * 2.4)
+      halo.addColorStop(0, 'rgba(240,243,247,.13)')
       halo.addColorStop(1, 'rgba(240,243,247,0)')
       ctx.fillStyle = halo
       ctx.beginPath()
-      ctx.arc(ccx, ccy, rc * 3.4, 0, Math.PI * 2)
+      ctx.arc(ccx, ccy, rc * 2.4, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = COR_CENTRO
       ctx.beginPath()
       ctx.arc(ccx, ccy, rc, 0, Math.PI * 2)
       ctx.fill()
       ctx.globalAlpha = 1
-      if (!apagadoCentro) {
+      /*
+       * O nome do centro obedece à mesma regra dos outros.
+       *
+       * Ele aparecia SEMPRE, e virava a única palavra fixa na tela — o nó já
+       * se destaca por tamanho e por posição, e o rótulo permanente só cobria
+       * o que estava atrás dele. Agora ele sai sob o cursor, quando a busca
+       * casa, ou quando o zoom passa do limiar que o dono escolheu, como
+       * qualquer nota.
+       *
+       * O peso continua sendo o maior de todos: QUANDO ele aparece, não cede
+       * espaço a vizinho nenhum.
+       */
+      const centroSobCursor = sobCursor?.id === CENTRO_ID
+      const centroAchado = termo !== '' && CENTRO_NOME.toLowerCase().includes(termo)
+      if (!apagadoCentro && (centroSobCursor || centroAceso || centroAchado ||
+        camera.current.escala > escalaDoNome)) {
         rotulos.push({ no: centro, cx: ccx, cy: ccy, r: rc, peso: Number.MAX_SAFE_INTEGER })
       }
 
@@ -1371,6 +1530,7 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
 
     const laco = (): void => {
       if (seguirCamera()) sujo.current = true
+      if (andarGiro()) sujo.current = true
 
       if (pedidoDeslize.current > 0) {
         pedidoDeslize.current = 0
@@ -1422,16 +1582,16 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     const noPonto = (cx: number, cy: number): number => {
       let achado = -1
       let menor = Infinity
-      // O centro primeiro, e com prioridade: ele é desenhado por cima de
-      // todo mundo, e o que está por cima é o que o dedo espera pegar.
-      const [ccx, ccy] = paraTela(CENTRO, CENTRO)
-      const rc = RAIO_CENTRO * Math.max(0.1, ajustesRef.current.tamanhoNo)
-      if (Math.hypot(cx - ccx, cy - ccy) < Math.max(14, rc + 8)) return -2
       // A MESMA conta do desenho, densidade inclusive: se o alvo do dedo
       // divergir do ponto desenhado, a pessoa acerta o que não está vendo.
       const densidade = Math.min(1, espacamento / ESPACAMENTO_BASE)
       const escalaPonto = Math.min(1.5, Math.max(0.6, camera.current.escala / ESCALA_BASE))
         * densidade * Math.max(0.1, ajustesRef.current.tamanhoNo)
+
+      // O centro primeiro, e com prioridade: ele é desenhado por cima de
+      // todo mundo, e o que está por cima é o que o dedo espera pegar.
+      const [ccx, ccy] = paraTela(CENTRO, CENTRO)
+      if (Math.hypot(cx - ccx, cy - ccy) < Math.max(14, RAIO_CENTRO * escalaPonto + 8)) return -2
       for (let i = 0; i < n; i++) {
         // O que o filtro escondeu não é clicável: pegar um nó invisível é
         // pior do que não pegar nada.

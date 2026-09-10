@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { NoteComCampos } from '../tipos'
 import type { Link, Backlink } from '../useVault'
 import { Markdown } from './Markdown'
-import { corpoAlinhado } from '../dados'
+import { corpoAlinhado, camposExibiveis, textoDoCampo, type CampoExibido } from '../dados'
 
 /**
  * A nota aberta.
@@ -43,6 +43,59 @@ function agrupar(links: Link[]): { dst: string; alvo: string | null; vezes: numb
     else m.set(l.dst, { dst: l.dst, alvo: l.resolvedPath, vezes: 1 })
   }
   return [...m.values()]
+}
+
+/**
+ * Uma linha de campo da nota.
+ *
+ * A senha nasce escondida e sai com um clique. Não é teatro: a nota aberta
+ * fica POR CIMA da lente, e a busca do Ctrl+K chega a ela de qualquer lugar —
+ * inclusive com a Vida trancada. Mostrar a senha em texto puro assim que a
+ * nota abre a deixaria na tela de quem só queria ver qual era o serviço.
+ *
+ * O botão de copiar existe pelo mesmo motivo: dá para usar a senha sem nunca
+ * mostrá-la.
+ */
+function LinhaCampo({ campo }: { campo: CampoExibido }) {
+  const [aberto, setAberto] = useState(false)
+  const [copiado, setCopiado] = useState(false)
+  const texto = textoDoCampo(campo.valor)
+  if (texto === '') return null
+
+  const copiar = (): void => {
+    void navigator.clipboard.writeText(texto)
+      .then(() => {
+        setCopiado(true)
+        setTimeout(() => setCopiado(false), 1400)
+      })
+      // Área de transferência negada pelo sistema: o botão simplesmente não
+      // confirma. Um erro na tela aqui seria pior que o silêncio.
+      .catch(() => {})
+  }
+
+  const segredo = campo.tipo === 'senha'
+  return (
+    <div className="campo-nota">
+      <span className="campo-rotulo">{campo.rotulo}</span>
+      <span className="campo-valor">
+        <span className={segredo && !aberto ? 'campo-oculto' : 'campo-texto'}>
+          {segredo && !aberto
+            // Comprimento fixo, e não o da senha: a quantidade de pontinhos
+            // já entregaria quantos caracteres ela tem.
+            ? '••••••••••'
+            : texto}
+        </span>
+        {segredo && (
+          <button className="campo-acao" onClick={() => setAberto(v => !v)}>
+            {aberto ? 'esconder' : 'ver'}
+          </button>
+        )}
+        <button className="campo-acao" onClick={copiar}>
+          {copiado ? 'copiado' : 'copiar'}
+        </button>
+      </span>
+    </div>
+  )
 }
 
 export function NotaPainel({
@@ -114,6 +167,20 @@ export function NotaPainel({
               </div>
             </>
           )}
+
+          {/* Os campos do frontmatter, desenhados.
+              Só na leitura: no modo de escrita o YAML está ali em cima, no
+              texto cru, e a mesma coisa duas vezes na tela confunde qual das
+              duas é a que vale. */}
+          {nota && !editando && (() => {
+            const campos = camposExibiveis(nota)
+            if (campos.length === 0) return null
+            return (
+              <div className="campos-nota">
+                {campos.map(c => <LinhaCampo key={c.k} campo={c} />)}
+              </div>
+            )
+          })()}
 
           {editando ? (
             <textarea

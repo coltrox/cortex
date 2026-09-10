@@ -17,7 +17,7 @@ Um bloco de código:
 const x = { a: 1, b: [1, 2, 3] }
 \`\`\`
 
-### 🕸️ Dependências da Rede
+### Dependências da Rede
 
 - [[Nota A]]
 - [[Nota B]]

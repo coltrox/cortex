@@ -3,8 +3,9 @@ import type { NoteComCampos } from './tipos'
 import {
   corpoAlinhado, extrairTransacoes, porCategoria, saldoPorquinho,
   suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia,
-  seriePeso, serieAgua, litros, textos
+  seriePeso, serieAgua, litros, textos, camposExibiveis, textoDoCampo
 } from './dados'
+import { FORMULARIOS, type Campo } from './formularios'
 
 /** Nota sintetica com o minimo que as leituras precisam. */
 const nota = (p: Partial<NoteComCampos> & { path: string }): NoteComCampos => ({
@@ -418,5 +419,114 @@ describe('datasComemorativas', () => {
     const ns = [nota({ path: 'a.md', title: 'Sem ano', tipo: 'data-comemorativa',
       campos: { dia: 20, mes: 9 } })]
     expect(datasComemorativas(ns, HOJE)[0].anos).toBeNull()
+  })
+})
+
+/* ---------- os campos de uma nota ---------- */
+
+/** Um valor plausível para cada tipo de campo, para preencher tudo. */
+function valorDeExemplo(c: Campo): unknown {
+  switch (c.tipo) {
+    case 'numero': return 42
+    case 'data': return '2030-01-31'
+    case 'hora': return '19:30'
+    case 'bool': return true
+    case 'select': return c.opcoes?.[0] ?? 'um'
+    case 'dias': return ['seg', 'qua']
+    case 'senha': return 'exemplo123'
+    case 'itens':
+      return [Object.fromEntries((c.subcampos ?? []).map(s => [s.k, valorDeExemplo(s)]))]
+    default: return `valor de ${c.k}`
+  }
+}
+
+describe('camposExibiveis', () => {
+  /*
+   * O defeito que originou isto: a nota criada por formulário guardava tudo
+   * no frontmatter e abria EM BRANCO. Achar a nota pela busca e não ver nada
+   * dentro dela é o mesmo que não ter achado.
+   *
+   * Este teste é por TIPO, e não um caso escolhido a dedo: um formulário novo
+   * que nasça sem aparecer na nota reprova aqui em vez de virar outra tela
+   * vazia meses depois.
+   */
+  for (const [tipo, form] of Object.entries(FORMULARIOS)) {
+    it(`mostra o que foi preenchido numa nota do tipo ${tipo}`, () => {
+      const campos = Object.fromEntries(form.campos.map(c => [c.k, valorDeExemplo(c)]))
+      const n = nota({ path: `X/${tipo}.md`, tipo, campos })
+      const exibidos = camposExibiveis(n)
+
+      // Tudo que o formulário pergunta e não é cabeçalho tem de aparecer.
+      const cabecalho = new Set(['titulo', 'title', 'tipo', 'date', 'data', 'project'])
+      const esperados = form.campos.map(c => c.k).filter(k => !cabecalho.has(k))
+      expect(exibidos.map(c => c.k).sort()).toEqual([...esperados].sort())
+
+      // E cada um tem de virar texto de verdade — nada de `[object Object]`.
+      for (const c of exibidos) {
+        const t = textoDoCampo(c.valor)
+        expect(t).not.toBe('')
+        expect(t).not.toContain('[object Object]')
+      }
+    })
+  }
+
+  it('nao repete o titulo, que ja e o cabecalho da nota', () => {
+    const n = nota({ path: 'Vida/Contas/X.md', tipo: 'conta', title: 'Serviço X', campos: { titulo: 'Serviço X', usuario: 'fulano@exemplo.com' } })
+    expect(camposExibiveis(n).map(c => c.k)).toEqual(['usuario'])
+  })
+
+  it('esconde campo vazio, mas mostra zero e falso', () => {
+    const n = nota({
+      path: 'X/a.md',
+      tipo: 'conta',
+      campos: { usuario: '', senha: '   ', categoria: 0, url: false, nota: [] }
+    })
+    expect(camposExibiveis(n).map(c => c.k)).toEqual(['url', 'categoria'])
+  })
+
+  it('mostra campo que nenhum formulario declarou', () => {
+    // Nota escrita à mão, ou campo de uma versão antiga do app: some se o
+    // desenho só souber olhar para a definição do formulário.
+    const n = nota({ path: 'X/a.md', tipo: 'conta', campos: { usuario: 'fulano', apelidoAntigo: 'conta velha' } })
+    const c = camposExibiveis(n).find(x => x.k === 'apelidoAntigo')
+    expect(c?.rotulo).toBe('Apelido antigo')
+  })
+
+  it('marca a senha como senha, para a tela poder esconder', () => {
+    const n = nota({ path: 'X/a.md', tipo: 'conta', campos: { senha: 'exemplo123' } })
+    expect(camposExibiveis(n)[0]?.tipo).toBe('senha')
+  })
+
+  it('nao vaza campo de uma nota sem tipo conhecido', () => {
+    const n = nota({ path: 'X/a.md', tipo: 'inventado', campos: { qualquer: 'coisa' } })
+    expect(camposExibiveis(n).map(c => c.k)).toEqual(['qualquer'])
+  })
+})
+
+describe('textoDoCampo', () => {
+  it('escreve booleano em portugues', () => {
+    expect(textoDoCampo(true)).toBe('sim')
+    expect(textoDoCampo(false)).toBe('não')
+  })
+
+  it('junta lista simples com virgula', () => {
+    expect(textoDoCampo(['seg', 'qua'])).toBe('seg, qua')
+  })
+
+  it('poe um item por linha numa lista de objetos', () => {
+    const itens = [
+      { nome: 'supino', series: 3, reps: 10 },
+      { nome: 'remada', series: 4, reps: 8 }
+    ]
+    expect(textoDoCampo(itens)).toBe('supino · 3 · 10\nremada · 4 · 8')
+  })
+
+  it('ignora o campo vazio de dentro do item', () => {
+    expect(textoDoCampo([{ nome: 'supino', obs: '' }])).toBe('supino')
+  })
+
+  it('devolve vazio para nulo e indefinido', () => {
+    expect(textoDoCampo(null)).toBe('')
+    expect(textoDoCampo(undefined)).toBe('')
   })
 })

@@ -195,6 +195,87 @@ button { font: inherit; color: inherit; cursor: pointer; }
   text-wrap: balance;
 }
 
+/* ---------- os campos de uma nota ---------- */
+
+/* A nota criada por formulário guarda tudo no frontmatter e tem o corpo
+   vazio. Sem este bloco ela abria em branco, e quem a achasse pela busca via
+   só o título. */
+.campos-nota {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 0 22px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.campo-nota {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 9px 13px;
+  background: var(--surface-sunk);
+  font-size: 13px;
+}
+
+.campo-rotulo {
+  flex: none;
+  width: 132px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-family: var(--mono);
+}
+
+.campo-valor {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* `pre-wrap` porque uma lista de itens — exercícios, refeições — vira uma
+   linha por item, e sem isto elas colariam numa só. */
+.campo-texto {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.campo-oculto {
+  flex: 1;
+  font-family: var(--mono);
+  letter-spacing: .18em;
+  color: var(--text-3);
+}
+
+.campo-acao {
+  flex: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text-3);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.campo-acao:hover { color: var(--text); }
+
+@media (max-width: 620px) {
+  /* Numa coluna estreita o rótulo de largura fixa espremia o valor até ele
+     quebrar letra a letra. */
+  .campo-nota { flex-direction: column; gap: 4px; }
+  .campo-rotulo { width: auto; }
+}
+
 /* ---------- sidebar ---------- */
 
 .sidebar {

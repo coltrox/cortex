@@ -208,7 +208,7 @@ export function useVault() {
       .filter(([, val]) => val !== null && val !== undefined)
       .map(([k, val]) => `${k}: ${yaml(val)}`)
     const corpo = form.corpo ?? ''
-    const texto = `---\n${linhas.join('\n')}\n---\n\n### 🕸️ Dependências da Rede\n-\n\n${corpo}`
+    const texto = `---\n${linhas.join('\n')}\n---\n\n### Dependências da Rede\n-\n\n${corpo}`
     const path = `${pastaAlvo ?? form.pasta}/${base}.md`
 
     try {
