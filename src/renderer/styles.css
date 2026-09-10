@@ -185,7 +185,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 .rail-item:disabled { opacity: .34; cursor: default; }
-.rail-item span { font-size: 10px; letter-spacing: .01em; line-height: 1; }
+/* 11,5px, e não 10: a 10 o rótulo era legenda do ícone, e não o nome de um
+   lugar para onde se vai. `text-wrap: balance` por causa de "Configurações",
+   a única palavra que não cabe na largura do trilho e precisa quebrar bem. */
+.rail-item span {
+  font-size: 11.5px;
+  letter-spacing: .01em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
 
 /* ---------- sidebar ---------- */
 
@@ -923,12 +931,34 @@ kbd {
   pointer-events: none;
 }
 
+/* Cada nome é um BOTÃO: clicar isola a pasta, clicar de novo solta.
+   `pointer-events: auto` devolve o clique só ao botão — o contêiner continua
+   transparente ao mouse, senão o retângulo da legenda comeria o arrasto de
+   quem passasse por perto. */
 .cerebro-grupo {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 11.5px;
   color: #b3bac2;
+  pointer-events: auto;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  padding: 2px 8px 2px 6px;
+  margin: -2px 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 140ms, color 140ms, border-color 140ms;
+}
+.cerebro-grupo:hover { background: rgba(255, 255, 255, .07); color: #e2e7ec; }
+.cerebro-grupo:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* O filtro ligado precisa se ver de longe: é um estado do desenho inteiro,
+   e não uma ênfase passageira. */
+.cerebro-grupo.is-ativo {
+  background: rgba(255, 255, 255, .13);
+  border-color: rgba(255, 255, 255, .28);
+  color: #f2f5f8;
 }
 .cerebro-grupo i {
   width: 8px;

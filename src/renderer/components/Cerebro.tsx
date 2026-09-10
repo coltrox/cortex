@@ -13,39 +13,44 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
  *
  * ## Canvas, e não SVG
  *
- * São ~130 nós e centenas de arestas redesenhados 60 vezes por segundo. Em
- * SVG isso é mexer em centenas de elementos do DOM por quadro; em canvas é um
+ * São ~300 nós e quase mil arestas redesenhados 60 vezes por segundo. Em SVG
+ * isso é mexer em centenas de elementos do DOM por quadro; em canvas é um
  * laço de desenho.
  *
- * ## Por que não uma biblioteca de grafo
+ * ## A física roda em arrays, e não em objetos
  *
- * O que sobraria do `d3-force` aqui é o laço de integração, que são vinte
- * linhas — e `d3` inteiro pesa mais do que o resto desta tela.
+ * A repulsão é O(n²): 305 nós dão 46 mil pares por passo. Com objetos e
+ * `Math.hypot`, os 900 passos de assentamento custavam **8,8 segundos** de
+ * tela travada — medido. Os mesmos 900 passos em `Float64Array`, trocando
+ * `hypot` por `sqrt`, custam 400 ms: treze vezes mais rápido, e a conta é
+ * exatamente a mesma (`hypot(a,b)` e `sqrt(a*a+b*b)` dão o mesmo número).
+ *
+ * Por isso as posições vivem em `px`/`py` enquanto o efeito está montado. Os
+ * objetos `No` guardam identidade e metadados, e recebem a posição de volta
+ * na desmontagem — é o que faz o layout sobreviver a trocar de lente.
+ *
+ * ## Nada acontece aos trancos
+ *
+ * Toda mudança de posição ou de câmera é interpolada: reorganizar, restaurar
+ * o padrão, enquadrar, dar zoom, filtrar. Um salto instantâneo é sempre lido
+ * como defeito, mesmo quando o destino está certo.
  */
 
 type No = {
   /** A chave. Caminho de arquivo só quando `especie` é `nota`. */
   id: string
   title: string
-  especie: 'nota' | 'tag' | 'inexistente'
+  especie: 'nota' | 'tag' | 'inexistente' | 'centro'
   /** Decide a cor. Vem pronto da consulta — ver `grafoDoVault`. */
   grupo: string
   grau: number
   x: number
   y: number
-  /** Deslocamento acumulado no quadro; zerado a cada passo. */
-  dx: number
-  dy: number
-  /**
-   * Preso pelo dedo: a física não mexe nele enquanto está sendo arrastado.
-   *
-   * Só durante o arrasto. Ao soltar, o nó volta para a física e é puxado de
-   * volta devagar — ver `PASSOS_RETORNO`.
-   */
-  preso: boolean
 }
 
 type Aresta = { de: string; para: string }
+
+type Bruto = { nos: Omit<No, 'x' | 'y'>[]; arestas: Aresta[] }
 
 /**
  * As cores padrão, por GRUPO.
@@ -83,6 +88,28 @@ const COR_PADRAO = '#a8b0ba'
  */
 const AREA = 0.6
 
+/** O centro para onde a gravidade puxa, e o centro da parede. */
+const CENTRO = 0.5
+
+/**
+ * O nó do meio.
+ *
+ * Não vem do vault: é o vault. Fica cravado no centro, não entra na física e
+ * liga em tudo — os raios saem dele para cada nó visível.
+ *
+ * Fora da física de propósito, e isso não é economia. Se ele entrasse, duas
+ * coisas quebrariam de uma vez: a repulsão dele abriria um buraco no miolo
+ * exatamente onde ele está, e a atração de trezentos links puxando para o
+ * mesmo ponto colapsaria a nuvem inteira em cima dele. O desenho que o dono
+ * aprovou some nos dois casos. Aqui ele é uma CAMADA por cima do layout, e o
+ * layout continua sendo o do vault.
+ */
+const CENTRO_ID = '#cortex'
+const CENTRO_NOME = 'Cortex'
+const COR_CENTRO = '#f0f3f7'
+/** O raio do ponto do meio, em pixels de tela. Ele é a âncora: destaca. */
+const RAIO_CENTRO = 9
+
 /** A escala em que os pontos têm o tamanho de desenho. */
 const ESCALA_BASE = 600
 
@@ -97,21 +124,19 @@ const ESCALA_BASE = 600
  * passa do ponto, volta, passa de novo, e a simulação nunca assenta. Ela
  * parava só porque a temperatura acabava, e parava LONGE do equilíbrio: a
  * força residual média ficava em 0,015, com picos de 0,16. Bastava reaquecer
- * — o que eu fazia ao clicar — para cada nó saltar uns 9 px de uma vez.
+ * — o que se fazia ao clicar — para cada nó saltar uns 9 px de uma vez.
  *
- * Com o passo proporcional à força, a coisa converge de verdade. Medido
- * neste vault, com 2000 passos: força média 0,0002, e o maior salto ao
- * reaquecer cai de 12 px para 0,01 px. Acima de 0,08 volta a oscilar e nunca
- * assenta — 0,03 tem margem folgada.
+ * Com o passo proporcional à força, a coisa converge de verdade. Acima de
+ * 0,08 volta a oscilar e nunca assenta — 0,03 tem margem folgada.
  */
 const ETA = 0.03
 
 /**
  * O teto de deslocamento por quadro.
  *
- * Só morde quando a rede está embaralhada — logo depois de "Reorganizar", por
- * exemplo. Sem ele o primeiro quadro atira os nós para longe, porque as
- * forças começam enormes.
+ * Só morde quando a rede está embaralhada — nos primeiros passos a partir da
+ * espiral, por exemplo. Sem ele o primeiro quadro atira os nós para longe,
+ * porque as forças começam enormes.
  */
 const PASSO_MAX = 0.02
 
@@ -137,13 +162,32 @@ const PASSO_MAX_ARRASTO = 0.003
  * que sobra a decidir é POR QUANTO TEMPO deixar rodar, e isso é uma contagem
  * de quadros — que se lê direto ("noventa quadros são um segundo e meio") em
  * vez de sair de um decaimento exponencial.
- *
- * É também o que dá a volta PARCIAL do nó solto: acabam os quadros, para
- * onde estiver.
  */
 
-/** Quadros para assentar do zero. Convergido: ver a medição em `ETA`. */
-const PASSOS_ANTES = 1500
+/**
+ * Quadros para assentar a partir da espiral inicial.
+ *
+ * Eram 1500. A varredura de convergência mostrou onde está o joelho da curva:
+ * a força média cai de 0,133 (passo 100) para 0,012 (passo 200) e 0,0047
+ * (passo 500); daí para 1500 ela só vai a 0,0016. Traduzindo para a tela, uma
+ * força residual de 0,005 move o nó 0,09 px por quadro — invisível.
+ *
+ * 900 é passar do joelho com folga e ainda custar 400 ms uma única vez, em
+ * vez dos 8,8 s que custava. E esse custo agora é pago UMA vez por sessão: o
+ * layout fica guardado em `memoria` e volta pronto na próxima montagem.
+ */
+const PASSOS_ANTES = 900
+
+/**
+ * Quadros depois de o CONJUNTO de nós mudar — um filtro ligado, uma nota
+ * criada.
+ *
+ * Aqui as posições já estão assentadas e só precisam se reacomodar. Rodam
+ * pelo laço normal, um por quadro e no passo gentil, porque essa reacomodação
+ * é a resposta visível ao que a pessoa acabou de fazer: ver a rede se abrir
+ * quando as etiquetas somem é informação, e não espera.
+ */
+const PASSOS_REACOMODAR = 260
 
 /**
  * Quadros depois de soltar um nó arrastado.
@@ -162,6 +206,54 @@ const PASSOS_AJUSTE = 400
 /** Quadros por quadro enquanto se arrasta — mantém a vizinhança viva. */
 const PASSOS_ARRASTO = 2
 
+/**
+ * Quadros do DESLIZE até um layout já calculado.
+ *
+ * "Reorganizar" antes reaquecia a simulação por 1500 quadros no passo cheio,
+ * e a rede inteira se sacudia até assentar — feio, e ninguém consegue seguir
+ * um nó no meio daquilo. Agora o destino é calculado de uma vez, fora da
+ * tela, e os nós CAMINHAM até ele: cada um numa reta, sem tremer, com uma
+ * aceleração no começo e uma freada no fim.
+ *
+ * 75 quadros são 1,25 s — tempo de o olho acompanhar um ponto do começo ao
+ * fim do percurso.
+ */
+const PASSOS_DESLIZE = 75
+
+/**
+ * Quantos passos o destino do deslize custa a calcular.
+ *
+ * Bem menos que os 900 da partida, e a razão é que ele não parte da espiral:
+ * parte de um layout já assentado com alguns nós fora do lugar. 400 passos
+ * são 175 ms de conta — o suficiente para não se notar antes de o desenho
+ * começar a andar.
+ */
+const PASSOS_DESTINO = 400
+
+/**
+ * A parede: até onde um nó pode ficar do centro, em múltiplos do raio da
+ * nuvem assentada.
+ *
+ * Existe por um defeito concreto: puxar uma nota para muito longe a deixava
+ * lá. Os 90 quadros de volta andam no passo gentil, no máximo 0,003 por
+ * quadro — 0,27 no total. Quem arrastasse além disso nunca mais veria o nó
+ * voltar, e ele ficava perdido fora do enquadramento.
+ *
+ * 1,12 do raio da nuvem: fora do desenho, mas colado nele. Nenhum nó
+ * assentado chega perto da parede, então ela nunca interfere no layout — só
+ * pega quem foi jogado para fora.
+ */
+const FOLGA_PAREDE = 1.12
+
+/**
+ * Quanto do excesso a parede recolhe por quadro.
+ *
+ * 6% por quadro: em 90 quadros sobra 0,4% da distância — o nó encosta no
+ * círculo e para. E é um recolhimento CONTÍNUO, não um salto: quem soltou o
+ * nó longe vê ele voltando, o que explica o que aconteceu.
+ */
+const RETORNO_PAREDE = 0.06
+
 /** Quanto o cursor precisa ficar parado para o realce pesado entrar, em ms. */
 const ATRASO_FOCO = 420
 
@@ -172,17 +264,21 @@ const FOLGA_CLIQUE = 4
 const DURACAO_ANIMACAO = 9000
 
 /**
- * Quanto da distância até o zoom alvo se percorre por quadro.
+ * Quanto da distância até o alvo a câmera percorre por quadro.
  *
- * A roda do mouse chega aos trancos — um evento por entalhe —, e aplicar
- * cada um direto na escala fazia o desenho pular de degrau em degrau. Aqui a
- * roda só move o ALVO, e a escala caminha até ele.
+ * A roda do mouse chega aos trancos — um evento por entalhe —, e aplicar cada
+ * um direto na escala fazia o desenho pular de degrau em degrau. Aqui a roda
+ * só move o ALVO, e a câmera caminha até ele. O mesmo vale para o
+ * enquadramento: ele move o alvo, e o desenho desliza até lá.
  *
  * 0,18 por quadro dá uns 15 quadros para cobrir quase toda a distância: um
  * quarto de segundo. Rápido o bastante para não parecer atraso, lento o
  * bastante para o olho acompanhar o movimento em vez de ver um corte.
  */
 const SUAVIDADE_ZOOM = 0.18
+
+/** O enquadramento é uma viagem maior que um entalhe de roda; anda mais devagar. */
+const SUAVIDADE_ENQUADRE = 0.09
 
 /**
  * Quanto a escala muda por entalhe da roda.
@@ -191,6 +287,9 @@ const SUAVIDADE_ZOOM = 0.18
  * muito para chegar perto de alguma coisa, e o gesto virava trabalho.
  */
 const PASSO_ZOOM = 1.35
+
+/** Espera antes de reler o grafo depois de o vault mudar, em ms. */
+const ESPERA_RELEITURA = 400
 
 /** O que o dono pode ajustar na tela. */
 type Ajustes = {
@@ -221,11 +320,10 @@ type Ajustes = {
 /*
  * Os valores de partida.
  *
- * Saíram de uma varredura sobre este vault (133 notas, 392 ligações) medindo
- * três coisas: quão redonda fica a nuvem (proporção da caixa 1,00), quão
- * uniforme é o espaçamento (variação da distância ao vizinho 0,11) e quanto o
- * link ainda organiza (nós ligados a 0,30 da distância média entre dois nós
- * quaisquer).
+ * Saíram de uma varredura sobre este vault medindo três coisas: quão redonda
+ * fica a nuvem (proporção da caixa 1,00), quão uniforme é o espaçamento
+ * (variação da distância ao vizinho 0,11) e quanto o link ainda organiza (nós
+ * ligados a 0,30 da distância média entre dois nós quaisquer).
  *
  * O terceiro número é o que impede a uniformidade barata: um disco aleatório
  * também tem espaçamento regular, e não diz nada. Medir a distância entre
@@ -309,14 +407,79 @@ const raioDe = (grau: number): number => 2.2 + Math.sqrt(grau) * 1.3
  */
 const ESPACAMENTO_BASE = 0.042
 
+/** Acelera no começo e freia no fim. É o que faz o deslize não ter emenda. */
+const suavizar = (t: number): number =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+
+/**
+ * O layout da última vez, guardado FORA do componente.
+ *
+ * Abrir uma nota desmonta a lente inteira — a nota substitui a view. Sem
+ * isto, cada ida e volta pagava o assentamento de novo, e era esse o "trava
+ * ao clicar para abrir a nota". Com o instantâneo aqui, voltar do texto para
+ * a rede é instantâneo e a rede está exatamente como ficou.
+ *
+ * Módulo, e não `sessionStorage`: são centenas de posições que mudam o tempo
+ * todo, e serializar isso a cada desmontagem seria trocar um custo por outro.
+ * Perder o layout ao recarregar o app é aceitável — ele se refaz em 400 ms.
+ */
+let memoria: { nos: No[]; arestas: Aresta[]; camera: Camera } | null = null
+
+type Camera = { x: number; y: number; escala: number }
+
+/**
+ * Casa o grafo recém-lido com o que já estava na tela.
+ *
+ * Nó que já existia mantém a posição — sem isto, criar UMA nota rearranjaria
+ * o vault inteiro na cara de quem está olhando. Nó novo nasce na média dos
+ * vizinhos que ele cita, que é perto de onde ele vai acabar ficando; sem
+ * vizinho conhecido, na espiral do ângulo de ouro, que distribui sem repetir
+ * e sem depender de sorte (dois nós no mesmo ponto é divisão por zero na
+ * repulsão, e o grafo explode no primeiro quadro).
+ */
+function casar(bruto: Bruto, antes: No[] | null): { nos: No[]; novos: number } {
+  const antigo = new Map((antes ?? []).map(n => [n.id, n]))
+  const vizinhanca = new Map<string, string[]>()
+  for (const a of bruto.arestas) {
+    if (!vizinhanca.has(a.de)) vizinhanca.set(a.de, [])
+    if (!vizinhanca.has(a.para)) vizinhanca.set(a.para, [])
+    vizinhanca.get(a.de)?.push(a.para)
+    vizinhanca.get(a.para)?.push(a.de)
+  }
+  let novos = 0
+  const nos: No[] = bruto.nos.map((n, i) => {
+    const velho = antigo.get(n.id)
+    if (velho) return { ...n, x: velho.x, y: velho.y }
+    novos++
+    let sx = 0, sy = 0, quantos = 0
+    for (const vid of vizinhanca.get(n.id) ?? []) {
+      const v = antigo.get(vid)
+      if (v) { sx += v.x; sy += v.y; quantos++ }
+    }
+    if (quantos > 0) {
+      // Um empurrãozinho aleatório junto: dois nós novos que citam os mesmos
+      // vizinhos cairiam exatamente no mesmo ponto.
+      return { ...n, x: sx / quantos + (Math.random() - 0.5) * 0.01, y: sy / quantos + (Math.random() - 0.5) * 0.01 }
+    }
+    const ang = i * 2.399963
+    const r = 0.4 * Math.sqrt(i / Math.max(1, bruto.nos.length))
+    return { ...n, x: CENTRO + r * Math.cos(ang), y: CENTRO + r * Math.sin(ang) }
+  })
+  return { nos, novos }
+}
+
 export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [dados, setDados] = useState<{ nos: No[]; arestas: Aresta[] } | null>(null)
+  const [dados, setDados] = useState<{ nos: No[]; arestas: Aresta[] } | null>(
+    memoria ? { nos: memoria.nos, arestas: memoria.arestas } : null
+  )
   const [erro, setErro] = useState<string | null>(null)
   const [sobre, setSobre] = useState<No | null>(null)
   const [busca, setBusca] = useState('')
   const [ajustes, setAjustes] = useState<Ajustes>(lerAjustes)
   const [painel, setPainel] = useState(false)
+  /** O grupo isolado pela legenda, ou `null` para mostrar tudo. */
+  const [foco, setFoco] = useState<string | null>(null)
 
   /*
    * O que muda 60 vezes por segundo mora em `ref`, e não em `useState`.
@@ -325,16 +488,18 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
    * seria uma renderização do React inteira — para desenhar num canvas que o
    * React nem controla.
    *
-   * `sobre`, `busca` e `ajustes` também viram `ref` por um motivo mais
-   * concreto: eles estavam nas dependências do efeito que monta o canvas, e
-   * por isso CADA movimento do mouse desmontava e remontava todos os ouvintes
-   * de evento da tela.
+   * `sobre`, `busca`, `foco` e `ajustes` também viram `ref` por um motivo
+   * mais concreto: eles estavam nas dependências do efeito que monta o
+   * canvas, e por isso CADA movimento do mouse desmontava e remontava todos
+   * os ouvintes de evento da tela.
    */
-  const camera = useRef({ x: 0.5, y: 0.5, escala: ESCALA_BASE })
-  /** Para onde a escala está indo. A câmera persegue — ver `seguirZoom`. */
-  const alvoEscala = useRef(ESCALA_BASE)
+  const camera = useRef<Camera>(memoria?.camera ?? { x: CENTRO, y: CENTRO, escala: ESCALA_BASE })
+  /** Para onde a câmera está indo. Ela persegue — ver `seguirCamera`. */
+  const alvoCamera = useRef<Camera>({ ...camera.current })
   /** Que ponto do grafo tem de continuar sob o cursor durante o zoom. */
   const ancora = useRef<{ gx: number; gy: number; px: number; py: number } | null>(null)
+  /** Quão depressa a câmera persegue o alvo neste momento. */
+  const suavidadeCamera = useRef(SUAVIDADE_ZOOM)
   /**
    * Quadros em que a física anda DEVAGAR — ver `ETA_ARRASTO`.
    *
@@ -346,11 +511,15 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
   const suaves = useRef(0)
 
   /** Quantos quadros de simulação ainda faltam rodar. Zero = rede parada. */
-  const restantes = useRef(PASSOS_ANTES)
+  const restantes = useRef(0)
+  /** Verdadeiro quando as posições ainda são a espiral e precisam assentar. */
+  const precisaResolver = useRef(memoria === null)
   const buscaRef = useRef('')
   const ajustesRef = useRef(ajustes)
+  const focoRef = useRef<string | null>(null)
   buscaRef.current = busca
   ajustesRef.current = ajustes
+  focoRef.current = foco
 
   /*
    * PASSAR o mouse e DEIXAR o mouse são dois gestos diferentes.
@@ -366,74 +535,118 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
   const sobreRef = useRef<No | null>(null)
   const focadoRef = useRef<No | null>(null)
 
+  /**
+   * Um quadro só se desenha quando alguma coisa mudou.
+   *
+   * A rede assentada e parada não precisa de 60 redesenhos por segundo de
+   * quase mil linhas. Sem esta marca, a lente queimava processador de forma
+   * contínua o tempo todo em que estivesse aberta.
+   */
+  const sujo = useRef(true)
+  const marcarSujo = useCallback(() => { sujo.current = true }, [])
+
   const arrastando = useRef<{
-    no: No | null
+    i: number
     px: number; py: number
     ox: number; oy: number
     mexeu: boolean
   } | null>(null)
 
   /** Enquadra assim que a simulação assentar. */
-  const precisaEnquadrar = useRef(true)
+  const precisaEnquadrar = useRef(memoria === null)
   /** A animação de construção: quantos nós já apareceram. */
   const animacao = useRef<{ ativa: boolean; comeco: number }>({ ativa: false, comeco: 0 })
+  /** Pedido de deslize até um layout pronto — ver `PASSOS_DESLIZE`. */
+  const pedidoDeslize = useRef(0)
+
+  /**
+   * Lê o grafo do índice.
+   *
+   * Roda na montagem e de novo a cada mudança do vault, para uma nota criada
+   * aparecer na rede sem ninguém precisar sair da lente e voltar.
+   */
+  const carregar = useCallback((vivo: () => boolean): void => {
+    void window.vaultApi.invoke('vault:grafo', {})
+      .then(r => {
+        if (!vivo()) return
+        const bruto = r as Bruto
+        setDados(antes => {
+          const { nos, novos } = casar(bruto, antes?.nos ?? null)
+          // Só reacomoda se o conjunto de nós MUDOU. Uma nota editada mexe no
+          // vault e dispara esta leitura, mas não muda o desenho — e sacudir
+          // a rede porque alguém salvou um texto seria puro ruído.
+          const mudou = novos > 0 || (antes?.nos.length ?? -1) !== nos.length ||
+            (antes?.arestas.length ?? -1) !== bruto.arestas.length
+          if (mudou && !precisaResolver.current) {
+            restantes.current = Math.max(restantes.current, PASSOS_REACOMODAR)
+            suaves.current = Math.max(suaves.current, PASSOS_REACOMODAR)
+          }
+          sujo.current = true
+          return { nos, arestas: bruto.arestas }
+        })
+        setErro(null)
+      })
+      .catch((e: unknown) => {
+        if (vivo()) setErro(e instanceof Error ? e.message : 'não deu para ler a rede')
+      })
+  }, [])
 
   useEffect(() => {
     let vivo = true
-    void window.vaultApi.invoke('vault:grafo', {})
-      .then(r => {
-        if (!vivo) return
-        const bruto = r as {
-          nos: Omit<No, 'x' | 'y' | 'dx' | 'dy' | 'preso'>[]
-          arestas: Aresta[]
-        }
-        /*
-         * Começa em espiral, e não em posições sorteadas.
-         *
-         * Com posições aleatórias, dois nós podem nascer no mesmo ponto: a
-         * repulsão entre eles é uma divisão por zero, e o grafo inteiro
-         * explode no primeiro quadro. A espiral pelo ângulo de ouro distribui
-         * sem repetir e sem depender de sorte.
-         */
-        const nos: No[] = bruto.nos.map((n, i) => {
-          const ang = i * 2.399963
-          const r = 0.4 * Math.sqrt(i / Math.max(1, bruto.nos.length))
-          return {
-            ...n,
-            x: 0.5 + r * Math.cos(ang),
-            y: 0.5 + r * Math.sin(ang),
-            dx: 0, dy: 0, preso: false
-          }
-        })
-        setDados({ nos, arestas: bruto.arestas })
-      })
-      .catch((e: unknown) => {
-        if (vivo) setErro(e instanceof Error ? e.message : 'não deu para ler a rede')
-      })
-    return () => { vivo = false }
-  }, [])
+    const ok = (): boolean => vivo
+    carregar(ok)
+    // O vault mudou: pode ser nota nova, apagada, ou um link novo dentro de
+    // uma nota existente. A espera junta a rajada de eventos que uma única
+    // gravação produz numa leitura só.
+    let pendente: ReturnType<typeof setTimeout> | null = null
+    const parar = window.vaultApi.onVaultChange(() => {
+      if (pendente) clearTimeout(pendente)
+      pendente = setTimeout(() => carregar(ok), ESPERA_RELEITURA)
+    })
+    return () => {
+      vivo = false
+      if (pendente) clearTimeout(pendente)
+      parar()
+    }
+  }, [carregar])
 
   /** Guarda os ajustes a cada mudança. Falha em silêncio: é preferência. */
   useEffect(() => {
     try {
       window.localStorage.setItem(CHAVE_AJUSTES, JSON.stringify(ajustes))
     } catch { /* armazenamento cheio ou desligado; a tela funciona igual */ }
+    sujo.current = true
   }, [ajustes])
 
   /** O atraso do realce pesado — ver `sobreRef`/`focadoRef`. */
   useEffect(() => {
+    sujo.current = true
     if (!sobre) { focadoRef.current = null; return }
-    const t = setTimeout(() => { focadoRef.current = sobre }, ATRASO_FOCO)
+    const t = setTimeout(() => { focadoRef.current = sobre; sujo.current = true }, ATRASO_FOCO)
     return () => clearTimeout(t)
   }, [sobre])
 
   /**
-   * O que de fato entra no desenho, depois dos filtros.
+   * O filtro da legenda não refaz o layout.
+   *
+   * Ele esconde o que não é do grupo e reenquadra no que sobrou — as posições
+   * ficam onde estavam. É de propósito: o valor de isolar uma pasta é ver
+   * ONDE ela mora dentro da rede, e recalcular o arranjo destruiria justo
+   * essa informação. Também é o que torna o clique instantâneo.
+   */
+  useEffect(() => {
+    sujo.current = true
+    precisaEnquadrar.current = true
+  }, [foco])
+
+  /**
+   * O que de fato entra no desenho, depois dos filtros do painel.
    *
    * A consulta traz tudo — notas, etiquetas e o que ainda não existe. Quem
    * escolhe é esta tela, e a escolha muda o LAYOUT: tirar 151 etiquetas de
-   * uma rede de 305 nós rearranja o resto. Por isso é um `useMemo` do qual
-   * o efeito do canvas depende, e não um `if` dentro do laço de desenho.
+   * uma rede de 305 nós rearranja o resto. Por isso é um `useMemo` do qual o
+   * efeito do canvas depende, e não um `if` dentro do laço de desenho — ao
+   * contrário do filtro da legenda, que é só exibição.
    */
   const grafo = useMemo(() => {
     if (!dados) return null
@@ -499,10 +712,43 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       .map(([nome, quantas]) => ({ nome, quantas }))
   }, [grafo])
 
+  /*
+   * A memória guarda o grafo COMPLETO, e não o filtrado.
+   *
+   * O efeito só enxerga `grafo`, que já passou pelos filtros do painel.
+   * Guardar aquilo faria as etiquetas desaparecerem de vez ao trocar de lente
+   * com o filtro ligado. As posições, porém, são escritas nos mesmos objetos
+   * — `filter` preserva a referência —, então o que fica guardado tem tudo e
+   * está atualizado.
+   */
+  const dadosRef = useRef(dados)
+  dadosRef.current = dados
+
+  /**
+   * O nó do meio, montado aqui porque o grau dele é quantos nós existem.
+   *
+   * Ele não vem da consulta e não entra em `grafo`: é uma camada por cima —
+   * ver `CENTRO_ID`.
+   */
+  const centro = useMemo<No>(() => ({
+    id: CENTRO_ID,
+    title: CENTRO_NOME,
+    especie: 'centro',
+    grupo: CENTRO_NOME,
+    grau: grafo?.nos.length ?? 0,
+    x: CENTRO,
+    y: CENTRO
+  }), [grafo])
+
   const corDaPasta = useCallback(
     (pasta: string): string => ajustes.cores[pasta] ?? CORES_PADRAO[pasta] ?? COR_PADRAO,
     [ajustes.cores]
   )
+
+  /** O grupo isolado sumiu do grafo (o painel escondeu a espécie): solta o filtro. */
+  useEffect(() => {
+    if (foco !== null && grupos.length > 0 && !grupos.some(g => g.nome === foco)) setFoco(null)
+  }, [grupos, foco])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -510,7 +756,43 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const porId = new Map(grafo.nos.map(n => [n.id, n]))
+    const nos = grafo.nos
+    const n = nos.length
+    if (n === 0) return
+
+    /*
+     * As posições passam para arrays enquanto o efeito vive.
+     *
+     * `px`/`py` são a verdade aqui dentro; os objetos `No` recebem tudo de
+     * volta na limpeza. É essa passagem que faz o assentamento custar 400 ms
+     * em vez de 8,8 s — ver o cabeçalho do arquivo.
+     */
+    const px = new Float64Array(n)
+    const py = new Float64Array(n)
+    const dx = new Float64Array(n)
+    const dy = new Float64Array(n)
+    const indice = new Map<string, number>()
+    for (let i = 0; i < n; i++) {
+      indice.set(nos[i].id, i)
+      px[i] = nos[i].x
+      py[i] = nos[i].y
+    }
+
+    // As arestas viram dois arrays de índices: o laço da física não pode
+    // fazer busca por id num `Map` mil vezes por quadro.
+    const ligA: number[] = []
+    const ligB: number[] = []
+    for (const e of grafo.arestas) {
+      const a = indice.get(e.de)
+      const b = indice.get(e.para)
+      if (a === undefined || b === undefined || a === b) continue
+      ligA.push(a)
+      ligB.push(b)
+    }
+    const ea = Int32Array.from(ligA)
+    const eb = Int32Array.from(ligB)
+    const m = ea.length
+
     let quadro = 0
     let l = 0
     let a = 0
@@ -523,90 +805,134 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       canvas.width = Math.round(l * dpr)
       canvas.height = Math.round(a * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      sujo.current = true
     }
     dimensionar()
     const aoRedimensionar = (): void => { dimensionar(); precisaEnquadrar.current = true }
     window.addEventListener('resize', aoRedimensionar)
+
+    /** Passa pelo filtro da legenda? */
+    const noFoco = (i: number): boolean =>
+      focoRef.current === null || nos[i].grupo === focoRef.current
 
     /** Câmera simples: um centro e uma escala em pixels por unidade. */
     const paraTela = (x: number, y: number): [number, number] => [
       (x - camera.current.x) * camera.current.escala + l / 2,
       (y - camera.current.y) * camera.current.escala + a / 2
     ]
-    const paraGrafo = (px: number, py: number): [number, number] => [
-      (px - l / 2) / camera.current.escala + camera.current.x,
-      (py - a / 2) / camera.current.escala + camera.current.y
+    const paraGrafo = (cx: number, cy: number): [number, number] => [
+      (cx - l / 2) / camera.current.escala + camera.current.x,
+      (cy - a / 2) / camera.current.escala + camera.current.y
     ]
 
-    /** Ajusta a câmera para tudo caber, com uma folga curta nas beiradas. */
+    /**
+     * Ajusta o ALVO da câmera para tudo caber, com uma folga curta.
+     *
+     * O alvo, e não a câmera: enquadrar é uma viagem longa, e um corte seco
+     * até o destino perde a relação entre o que estava na tela e o que passa
+     * a estar. A câmera desliza até aqui — ver `seguirCamera`.
+     */
     const enquadrar = (): void => {
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
-      for (const n of grafo.nos) {
-        if (n.x < x0) x0 = n.x
-        if (n.y < y0) y0 = n.y
-        if (n.x > x1) x1 = n.x
-        if (n.y > y1) y1 = n.y
+      for (let i = 0; i < n; i++) {
+        if (!noFoco(i)) continue
+        if (px[i] < x0) x0 = px[i]
+        if (py[i] < y0) y0 = py[i]
+        if (px[i] > x1) x1 = px[i]
+        if (py[i] > y1) y1 = py[i]
       }
       if (!Number.isFinite(x0)) return
-      camera.current.x = (x0 + x1) / 2
-      camera.current.y = (y0 + y1) / 2
       const largura = Math.max(1e-6, x1 - x0)
       const altura = Math.max(1e-6, y1 - y0)
-      // 0,95, e não 0,86: com folga demais o grafo fica pequeno no meio de um
-      // painel grande, e sobra moldura escura dos dois lados.
-      camera.current.escala = Math.min(l / largura, a / altura) * 0.95
-      // O alvo acompanha, senão o próximo giro da roda puxa a escala de
-      // volta para o valor de antes do enquadramento.
-      alvoEscala.current = camera.current.escala
+      alvoCamera.current = {
+        x: (x0 + x1) / 2,
+        y: (y0 + y1) / 2,
+        // 0,95, e não 0,86: com folga demais o grafo fica pequeno no meio de
+        // um painel grande, e sobra moldura escura dos dois lados.
+        // O teto existe para o filtro que deixa UM nó: sem ele a câmera
+        // ampliaria até o infinito para "enquadrar" um ponto sozinho.
+        escala: Math.min(3000, Math.min(l / largura, a / altura) * 0.95)
+      }
+      suavidadeCamera.current = SUAVIDADE_ENQUADRE
       ancora.current = null
+      sujo.current = true
     }
 
-    const k = Math.sqrt(AREA / Math.max(1, grafo.nos.length))
+    const k = Math.sqrt(AREA / Math.max(1, n))
 
     /**
-     * O espaçamento típico da rede, em coordenadas do grafo.
+     * O espaçamento típico da rede, e o raio da nuvem.
      *
-     * A MEDIANA da distância ao vizinho mais próximo, e não a média: um
-     * punhado de nós grudados puxaria a média para baixo e encolheria todos
-     * os pontos por causa de uns poucos.
+     * O espaçamento é a MEDIANA da distância ao vizinho mais próximo, e não a
+     * média: um punhado de nós grudados puxaria a média para baixo e
+     * encolheria todos os pontos por causa de uns poucos.
      *
-     * Preenchida depois do assentamento — antes disso as posições ainda são
-     * a espiral inicial e não dizem nada.
+     * O raio é a maior distância ao centro, e é dele que sai a parede —
+     * ver `FOLGA_PAREDE`.
+     *
+     * Preenchidos depois do assentamento: antes disso as posições ainda são a
+     * espiral inicial e não dizem nada.
      */
     let espacamento = ESPACAMENTO_BASE
-    const medirEspacamento = (): void => {
-      const nos = grafo.nos
-      if (nos.length < 2) return
+    let raioParede = Infinity
+    const medirLayout = (): void => {
+      if (n < 2) return
       const perto: number[] = []
-      for (let i = 0; i < nos.length; i++) {
+      const raios: number[] = []
+      for (let i = 0; i < n; i++) {
+        const xi = px[i], yi = py[i]
         let menor = Infinity
-        for (let j = 0; j < nos.length; j++) {
+        for (let j = 0; j < n; j++) {
           if (i === j) continue
-          const d = Math.hypot(nos[i].x - nos[j].x, nos[i].y - nos[j].y)
-          if (d < menor) menor = d
+          const ex = px[j] - xi, ey = py[j] - yi
+          // Compara o QUADRADO: a raiz só sai uma vez por nó, no fim.
+          const q = ex * ex + ey * ey
+          if (q < menor) menor = q
         }
-        if (Number.isFinite(menor)) perto.push(menor)
+        if (Number.isFinite(menor)) perto.push(Math.sqrt(menor))
+        const rx = xi - CENTRO, ry = yi - CENTRO
+        raios.push(Math.sqrt(rx * rx + ry * ry))
       }
-      if (perto.length === 0) return
-      perto.sort((x, y) => x - y)
-      espacamento = perto[Math.floor(perto.length / 2)] || ESPACAMENTO_BASE
+      if (perto.length > 0) {
+        perto.sort((x, y) => x - y)
+        espacamento = perto[Math.floor(perto.length / 2)] || ESPACAMENTO_BASE
+      }
+      /*
+       * O raio é o PERCENTIL 95, e não o maior.
+       *
+       * Com o maior, a parede engordava sozinha: um nó largado longe é
+       * recolhido até encostar nela, e a medição seguinte tomava aquele nó
+       * como a borda legítima da nuvem e afastava a parede mais 12%. Cada
+       * arrasto empurrava o limite um pouco mais para fora, até ele não
+       * segurar mais nada. O percentil ignora o caso isolado, que é
+       * exatamente o que a parede existe para pegar.
+       */
+      if (raios.length > 0) {
+        raios.sort((x, y) => x - y)
+        const borda = raios[Math.floor(raios.length * 0.95)] ?? raios[raios.length - 1]
+        raioParede = Math.max(0.05, borda * FOLGA_PAREDE)
+      }
     }
 
-    const passo = (): void => {
-      // Modo suave: a rede acompanha em vez de se sacudir. Vale no arrasto e
-      // na volta depois de soltar. Ver `ETA_ARRASTO`.
-      const suave = suaves.current > 0
-      const eta = suave ? ETA_ARRASTO : ETA
-      const teto = suave ? PASSO_MAX_ARRASTO : PASSO_MAX
-      if (suave) suaves.current--
-      const nos = grafo.nos
+    /**
+     * Um passo da física sobre um par de arrays qualquer.
+     *
+     * Recebe os arrays em vez de fechar sobre `px`/`py` porque o deslize
+     * precisa calcular o layout de DESTINO numa cópia, sem que nada disso
+     * apareça na tela enquanto é calculado.
+     */
+    const passoEm = (
+      X: Float64Array, Y: Float64Array, DX: Float64Array, DY: Float64Array,
+      eta: number, teto: number, parado: number, parede: number
+    ): void => {
       const aj = ajustesRef.current
       // O comprimento de repouso do link. Maior = links mais compridos.
       const kLink = k * Math.max(0.05, aj.distanciaLink)
 
       // Deslocamento, e não velocidade: cada quadro parte do zero, e por isso
       // não há energia acumulada para o grafo explodir.
-      for (const n of nos) { n.dx = 0; n.dy = 0 }
+      DX.fill(0)
+      DY.fill(0)
 
       /*
        * Repulsão entre todos os pares: k³/d².
@@ -617,91 +943,182 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
        * Duas forças com a mesma lei não se equilibram, uma vence sempre, e o
        * resultado é ou tudo espremido no centro ou tudo espalhado sem fim.
        *
-       * O(n²), e de propósito: ~130 nós dão 8 mil pares por quadro, menos de
-       * um milissegundo. Barnes-Hut só compensaria acima de alguns milhares.
+       * O(n²), e de propósito: 305 nós dão 46 mil pares por quadro. Escrito
+       * assim — arrays, sem `hypot`, com o acumulador do nó `i` num local —
+       * isso é meio milissegundo. Barnes-Hut só compensaria acima de alguns
+       * milhares de nós, e traria erro de aproximação junto.
        */
-      for (let i = 0; i < nos.length; i++) {
-        for (let j = i + 1; j < nos.length; j++) {
-          const A = nos[i]
-          const B = nos[j]
-          let ex = B.x - A.x
-          let ey = B.y - A.y
-          let d = Math.hypot(ex, ey)
-          /*
-           * Piso na distância, e não só proteção contra o zero.
-           *
-           * Com `1/d²`, dois nós muito próximos geram uma força enorme e um
-           * chuta o outro para o outro lado da tela. O piso é um décimo da
-           * distância de equilíbrio: perto o bastante para nunca atrapalhar,
-           * longe o bastante para a força não explodir.
-           */
-          const piso = k * 0.1
-          if (d < piso) {
-            if (d < 1e-9) {
+      const kkk = aj.forcaRepulsao * k * k * k
+      /*
+       * Piso na distância, e não só proteção contra o zero.
+       *
+       * Com `1/d²`, dois nós muito próximos geram uma força enorme e um
+       * chuta o outro para o outro lado da tela. O piso é um décimo da
+       * distância de equilíbrio: perto o bastante para nunca atrapalhar,
+       * longe o bastante para a força não explodir.
+       */
+      const piso = k * 0.1
+      const piso2 = piso * piso
+      for (let i = 0; i < X.length; i++) {
+        const xi = X[i], yi = Y[i]
+        let ax = DX[i], ay = DY[i]
+        for (let j = i + 1; j < X.length; j++) {
+          let ex = X[j] - xi
+          let ey = Y[j] - yi
+          let q = ex * ex + ey * ey
+          if (q < piso2) {
+            if (q < 1e-18) {
               ex = (Math.random() - 0.5) * piso
               ey = (Math.random() - 0.5) * piso
             }
-            d = piso
+            q = piso2
           }
-          const f = (aj.forcaRepulsao * k * k * k) / (d * d)
-          const fx = (ex / d) * f
-          const fy = (ey / d) * f
-          A.dx -= fx; A.dy -= fy
-          B.dx += fx; B.dy += fy
+          // f = kkk/d² aplicado na direção unitária (ex/d, ey/d), ou seja
+          // (ex, ey) · kkk/d³ — e d³ é q·√q. Uma raiz por par, e nenhuma
+          // divisão a mais.
+          const f = kkk / (q * Math.sqrt(q))
+          const fx = ex * f, fy = ey * f
+          ax -= fx; ay -= fy
+          DX[j] += fx; DY[j] += fy
         }
+        DX[i] = ax; DY[i] = ay
       }
 
       // Atração ao longo dos links: cresce com a distância, então dois nós
       // ligados nunca ficam em cantos opostos da tela.
-      for (const e of grafo.arestas) {
-        const A = porId.get(e.de)
-        const B = porId.get(e.para)
-        if (!A || !B) continue
-        const ex = B.x - A.x
-        const ey = B.y - A.y
-        const d = Math.hypot(ex, ey) || 1e-6
-        const f = (aj.forcaLink * d * d) / kLink
-        const fx = (ex / d) * f
-        const fy = (ey / d) * f
-        A.dx += fx; A.dy += fy
-        B.dx -= fx; B.dy -= fy
+      for (let e = 0; e < m; e++) {
+        const i = ea[e], j = eb[e]
+        const ex = X[j] - X[i]
+        const ey = Y[j] - Y[i]
+        const d = Math.sqrt(ex * ex + ey * ey) || 1e-6
+        // f = forcaLink·d²/kLink na direção unitária = (ex, ey)·forcaLink·d/kLink.
+        const f = (aj.forcaLink * d) / kLink
+        const fx = ex * f, fy = ey * f
+        DX[i] += fx; DY[i] += fy
+        DX[j] -= fx; DY[j] -= fy
       }
 
-      // A gravidade. Cresce com a distância, então mal se nota no miolo e
-      // segura firme quem tenta escapar para longe.
-      for (const n of nos) {
-        n.dx += (0.5 - n.x) * aj.forcaCentro
-        n.dy += (0.5 - n.y) * aj.forcaCentro
-      }
-
-      for (const n of nos) {
-        if (n.preso) continue
-        // O passo é limitado pela temperatura: é ela que impede um salto
-        // gigante no primeiro quadro, quando tudo ainda está amontoado.
-        const d = Math.hypot(n.dx, n.dy)
-        if (d > 1e-9) {
-          // Proporcional a forca, e nao um passo fixo: e isto que faz a
-          // simulacao assentar em vez de oscilar em volta do equilibrio.
+      for (let i = 0; i < X.length; i++) {
+        if (i === parado) continue
+        // A gravidade. Cresce com a distância, então mal se nota no miolo e
+        // segura firme quem tenta escapar para longe.
+        const gx = DX[i] + (CENTRO - X[i]) * aj.forcaCentro
+        const gy = DY[i] + (CENTRO - Y[i]) * aj.forcaCentro
+        const q = gx * gx + gy * gy
+        if (q > 1e-18) {
+          const d = Math.sqrt(q)
+          // Proporcional à força, e não um passo fixo: é isto que faz a
+          // simulação assentar em vez de oscilar em volta do equilíbrio.
           const anda = Math.min(d * eta, teto)
-          n.x += (n.dx / d) * anda
-          n.y += (n.dy / d) * anda
+          X[i] += (gx / d) * anda
+          Y[i] += (gy / d) * anda
+        }
+
+        /*
+         * A parede recolhe quem está longe demais.
+         *
+         * Só pega quem foi ARRASTADO para fora: nenhum nó assentado chega ao
+         * raio da nuvem vezes `FOLGA_PAREDE`. E recolhe uma fração por
+         * quadro, o que faz o nó voltar caminhando — ver `RETORNO_PAREDE`.
+         */
+        if (parede < Infinity) {
+          const rx = X[i] - CENTRO, ry = Y[i] - CENTRO
+          const rq = rx * rx + ry * ry
+          if (rq > parede * parede) {
+            const r = Math.sqrt(rq)
+            const puxa = (r - parede) * RETORNO_PAREDE
+            X[i] -= (rx / r) * puxa
+            Y[i] -= (ry / r) * puxa
+          }
         }
       }
+    }
 
+    /** Um passo da física de verdade, na tela. */
+    const passo = (): void => {
+      // Modo suave: a rede acompanha em vez de se sacudir. Vale no arrasto e
+      // na volta depois de soltar. Ver `ETA_ARRASTO`.
+      const suave = suaves.current > 0
+      if (suave) suaves.current--
+      passoEm(
+        px, py, dx, dy,
+        suave ? ETA_ARRASTO : ETA,
+        suave ? PASSO_MAX_ARRASTO : PASSO_MAX,
+        arrastando.current?.i ?? -1,
+        raioParede
+      )
+      sujo.current = true
     }
 
     /*
-     * Resolve antes de mostrar.
+     * Resolve antes de mostrar, e SÓ quando é preciso.
      *
-     * Sem isto a tela abria com tudo amontoado e sacudindo até assentar. O
-     * laço abaixo faz o mesmo trabalho sem ninguém ver, e a rede já aparece
-     * arranjada e PARADA.
+     * Da primeira vez as posições são a espiral, e sem isto a tela abria com
+     * tudo amontoado e sacudindo até assentar. Nas vezes seguintes — trocar
+     * de lente e voltar, ligar um filtro — as posições já vêm assentadas, e
+     * repetir este bloco era o que travava a tela por segundos a fio.
      */
-    for (let i = 0; i < PASSOS_ANTES; i++) passo()
-    medirEspacamento()
-    restantes.current = 0
-    enquadrar()
-    precisaEnquadrar.current = false
+    if (precisaResolver.current) {
+      for (let i = 0; i < PASSOS_ANTES; i++) {
+        passoEm(px, py, dx, dy, ETA, PASSO_MAX, -1, Infinity)
+      }
+      precisaResolver.current = false
+      restantes.current = 0
+      medirLayout()
+      enquadrar()
+      // Da primeira vez a câmera não desliza de lugar nenhum: ela JÁ nasce
+      // no lugar certo. Deslizar aqui seria animar a partir de um
+      // enquadramento que ninguém chegou a ver.
+      camera.current = { ...alvoCamera.current }
+      precisaEnquadrar.current = false
+    } else {
+      medirLayout()
+    }
+
+    /** O deslize em curso, ou `null`. */
+    let deslize: {
+      ax: Float64Array; ay: Float64Array
+      bx: Float64Array; by: Float64Array
+      q: number
+    } | null = null
+
+    /**
+     * Calcula onde a rede quer estar e manda os nós CAMINHAREM até lá.
+     *
+     * É o que "Reorganizar" faz. A versão anterior reaquecia a simulação e
+     * deixava 1500 quadros de física acontecerem na tela: a rede inteira se
+     * sacudia, cada nó tremendo em volta do lugar até parar. Aqui o destino
+     * sai de uma vez, fora da tela, e o que se vê é cada ponto andando em
+     * linha reta até ele.
+     */
+    const deslizarAteORepouso = (): void => {
+      const bx = Float64Array.from(px)
+      const by = Float64Array.from(py)
+      const tdx = new Float64Array(n)
+      const tdy = new Float64Array(n)
+      for (let i = 0; i < PASSOS_DESTINO; i++) {
+        passoEm(bx, by, tdx, tdy, ETA, PASSO_MAX, -1, Infinity)
+      }
+      deslize = { ax: Float64Array.from(px), ay: Float64Array.from(py), bx, by, q: 0 }
+      restantes.current = 0
+      suaves.current = 0
+    }
+
+    const andarDeslize = (): void => {
+      if (!deslize) return
+      deslize.q++
+      const t = suavizar(Math.min(1, deslize.q / PASSOS_DESLIZE))
+      for (let i = 0; i < n; i++) {
+        px[i] = deslize.ax[i] + (deslize.bx[i] - deslize.ax[i]) * t
+        py[i] = deslize.ay[i] + (deslize.by[i] - deslize.ay[i]) * t
+      }
+      sujo.current = true
+      if (deslize.q >= PASSOS_DESLIZE) {
+        deslize = null
+        medirLayout()
+        enquadrar()
+      }
+    }
 
     const desenhar = (): void => {
       ctx.clearRect(0, 0, l, a)
@@ -711,7 +1128,10 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       // o cursor de passagem.
       const alvo = focadoRef.current
       const sobCursor = sobreRef.current
-      const acesos = alvo ? vizinhos.get(alvo.id) ?? new Set<string>() : null
+      // Parar o cursor no centro acende TUDO, e não "os vizinhos do centro":
+      // ele liga em todos, então a resposta honesta é a rede inteira acesa.
+      const centroAceso = alvo?.id === CENTRO_ID
+      const acesos = alvo && !centroAceso ? vizinhos.get(alvo.id) ?? new Set<string>() : null
       const termo = buscaRef.current.trim().toLowerCase()
 
       /*
@@ -723,75 +1143,127 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
        */
       const an = animacao.current
       const revelados = an.ativa
-        ? (performance.now() - an.comeco) / DURACAO_ANIMACAO * grafo.nos.length
+        ? (performance.now() - an.comeco) / DURACAO_ANIMACAO * n
         : Infinity
-      if (an.ativa && revelados > grafo.nos.length + 1) an.ativa = false
-      const visivel = (n: No): boolean => (ordemAnimacao.get(n.id) ?? 0) < revelados
+      if (an.ativa && revelados > n + 1) an.ativa = false
+      const dentro = (i: number): boolean =>
+        noFoco(i) && (ordemAnimacao.get(nos[i].id) ?? 0) < revelados
 
-      // As arestas primeiro, para os nós ficarem por cima.
+      /*
+       * Os raios do meio: uma linha do centro até cada nó visível.
+       *
+       * Bem apagados — 4% de opacidade. São trezentas linhas saindo do mesmo
+       * ponto: no traço das arestas normais elas virariam uma mancha branca
+       * que enterra o desenho. Assim leem-se como um brilho, e a estrutura do
+       * vault continua sendo o que se vê.
+       *
+       * Quando o cursor para EM CIMA do centro, elas acendem todas: é a
+       * resposta à pergunta "liga em quê?", igual à de qualquer outro nó.
+       */
+      const [ccx, ccy] = paraTela(CENTRO, CENTRO)
+      if (alvo === null || centroAceso) {
+        const raios = new Path2D()
+        let temRaio = false
+        for (let i = 0; i < n; i++) {
+          if (!dentro(i)) continue
+          const [rx, ry] = paraTela(px[i], py[i])
+          raios.moveTo(ccx, ccy)
+          raios.lineTo(rx, ry)
+          temRaio = true
+        }
+        if (temRaio) {
+          ctx.strokeStyle = centroAceso ? 'rgba(200,225,250,.30)' : 'rgba(170,185,205,.04)'
+          ctx.lineWidth = 1
+          ctx.stroke(raios)
+        }
+      }
+
+      /*
+       * As arestas em TRÊS traços, e não em novecentos.
+       *
+       * Cada aresta era um `beginPath`/`stroke` próprio — quase mil trocas de
+       * estado do canvas por quadro. Como só existem três aparências (acesa,
+       * apagada, normal), dá para juntar cada grupo num caminho só e traçar
+       * três vezes.
+       */
       ctx.lineWidth = Math.max(0.3, aj.espessuraLinha)
-      for (const e of grafo.arestas) {
-        const A = porId.get(e.de)
-        const B = porId.get(e.para)
-        if (!A || !B) continue
+      const acesa = new Path2D()
+      const comum = new Path2D()
+      let temAcesa = false
+      let temComum = false
+      for (let e = 0; e < m; e++) {
+        const i = ea[e], j = eb[e]
         // Na animação, a linha só aparece quando as DUAS pontas existirem —
         // é o que faz a rede parecer se costurando, e não riscos no vazio.
-        if (!visivel(A) || !visivel(B)) continue
-        const ligada = alvo !== null && (e.de === alvo.id || e.para === alvo.id)
-        ctx.strokeStyle = ligada
-          ? 'rgba(160,205,245,.85)'
-          : alvo
-            ? 'rgba(150,158,170,.07)'
-            : 'rgba(150,158,170,.34)'
-        const [ax, ay] = paraTela(A.x, A.y)
-        const [bx, by] = paraTela(B.x, B.y)
-        ctx.beginPath()
-        ctx.moveTo(ax, ay)
-        ctx.lineTo(bx, by)
-        ctx.stroke()
+        if (!dentro(i) || !dentro(j)) continue
+        const ligada = alvo !== null && !centroAceso &&
+          (nos[i].id === alvo.id || nos[j].id === alvo.id)
+        const [ax, ay] = paraTela(px[i], py[i])
+        const [bx2, by2] = paraTela(px[j], py[j])
+        const alvoPath = ligada ? acesa : comum
+        alvoPath.moveTo(ax, ay)
+        alvoPath.lineTo(bx2, by2)
+        if (ligada) temAcesa = true; else temComum = true
+      }
+      if (temComum) {
+        ctx.strokeStyle = alvo && !centroAceso
+          ? 'rgba(150,158,170,.07)'
+          : 'rgba(150,158,170,.34)'
+        ctx.stroke(comum)
+      }
+      if (temAcesa) {
+        ctx.strokeStyle = 'rgba(160,205,245,.85)'
+        ctx.stroke(acesa)
       }
       ctx.lineWidth = 1
 
-      // O ponto cresce com o zoom, mas devagar e com teto: ampliar não pode
-      // transformar cada nota numa bolha que cobre as linhas.
       /*
-       * O ponto encolhe quando a rede adensa.
+       * O ponto encolhe quando a rede adensa, e cresce com o zoom — devagar e
+       * com teto, porque ampliar não pode transformar cada nota numa bolha
+       * que cobre as linhas.
        *
-       * Sem isto, ganhar as 151 etiquetas aproximou os nós e o ponto do
-       * mesmo tamanho passou a cobrir o vizinho — o desenho virou aglomerado.
-       * Comparando o espaçamento medido com aquele para o qual os raios
-       * foram desenhados, o ponto acompanha a densidade sozinho.
+       * Sem a parte da densidade, ganhar as 151 etiquetas aproximou os nós e o
+       * ponto do mesmo tamanho passou a cobrir o vizinho. Comparando o
+       * espaçamento medido com aquele para o qual os raios foram desenhados, o
+       * ponto acompanha a densidade sozinho.
        */
       const densidade = Math.min(1, espacamento / ESPACAMENTO_BASE)
       const escalaPonto = Math.min(1.5, Math.max(0.6, camera.current.escala / ESCALA_BASE))
         * densidade * Math.max(0.1, aj.tamanhoNo)
 
       /** Candidatos a rótulo, resolvidos depois dos pontos. */
-      const rotulos: { n: No; px: number; py: number; r: number; peso: number }[] = []
+      const rotulos: { no: No; cx: number; cy: number; r: number; peso: number }[] = []
       // Acima de que escala todo nome aparece. `limiarNome` 1 = sempre.
       const escalaDoNome = ESCALA_BASE * (4 - Math.min(1, Math.max(0, aj.limiarNome)) * 3.9)
 
-      for (const n of grafo.nos) {
-        if (!visivel(n)) continue
-        const [px, py] = paraTela(n.x, n.y)
-        const r = raioDe(n.grau) * escalaPonto
-        const achado = termo !== '' && n.title.toLowerCase().includes(termo)
-        const apagado = (alvo !== null && n.id !== alvo.id && !acesos?.has(n.id)) ||
+      for (let i = 0; i < n; i++) {
+        if (!dentro(i)) continue
+        const no = nos[i]
+        const [cx, cy] = paraTela(px[i], py[i])
+        const r = raioDe(no.grau) * escalaPonto
+        // Fora da tela não se desenha. Num zoom alto isso tira a maior parte
+        // dos nós do laço antes de qualquer conta de canvas.
+        if (cx < -r - 60 || cy < -r - 60 || cx > l + r + 60 || cy > a + r + 60) continue
+        const achado = termo !== '' && no.title.toLowerCase().includes(termo)
+        // O próprio nó focado não se apaga: ele não está na lista de vizinhos
+        // dele mesmo, e sem esta ressalva ele apagaria junto com o resto.
+        const apagado = (alvo !== null && !centroAceso &&
+          no.id !== alvo.id && !acesos?.has(no.id)) ||
           (termo !== '' && !achado)
 
         ctx.globalAlpha = apagado ? 0.18 : 1
-        ctx.fillStyle = aj.cores[n.grupo] ?? CORES_PADRAO[n.grupo] ?? COR_PADRAO
+        ctx.fillStyle = aj.cores[no.grupo] ?? CORES_PADRAO[no.grupo] ?? COR_PADRAO
         ctx.beginPath()
-        ctx.arc(px, py, r, 0, Math.PI * 2)
+        ctx.arc(cx, cy, r, 0, Math.PI * 2)
         ctx.fill()
 
         // Contorno claro no que está sob o cursor: o realce LEVE do passar de
         // mouse. Diz "é este" sem mexer em mais nada da tela.
-        if (n === sobCursor) {
+        if (no === sobCursor) {
           ctx.strokeStyle = 'rgba(255,255,255,.92)'
           ctx.lineWidth = 1.5
           ctx.beginPath()
-          ctx.arc(px, py, r + 2, 0, Math.PI * 2)
+          ctx.arc(cx, cy, r + 2, 0, Math.PI * 2)
           ctx.stroke()
           ctx.lineWidth = 1
         }
@@ -799,15 +1271,42 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         ctx.globalAlpha = 1
 
         if (apagado) continue
-        const querNome = n === sobCursor || n.id === alvo?.id || achado ||
+        const querNome = no === sobCursor || no.id === alvo?.id || achado ||
           camera.current.escala > escalaDoNome
         // O peso decide quem ganha quando dois nomes brigam pelo mesmo
         // espaço: primeiro o que está sob o cursor, depois o que a busca
         // achou, e por último o mais ligado.
         if (querNome) {
-          const peso = n === sobCursor ? 1e9 : achado ? 1e6 : n.grau
-          rotulos.push({ n, px, py, r, peso })
+          const peso = no === sobCursor ? 1e9 : achado ? 1e6 : no.grau
+          rotulos.push({ no, cx, cy, r, peso })
         }
+      }
+
+      /*
+       * O centro por cima de tudo.
+       *
+       * Maior que qualquer nó e claro, com um halo: ele é a âncora da tela, e
+       * quem entra na lente tem de achar o meio sem procurar. O nome dele
+       * entra na fila de rótulos com o peso mais alto que existe — o único
+       * nome que nunca cede espaço a outro.
+       */
+      const apagadoCentro = alvo !== null && !centroAceso
+      ctx.globalAlpha = apagadoCentro ? 0.25 : 1
+      const rc = RAIO_CENTRO * Math.max(0.1, aj.tamanhoNo)
+      const halo = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, rc * 3.4)
+      halo.addColorStop(0, 'rgba(240,243,247,.30)')
+      halo.addColorStop(1, 'rgba(240,243,247,0)')
+      ctx.fillStyle = halo
+      ctx.beginPath()
+      ctx.arc(ccx, ccy, rc * 3.4, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = COR_CENTRO
+      ctx.beginPath()
+      ctx.arc(ccx, ccy, rc, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.globalAlpha = 1
+      if (!apagadoCentro) {
+        rotulos.push({ no: centro, cx: ccx, cy: ccy, r: rc, peso: Number.MAX_SAFE_INTEGER })
       }
 
       /*
@@ -824,9 +1323,9 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       const ocupados: [number, number, number, number][] = []
       rotulos.sort((x, y) => y.peso - x.peso)
       for (const rot of rotulos) {
-        const larg = ctx.measureText(rot.n.title).width
-        const cx = rot.px
-        const cy = rot.py - rot.r - 7
+        const larg = ctx.measureText(rot.no.title).width
+        const cx = rot.cx
+        const cy = rot.cy - rot.r - 7
         const caixa: [number, number, number, number] =
           [cx - larg / 2 - 2, cy - 11, larg + 4, 14]
         const bate = ocupados.some(o =>
@@ -834,41 +1333,116 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
           caixa[1] < o[1] + o[3] && caixa[1] + caixa[3] > o[1])
         if (bate) continue
         ocupados.push(caixa)
-        ctx.fillText(rot.n.title, cx, cy)
+        ctx.fillText(rot.no.title, cx, cy)
       }
     }
 
+    /** Caminha um passo da câmera em direção ao alvo. */
+    const seguirCamera = (): boolean => {
+      const alvo = alvoCamera.current
+      const c = camera.current
+      const perto = Math.abs(alvo.escala - c.escala) < c.escala * 0.001 &&
+        Math.abs(alvo.x - c.x) * c.escala < 0.4 &&
+        Math.abs(alvo.y - c.y) * c.escala < 0.4
+      if (perto) {
+        if (c.escala !== alvo.escala || c.x !== alvo.x || c.y !== alvo.y) {
+          camera.current = { ...alvo }
+          return true
+        }
+        return false
+      }
+      const s = suavidadeCamera.current
+      c.escala += (alvo.escala - c.escala) * s
+      const anc = ancora.current
+      if (anc) {
+        // No zoom pela roda, quem manda é a âncora: o ponto que estava sob o
+        // cursor continua sob o mesmo pixel enquanto a escala caminha. Sem
+        // isso o zoom afasta justamente do que a pessoa está olhando.
+        c.x = anc.gx - (anc.px - l / 2) / c.escala
+        c.y = anc.gy - (anc.py - a / 2) / c.escala
+        alvo.x = c.x
+        alvo.y = c.y
+      } else {
+        c.x += (alvo.x - c.x) * s
+        c.y += (alvo.y - c.y) * s
+      }
+      return true
+    }
+
     const laco = (): void => {
-      // Rede parada nao gasta quadro de fisica: o desenho continua (o
-      // cursor e o zoom precisam dele), o `passo` nao.
-      seguirZoom()
-      if (restantes.current > 0) { passo(); restantes.current-- }
-      if (precisaEnquadrar.current && restantes.current === 0) {
+      if (seguirCamera()) sujo.current = true
+
+      if (pedidoDeslize.current > 0) {
+        pedidoDeslize.current = 0
+        deslizarAteORepouso()
+      }
+
+      if (deslize) {
+        andarDeslize()
+      } else if (restantes.current > 0) {
+        passo()
+        restantes.current--
+        if (restantes.current === 0) medirLayout()
+      }
+
+      if (precisaEnquadrar.current && restantes.current === 0 && !deslize) {
         enquadrar()
         precisaEnquadrar.current = false
       }
-      desenhar()
+
+      if (animacao.current.ativa) sujo.current = true
+      // Rede parada, câmera parada, nada sob o cursor mudou: não há o que
+      // redesenhar, e desenhar mesmo assim é queimar processador à toa.
+      if (sujo.current) {
+        sujo.current = false
+        desenhar()
+      }
       quadro = requestAnimationFrame(laco)
     }
     quadro = requestAnimationFrame(laco)
 
-    /** O nó sob o ponteiro, ou `null`. */
-    const noPonto = (px: number, py: number): No | null => {
-      let achado: No | null = null
+    /*
+     * Janela escondida não anima.
+     *
+     * `requestAnimationFrame` já para quando a janela é minimizada, mas não
+     * quando ela fica atrás de outra. Aqui o laço é cancelado de verdade.
+     */
+    const aoTrocarVisibilidade = (): void => {
+      if (document.hidden) {
+        cancelAnimationFrame(quadro)
+      } else {
+        sujo.current = true
+        cancelAnimationFrame(quadro)
+        quadro = requestAnimationFrame(laco)
+      }
+    }
+    document.addEventListener('visibilitychange', aoTrocarVisibilidade)
+
+    /** O índice do nó sob o ponteiro; -1 se nenhum, -2 se for o centro. */
+    const noPonto = (cx: number, cy: number): number => {
+      let achado = -1
       let menor = Infinity
+      // O centro primeiro, e com prioridade: ele é desenhado por cima de
+      // todo mundo, e o que está por cima é o que o dedo espera pegar.
+      const [ccx, ccy] = paraTela(CENTRO, CENTRO)
+      const rc = RAIO_CENTRO * Math.max(0.1, ajustesRef.current.tamanhoNo)
+      if (Math.hypot(cx - ccx, cy - ccy) < Math.max(14, rc + 8)) return -2
       // A MESMA conta do desenho, densidade inclusive: se o alvo do dedo
       // divergir do ponto desenhado, a pessoa acerta o que não está vendo.
       const densidade = Math.min(1, espacamento / ESPACAMENTO_BASE)
       const escalaPonto = Math.min(1.5, Math.max(0.6, camera.current.escala / ESCALA_BASE))
         * densidade * Math.max(0.1, ajustesRef.current.tamanhoNo)
-      for (const n of grafo.nos) {
-        const [nx, ny] = paraTela(n.x, n.y)
-        const d = Math.hypot(px - nx, py - ny)
+      for (let i = 0; i < n; i++) {
+        // O que o filtro escondeu não é clicável: pegar um nó invisível é
+        // pior do que não pegar nada.
+        if (!noFoco(i)) continue
+        const [nx, ny] = paraTela(px[i], py[i])
+        const d = Math.hypot(cx - nx, cy - ny)
         // Alvo mínimo de 14 px: um nó pequeno tem 2 px de raio, e acertar
         // isso com o mouse seria sorte. Não muito mais do que isso: alvo
         // grande demais faz o cursor pegar o vizinho em vez do de baixo.
-        const alcance = Math.max(14, raioDe(n.grau) * escalaPonto + 8)
-        if (d < alcance && d < menor) { menor = d; achado = n }
+        const alcance = Math.max(14, raioDe(nos[i].grau) * escalaPonto + 8)
+        if (d < alcance && d < menor) { menor = d; achado = i }
       }
       return achado
     }
@@ -890,32 +1464,36 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
        * impede o gesto de começar.
        */
       e.preventDefault()
-      const [px, py] = posicao(e)
-      const n = noPonto(px, py)
+      if (deslize) return
+      const [cx, cy] = posicao(e)
+      // O centro é cravado: pegar nele não arrasta nada, arrasta a câmera —
+      // como pegar no fundo. `-2` vira `-1` aqui e o resto do arrasto nem
+      // precisa saber que ele existe.
+      const i = Math.max(-1, noPonto(cx, cy))
       canvas.setPointerCapture(e.pointerId)
-      arrastando.current = { no: n, px, py, ox: px, oy: py, mexeu: false }
+      arrastando.current = { i, px: cx, py: cy, ox: cx, oy: cy, mexeu: false }
       // A mãozinha fechada é a única vez em que o cursor muda: ela diz que
       // ALGO está sendo segurado. Fora disso a seta basta, e trocar o cursor
       // a cada nó por que se passa deixa o ponteiro piscando pela tela.
       canvas.style.cursor = 'grabbing'
-      if (n) { n.preso = true; suaves.current = PASSOS_RETORNO }
+      if (i >= 0) suaves.current = PASSOS_RETORNO
     }
 
     const aoMover = (e: PointerEvent): void => {
-      const [px, py] = posicao(e)
+      const [cx, cy] = posicao(e)
       const arr = arrastando.current
 
       if (arr) {
         // Passou da folga? Então é arrasto, e não clique. A folga existe
         // porque a mão treme: sem ela, um clique com dois pixels de tremor
         // vira arrasto e a nota não abre.
-        if (!arr.mexeu && Math.hypot(px - arr.ox, py - arr.oy) > FOLGA_CLIQUE) {
+        if (!arr.mexeu && Math.hypot(cx - arr.ox, cy - arr.oy) > FOLGA_CLIQUE) {
           arr.mexeu = true
         }
-        if (arr.no) {
-          const [gx, gy] = paraGrafo(px, py)
-          arr.no.x = gx
-          arr.no.y = gy
+        if (arr.i >= 0) {
+          const [gx, gy] = paraGrafo(cx, cy)
+          px[arr.i] = gx
+          py[arr.i] = gy
           // Um punhado de quadros a cada movimento: os vizinhos acompanham o
           // nó puxado em vez de ficarem congelados enquanto ele passeia. E o
           // modo suave é renovado, para não expirar no meio do arrasto.
@@ -925,44 +1503,61 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
           // Arrasto no vazio move a câmera. Dividido pela escala porque o
           // deslocamento do dedo é em pixels e a câmera vive no espaço do
           // grafo — sem isso o mundo escorrega mais rápido que o dedo.
-          camera.current.x -= (px - arr.px) / camera.current.escala
-          camera.current.y -= (py - arr.py) / camera.current.escala
-          arr.px = px
-          arr.py = py
+          camera.current.x -= (cx - arr.px) / camera.current.escala
+          camera.current.y -= (cy - arr.py) / camera.current.escala
+          // O alvo acompanha, senão a câmera desliza de volta no quadro
+          // seguinte e o arrasto não sai do lugar.
+          alvoCamera.current.x = camera.current.x
+          alvoCamera.current.y = camera.current.y
+          ancora.current = null
+          arr.px = cx
+          arr.py = cy
         }
+        sujo.current = true
         return
       }
 
-      const n = noPonto(px, py)
-      sobreRef.current = n
-      setSobre(atual => (atual?.id === n?.id ? atual : n))
+      const i = noPonto(cx, cy)
+      const no = i === -2 ? centro : i >= 0 ? nos[i] : null
+      if (sobreRef.current?.id !== no?.id) sujo.current = true
+      sobreRef.current = no
+      setSobre(atual => (atual?.id === no?.id ? atual : no))
     }
 
     const aoSubir = (e: PointerEvent): void => {
       const arr = arrastando.current
-      if (arr?.no) {
-        arr.no.preso = false
+      if (arr && arr.i >= 0) {
         if (arr.mexeu) {
           // Arrastou: o nó volta para a física por um tempo contado e é
           // puxado na direção de onde saiu — sem chegar inteiro, porque os
           // quadros acabam antes. Ver `PASSOS_RETORNO`.
-          restantes.current = Math.max(restantes.current, PASSOS_RETORNO)
+          //
+          // Se ele foi largado FORA da parede, o retorno precisa durar o
+          // bastante para a parede recolher o excesso; senão o nó ficaria
+          // parado no vazio, longe do desenho.
+          const rx = px[arr.i] - CENTRO, ry = py[arr.i] - CENTRO
+          const fora = Math.sqrt(rx * rx + ry * ry) > raioParede
+          const quadros = fora ? PASSOS_RETORNO * 3 : PASSOS_RETORNO
+          restantes.current = Math.max(restantes.current, quadros)
           // A volta usa o MESMO passo gentil do arrasto: é o que evita o
           // tranco no instante em que o dedo levanta.
-          suaves.current = PASSOS_RETORNO
+          suaves.current = Math.max(suaves.current, quadros)
         } else {
           // Tag e nota inexistente não são arquivo: não há o que abrir.
-          if (arr.no.especie === 'nota') aoAbrir(arr.no.id)
+          const no = nos[arr.i]
+          if (no.especie === 'nota') aoAbrir(no.id)
         }
       }
       arrastando.current = null
       canvas.style.cursor = 'default'
       canvas.releasePointerCapture(e.pointerId)
+      sujo.current = true
     }
 
     const aoSair = (): void => {
       sobreRef.current = null
       setSobre(null)
+      sujo.current = true
     }
 
     /*
@@ -973,36 +1568,18 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
      * uma fração da distância até ele — o resultado é contínuo mesmo com o
      * evento chegando aos trancos, e continua respondendo na hora, porque a
      * primeira fração é a maior.
-     *
-     * A âncora guarda que ponto do grafo estava sob o cursor. Enquanto a
-     * escala caminha, a câmera é recolocada a cada quadro para esse ponto
-     * continuar exatamente sob o mesmo pixel — sem isso o zoom afasta
-     * justamente do que a pessoa está olhando.
      */
     const aoRolar = (e: WheelEvent): void => {
       e.preventDefault()
-      const [px, py] = posicao(e)
-      const [gx, gy] = paraGrafo(px, py)
-      ancora.current = { gx, gy, px, py }
-      alvoEscala.current = Math.min(
-        9000, Math.max(60, alvoEscala.current * (e.deltaY < 0 ? PASSO_ZOOM : 1 / PASSO_ZOOM))
+      const [cx, cy] = posicao(e)
+      const [gx, gy] = paraGrafo(cx, cy)
+      ancora.current = { gx, gy, px: cx, py: cy }
+      suavidadeCamera.current = SUAVIDADE_ZOOM
+      alvoCamera.current.escala = Math.min(
+        9000,
+        Math.max(60, alvoCamera.current.escala * (e.deltaY < 0 ? PASSO_ZOOM : 1 / PASSO_ZOOM))
       )
-    }
-
-    /** Caminha um passo da escala atual em direção ao alvo. */
-    const seguirZoom = (): void => {
-      const alvo = alvoEscala.current
-      const atual = camera.current.escala
-      if (Math.abs(alvo - atual) < atual * 0.001) {
-        camera.current.escala = alvo
-        return
-      }
-      camera.current.escala = atual + (alvo - atual) * SUAVIDADE_ZOOM
-      const anc = ancora.current
-      if (!anc) return
-      // Recoloca a câmera para o ponto ancorado ficar sob o mesmo pixel.
-      camera.current.x = anc.gx - (anc.px - l / 2) / camera.current.escala
-      camera.current.y = anc.gy - (anc.py - a / 2) / camera.current.escala
+      sujo.current = true
     }
 
     canvas.addEventListener('pointerdown', aoDescer)
@@ -1013,6 +1590,15 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
 
     return () => {
       cancelAnimationFrame(quadro)
+      // As posições voltam para os objetos, e daí para a memória do módulo:
+      // é o que faz trocar de lente e voltar não custar nada.
+      for (let i = 0; i < n; i++) { nos[i].x = px[i]; nos[i].y = py[i] }
+      memoria = {
+        nos: dadosRef.current?.nos ?? nos,
+        arestas: dadosRef.current?.arestas ?? grafo.arestas,
+        camera: { ...camera.current }
+      }
+      document.removeEventListener('visibilitychange', aoTrocarVisibilidade)
       window.removeEventListener('resize', aoRedimensionar)
       canvas.removeEventListener('pointerdown', aoDescer)
       canvas.removeEventListener('pointermove', aoMover)
@@ -1020,7 +1606,7 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       canvas.removeEventListener('pointerleave', aoSair)
       canvas.removeEventListener('wheel', aoRolar)
     }
-  }, [grafo, vizinhos, ordemAnimacao, aoAbrir])
+  }, [grafo, vizinhos, ordemAnimacao, centro, aoAbrir])
 
   const mudar = <C extends keyof Ajustes>(campo: C, valor: Ajustes[C]): void => {
     setAjustes(a => ({ ...a, [campo]: valor }))
@@ -1031,8 +1617,12 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     // mudando aos trancos não deixa comparar antes e depois. Com o passo
     // cheio a rede inteira se sacudia a cada arrasto do dedo no controle.
     suaves.current = Math.max(suaves.current, PASSOS_AJUSTE)
+    sujo.current = true
   }
 
+  const visiveis = grafo
+    ? (foco === null ? grafo.nos.length : grafo.nos.filter(n => n.grupo === foco).length)
+    : 0
   const ligados = grafo ? grafo.nos.filter(n => n.grau > 0).length : 0
 
   return (
@@ -1041,7 +1631,7 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         <div className="cerebro-conta">
           {grafo
             ? <>
-                <strong>{grafo.nos.length}</strong> notas
+                <strong>{visiveis}</strong> {foco === null ? 'notas' : `em ${foco}`}
                 <span className="sep">·</span>
                 <strong>{grafo.arestas.length}</strong> ligações
                 <span className="sep">·</span>
@@ -1059,12 +1649,15 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
             type="search"
             value={busca}
             placeholder="acender uma nota"
-            onChange={e => setBusca(e.target.value)}
+            onChange={e => { setBusca(e.target.value); marcarSujo() }}
           />
 
           <button
             className="btn-fantasma"
-            onClick={() => { animacao.current = { ativa: true, comeco: performance.now() } }}
+            onClick={() => {
+              animacao.current = { ativa: true, comeco: performance.now() }
+              marcarSujo()
+            }}
             title="Ver a rede se formando, do nó mais ligado ao menos"
           >
             Animar
@@ -1072,14 +1665,8 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
 
           <button
             className="btn-fantasma"
-            onClick={() => {
-              // Solta os nós presos e sacode. Sem isto, quem arrastasse
-              // muita coisa não teria caminho de volta.
-              for (const n of grafo?.nos ?? []) n.preso = false
-              restantes.current = PASSOS_ANTES
-              precisaEnquadrar.current = true
-            }}
-            title="Sacudir a rede e reenquadrar"
+            onClick={() => { pedidoDeslize.current = 1; marcarSujo() }}
+            title="Levar cada nó de volta ao lugar de repouso"
           >
             Reorganizar
           </button>
@@ -1100,15 +1687,24 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       <div className="cerebro-tela">
         <canvas ref={canvasRef} />
 
-        {/* A legenda é o que torna a cor legível. Sem ela são sete cores;
-            com ela, são sete pastas. */}
+        {/* A legenda é o que torna a cor legível — e o filtro. Sem ela são
+            sete cores; com ela, sete pastas em que se pode entrar. */}
         {grupos.length > 0 && (
           <div className="cerebro-legenda">
             {grupos.map(g => (
-              <span key={g.nome} className="cerebro-grupo">
+              <button
+                key={g.nome}
+                type="button"
+                className={'cerebro-grupo' + (foco === g.nome ? ' is-ativo' : '')}
+                aria-pressed={foco === g.nome}
+                onClick={() => setFoco(f => (f === g.nome ? null : g.nome))}
+                title={foco === g.nome
+                  ? 'Mostrar a rede inteira de novo'
+                  : `Ver só ${g.nome} e as ligações dentro dele`}
+              >
                 <i style={{ background: corDaPasta(g.nome) }} />
                 {g.nome} <b>{g.quantas}</b>
-              </span>
+              </button>
             ))}
           </div>
         )}
@@ -1152,9 +1748,11 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
                 <input
                   type="color"
                   value={corDaPasta(g.nome)}
-                  onChange={e => setAjustes(a => ({
-                    ...a, cores: { ...a.cores, [g.nome]: e.target.value }
-                  }))}
+                  onChange={e => {
+                    const cor = e.target.value
+                    setAjustes(a => ({ ...a, cores: { ...a.cores, [g.nome]: cor } }))
+                    marcarSujo()
+                  }}
                 />
                 <span>{g.nome}</span>
                 <b>{g.quantas}</b>
@@ -1163,7 +1761,14 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
 
             <button
               className="btn-fantasma cerebro-restaurar"
-              onClick={() => { setAjustes(AJUSTES_PADRAO); restantes.current = PASSOS_ANTES }}
+              onClick={() => {
+                setAjustes(AJUSTES_PADRAO)
+                // Deslize, e não reaquecimento: restaurar o padrão muda as
+                // forças, e a rede caminha até o novo repouso em vez de se
+                // sacudir até achá-lo.
+                pedidoDeslize.current = 1
+                marcarSujo()
+              }}
             >
               Restaurar o padrão
             </button>
@@ -1178,7 +1783,9 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
                 ? 'etiqueta'
                 // Dizer que a nota não existe é o dado mais útil aqui: é o
                 // que separa "abre" de "ainda vou escrever".
-                : sobre.especie === 'inexistente' ? 'ainda não existe' : sobre.grupo}
+                : sobre.especie === 'inexistente' ? 'ainda não existe'
+                : sobre.especie === 'centro' ? 'o vault inteiro'
+                : sobre.grupo}
               {' · '}{sobre.grau} {sobre.grau === 1 ? 'ligação' : 'ligações'}
             </span>
           </div>
