@@ -56,9 +56,11 @@
   --atencao-fraco:rgba(138,98,18,.12);
 
   /* — Raio — */
-  --r1: 8px;
-  --r2: 13px;
-  --r3: 20px;
+  /* Mais arredondado em toda parte, a pedido: o raio é o que dá o tom macio
+     que o desenho tem. */
+  --r1: 11px;
+  --r2: 16px;
+  --r3: 24px;
 
   /* — Espaçamento — */
   --e1: 4px;  --e2: 8px;  --e3: 12px;
@@ -165,7 +167,7 @@ body{
   padding: 0 0 calc(var(--alt-barra) + var(--baixo-seguro));
 }
 .bloco{ padding:0 var(--e4); }
-.bloco + .bloco{ margin-top:var(--e5); }
+.bloco + .bloco{ margin-top:var(--e6); }
 
 /* — Tela de pouca coisa —
    Ajustes conectado tem duas coisas na tela: o estado e a saída para trocar
@@ -255,12 +257,20 @@ body{
 
 /* ─────────────── 3. SEÇÃO ─────────────── */
 
+/* O título da seção: maior, em caixa alta, com o respiro de CIMA maior que o
+   de baixo. A distância acima é o que separa duas seções; a de baixo só
+   descola o título do próprio conteúdo — igualar as duas faz cada bloco
+   flutuar sem dono. */
 .rotulo-secao{
-  font:600 11.5px/1 var(--fonte); letter-spacing:.13em; text-transform:uppercase;
-  color:var(--txt-3); margin:0 0 var(--e3); padding:0 2px;
+  font:800 13.5px/1 var(--fonte); letter-spacing:.1em; text-transform:uppercase;
+  color:var(--txt-2); margin:var(--e5) 0 var(--e4); padding:0 2px;
   display:flex; align-items:baseline; justify-content:space-between; gap:var(--e2);
 }
-.rotulo-secao .contagem{ letter-spacing:.04em; color:var(--txt-3); font-weight:500; }
+.rotulo-secao:first-child{ margin-top:var(--e2); }
+.rotulo-secao .contagem{
+  font-family:var(--fonte-num); letter-spacing:.02em;
+  color:var(--acento); font-weight:700; text-transform:none;
+}
 
 /* Estado vazio de seção: uma linha de texto e nada mais.
    Nunca pesa mais do que o conteúdo real pesaria. */
@@ -384,9 +394,10 @@ body{
 .item-ver{
   flex:none; width:52px;
   display:flex; align-items:center; justify-content:center;
-  background:transparent; border:none; border-left:1px solid var(--borda);
-  color:var(--txt-3); cursor:pointer;
-  border-radius:0 var(--r2) var(--r2) 0;
+  /* Sem linha à esquerda: dentro de um grupo ela cruzava o meio da linha e
+     picotava a lista. O alvo do dedo continua o mesmo, 52 px de largura. */
+  background:transparent; border:none;
+  color:var(--txt-3); cursor:pointer; border-radius:var(--r2);
 }
 .item-ver svg{ transition:transform .18s ease; }
 .item-ver[aria-expanded='true']{ color:var(--acento); }
@@ -457,7 +468,7 @@ body{
 /* A estrela acende a borda inteira, e não só a si mesma: numa lista de
    recados iguais, um ícone pequeno no canto se perde. */
 .anotada[data-prioridade='sim']{
-  border-color:var(--acento-linha); background:var(--acento-fraco);
+  border-color:var(--acento-linha);
 }
 .anotada-estrela{ color:var(--acento); font-size:14px; line-height:1.45; flex:none; }
 
@@ -863,11 +874,14 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
    telas. A margem negativa devolve o espaço que o `#raiz` reserva para aquele
    cabeçalho — desconto dos MESMOS tokens que criam a reserva, para os dois
    nunca divergirem. */
+/* Sem margem negativa: ela existia para cancelar a reserva que o `#raiz`
+   fazia para o cabeçalho fixo. O cabeçalho virou título em fluxo, a reserva
+   sumiu — e a margem, que ficou órfã, estava puxando a saudação 68 px para
+   FORA da tela. Era esse o "a parte de cima do Hoje sumiu". */
 .hoje-abertura{
   display:flex; align-items:flex-start; justify-content:space-between;
-  gap:var(--e3); padding:0 var(--e4) var(--e4);
-  margin-top: calc(-1 * (var(--alt-cabecalho) + var(--e4)));
-  padding-top: calc(var(--topo-seguro) + 18px);
+  gap:var(--e3);
+  padding: calc(var(--topo-seguro) + 30px) var(--e4) 20px;
 }
 .hoje-abertura-txt{ min-width:0; }
 .hoje-data{
@@ -912,13 +926,20 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
    grupo eles perdem moldura própria e ganham o fio de cima. */
 .grupo{
   background:var(--painel); border:1px solid var(--borda);
-  border-radius:var(--r3); padding:4px 18px 6px;
-  margin-bottom:var(--e5);
+  border-radius:var(--r3); padding:6px 20px 10px;
+  margin-bottom:var(--e6);
 }
 /* O título entra no cartão, e por isso perde o recuo e a margem que ele tem
    quando é cabeçalho de bloco solto. */
-.grupo > .secao{
-  margin:0; padding:14px 0 4px;
+/* O título entra NO cartão, e por isso larga a margem que ele tem quando é
+   cabeçalho de bloco solto — ali ele separa duas seções, aqui ele é a primeira
+   linha da própria. Também deixa a caixa alta: dentro do cartão o nome fica
+   ao lado da contagem, e maiúscula de caixa toda ao lado de um número vira
+   ruído. É o único lugar onde o título não é em caps. */
+.grupo > .rotulo-secao{
+  margin:0; padding:16px 0 6px;
+  font-size:14.5px; letter-spacing:-.01em; text-transform:none;
+  color:var(--txt);
 }
 .grupo > .item,
 .grupo > .item-par,
@@ -930,12 +951,12 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 }
 /* O primeiro de cada grupo não leva fio: ele encosta no título, e um fio ali
    separaria o título do próprio conteúdo dele. */
-.grupo > .secao + .item,
-.grupo > .secao + .item-par,
-.grupo > .secao + .com-corpo > .item,
-.grupo > .secao + .com-corpo > .item-par{ border-top:0; }
+.grupo > .rotulo-secao + .item,
+.grupo > .rotulo-secao + .item-par,
+.grupo > .rotulo-secao + .com-corpo > .item,
+.grupo > .rotulo-secao + .com-corpo > .item-par{ border-top:0; }
 .grupo > .com-corpo{ border-top:1px solid var(--borda); }
-.grupo > .secao + .com-corpo{ border-top:0; }
+.grupo > .rotulo-secao + .com-corpo{ border-top:0; }
 .grupo > .com-corpo > .item-par{ border-top:0; }
 /* Feito continua legível dentro do grupo, mas sem pintar a linha inteira: o
    fundo verde que funcionava num cartão solto vira uma tarja no meio da
@@ -1329,3 +1350,195 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   transform:rotate(45deg);
 }
 .selecao select option{ background:var(--painel-alto); color:var(--txt); }
+
+/* ═══════════ DINHEIRO ═══════════ */
+
+.dinheiro-rotulo{
+  font-family:var(--fonte-num); font-size:10.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--txt-3); margin-bottom:8px;
+}
+/* O número do mês responde sozinho à pergunta da tela, e por isso é o maior
+   elemento dela. `tabular-nums` para o valor não dançar ao mudar de casa. */
+.dinheiro-grande{
+  font-family:var(--fonte-num); font-size:34px; font-weight:700;
+  letter-spacing:-.045em; color:var(--txt); line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.dinheiro-sub{
+  margin-top:10px; font-family:var(--fonte-num);
+  font-size:11px; color:var(--txt-3);
+}
+
+/* O porquinho é o único cartão escuro do app, nos DOIS temas: ele guarda o
+   dinheiro que não é para gastar, e a inversão de cor é o que separa isso do
+   saldo do mês logo acima. */
+.cofre{
+  background:#14161a; border-radius:var(--r3);
+  padding:20px; margin-bottom:var(--e4);
+}
+.cofre-topo{ display:flex; align-items:center; justify-content:space-between; gap:var(--e3); }
+.cofre-txt{ min-width:0; }
+.cofre-nome{ font-size:12px; color:rgba(255,255,255,.62); }
+.cofre-saldo{
+  font-family:var(--fonte-num); font-size:28px; font-weight:700;
+  color:#fff; letter-spacing:-.04em; margin-top:5px;
+  font-variant-numeric:tabular-nums;
+}
+.cofre-anel{
+  width:64px; height:64px; flex:none; border-radius:50%;
+  border:5px solid rgba(255,255,255,.16);
+  display:flex; align-items:center; justify-content:center;
+}
+.cofre-anel span{ font-family:var(--fonte-num); font-size:13px; font-weight:700; color:#fff; }
+.cofre-alvo{
+  margin-top:12px; font-family:var(--fonte-num);
+  font-size:10.5px; color:rgba(255,255,255,.5);
+}
+.cofre-acoes{ display:flex; gap:8px; margin-top:18px; }
+.cofre-campo{
+  flex:1; min-width:0; height:46px; border-radius:var(--r2);
+  border:1.5px solid rgba(255,255,255,.22); background:rgba(255,255,255,.06);
+  outline:none; padding:0 14px; color:#fff;
+  font:500 15px var(--fonte-num);
+}
+.cofre-campo::placeholder{ color:rgba(255,255,255,.38); }
+.cofre-btn{
+  flex:none; height:46px; padding:0 15px; border-radius:var(--r2); cursor:pointer;
+  font:700 12.5px var(--fonte); border:1.5px solid transparent;
+}
+.cofre-btn:disabled{ opacity:.4; cursor:default; }
+.cofre-guardar{ background:var(--acento); color:#fff; }
+.cofre-tirar{ background:transparent; border-color:rgba(255,255,255,.22); color:#fff; }
+
+.lanc-campos{ display:flex; gap:8px; margin-bottom:var(--e3); }
+.lanc-desc, .lanc-val{
+  height:46px; border-radius:var(--r2); outline:none; padding:0 13px;
+  border:1.5px solid var(--borda-forte); background:transparent; color:var(--txt);
+  font:400 13.5px var(--fonte); min-width:0;
+}
+.lanc-desc{ flex:1.4; }
+.lanc-val{ flex:1; font-family:var(--fonte-num); }
+.lanc-desc::placeholder, .lanc-val::placeholder{ color:var(--txt-4); }
+.lanc-botoes{ display:flex; gap:8px; margin-top:var(--e3); }
+.lanc-botoes .btn{ flex:1; min-height:44px; font-size:12.5px; padding:0; }
+
+.lanc-linha{
+  display:flex; align-items:center; gap:13px;
+  padding:13px 0; border-top:1px solid var(--borda);
+}
+.rotulo-secao + .lanc-linha{ border-top:0; }
+.lanc-ponto{
+  width:8px; height:8px; border-radius:50%; flex:none; background:var(--txt-4);
+}
+.lanc-ponto[data-entrada]{ background:var(--ok); }
+.lanc-txt{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.lanc-txt strong{ font-size:13.5px; font-weight:500; color:var(--txt); }
+.lanc-txt span{ font-family:var(--fonte-num); font-size:10.5px; color:var(--txt-3); }
+.lanc-valor{
+  flex:none; font-family:var(--fonte-num); font-size:13px; font-weight:700;
+  color:var(--txt); font-variant-numeric:tabular-nums;
+}
+.lanc-valor[data-entrada]{ color:var(--ok); }
+
+/* ═══════════ CORPO ═══════════ */
+
+.peso-topo{ display:flex; align-items:flex-end; gap:9px; }
+.peso-numero{
+  font-family:var(--fonte-num); font-size:44px; font-weight:700;
+  letter-spacing:-.05em; color:var(--txt); line-height:.95;
+  font-variant-numeric:tabular-nums;
+}
+.peso-unidade{ font-size:14px; color:var(--txt-3); padding-bottom:6px; }
+.peso-delta{
+  margin-left:auto; padding-bottom:8px;
+  font-family:var(--fonte-num); font-size:12.5px; font-weight:700; color:var(--acento);
+}
+
+/* As barras. Altura fixa no contêiner e percentual em cada coluna: é o que
+   deixa a comparação ser de ALTURA, que é como o olho lê um gráfico. */
+.peso-barras{
+  display:flex; align-items:flex-end; gap:7px;
+  height:104px; margin-top:20px;
+}
+.peso-col{
+  flex:1; min-width:0; display:flex; flex-direction:column;
+  align-items:center; gap:7px; justify-content:flex-end; height:100%;
+}
+.peso-barra{
+  width:100%; border-radius:6px 6px 3px 3px;
+  background:var(--painel-topo); min-height:4px;
+}
+/* A última é a de hoje, e é a única colorida: o gráfico responde "como estou
+   agora em relação às outras semanas", não "qual semana foi qual". */
+.peso-barra.ultima{ background:var(--acento); }
+.peso-rot{
+  font-family:var(--fonte-num); font-size:9px; color:var(--txt-4);
+  white-space:nowrap;
+}
+
+.peso-acoes{ display:flex; gap:8px; margin-top:18px; }
+.peso-campo{
+  flex:1; min-width:0; height:46px; border-radius:var(--r2); outline:none;
+  border:1.5px solid var(--borda-forte); background:transparent;
+  padding:0 14px; color:var(--txt);
+  font:500 15px var(--fonte-num);
+}
+.peso-campo::placeholder{ color:var(--txt-4); }
+.peso-salvar{ flex:none; width:auto; padding:0 20px; min-height:46px; font-size:13px; }
+
+.medidas-grade{
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:var(--e4);
+}
+.medida-cartao{
+  display:flex; flex-direction:column; gap:5px; padding:15px 16px;
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r3);
+}
+.medida-nome{ font-size:11.5px; color:var(--txt-3); }
+.medida-valor{
+  font-family:var(--fonte-num); font-size:21px; font-weight:700;
+  letter-spacing:-.04em; color:var(--txt);
+}
+.medida-valor i{ font-style:normal; font-size:12px; margin-left:4px; color:var(--txt-3); }
+.medida-delta{ font-family:var(--fonte-num); font-size:10.5px; color:var(--acento); }
+
+.cardio-linha{
+  display:flex; align-items:center; gap:13px;
+  padding:12px 0; border-top:1px solid var(--borda);
+}
+.rotulo-secao + .cardio-linha{ border-top:0; }
+.cardio-dia{
+  width:34px; height:34px; flex:none; border-radius:var(--r1);
+  background:var(--painel-topo); color:var(--txt-2);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fonte-num); font-size:10px; font-weight:700; text-transform:uppercase;
+}
+.cardio-txt{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.cardio-txt strong{ font-size:13.5px; font-weight:500; color:var(--txt); text-transform:capitalize; }
+.cardio-txt span{ font-family:var(--fonte-num); font-size:10.5px; color:var(--txt-3); }
+.cardio-min{
+  flex:none; font-family:var(--fonte-num); font-size:13px;
+  font-weight:700; color:var(--txt);
+}
+
+/* ═══════════ NOTAS ═══════════ */
+
+/* A barrinha à esquerda diz o que a nota é sem gastar uma linha para isso, e
+   corre a altura inteira do cartão — o que um ícone no topo não faz quando o
+   texto tem cinco linhas. */
+.nota-barra{
+  width:5px; flex:none; align-self:stretch; border-radius:99px;
+  background:var(--txt-4); margin:14px 0 14px 14px;
+}
+.nota[data-tom='pri'] .nota-barra{ background:var(--acento); }
+.nota[data-tom='hoje'] .nota-barra{ background:var(--txt); }
+.nota[data-tom='pri']{ border-color:var(--acento-linha); }
+.nota-etiqueta{
+  display:block; font-family:var(--fonte-num); font-size:9.5px; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase;
+  color:var(--txt-3); margin-bottom:7px;
+}
+.nota[data-tom='pri'] .nota-etiqueta{ color:var(--acento-forte); }
+.nota-quando{
+  display:block; margin-top:7px;
+  font-family:var(--fonte-num); font-size:10px; color:var(--txt-3);
+}

@@ -42,17 +42,37 @@ export function tituloDoGrupo(data: string, hoje: string): string {
     : `${d} de ${MESES[m - 1]} de ${a}`
 }
 
-/** Uma nota da lista. Abre e fecha pela seta, como a tarefa do Hoje. */
-function Nota({ a }: { a: AnotacaoPublicada }) {
+/**
+ * Uma nota da lista.
+ *
+ * A barrinha à esquerda faz o trabalho que a estrela fazia: diz o que a nota é
+ * sem gastar uma linha para isso. Azul é prioridade, escura é de hoje, cinza é
+ * o resto — e como ela corre a altura inteira do cartão, funciona também
+ * quando o texto tem cinco linhas, o que um ícone no topo não faz.
+ */
+function Nota({ a, etiqueta, hoje }: {
+  a: AnotacaoPublicada
+  /** `PRIORIDADE`, `DE HOJE` — a faixa miúda dentro do cartão. */
+  etiqueta?: string
+  hoje: string
+}) {
   const [aberto, setAberto] = useState(false)
+  const tom = a.prioridade ? 'pri' : a.data === hoje ? 'hoje' : 'normal'
 
   return (
-    <div className="nota" data-prioridade={a.prioridade ? 'sim' : undefined}>
+    <div className="nota" data-tom={tom}>
       <div className="nota-linha">
+        <span className="nota-barra" aria-hidden="true" />
         <div className="nota-corpo">
-          {a.prioridade && <span className="anotada-estrela" aria-label="prioridade">★</span>}
+          {etiqueta && <span className="nota-etiqueta">{etiqueta}</span>}
           <p className="anotada-texto">{a.texto}</p>
-          {a.permanente && <span className="anotada-marca">fixa</span>}
+          <span className="nota-quando">
+            {a.data === undefined
+              ? 'fixa'
+              : a.data === hoje
+                ? 'hoje'
+                : tituloDoGrupo(a.data, hoje)}
+          </span>
         </div>
         {/* Mesma seta da tarefa do Hoje, pelo mesmo motivo: o texto longo
             fica guardado até alguém pedir, e a lista continua sendo lista. */}
@@ -219,18 +239,18 @@ export function Notas(p: {
         )}
 
         {prioritarias.length > 0 && <Secao nome="Prioridade" />}
-        {prioritarias.map(a => <Nota key={`pri:${a.titulo}`} a={a} />)}
+        {prioritarias.map(a => <Nota key={`pri:${a.titulo}`} a={a} hoje={hoje} etiqueta="prioridade" />)}
 
         {deHoje.length > 0 && <Secao nome="De hoje" contagem={String(deHoje.length)} />}
-        {deHoje.map(a => <Nota key={`hoje:${a.titulo}`} a={a} />)}
+        {deHoje.map(a => <Nota key={`hoje:${a.titulo}`} a={a} hoje={hoje} etiqueta="de hoje" />)}
 
         {fixas.length > 0 && <Secao nome="Fixas" />}
-        {fixas.map(a => <Nota key={`fixa:${a.titulo}`} a={a} />)}
+        {fixas.map(a => <Nota key={`fixa:${a.titulo}`} a={a} hoje={hoje} />)}
 
         {grupos.map(g => (
           <div key={g.data}>
             <Secao nome={tituloDoGrupo(g.data, hoje)} contagem={String(g.itens.length)} />
-            {g.itens.map(a => <Nota key={`${g.data}:${a.titulo}`} a={a} />)}
+            {g.itens.map(a => <Nota key={`${g.data}:${a.titulo}`} a={a} hoje={hoje} />)}
           </div>
         ))}
 

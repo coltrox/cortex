@@ -317,7 +317,7 @@ export function Hoje(p: {
     await Promise.all([p.cardapio.atualizar(), p.envio.drenar()])
   }, [p.cardapio, p.envio]))
 
-  const { naFila, enviando, avisos } = p.envio.estado
+  const { avisos } = p.envio.estado
 
   /*
    * A fração do dia, montada das MESMAS listas que a tela desenha.
@@ -399,17 +399,18 @@ export function Hoje(p: {
         </div>
         <div className="hoje-abertura-dir">
           {/*
-            * O selo só aparece quando há o que dizer.
+            * Sem selo de envio, a pedido do dono.
             *
-            * "tudo enviado" é o estado normal — quase o tempo todo. Um aviso
-            * permanentemente aceso não avisa nada: vira cenário e o olho para
-            * de ler. Sem ele, a própria PRESENÇA do selo é a informação.
+            * Havia aqui "enviando…" e "N na fila". A fila continua existindo e
+            * continua funcionando sem sinal — o que saiu foi só o aviso na
+            * tela. O registro que falta subir não é problema de quem
+            * registrou: ele sobe sozinho na próxima vez que houver rede, e
+            * mostrar isso a cada toque transformava um detalhe de encanamento
+            * em preocupação.
+            *
+            * O que CONTINUA aparecendo é o erro de verdade — registro
+            * recusado —, logo abaixo, porque aí sim há o que fazer.
             */}
-          {(enviando || naFila > 0) && (
-            <span className="hoje-selo" data-tom={enviando ? 'envia' : 'fila'}>
-              {enviando ? 'enviando…' : `${naFila} na fila`}
-            </span>
-          )}
           <button
             className="hoje-ajustes"
             type="button"
@@ -638,11 +639,8 @@ export function Hoje(p: {
             )}
           />
         ))}
+        </div>}
 
-        {/* Logo abaixo das tarefas: o que estava para fazer, e em seguida o
-            que aconteceu. As duas metades da mesma pergunta — "como foi
-            hoje?" — e é por isso que a lista fica aqui, e não numa aba
-            própria que ninguém abriria. */}
         {/*
           * Estudo, comprido, antes do Chegando.
           *
@@ -678,12 +676,11 @@ export function Hoje(p: {
                 <span className="chega-falta">{faltam(dataDe(i), dia)}</span>
               </div>
             ))}
-            <button className="grupo-mais" type="button" onClick={() => p.irPara('agenda')}>
-              Ver tudo o que está marcado
-            </button>
           </div>
         )}
 
+        {/* Logo abaixo: o que estava para fazer, e em seguida o que
+            aconteceu. As duas metades da mesma pergunta — "como foi hoje?" */}
         {(publicadas.length > 0 || locais.length > 0) && <Secao nome="Anotações de hoje" />}
         {publicadas.map(a => (
           <Anotada key={`vault:${a.titulo}`} texto={a.texto} prioridade={a.prioridade}
@@ -692,8 +689,6 @@ export function Hoje(p: {
         {locais.map((a, i) => (
           <Anotada key={`aqui:${i}:${a.texto}`} texto={a.texto} prioridade={a.prioridade} soAqui />
         ))}
-
-        </div>}
 
         {vazio && !p.cardapio.erro && (
           <p className="secao-vazia">

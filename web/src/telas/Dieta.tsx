@@ -99,19 +99,11 @@ export function Dieta(p: {
   const marcadas = refeicoes.filter(r => marcada(r.nome, r.detalhe.feito === true)).length
   const fracao = planejadas > 0 ? Math.min(1, comidas / planejadas) : 0
 
-  const { naFila, enviando } = p.envio.estado
 
   return (
     <div className="tema-hoje">
       <Cabecalho
         titulo="Dieta"
-        estado={
-          enviando
-            ? { texto: 'enviando…', tom: 'envia' as const }
-            : naFila > 0
-              ? { texto: `${naFila} na fila`, tom: 'fila' as const }
-              : undefined
-        }
       />
 
       <div className="bloco">

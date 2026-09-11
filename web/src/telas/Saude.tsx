@@ -114,19 +114,11 @@ export function Saude(p: {
     p.envio.registrar(eventoAgua(ml, dia))
   }
 
-  const { naFila, enviando } = p.envio.estado
 
   return (
     <div className="tema-hoje">
       <Cabecalho
         titulo="Saúde"
-        estado={
-          enviando
-            ? { texto: 'enviando…', tom: 'envia' as const }
-            : naFila > 0
-              ? { texto: `${naFila} na fila`, tom: 'fila' as const }
-              : undefined
-        }
       />
 
       <div className="bloco">

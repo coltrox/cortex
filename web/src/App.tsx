@@ -20,6 +20,8 @@ import { Porquinho } from './telas/Porquinho'
 import { Ajustes } from './telas/Ajustes'
 import { Dieta } from './telas/Dieta'
 import { Saude } from './telas/Saude'
+import { Dinheiro } from './telas/Dinheiro'
+import { Corpo } from './telas/Corpo'
 
 /**
  * A tela da câmera vem em separado, e só quando alguém abre.
@@ -217,8 +219,10 @@ export function App() {
           e cobrem o mesmo assunto. É degrau, não destino: cada uma será
           trocada pela tela do desenho, uma por vez, para o app nunca ficar
           com aba que abre em branco no meio do caminho. */}
-      {(tela === 'medidas' || tela === 'corpo') && <Medidas envio={envio} irPara={setTela} />}
-      {(tela === 'gasto' || tela === 'dinheiro') && <Gasto envio={envio} irPara={setTela} />}
+      {tela === 'medidas' && <Medidas envio={envio} irPara={setTela} />}
+      {tela === 'corpo' && <Corpo envio={envio} cardapio={cardapio} irPara={setTela} />}
+      {tela === 'gasto' && <Gasto envio={envio} irPara={setTela} />}
+      {tela === 'dinheiro' && <Dinheiro envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'porquinho' && <Porquinho envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'anotacao' && <Anotacao envio={envio} irPara={setTela} />}
       {tela === 'notas' && <Notas cardapio={cardapio} envio={envio} irPara={setTela} />}
