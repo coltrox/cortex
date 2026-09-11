@@ -27,7 +27,8 @@ const ROTULO: Record<Linha['tipo'], string> = {
 const TIPOS_MARCAR: [TipoNovo, string][] = [
   ['compromisso', 'Compromisso'],
   ['prova', 'Prova'],
-  ['tarefa', 'Tarefa']
+  ['tarefa', 'Tarefa'],
+  ['comemorativa', 'Data comemorativa']
 ]
 
 /**
@@ -388,14 +389,24 @@ export function Agenda(p: {
       <div className={`item item-acao ${apagado ? 'item-feito' : ''}`}
         key={path || i.nome}>
         <div className="item-corpo">
-          <span className="item-tipo">{ROTULO.compromisso}</span>
+          {/* A data comemorativa sobe como compromisso — a espécie é a mesma
+              para não precisar mexer no banco —, e é a marca no detalhe que
+              faz a etiqueta dizer o que aquilo é de verdade. */}
+          <span className="item-tipo">
+            {i.detalhe.comemorativa === true
+              ? (txt(i.detalhe.oque) || 'Data comemorativa')
+              : ROTULO.compromisso}
+          </span>
           <div className="item-nome">{i.nome}</div>
           <Quando
             data={dataCurta(dataDe(i), dia)}
             falta={faltam(dataDe(i), dia)}
             hora={txt(i.detalhe.hora)}
           />
-          <Sobre partes={[i.detalhe.local]} />
+          <Sobre partes={[
+            i.detalhe.local,
+            typeof i.detalhe.anos === 'number' ? `faz ${i.detalhe.anos} anos` : ''
+          ]} />
         </div>
         {/* Editar antes de excluir: mudar de horário é o que mais
             acontece, e cancelar é a saída. */}

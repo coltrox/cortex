@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 /**
  * Os componentes compartilhados, na marcação do sistema de design.
@@ -243,14 +243,76 @@ export function Selecao({ rotulo, opcoes, valor, aoMudar }: {
   valor: string
   aoMudar: (v: string) => void
 }) {
+  const [aberto, setAberto] = useState(false)
+  const caixa = useRef<HTMLDivElement>(null)
+
+  /*
+   * Fecha ao tocar fora, e ao apertar Esc.
+   *
+   * Sem isto a lista ficaria aberta enquanto a pessoa rolasse a tela, por cima
+   * do que ela foi ler — e o único jeito de fechar seria escolher alguma
+   * coisa, que é justamente o que ela pode não querer fazer.
+   */
+  useEffect(() => {
+    if (!aberto) return
+    const fora = (e: Event): void => {
+      if (!caixa.current?.contains(e.target as Node)) setAberto(false)
+    }
+    const tecla = (e: KeyboardEvent): void => { if (e.key === 'Escape') setAberto(false) }
+    document.addEventListener('pointerdown', fora)
+    document.addEventListener('keydown', tecla)
+    return () => {
+      document.removeEventListener('pointerdown', fora)
+      document.removeEventListener('keydown', tecla)
+    }
+  }, [aberto])
+
   return (
-    <label className="campo">
+    <div className="campo" ref={caixa}>
       <span className="campo-rotulo">{rotulo}</span>
-      <span className="selecao">
-        <select value={valor} onChange={e => aoMudar(e.target.value)}>
-          {opcoes.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-      </span>
-    </label>
+      {/*
+        * Lista própria, e não `<select>`.
+        *
+        * A lista de um `select` é desenhada pelo SISTEMA: ela ignora fonte,
+        * cor, raio e tema do app, e no Android abre branca com a faixa azul
+        * do sistema sobre um app escuro. Não há CSS que alcance aquilo — o
+        * único jeito de ela parecer deste app é ela ser deste app.
+        *
+        * O que se perde é a roda nativa do iPhone. O que se ganha é que as
+        * opções tenham a mesma cara do resto da tela, que é o pedido.
+        */}
+      <button
+        type="button"
+        className={`selecao-botao ${aberto ? 'selecao-aberta' : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={aberto}
+        onClick={() => setAberto(v => !v)}
+      >
+        <span>{valor}</span>
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5.5 7 9 10.5 12.5 7" />
+        </svg>
+      </button>
+
+      {aberto && (
+        <ul className="selecao-lista" role="listbox" aria-label={rotulo}>
+          {opcoes.map(o => (
+            <li key={o}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={o === valor}
+                className={`selecao-opcao ${o === valor ? 'selecao-escolhida' : ''}`}
+                onClick={() => { aoMudar(o); setAberto(false) }}
+              >
+                {o}
+                {o === valor && <i aria-hidden="true">✓</i>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

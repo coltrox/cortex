@@ -377,7 +377,12 @@ export function eventoItemApagado(path: string, dia: string = diaLocal()): Event
  */
 export function eventoItemEditado(
   path: string,
-  campos: { titulo?: string; data?: string; hora?: string; local?: string; materia?: string },
+  campos: {
+    titulo?: string; data?: string; hora?: string
+    local?: string; materia?: string
+    /** Só a anotação manda: nela o conteúdo mora no título E neste campo. */
+    texto?: string
+  },
   dia: string = diaLocal()
 ): Evento {
   const dados = comValor({
@@ -386,7 +391,8 @@ export function eventoItemEditado(
     data: campos.data?.trim(),
     hora: campos.hora?.trim(),
     local: campos.local?.trim(),
-    materia: campos.materia?.trim()
+    materia: campos.materia?.trim(),
+    texto: campos.texto?.trim()
   })
   // Só `path` significa "nada a mudar" — e um evento que não muda nada é
   // uma escrita à toa no vault.
@@ -489,4 +495,28 @@ function dataIso(data: string, dia: string): string {
   const quando = data.trim() || dia
   if (!/^\d{4}-\d{2}-\d{2}$/.test(quando)) throw new Error('data precisa ser AAAA-MM-DD')
   return quando
+}
+
+/**
+ * Uma data que se repete todo ano: aniversário, casamento, formatura.
+ *
+ * Vai como `compromisso` com a marca `comemorativa`, e não como um tipo de
+ * evento próprio. Um tipo novo precisaria entrar na lista `tipos_validos()`
+ * do banco, e isso obrigaria a rodar o SQL do Supabase de novo para o app
+ * fazer uma coisa que o Cortex já sabe fazer.
+ *
+ * A data vai inteira. O Cortex tira dela o dia e o mês, que é o que se repete;
+ * o ano ele só guarda quando for anterior ao corrente, porque aí ele é "quando
+ * começou" e serve para contar os anos. Um ano igual ao de hoje é só o padrão
+ * do seletor de data, e contá-lo anunciaria "faz 0 anos".
+ */
+export function eventoDataComemorativa(
+  titulo: string, data: string, dia: string = diaLocal()
+): Evento {
+  const quando = data.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(quando)) throw new Error('data precisa ser AAAA-MM-DD')
+  return validarEvento({
+    tipo: 'compromisso', dia,
+    dados: { titulo: texto(titulo, 'de quem'), data: quando, comemorativa: true }
+  })
 }

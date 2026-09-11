@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import {
-  diaLocal, eventoCompromisso, eventoItemEditado, eventoProvaNova, eventoTarefaNova
+  diaLocal, eventoCompromisso, eventoItemEditado, eventoProvaNova, eventoTarefaNova, eventoDataComemorativa
 } from '../montar'
 import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
 
 /** O que se pode marcar do celular na agenda. */
-export type TipoNovo = 'compromisso' | 'prova' | 'tarefa'
+export type TipoNovo = 'compromisso' | 'prova' | 'tarefa' | 'comemorativa'
 
 /**
  * O item que a tela abre preenchido, quando é edição e não criação.
@@ -57,6 +57,21 @@ const FORMA: Record<TipoNovo, {
     titulo: 'Nova tarefa', tituloEdicao: 'Mudar tarefa',
     rotuloNome: 'O quê', dicaNome: 'Trabalho de história',
     rotuloData: 'Prazo', temHora: false, temLocal: false, temMateria: true
+  },
+  /*
+   * Aniversário e afins.
+   *
+   * O campo continua sendo uma data inteira, e não dia e mês separados como no
+   * formulário do Cortex: no celular o seletor de data é um gesto só, e três
+   * campos numéricos seriam três teclados. O ANO que for digitado vira "quando
+   * começou" — é dele que sai o "faz 18 anos" —, e o Cortex ignora um ano que
+   * seja o corrente, porque aí ele é só o padrão do seletor.
+   */
+  comemorativa: {
+    titulo: 'Nova data comemorativa', tituloEdicao: 'Mudar data comemorativa',
+    rotuloNome: 'De quem, ou de quê', dicaNome: 'Aniversário da minha mãe',
+    rotuloData: 'Dia (use o ano de quando começou)',
+    temHora: false, temLocal: false, temMateria: false
   }
 }
 
@@ -89,6 +104,8 @@ export function NovoItem(p: {
         p.envio.registrar(eventoProvaNova(titulo, data, { materia, local }, hoje))
       } else if (p.tipo === 'tarefa') {
         p.envio.registrar(eventoTarefaNova(titulo, data, { materia }, hoje))
+      } else if (p.tipo === 'comemorativa') {
+        p.envio.registrar(eventoDataComemorativa(titulo, data, hoje))
       } else {
         p.envio.registrar(eventoCompromisso(titulo, data, {
           hora: hora || undefined, local: local || undefined

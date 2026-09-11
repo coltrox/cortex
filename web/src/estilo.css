@@ -1328,28 +1328,59 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
    abre a roda nativa do sistema, que é maior, rola com o polegar e já é
    conhecida. Uma lista própria seria mais bonita na captura de tela e pior
    na mão. O que se estiliza aqui é a caixa fechada, não a aberta. */
-.selecao{ position:relative; }
-.selecao select{
-  width:100%; min-height:var(--toque); padding:0 var(--e5) 0 var(--e4);
+/* ─────────────── O seletor, com lista própria ─────────────── */
+
+/* A lista de um `<select>` é desenhada pelo sistema: ignora fonte, cor, raio
+   e tema, e no Android abre branca com a faixa azul do sistema sobre um app
+   escuro. Por isso ela virou marcação nossa — ver `Selecao` em
+   `componentes.tsx`. Estes estilos são os da lista de verdade. */
+.campo{ position:relative; }
+
+.selecao-botao{
+  width:100%; min-height:var(--toque); padding:0 var(--e4);
+  display:flex; align-items:center; justify-content:space-between; gap:var(--e3);
   background:var(--painel); border:1px solid var(--borda); border-radius:var(--r2);
-  color:var(--txt); font:500 16px/1.2 var(--fonte);
+  color:var(--txt); font:500 16px/1.2 var(--fonte); text-align:left;
   outline:none; cursor:pointer;
   -webkit-appearance:none; appearance:none;
   transition:border-color .15s ease, background .15s ease;
 }
-.selecao select:focus{
-  border-color:var(--acento); background:var(--painel-alto);
-  box-shadow:0 0 0 3px var(--acento-fraco);
+.selecao-botao > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.selecao-botao svg{ flex:none; color:var(--txt-3); transition:transform .18s ease; }
+.selecao-botao:focus-visible{
+  border-color:var(--acento); box-shadow:0 0 0 3px var(--acento-fraco);
 }
-/* A seta é nossa: a nativa some com o appearance:none, e sem ela a caixa
-   parece um campo de texto que não aceita digitação. */
-.selecao::after{
-  content:''; position:absolute; right:var(--e4); top:50%;
-  width:8px; height:8px; margin-top:-6px; pointer-events:none;
-  border-right:2px solid var(--txt-3); border-bottom:2px solid var(--txt-3);
-  transform:rotate(45deg);
+.selecao-aberta{ border-color:var(--acento); background:var(--painel-alto); }
+.selecao-aberta svg{ transform:rotate(180deg); color:var(--acento); }
+
+/* Flutua sobre o conteúdo em vez de empurrá-lo: a lista aberta não pode
+   reorganizar a tela embaixo dela e mover o que a pessoa ia tocar. */
+.selecao-lista{
+  position:absolute; z-index:30; left:0; right:0; top:calc(100% + 6px);
+  margin:0; padding:6px; list-style:none;
+  background:var(--painel); border:1px solid var(--borda-forte); border-radius:var(--r2);
+  box-shadow:0 18px 40px rgba(0,0,0,.28);
+  max-height:min(52vh, 320px); overflow-y:auto;
+  animation:selecao-entra .14s ease;
 }
-.selecao select option{ background:var(--painel-alto); color:var(--txt); }
+@keyframes selecao-entra{
+  from{ opacity:0; transform:translateY(-4px); }
+  to{ opacity:1; transform:none; }
+}
+@media (prefers-reduced-motion: reduce){
+  .selecao-lista{ animation:none; }
+  .selecao-botao svg{ transition:none; }
+}
+
+.selecao-opcao{
+  width:100%; min-height:46px; padding:0 var(--e3);
+  display:flex; align-items:center; justify-content:space-between; gap:var(--e2);
+  background:transparent; border:0; border-radius:var(--r1);
+  color:var(--txt); font:500 15.5px/1.2 var(--fonte); text-align:left; cursor:pointer;
+}
+.selecao-opcao:hover{ background:var(--painel-topo); }
+.selecao-escolhida{ background:var(--acento-fraco); color:var(--acento-forte); font-weight:700; }
+.selecao-opcao i{ font-style:normal; font-size:13px; }
 
 /* ═══════════ DINHEIRO ═══════════ */
 
@@ -1619,14 +1650,6 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
    para o banco dizer o que ele já sabe. */
 .troca-salvar:disabled{ opacity:.4; cursor:default; }
 
-/* "só neste aparelho": a nota saiu do dedo mas ainda não deu a volta pelo
-   Cortex. Miúda e ao lado do quando — é ressalva, não alarme. */
-.nota-so-aqui{
-  font-style:normal; margin-left:8px; padding:2px 7px; border-radius:999px;
-  background:var(--painel-topo); color:var(--txt-3);
-  font-family:var(--fonte-num); font-size:9px; font-weight:700;
-  letter-spacing:.08em; text-transform:uppercase;
-}
 
 /* ═══════════ SEM ZOOM ═══════════ */
 
@@ -1650,12 +1673,6 @@ input, textarea, select{ font-size:16px; }
 .marcar .campo{ flex:1; min-width:0; margin-bottom:0; }
 .marcar-botao{ flex:none; width:auto; padding:0 var(--e5); min-height:var(--toque); }
 
-/* Nota recolhida: duas linhas, e a seta revela o resto. Uma lista em que cada
-   item tem cinco linhas deixa de ser lista — vira rolagem. */
-.anotada-recolhida{
-  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
-  overflow:hidden;
-}
 
 /* O cartão de medida agora é botão: tocar abre o campo no lugar do número. */
 .medida-toque{
@@ -1670,4 +1687,18 @@ input, textarea, select{ font-size:16px; }
   outline:none; -webkit-appearance:none; appearance:none;
 }
 .medida-campo::placeholder{ color:var(--txt-4); font-weight:600; }
-.medida-pendente{ color:var(--txt-3); }
+
+/* Editar e excluir a nota, atrás do "⋯". */
+.nota-mais{ font-size:18px; line-height:1; }
+.nota-acoes{
+  display:flex; gap:var(--e2); padding:0 var(--e4) var(--e3) 24px;
+}
+.nota-editar{ padding:0 var(--e4) var(--e3) 24px; }
+.nota-editar-campo{
+  width:100%; padding:var(--e3);
+  background:var(--painel-alto); border:1px solid var(--acento); border-radius:var(--r1);
+  color:var(--txt); font:500 16px/1.45 var(--fonte); resize:vertical;
+  outline:none; -webkit-appearance:none; appearance:none;
+}
+.nota-editar-acoes{ display:flex; gap:var(--e2); margin-top:var(--e2); }
+.nota-editar-acoes .btn{ width:auto; padding:0 var(--e4); min-height:44px; }

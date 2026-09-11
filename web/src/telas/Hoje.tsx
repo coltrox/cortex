@@ -40,7 +40,6 @@ function Anotada(p: {
           amassar as quebras faria a lista de recados virar um parágrafo só. */}
       <p className="anotada-texto">{p.texto}</p>
       {p.permanente && <span className="anotada-marca">fixa</span>}
-      {p.soAqui && <span className="anotada-marca">só neste aparelho</span>}
       {/* O corpo escrito no Cortex, com os links clicáveis. Fica embaixo e
           ocupa a linha toda: é onde moram as observações e o passo a passo,
           e antes nada disso saía do computador.

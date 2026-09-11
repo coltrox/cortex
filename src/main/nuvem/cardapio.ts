@@ -1,6 +1,7 @@
 import type { ItemCardapio } from '../../shared/eventos'
 import type { NoteComCampos } from '../index/queries'
 import { semDependenciasDaRede } from '../../shared/corpo'
+import { proximaOcorrencia, anosCompletados } from '../../shared/datas'
 import { txt, num, lista, listaDeTexto, comValor } from './util'
 
 /*
@@ -331,6 +332,37 @@ export function montarCardapio(
         data: txt(n.date),
         hora: txt(n.campos.hora),
         local: txt(n.campos.local)
+      })
+    })
+  }
+
+  /*
+   * As datas comemorativas, como compromissos da próxima vez que caem.
+   *
+   * Espécie `compromisso`, e não uma nova: o celular já sabe desenhar
+   * compromisso na aba Chegando, e uma espécie nova precisaria entrar na
+   * lista branca de `publicar_cardapio`, o que obrigaria a rodar o SQL do
+   * Supabase de novo. A marca `comemorativa` é o que faz a tela mudar a
+   * etiqueta e o ícone.
+   *
+   * A data publicada é a PRÓXIMA ocorrência, calculada aqui. Mandar dia e mês
+   * crus obrigaria o celular a refazer essa conta — e as duas pontas
+   * divergiriam no primeiro 29 de fevereiro.
+   */
+  for (const n of notas.filter(x => x.tipo === 'data-comemorativa')) {
+    const quando = proximaOcorrencia(num(n.campos.dia) ?? 0, num(n.campos.mes) ?? 0, hoje)
+    if (!quando || !aindaInteressa(quando, hoje)) continue
+    const anos = anosCompletados(n.campos.ano, quando)
+    out.push({
+      especie: 'compromisso',
+      nome: txt(n.title),
+      detalhe: comValor({
+        path: n.path,
+        data: quando,
+        comemorativa: true,
+        oque: txt(n.campos.oque),
+        // "faz 18 anos" só quando o ano de origem foi informado e faz sentido.
+        anos: anos !== null && anos > 0 ? anos : undefined
       })
     })
   }

@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { dobra } from '@compartilhado/busca'
-import { Marcacao } from '../marcacao'
-import { corpoVisivel } from '@compartilhado/corpo'
-import { diaLocal, eventoAnotacao } from '../montar'
+import { diaLocal, eventoAnotacao, eventoItemEditado, eventoItemApagado } from '../montar'
 import { guardadoDoNavegador } from '../guardado'
 import { guardarAnotacao, lerAnotacoes, conciliarAnotacoes } from '../anotacoes'
 import { todasAnotacoes, type AnotacaoPublicada } from '../cardapio'
@@ -16,16 +14,6 @@ const MESES = [
 ]
 
 const dois = (n: number): string => String(n).padStart(2, '0')
-
-/**
- * Quantas letras cabem nas duas linhas que o cartão mostra recolhido.
- *
- * É uma estimativa, e tem que ser: medir o parágrafo de verdade custaria um
- * `ResizeObserver` por nota. Errar para mais mostra uma seta que abre pouca
- * coisa; errar para menos esconderia texto sem dar como abrir — por isso o
- * número é folgado para baixo.
- */
-const LIMITE_RECOLHIDO = 80
 
 /**
  * O cabeçalho do grupo: "hoje", "ontem" ou a data por extenso.
@@ -61,36 +49,37 @@ export function tituloDoGrupo(data: string, hoje: string): string {
  * o resto — e como ela corre a altura inteira do cartão, funciona também
  * quando o texto tem cinco linhas, o que um ícone no topo não faz.
  */
-function Nota({ a, etiqueta, hoje, soAqui }: {
+function Nota({ a, etiqueta, hoje, aoEditar, aoExcluir }: {
   a: AnotacaoPublicada
   /** `PRIORIDADE`, `DE HOJE` — a faixa miúda dentro do cartão. */
   etiqueta?: string
   hoje: string
-  /**
-   * Escrita neste aparelho e ainda não devolvida pelo Cortex.
-   *
-   * É informação, não erro: com o computador desligado, este é o estado
-   * normal por horas. Omitir faria a nota parecer guardada no vault quando
-   * ela ainda está só aqui. Mesma marca que a tela Hoje usa.
-   */
-  soAqui?: boolean
+  /** Só quem tem `path` pode ser mexida: é a referência da nota no vault. */
+  aoEditar: (path: string, texto: string) => void
+  aoExcluir: (path: string) => void
 }) {
-  const [aberto, setAberto] = useState(false)
+    const [acoes, setAcoes] = useState(false)
+  const [editando, setEditando] = useState(false)
+  const [rascunho, setRascunho] = useState(a.texto)
   const tom = a.prioridade ? 'pri' : a.data === hoje ? 'hoje' : 'normal'
 
   /*
-   * Só abre o que tem o que mostrar.
+   * Sem `path` não há o que editar nem o que apagar.
    *
-   * A maioria das anotações do celular é uma linha, e o conteúdo mora no
-   * próprio título — não há corpo nenhum. Uma seta em todas elas seria uma
-   * seta que quase sempre não faz nada, e é assim que se aprende a não tocar
-   * nela.
-   *
-   * O limiar acompanha o corte de duas linhas do CSS: abaixo dele não há nada
-   * escondido para revelar.
+   * É o caso da anotação que ainda está só neste aparelho: ela não existe no
+   * vault, então não há arquivo para alcançar. Mostrar os botões ali seria
+   * oferecer duas ações que não teriam efeito nenhum.
    */
-  const cortado = a.texto.length > LIMITE_RECOLHIDO || a.texto.includes('\n')
-  const temMais = Boolean(corpoVisivel(a.corpo)) || cortado
+  const podeMexer = Boolean(a.path)
+
+  /*
+   * Anotação não abre.
+   *
+   * Não há o que revelar: ela é o recado inteiro, escrito numa linha para não
+   * esquecer de resolver alguma coisa. Houve uma seta de expandir aqui, e ela
+   * era o resto de uma ideia errada — a de que a anotação teria um "dentro".
+   * O texto aparece por completo, e o único botão do cartão é o que mexe nela.
+   */
 
   return (
     <div className="nota" data-tom={tom}>
@@ -98,37 +87,81 @@ function Nota({ a, etiqueta, hoje, soAqui }: {
         <span className="nota-barra" aria-hidden="true" />
         <div className="nota-corpo">
           {etiqueta && <span className="nota-etiqueta">{etiqueta}</span>}
-          <p className={`anotada-texto ${aberto || !cortado ? '' : 'anotada-recolhida'}`}>
-            {a.texto}
-          </p>
+          <p className="anotada-texto">{a.texto}</p>
           <span className="nota-quando">
             {a.data === undefined
               ? 'fixa'
               : a.data === hoje
                 ? 'hoje'
                 : tituloDoGrupo(a.data, hoje)}
-            {soAqui && <em className="nota-so-aqui">só neste aparelho</em>}
           </span>
         </div>
-        {/* Mesma seta da tarefa do Hoje, pelo mesmo motivo: o texto longo
-            fica guardado até alguém pedir, e a lista continua sendo lista. */}
-        {temMais && (
+        {/* Mexer na nota fica atrás do "⋯", como nos cartões de Chegando.
+            Editar e excluir lado a lado com o texto convidariam ao toque
+            errado numa lista que existe para ser lida, não operada. */}
+        {podeMexer && (
           <button
-            className="item-ver"
+            className="item-ver nota-mais"
             type="button"
-            aria-expanded={aberto}
-            aria-label={`${aberto ? 'Esconder' : 'Ver'} ${a.titulo}`}
-            onClick={() => setAberto(v => !v)}
+            aria-expanded={acoes}
+            aria-label={`ações de ${a.titulo}`}
+            onClick={() => setAcoes(v => !v)}
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5.5 7 9 10.5 12.5 7" />
-            </svg>
+            ⋯
           </button>
         )}
       </div>
-      {aberto && a.corpo && (
-        <div className="corpo-texto"><Marcacao texto={a.corpo} /></div>
+
+      {editando ? (
+        <div className="nota-editar">
+          <textarea
+            className="nota-editar-campo"
+            value={rascunho}
+            rows={3}
+            autoFocus
+            aria-label={`editar ${a.titulo}`}
+            onChange={e => setRascunho(e.target.value)}
+          />
+          <div className="nota-editar-acoes">
+            <button
+              className="btn btn-principal"
+              type="button"
+              disabled={rascunho.trim() === '' || rascunho.trim() === a.texto.trim()}
+              onClick={() => {
+                if (a.path) aoEditar(a.path, rascunho.trim())
+                setEditando(false)
+                setAcoes(false)
+              }}
+            >
+              Salvar
+            </button>
+            <button className="btn-fantasma" type="button"
+              onClick={() => { setEditando(false); setRascunho(a.texto) }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : acoes && (
+        <div className="nota-acoes">
+          <button className="acao-lado" type="button"
+            onClick={() => { setRascunho(a.texto); setEditando(true) }}>
+            editar
+          </button>
+          <button
+            className="acao-lado acao-destrutiva"
+            type="button"
+            onClick={() => {
+              // Apagar no vault não tem desfazer pelo celular, e por isso a
+              // confirmação está aqui e não numa desmarcação reversível.
+              if (!a.path) return
+              if (!window.confirm(`Apagar "${a.texto.slice(0, 40)}" do seu Cortex?`)) return
+              aoExcluir(a.path)
+              setAcoes(false)
+            }}
+          >
+            excluir
+          </button>
+        </div>
       )}
     </div>
   )
@@ -172,6 +205,23 @@ export function Notas(p: {
     setRascunho('')
     setPrioridade(false)
   }
+  /*
+   * Editar e apagar mandam o CAMINHO da nota, nunca o título.
+   *
+   * Duas anotações podem ter o mesmo texto, e casar por título alcançaria a
+   * errada. O caminho vem publicado no cardápio junto de cada uma.
+   *
+   * O texto viaja duas vezes, como `titulo` e como `texto`: na anotação ele
+   * mora nos dois lugares — o nome do arquivo e o campo — e mudar só um
+   * deixaria a nota dizendo duas coisas diferentes sobre si mesma.
+   */
+  const editarNota = (path: string, texto: string): void => {
+    p.envio.registrar(eventoItemEditado(path, { titulo: texto, texto }, hoje))
+  }
+  const excluirNota = (path: string): void => {
+    p.envio.registrar(eventoItemApagado(path, hoje))
+  }
+
   const todas = todasAnotacoes(p.cardapio.cardapio)
 
   /*
@@ -312,25 +362,25 @@ export function Notas(p: {
             são as mais novas, e são as que a pessoa acabou de escrever. */}
         {(prioritarias.length + locaisPri.length) > 0 && <Secao nome="Prioridade" />}
         {locaisPri.map((a, i) => (
-          <Nota key={`pri-local:${i}`} a={a} hoje={hoje} etiqueta="prioridade" soAqui />
+          <Nota key={`pri-local:${i}`} a={a} hoje={hoje} etiqueta="prioridade" aoEditar={editarNota} aoExcluir={excluirNota} />
         ))}
-        {prioritarias.map(a => <Nota key={`pri:${a.titulo}`} a={a} hoje={hoje} etiqueta="prioridade" />)}
+        {prioritarias.map(a => <Nota key={`pri:${a.titulo}`} a={a} hoje={hoje} etiqueta="prioridade" aoEditar={editarNota} aoExcluir={excluirNota} />)}
 
         {(deHoje.length + locaisComuns.length) > 0 && (
           <Secao nome="De hoje" contagem={String(deHoje.length + locaisComuns.length)} />
         )}
         {locaisComuns.map((a, i) => (
-          <Nota key={`hoje-local:${i}`} a={a} hoje={hoje} etiqueta="de hoje" soAqui />
+          <Nota key={`hoje-local:${i}`} a={a} hoje={hoje} etiqueta="de hoje" aoEditar={editarNota} aoExcluir={excluirNota} />
         ))}
-        {deHoje.map(a => <Nota key={`hoje:${a.titulo}`} a={a} hoje={hoje} etiqueta="de hoje" />)}
+        {deHoje.map(a => <Nota key={`hoje:${a.titulo}`} a={a} hoje={hoje} etiqueta="de hoje" aoEditar={editarNota} aoExcluir={excluirNota} />)}
 
         {fixas.length > 0 && <Secao nome="Fixas" />}
-        {fixas.map(a => <Nota key={`fixa:${a.titulo}`} a={a} hoje={hoje} />)}
+        {fixas.map(a => <Nota key={`fixa:${a.titulo}`} a={a} hoje={hoje} aoEditar={editarNota} aoExcluir={excluirNota} />)}
 
         {grupos.map(g => (
           <div key={g.data}>
             <Secao nome={tituloDoGrupo(g.data, hoje)} contagem={String(g.itens.length)} />
-            {g.itens.map(a => <Nota key={`${g.data}:${a.titulo}`} a={a} hoje={hoje} />)}
+            {g.itens.map(a => <Nota key={`${g.data}:${a.titulo}`} a={a} hoje={hoje} aoEditar={editarNota} aoExcluir={excluirNota} />)}
           </div>
         ))}
 

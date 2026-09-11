@@ -344,7 +344,14 @@ export function planejar(evento: Evento): Operacao[] {
       // um toque errado é a confirmação na tela do celular, não uma marca
       // aqui — e a lista de tipos abaixo é o que impede este evento de
       // alcançar uma nota que não seja de agenda ou de estudos.
-      return [{ acao: 'apagar', path, tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa'] }]
+      return [{
+        acao: 'apagar', path,
+        // `anotacao` entrou em 11/09/2026: a nota escrita no celular passou a
+        // poder ser apagada de lá também. Continua sendo uma lista curta de
+        // tipos que o próprio celular cria — este evento nunca alcança conta,
+        // documento, projeto ou diário.
+        tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao']
+      }]
     }
 
     /*
@@ -369,12 +376,17 @@ export function planejar(evento: Evento): Operacao[] {
         date: txt(dados.data).trim(),
         hora: txt(dados.hora).trim(),
         local: txt(dados.local).trim(),
-        materia: txt(dados.materia).trim()
+        materia: txt(dados.materia).trim(),
+        // A anotação guarda o que foi escrito em DOIS lugares: `title`, que é
+        // o nome do arquivo na lista, e `texto`, que é o conteúdo. Editar só
+        // um deixaria a nota dizendo duas coisas diferentes sobre si mesma.
+        // As outras telas não mandam este campo, e aí ele não entra.
+        texto: txt(dados.texto).trim()
       })
       if (Object.keys(campos).length === 0) return []
       return [{
         acao: 'marcar', path,
-        tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa'],
+        tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao'],
         campos
       }]
     }
@@ -382,6 +394,41 @@ export function planejar(evento: Evento): Operacao[] {
     case 'compromisso': {
       const titulo = txt(dados.titulo).trim()
       if (!titulo) return []
+
+      /*
+       * Data comemorativa: o mesmo evento, com uma marca.
+       *
+       * Aniversário não é compromisso — ele se repete todo ano, e por isso a
+       * nota guarda DIA e MÊS em vez de uma data. O ano, quando vem, é quando
+       * aquilo começou, e é dele que sai "faz 18 anos".
+       *
+       * Vai dentro de `compromisso` em vez de virar um tipo de evento próprio
+       * porque um tipo novo teria de entrar em `tipos_validos()`, no banco, e
+       * isso obrigaria a rodar o SQL do Supabase de novo. A marca é um
+       * booleano fechado, escolhido pela tela entre duas opções — bem
+       * diferente de deixar um evento de fora escrever `tipo` e decidir
+       * sozinho o que a nota É, que é o furo que este arquivo evita.
+       */
+      if (dados.comemorativa === true) {
+        const data = txt(dados.data)
+        const [ano, mes, diaDoMes] = data.split('-').map(Number)
+        if (!Number.isInteger(mes) || !Number.isInteger(diaDoMes)) return []
+        return [{
+          acao: 'nota', tipo: 'data-comemorativa', seExistir: 'mesclar',
+          path: `Agenda/${nomeArquivo(titulo)}.md`,
+          frontmatter: comValor({
+            tipo: 'data-comemorativa', title: titulo,
+            dia: diaDoMes, mes,
+            // O ano só entra quando é plausível: o campo do celular é uma
+            // data inteira, e quem não sabe o ano de nascimento põe o
+            // corrente — o que faria a tela anunciar "faz 0 anos".
+            ano: Number.isInteger(ano) && ano >= 1900 && ano < Number(dia.slice(0, 4))
+              ? ano
+              : undefined,
+            oque: txt(dados.oque).trim() || undefined
+          })
+        }]
+      }
       // A data do compromisso é a que veio, não a de hoje: marcar no celular
       // um dentista de semana que vem tem de cair na semana que vem.
       const data = txt(dados.data) || dia

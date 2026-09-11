@@ -326,7 +326,7 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // `hidratacao` diz a meta e o tamanho da garrafa; o total bebido vem do
     // `diario`, logo acima. Sao dois tipos para uma secao so na tela.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
-      'anotacao', 'diario', 'evento', 'hidratacao', 'meta-cofre', 'plano',
+      'anotacao', 'data-comemorativa', 'diario', 'evento', 'hidratacao', 'meta-cofre', 'plano',
       'porquinho', 'prova', 'rotina', 'simulado', 'suplemento', 'tarefa',
       'treino-modelo'
     ])
@@ -343,6 +343,10 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       tarefa: nota({ path: 'f.md', title: 'Ta', tipo: 'tarefa', date: '2026-09-10' }),
       rotina: nota({ path: 'h.md', title: 'Abdomen', tipo: 'rotina' }),
       hidratacao: nota({ path: 'i.md', title: 'Agua', tipo: 'hidratacao', campos: { meta: 3500 } }),
+      'data-comemorativa': nota({
+        path: 'k.md', title: 'Aniversario da mae', tipo: 'data-comemorativa',
+        campos: { dia: 20, mes: 12, ano: 1970 }
+      }),
       anotacao: nota({
         path: 'j.md', title: 'Passou o dia', tipo: 'anotacao', date: HOJE,
         campos: { texto: 'Passou o dia' }
@@ -858,5 +862,57 @@ describe('as areas ligadas viajam para o celular', () => {
     })], HOJE, ['saude'])
     expect(c.filter(i => i.especie === 'area').map(i => i.nome)).toEqual(['saude'])
     expect(c.filter(i => i.especie === 'suplemento').map(i => i.nome)).toEqual(['Whey'])
+  })
+})
+
+/**
+ * A data comemorativa, publicada como compromisso.
+ *
+ * Especie `compromisso`, e nao uma nova: o celular ja sabe desenhar
+ * compromisso, e especie nova precisaria entrar na lista branca de
+ * `publicar_cardapio` -- o que obrigaria a rodar o SQL do Supabase de novo.
+ */
+describe('data comemorativa no cardapio', () => {
+  const HOJE = '2026-09-11'
+  const aniversario = (campos: Record<string, unknown>) => nota({
+    path: 'Agenda/Mae.md', title: 'Aniversário da mãe',
+    tipo: 'data-comemorativa', campos
+  })
+
+  it('sobe com a PROXIMA ocorrencia, e nao com dia e mes crus', () => {
+    // Mandar dia e mes obrigaria o celular a refazer a conta, e as duas
+    // pontas divergiriam no primeiro 29 de fevereiro.
+    const [i] = montarCardapio([aniversario({ dia: 20, mes: 9, ano: 1970 })], HOJE, [])
+    expect(i).toMatchObject({
+      especie: 'compromisso', nome: 'Aniversário da mãe',
+      detalhe: { data: '2026-09-20', comemorativa: true, anos: 56 }
+    })
+  })
+
+  it('sem o ano de origem, nao inventa quantos anos faz', () => {
+    const [i] = montarCardapio([aniversario({ dia: 20, mes: 9 })], HOJE, [])
+    expect((i as { detalhe: Record<string, unknown> }).detalhe).not.toHaveProperty('anos')
+  })
+
+  it('a que ja passou este ano cai no ano que vem', () => {
+    const [i] = montarCardapio([aniversario({ dia: 3, mes: 1 })], HOJE, [])
+    expect(i).toMatchObject({ detalhe: { data: '2027-01-03' } })
+  })
+
+  it('dia ou mes impossivel nao vira item', () => {
+    expect(montarCardapio([aniversario({ dia: 32, mes: 9 })], HOJE, [])).toEqual([])
+    expect(montarCardapio([aniversario({ dia: 20, mes: 13 })], HOJE, [])).toEqual([])
+    expect(montarCardapio([aniversario({})], HOJE, [])).toEqual([])
+  })
+
+  it('nao publica campo nenhum fora da lista branca', () => {
+    const c = montarCardapio([aniversario({
+      dia: 20, mes: 9, ano: 1970,
+      // Um campo pessoal escrito na nota no Cortex nao tem por que subir.
+      observacao: 'SEGREDO-OBSERVACAO', pessoa: 'SEGREDO-PESSOA'
+    })], HOJE, [])
+    const json = JSON.stringify(c)
+    expect(json).not.toContain('SEGREDO-OBSERVACAO')
+    expect(json).not.toContain('SEGREDO-PESSOA')
   })
 })

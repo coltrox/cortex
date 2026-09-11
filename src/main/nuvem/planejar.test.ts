@@ -236,7 +236,7 @@ describe('planejar — agenda e estudos', () => {
     })
     expect(ops).toEqual([{
       acao: 'marcar', path: 'Estudos/Provas/ENEM.md',
-      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa'],
+      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao'],
       campos: { date: '2026-09-12', materia: 'fisica' }
     }])
   })
@@ -259,7 +259,7 @@ describe('planejar — agenda e estudos', () => {
       dados: { path: 'Agenda/Dentista.md' }
     })).toEqual([{
       acao: 'apagar', path: 'Agenda/Dentista.md',
-      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa']
+      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao']
     }])
   })
 
@@ -681,5 +681,67 @@ describe('planejar — sessao de estudo', () => {
       acao: 'diario-lista', dia: '2026-08-27', campo: 'estudos',
       item: { materia: 'Inglês', minutos: 46 }
     }])
+  })
+})
+
+/**
+ * A data comemorativa.
+ *
+ * Vai dentro do evento `compromisso`, com uma marca, e nao num tipo proprio:
+ * tipo novo teria de entrar em `tipos_validos()` no banco, e isso obrigaria a
+ * rodar o SQL do Supabase de novo para o app fazer o que o Cortex ja sabe.
+ */
+describe('planejar — data comemorativa', () => {
+  it('vira nota que se repete, com dia e mes em vez de data', () => {
+    const [op] = planejar(ev('compromisso', {
+      titulo: 'Aniversário da mãe', data: '1970-12-20', comemorativa: true
+    }))
+    expect(op).toEqual({
+      acao: 'nota', tipo: 'data-comemorativa', seExistir: 'mesclar',
+      path: 'Agenda/Aniversário da mãe.md',
+      frontmatter: {
+        tipo: 'data-comemorativa', title: 'Aniversário da mãe',
+        dia: 20, mes: 12, ano: 1970
+      }
+    })
+  })
+
+  it('ano igual ao corrente nao entra -- e o padrao do seletor, nao um fato', () => {
+    // O campo do celular e uma data inteira. Quem nao sabe o ano de nascimento
+    // deixa o que veio preenchido, e contar isso anunciaria "faz 0 anos".
+    const [op] = planejar(ev('compromisso', {
+      titulo: 'Aniversário do João', data: '2026-03-05', comemorativa: true
+    }))
+    expect((op as { frontmatter: Record<string, unknown> }).frontmatter)
+      .not.toHaveProperty('ano')
+  })
+
+  it('sem a marca continua sendo compromisso comum', () => {
+    const [op] = planejar(ev('compromisso', { titulo: 'Dentista', data: '2026-09-10' }))
+    expect(op).toMatchObject({ acao: 'nota', tipo: 'evento' })
+  })
+
+  it('a marca precisa ser o booleano -- a string "true" nao vale', () => {
+    // `dados` vem do banco como registro livre, e qualquer coisa que nao seja
+    // exatamente `true` cai no lado conhecido.
+    const [op] = planejar(ev('compromisso', {
+      titulo: 'Dentista', data: '2026-09-10', comemorativa: 'true'
+    }))
+    expect(op).toMatchObject({ tipo: 'evento' })
+  })
+
+  it('data sem mes ou dia nao vira nota', () => {
+    expect(planejar(ev('compromisso', {
+      titulo: 'Sem data', data: 'amanhã', comemorativa: true
+    }))).toEqual([])
+  })
+
+  it('mescla em vez de criar outra: o aniversario dela e um so', () => {
+    // Ao contrario do compromisso, que usa 'criarOutro' porque dois dentistas
+    // em semanas diferentes sao dois compromissos.
+    const [op] = planejar(ev('compromisso', {
+      titulo: 'Aniversário da mãe', data: '1970-12-20', comemorativa: true
+    }))
+    expect(op).toMatchObject({ seExistir: 'mesclar' })
   })
 })

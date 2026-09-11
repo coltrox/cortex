@@ -141,6 +141,13 @@ export function areaLigada(c: Cardapio, area: string): boolean {
 
 export type AnotacaoPublicada = {
   titulo: string
+  /**
+   * O caminho da nota no vault.
+   *
+   * É a referência que o celular devolve ao editar ou apagar: duas anotações
+   * podem ter o mesmo texto, e casar por título apagaria a errada.
+   */
+  path?: string
   texto: string
   prioridade: boolean
   /** O dia em que foi escrita, ISO. Ausente na permanente. */
@@ -170,6 +177,9 @@ export function todasAnotacoes(c: Cardapio): AnotacaoPublicada[] {
     .filter(i => i.especie === 'anotacao')
     .map(i => ({
       titulo: i.nome,
+      path: typeof i.detalhe.path === 'string' && i.detalhe.path !== ''
+        ? i.detalhe.path
+        : undefined,
       // Sem `texto` sobra o título, que é a primeira linha dela — melhor do
       // que uma linha em branco na tela.
       texto: typeof i.detalhe.texto === 'string' && i.detalhe.texto !== ''

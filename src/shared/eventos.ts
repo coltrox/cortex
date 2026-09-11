@@ -82,6 +82,9 @@ export type Evento = z.infer<typeof EVENTO_SCHEMA>
  */
 export const TIPOS_NOTA_CARDAPIO = [
   'treino-modelo', 'suplemento', 'plano', 'prova', 'simulado', 'evento', 'tarefa',
+  // Aniversario e afins. Sobem como espécie 'compromisso', na próxima vez
+  // que caem -- ver montarCardapio.
+  'data-comemorativa',
   // Os dois do porquinho: os movimentos, para somar o saldo, e a meta ativa.
   'porquinho', 'meta-cofre',
   // A tarefa diária, que aparece no celular junto com os suplementos.

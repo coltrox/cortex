@@ -158,9 +158,6 @@ export function Corpo(p: {
     }
   }
 
-  /** Um valor ainda a caminho do Cortex ganha a marca de pendente. */
-  const pendente = (chave: string): boolean => locais[chave] !== undefined
-
   return (
     <div className="tema-hoje">
       <Cabecalho titulo="Corpo" />
@@ -250,7 +247,6 @@ export function Corpo(p: {
                 delta={ultima && penultima
                   ? delta(ultima[m.chave] as number | null, penultima[m.chave] as number | null, m.unidade)
                   : ''}
-                pendente={pendente(m.chave)}
                 aoSalvar={v => salvarMedida(m.chave, v)}
               />
             ))}
@@ -302,7 +298,6 @@ function MedidaCartao(p: {
   unidade: string
   valor: number | null
   delta: string
-  pendente: boolean
   aoSalvar: (v: number) => void
 }) {
   const [editando, setEditando] = useState(false)
@@ -350,9 +345,7 @@ function MedidaCartao(p: {
         {p.valor !== null ? p.valor.toLocaleString('pt-BR') : '—'}
         <i>{p.unidade}</i>
       </span>
-      {p.pendente
-        ? <span className="medida-delta medida-pendente">só neste aparelho</span>
-        : p.delta && <span className="medida-delta">{p.delta}</span>}
+      {p.delta && <span className="medida-delta">{p.delta}</span>}
     </button>
   )
 }
