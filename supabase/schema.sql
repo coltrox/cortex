@@ -141,7 +141,14 @@ begin
                                -- A anotacao. Sobem TODAS: a tela Notas do
                                -- celular mostra o conjunto, e o Hoje corta
                                -- pelo dia. Quem corta e a tela, nao o banco.
-                               'anotacao')
+                               'anotacao',
+                               -- O HISTORICO, para o celular desenhar
+                               -- evolucao em vez de so registrar: peso e
+                               -- medidas, sessoes de cardio, e os
+                               -- lancamentos do diario. Os lancamentos so
+                               -- entraram aqui depois de o dono levantar a
+                               -- restricao de privacidade, em 10/09/2026.
+                               'medida','cardio','transacao')
         and coalesce(el->>'nome','') <> ''
     ) item
     order by item.especie, item.nome, item.pos desc

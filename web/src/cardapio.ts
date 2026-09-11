@@ -411,3 +411,122 @@ export function porquinho(c: Cardapio): Porquinho | null {
 export function reais(v: number): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
+
+/* ─────────── O histórico que o Cortex passou a publicar ───────────
+   Três espécies que não são catálogo do dia: são o que já aconteceu. Elas
+   existem para o celular MOSTRAR evolução — até então ele só sabia enviar
+   peso, cardio e gasto, nunca recebê-los de volta. */
+
+const numOu = (v: unknown, padrao: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? v : padrao
+const numOuNulo = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) ? v : null
+const texto = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+export type Medida = {
+  data: string
+  peso: number | null
+  gordura: number | null
+  cintura: number | null
+  quadril: number | null
+  braco: number | null
+  coxa: number | null
+  peito: number | null
+  panturrilha: number | null
+}
+
+/**
+ * As medições, da mais ANTIGA para a mais nova.
+ *
+ * Ao contrário de quase todas as outras listas deste arquivo, que vêm do mais
+ * novo para o mais velho. O motivo é o gráfico: uma sequência no tempo se lê
+ * da esquerda para a direita, e inverter no componente seria espalhar a regra
+ * de ordem por duas camadas.
+ */
+export function medidas(c: Cardapio): Medida[] {
+  return c.itens
+    .filter(i => i.especie === 'medida' && texto(i.detalhe.data) !== '')
+    .map(i => ({
+      data: texto(i.detalhe.data),
+      peso: numOuNulo(i.detalhe.peso),
+      gordura: numOuNulo(i.detalhe.gordura),
+      cintura: numOuNulo(i.detalhe.cintura),
+      quadril: numOuNulo(i.detalhe.quadril),
+      braco: numOuNulo(i.detalhe.braco),
+      coxa: numOuNulo(i.detalhe.coxa),
+      peito: numOuNulo(i.detalhe.peito),
+      panturrilha: numOuNulo(i.detalhe.panturrilha)
+    }))
+    .sort((a, b) => a.data.localeCompare(b.data))
+}
+
+export type Cardio = {
+  data: string
+  aparelho: string
+  minutos: number
+  distancia: number | null
+  pace: string
+}
+
+/** As sessões de cardio, da mais NOVA para a mais velha. */
+export function cardios(c: Cardapio): Cardio[] {
+  return c.itens
+    .filter(i => i.especie === 'cardio' && texto(i.detalhe.data) !== '')
+    .map(i => ({
+      data: texto(i.detalhe.data),
+      aparelho: texto(i.detalhe.aparelho),
+      minutos: numOu(i.detalhe.minutos, 0),
+      distancia: numOuNulo(i.detalhe.distancia),
+      pace: texto(i.detalhe.pace)
+    }))
+    .sort((a, b) => b.data.localeCompare(a.data))
+}
+
+export type Transacao = {
+  data: string
+  item: string
+  valor: number
+  cat: string
+  entrada: boolean
+}
+
+/**
+ * Os lançamentos, do mais NOVO para o mais velho.
+ *
+ * `entrada` é booleano aqui, e string `dir` no banco: a tela pergunta "isto
+ * somou ou subtraiu?", e comparar com a palavra 'entrada' em cada lugar que
+ * usa seria a mesma regra escrita cinco vezes.
+ */
+export function transacoes(c: Cardapio): Transacao[] {
+  return c.itens
+    .filter(i => i.especie === 'transacao' && texto(i.detalhe.data) !== '')
+    .map(i => ({
+      data: texto(i.detalhe.data),
+      item: texto(i.detalhe.item),
+      valor: numOu(i.detalhe.valor, 0),
+      cat: texto(i.detalhe.cat),
+      entrada: texto(i.detalhe.dir) === 'entrada'
+    }))
+    .sort((a, b) => b.data.localeCompare(a.data))
+}
+
+/**
+ * Quanto saiu e quanto entrou num mês, em reais.
+ *
+ * `mes` é o prefixo ISO `AAAA-MM`. Comparar por prefixo de string, e não
+ * construindo `Date`: a data já vem em ISO, e `new Date('2026-09-01')` é
+ * interpretada como UTC — num fuso negativo ela vira 31 de agosto, e o
+ * primeiro dia do mês cairia fora da própria conta do mês.
+ */
+export function totaisDoMes(ts: Transacao[], mes: string): { saiu: number; entrou: number } {
+  let saiu = 0
+  let entrou = 0
+  for (const t of ts) {
+    if (!t.data.startsWith(mes)) continue
+    if (t.entrada) entrou += t.valor
+    else saiu += t.valor
+  }
+  // Ao centavo: somar float acumula 0.30000000000000004, e esse número
+  // chegaria à tela do jeito que está.
+  return { saiu: Math.round(saiu * 100) / 100, entrou: Math.round(entrou * 100) / 100 }
+}

@@ -131,7 +131,28 @@ export const ESPECIES_CARDAPIO = [
    * significar "desligue tudo": isso apagaria o app inteiro de quem só
    * esqueceu de atualizar.
    */
-  'area'
+  'area',
+
+  /*
+   * O HISTÓRICO, para o celular desenhar evolução em vez de só registrar.
+   *
+   * As três espécies abaixo são diferentes de todas as de cima: elas não são
+   * o catálogo do que fazer hoje, são o que JÁ aconteceu. Entraram porque o
+   * celular passou a ter telas que mostram evolução — o peso ao longo das
+   * semanas, o cardio da semana, o gasto do mês — e até então ele só sabia
+   * ENVIAR esses registros, nunca recebê-los de volta.
+   *
+   * Vão limitadas no publicador (ver `montarCardapio`): o cardápio inteiro
+   * viaja a cada publicação, e mandar dois anos de diário por causa de um
+   * gráfico de oito pontos seria pagar o histórico todo em toda sincronia.
+   */
+
+  /** Peso e medidas de uma data. Um item por nota `medida`. */
+  'medida',
+  /** Uma sessão de cardio: aparelho, minutos, distância. */
+  'cardio',
+  /** Uma transação do diário: item, valor, categoria, entrada ou saída. */
+  'transacao'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

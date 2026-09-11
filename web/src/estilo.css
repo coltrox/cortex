@@ -70,7 +70,7 @@
        só guarda o que é do nosso, e na PRIMEIRA abertura sem rede elas não
        chegam. Com a pilha, o app abre com a fonte do aparelho em vez de
        abrir com a fonte de desenho do navegador. */
-  --fonte: 'Instrument Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte: 'Nunito', ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
   --fonte-num: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* — Altura mínima de toque. Nada abaixo disto. — */
@@ -81,7 +81,7 @@
        precise centrar o conteúdo no espaço livre tem de descontar
        exatamente o mesmo — e dois números iguais escritos em dois lugares
        divergem na primeira vez que um deles muda. — */
-  --alt-cabecalho: 58px;
+  --alt-cabecalho: 52px;
   --alt-barra: 96px;
 
   /* — Zonas seguras: valor real no aparelho, zero no navegador de mesa — */
@@ -159,14 +159,10 @@ body{
 
 #raiz{
   max-width:var(--largura); margin:0 auto;
-  /* O recuo que o cabeçalho e a barra de baixo ocupam. Sem isto, o primeiro
-     e o último item da tela nascem embaixo deles. */
-  /* O +e4 no topo e o respiro entre o cabecalho e a primeira linha. Sem ele
-     o conteudo nasce colado no titulo, e ao rolar parece que passa por baixo
-     dele sem folga nenhuma. */
-  padding: calc(var(--alt-cabecalho) + var(--e4) + var(--topo-seguro))
-           0
-           calc(var(--alt-barra) + var(--baixo-seguro));
+  /* Nada de reserva no topo: o cabeçalho virou título em fluxo e traz o
+     próprio respiro. O recuo de baixo continua, porque a barra de abas é
+     fixa e sem ele o último item nasce debaixo dela. */
+  padding: 0 0 calc(var(--alt-barra) + var(--baixo-seguro));
 }
 .bloco{ padding:0 var(--e4); }
 .bloco + .bloco{ margin-top:var(--e5); }
@@ -206,16 +202,15 @@ body{
 
 /* ─────────────── 2. CABEÇALHO ─────────────── */
 
+/* O cabeçalho não é mais uma barra: é o TÍTULO da página, em fluxo.
+   Fixo e com cor própria, ele criava um degrau de contraste logo no topo,
+   onde não há informação nenhuma, e ainda obrigava a página a reservar 52 px
+   por uma faixa que só repetia o nome da aba acesa. Agora é a mesma folha,
+   com o respiro em cima que faz o título parecer começo de página. */
 .cabecalho{
-  position:fixed; top:0; left:0; right:0; z-index:4;
   max-width:var(--largura); margin:0 auto;
-  height:calc(58px + var(--topo-seguro));
-  padding: var(--topo-seguro) var(--e4) 0 var(--e4);
-  display:flex; align-items:center; gap:var(--e3);
-  background:color-mix(in srgb, var(--casco) 88%, transparent);
-  -webkit-backdrop-filter:blur(18px) saturate(140%);
-  backdrop-filter:blur(18px) saturate(140%);
-  border-bottom:1px solid var(--borda);
+  padding: calc(var(--topo-seguro) + 26px) var(--e4) 18px var(--e4);
+  display:flex; align-items:baseline; gap:var(--e3);
 }
 .voltar{
   width:40px; height:var(--toque); margin-left:-10px;
@@ -225,7 +220,7 @@ body{
 }
 .voltar svg{ display:block; }
 .cabecalho h1{
-  font:700 20px/1.15 var(--fonte); margin:0; letter-spacing:-.01em; flex:1; min-width:0;
+  font:800 30px/1.1 var(--fonte); margin:0; letter-spacing:-.03em; flex:1; min-width:0;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 
@@ -285,14 +280,17 @@ body{
   color:var(--txt);
   cursor:pointer; transition:background .15s ease, border-color .15s ease, opacity .15s ease;
 }
+/* Círculo, e não quadrado arredondado: é o que o desenho usa, e é o que
+   separa "marcar uma coisa do dia" de "caixa de formulário". */
 .caixa{
-  width:26px; height:26px; flex:none; border-radius:7px;
-  border:2px solid var(--borda-forte); background:var(--painel-alto);
+  width:26px; height:26px; flex:none; border-radius:50%;
+  border:2px solid var(--borda-forte); background:transparent;
   display:flex; align-items:center; justify-content:center;
   color:transparent; font-size:14px; font-weight:700; line-height:1;
-  /* Sem transição: o verde é o estado, e estado muda inteiro de uma vez.
-     Enquanto o fundo desbotava, o risco no nome já tinha sumido — e a caixa
-     meio verde sem risco se lê como "marcado" logo depois de desmarcar. */
+  /* Sem transição: a cor é o estado, e estado muda inteiro de uma vez.
+     Enquanto o fundo desbotava, o risco no nome já tinha sumido — e o
+     círculo meio azul sem risco se lê como "marcado" logo depois de
+     desmarcar. */
 }
 /* ─────────────── Puxar para atualizar ─────────────── */
 
@@ -511,12 +509,18 @@ body{
 .item-meta .sep{ color:var(--txt-3); padding:0 5px; }
 
 /* feito: verde e esmaecido, mas continua na lista e continua legível */
-.item-feito{ background:var(--ok-fraco); border-color:rgba(79,201,140,.26); opacity:.62; }
+/* Sem tarja de fundo e sem opacidade no cartao inteiro: no desenho quem
+   diz "feito" e o circulo cheio e o risco no nome. Apagar a linha toda
+   levava junto a hora, que continua sendo informacao depois de feito. */
+.item-feito{ background:transparent; }
 /* A divisória da seta acompanha a borda do cartão quando ele fica verde —
    senão sobra um risco cinza atravessando o meio de um cartão marcado. */
-.item-feito .item-ver{ border-left-color:rgba(79,201,140,.26); }
-.item-feito .caixa{ background:var(--ok); border-color:var(--ok); color:#06120c; }
-.item-feito .item-nome{ text-decoration:line-through; text-decoration-color:rgba(230,236,245,.35); }
+.item-feito .item-ver{ border-left-color:var(--borda); }
+.item-feito .caixa{ background:var(--acento); border-color:var(--acento); color:#fff; }
+.item-feito .item-nome{
+  text-decoration:line-through; text-decoration-color:var(--txt-4);
+  color:var(--txt-3);
+}
 
 /* ─────────────── 5. BOTÕES ─────────────── */
 
@@ -849,7 +853,7 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   height:calc(68px + var(--baixo-seguro));
   padding-bottom:var(--baixo-seguro);
   display:grid; grid-template-columns:repeat(3,1fr);
-  background:color-mix(in srgb, var(--casco) 90%, transparent);
+  background:color-mix(in srgb, var(--fundo) 90%, transparent);
   -webkit-backdrop-filter:blur(18px) saturate(140%);
   backdrop-filter:blur(18px) saturate(140%);
   border-top:1px solid var(--borda);
@@ -945,6 +949,32 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   font:600 12.5px var(--fonte); color:var(--acento); text-align:left;
 }
 .grupo-mais:hover{ color:var(--acento-forte); }
+
+/* O rotulo do bloco aberto dentro da tarefa. */
+.corpo-rotulo{
+  font-family:var(--fonte-num); font-size:9.5px; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase;
+  color:var(--txt-3); margin-bottom:7px;
+}
+
+/* O link a direita do titulo de uma secao: "ver tudo", "ajustar". */
+.secao-link{
+  border:0; background:transparent; cursor:pointer; padding:0;
+  font-family:var(--fonte-num); font-size:11px; color:var(--acento);
+}
+.secao-link:hover{ color:var(--acento-forte); }
+
+/* O cartao comprido: um assunto inteiro numa linha so. */
+.cartao-largo{
+  width:100%; display:flex; align-items:center; gap:var(--e3);
+  padding:18px 20px; margin-bottom:var(--e5); cursor:pointer; text-align:left;
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r3);
+}
+.cartao-largo:hover{ background:var(--painel-alto); }
+.cartao-largo-txt{ flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.cartao-largo-txt strong{ font-size:14px; font-weight:700; color:var(--txt); }
+.cartao-largo-txt span{ font-size:12px; color:var(--txt-2); }
+.cartao-largo-seta{ flex:none; font-size:20px; color:var(--txt-3); line-height:1; }
 
 /* ─────────── A sub-navegação da área Saúde ─────────── */
 .subnav-saude{

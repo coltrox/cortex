@@ -193,11 +193,17 @@ export function Aviso({ children, tom = 'info', titulo, aoFechar }: {
 }
 
 /** Rótulo de seção, com contagem opcional à direita. */
-export function Secao({ nome, contagem }: { nome: string; contagem?: string }) {
+export function Secao({ nome, contagem, acao }: {
+  nome: string
+  contagem?: string
+  /** Um link à direita do título — "ver tudo", "ajustar". */
+  acao?: ReactNode
+}) {
   return (
     <div className="rotulo-secao">
       <span>{nome}</span>
       {contagem && <span className="contagem">{contagem}</span>}
+      {acao}
     </div>
   )
 }

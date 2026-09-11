@@ -17,54 +17,6 @@ import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
 
 
-/*
- * Os atalhos de registro.
- *
- * Numa lista, e nao seis blocos de JSX iguais: acrescentar um destino passa a
- * ser uma linha. Os icones vem desenhados aqui em vez de uma biblioteca --
- * sao seis, de meia duzia de tracos cada, e uma dependencia de icones traria
- * centenas junto para dentro do pacote que o celular baixa.
- */
-const ATALHOS: { tela: Tela; nome: string; area: string; icone: ReactElement }[] = [
-  { tela: 'treino', nome: 'Treino', area: 'saude', icone: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="1" y="6" width="3" height="6" rx="1" /><rect x="14" y="6" width="3" height="6" rx="1" />
-      <path d="M4 9h10" />
-    </svg>) },
-  { tela: 'cardio', nome: 'Cardio', area: 'saude', icone: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="9" cy="9" r="7" /><path d="M9 5v4l3 2" />
-    </svg>) },
-  { tela: 'medidas', nome: 'Peso e medidas', area: 'saude', icone: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="9" cy="9" r="7" /><path d="M9 9l3.5-3.5" />
-    </svg>) },
-  { tela: 'gasto', nome: 'Gasto', area: 'financas', icone: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="1.5" y="4" width="15" height="10" rx="2" /><path d="M1.5 8h15" />
-    </svg>) },
-  { tela: 'porquinho', nome: 'Porquinho', area: 'financas', icone: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M2 9.5a5.5 5.5 0 0 1 5.5-5.5h3a5.5 5.5 0 0 1 5.5 5.5v1.5a2 2 0 0 1-2 2h-.5v1.5h-2V13h-4v1.5h-2V13H4a2 2 0 0 1-2-2z" />
-      <circle cx="12" cy="8.5" r=".9" fill="currentColor" stroke="none" />
-    </svg>) },
-  { tela: 'anotacao', nome: 'Anotação', area: 'vida', icone: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="3" y="2" width="12" height="14" rx="2" /><path d="M6 6h6M6 9.5h6M6 13h3" />
-    </svg>) },
-  { tela: 'estudo', nome: 'Estudo', area: 'conhecimento', icone: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M9 5.5 2 3.5v9L9 14.5l7-2v-9z" /><path d="M9 5.5v9" />
-    </svg>) },
-  // Ler, e não escrever: `anotacao` cria uma, `notas` mostra as que existem.
-  // São gestos diferentes e por isso são dois botões — um botão que às vezes
-  // cria e às vezes lista seria o pior dos dois.
-  { tela: 'notas', nome: 'Notas', area: 'vida', icone: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M4 3h7l3 3v9H4z" /><path d="M11 3v3h3M6.5 9.5h5M6.5 12h3" />
-    </svg>) }
-]
-
 /**
  * Uma anotação na lista do Hoje.
  *
@@ -147,7 +99,14 @@ function Tarefa(p: {
           </button>
         }
       />
-      {aberto && <div className="corpo-texto"><Marcacao texto={p.corpo} /></div>}
+      {aberto && (
+        <div className="corpo-texto">
+          {/* O rotulo diz o que e aquele bloco. Sem ele, o texto aberto
+              parecia continuacao do nome da tarefa. */}
+          <div className="corpo-rotulo">descrição</div>
+          <Marcacao texto={p.corpo} />
+        </div>
+      )}
     </div>
   )
 }
@@ -239,7 +198,6 @@ export function Hoje(p: {
    * embaixo: assim `vazio` e tudo o mais que depende delas já nasce
    * concordando, em vez de existirem duas versões da mesma verdade.
    */
-  const atalhos = ATALHOS.filter(a => areaLigada(p.cardapio.cardapio, a.area))
   const temSaude = areaLigada(p.cardapio.cardapio, 'saude')
   const temVida = areaLigada(p.cardapio.cardapio, 'vida')
   const temEstudos = areaLigada(p.cardapio.cardapio, 'conhecimento')
@@ -659,7 +617,11 @@ export function Hoje(p: {
           * descer até a grade lá embaixo.
           */}
         {rotinas.length > 0 && <div className="grupo">
-        <Secao nome="Tarefas do dia" />
+        <Secao
+          nome="Tarefas do dia"
+          contagem={`${rotinas.filter(t =>
+            estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)).length}/${rotinas.length}`}
+        />
         {/* Mesma regra do suplemento, logo acima: a tarefa sem hora marcada é
             "qualquer hora", e não uma linha sem resposta. */}
         {rotinas.map(t => (
@@ -681,9 +643,31 @@ export function Hoje(p: {
             que aconteceu. As duas metades da mesma pergunta — "como foi
             hoje?" — e é por isso que a lista fica aqui, e não numa aba
             própria que ninguém abriria. */}
+        {/*
+          * Estudo, comprido, antes do Chegando.
+          *
+          * É o único atalho que sobrou da grade de registro: treino, cardio,
+          * peso, gasto e porquinho foram para as abas Saúde e Dinheiro, e
+          * anotação para Notas. Estudo não tem aba — ele é a única coisa que
+          * se registra e não mora em lugar nenhum —, então fica aqui.
+          */}
+        {temEstudos && (
+          <button className="cartao-largo" type="button" onClick={() => p.irPara('estudo')}>
+            <span className="cartao-largo-txt">
+              <strong>Estudo</strong>
+              <span>Matéria, tempo e questões</span>
+            </span>
+            <span className="cartao-largo-seta" aria-hidden="true">›</span>
+          </button>
+        )}
+
         {proximos.length > 0 && (
           <div className="grupo">
-            <Secao nome="Chegando" />
+            <Secao nome="Chegando" acao={
+              <button className="secao-link" type="button" onClick={() => p.irPara('agenda')}>
+                ver tudo
+              </button>
+            } />
             {proximos.map(i => (
               <div key={`${i.especie}:${i.nome}`} className="chega-linha">
                 <span className="chega-dia">
@@ -718,24 +702,6 @@ export function Hoje(p: {
           </p>
         )}
 
-        {/* O mapa do app, sempre visível.
-            Fica FIXO embaixo de propósito: em cima a tela responde ao dia e
-            some com o que não é de agora, e sem esta grade quem abrisse num
-            domingo vazio não teria como descobrir o que o Cortex faz. É a
-            metade "atalhos fixos" da decisão — a de cima é a "curada". */}
-        <Secao nome="Registrar" />
-        <div className="grade-registrar">
-          {/* Só as áreas ligadas no Cortex. Quem não usa Estudos não vê
-              botão de Estudos — o celular espelha a escolha feita no
-              computador, em vez de oferecer telas que o dono desligou. */}
-          {atalhos.map(a => (
-            <button key={a.tela} className="btn-registrar" type="button"
-              onClick={() => p.irPara(a.tela)}>
-              {a.icone}
-              {a.nome}
-            </button>
-          ))}
-        </div>
       </div>
       </div>
     </div>

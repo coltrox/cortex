@@ -425,5 +425,134 @@ export function montarCardapio(
     })
   }
 
+  /*
+   * O HISTÓRICO: medidas, cardio e transações.
+   *
+   * Estas três não são catálogo do dia — são o que já aconteceu. Sobem porque
+   * o celular passou a mostrar evolução (o peso ao longo das semanas, o cardio
+   * da semana, o gasto do mês) e até agora ele só sabia ENVIAR esses
+   * registros, nunca recebê-los de volta.
+   *
+   * Todas com teto, e o teto não é detalhe: o cardápio inteiro viaja a cada
+   * publicação, e o vault vai acumular anos de diário. Sem corte, o celular
+   * baixaria dois anos de lançamento por causa de um gráfico de oito pontos.
+   */
+
+  /*
+   * Medidas: as mais recentes primeiro, cortadas em doze.
+   *
+   * Doze porque o gráfico do celular mostra oito colunas e a tela de Corpo
+   * compara com a medição anterior — doze dá folga para as duas coisas sem
+   * virar histórico completo.
+   */
+  const medidas = notas
+    .filter(x => x.tipo === 'medida' && txt(x.date) !== '')
+    .sort((a, b) => txt(b.date).localeCompare(txt(a.date)))
+    .slice(0, 12)
+
+  for (const n of medidas) {
+    out.push({
+      especie: 'medida',
+      // A data é o nome porque é a chave natural: uma medição por dia, e duas
+      // no mesmo dia são a mesma medição corrigida.
+      nome: txt(n.date),
+      detalhe: comValor({
+        data: txt(n.date),
+        peso: num(n.campos.peso),
+        gordura: num(n.campos.gordura),
+        cintura: num(n.campos.cintura),
+        quadril: num(n.campos.quadril),
+        braco: num(n.campos.braco),
+        coxa: num(n.campos.coxa),
+        peito: num(n.campos.peito),
+        panturrilha: num(n.campos.panturrilha)
+      })
+    })
+  }
+
+  /*
+   * Cardio: as últimas vinte sessões.
+   *
+   * A tela mostra a semana, mas vinte cobre também quem treina pouco e ainda
+   * quer ver as últimas sessões — cortar em sete deixaria a lista vazia na
+   * segunda-feira de quem correu no fim de semana anterior.
+   */
+  const cardios = notas
+    .filter(x => x.tipo === 'cardio' && txt(x.date) !== '')
+    .sort((a, b) => txt(b.date).localeCompare(txt(a.date)))
+    .slice(0, 20)
+
+  for (const n of cardios) {
+    out.push({
+      especie: 'cardio',
+      // Data mais aparelho: dois cardios no mesmo dia são comuns (correr de
+      // manhã, bike à noite), e só a data os fundiria num item só.
+      nome: `${txt(n.date)} ${txt(n.campos.aparelho) || 'cardio'}`.trim(),
+      detalhe: comValor({
+        data: txt(n.date),
+        aparelho: txt(n.campos.aparelho),
+        minutos: num(n.campos.minutos),
+        distancia: num(n.campos.distancia),
+        pace: txt(n.campos.pace)
+      })
+    })
+  }
+
+  /*
+   * Os lançamentos do dia, um a um.
+   *
+   * Eles moram DENTRO do diário, e havia aqui uma regra de que o diário só
+   * subia DOIS campos — com teste travando pelo nome ("NADA sensível do vault
+   * aparece no que sobe"). A regra existia por privacidade: gasto é extrato.
+   *
+   * O dono levantou a restrição em 10/09/2026, com estas palavras: "os
+   * lancamentos podem sim fica tranquilo". Os testes foram ajustados junto,
+   * e não apagados — eles continuam travando senha, documento e anotação de
+   * pasta protegida, que NÃO entraram no acordo. O que mudou foi só o
+   * dinheiro.
+   *
+   * 45 dias, e não 30: quem abre o app no dia 1º quer ver o mês que fechou
+   * ontem, e um corte de 30 dias o esvaziaria justo ali.
+   */
+  const limite = new Date(`${hoje}T00:00:00`)
+  limite.setDate(limite.getDate() - 45)
+  const desde = [
+    limite.getFullYear(),
+    String(limite.getMonth() + 1).padStart(2, '0'),
+    String(limite.getDate()).padStart(2, '0')
+  ].join('-')
+
+  const transacoes: ItemCardapio[] = []
+  for (const n of notas.filter(x => x.tipo === 'diario' && txt(x.date) >= desde)) {
+    const data = txt(n.date)
+    for (const [campo, sempreSaida] of [['transacoes', false], ['gastos', true]] as const) {
+      for (const [i, l] of lista(n.campos[campo]).entries()) {
+        const valor = num(l.valor)
+        if (valor === undefined) continue
+        transacoes.push({
+          especie: 'transacao',
+          // Data, campo e posição: é o que torna a chave única sem depender do
+          // texto do item, que se repete todo dia ("Almoço").
+          nome: `${data}#${campo}#${i}`,
+          detalhe: comValor({
+            data,
+            item: txt(l.item),
+            // Ao centavo: somar float acumula 0.30000000000000004, e esse
+            // número chegaria à tela do celular do jeito que está.
+            valor: Math.round(valor * 100) / 100,
+            cat: txt(l.cat),
+            // A lista antiga `gastos` nasceu antes de existir entrada, e todo
+            // item dela é saída. Sem esta regra, um gasto de 2025 entraria
+            // como receita na soma do celular.
+            dir: sempreSaida ? 'saida' : (txt(l.dir) === 'entrada' ? 'entrada' : 'saida')
+          })
+        })
+      }
+    }
+  }
+  // Do mais novo para o mais velho, para o teto cortar o que menos importa.
+  transacoes.sort((a, b) => txt(b.detalhe.data).localeCompare(txt(a.detalhe.data)))
+  out.push(...transacoes.slice(0, 200))
+
   return out
 }

@@ -144,9 +144,23 @@ describe('montarCardapio', () => {
     const json = JSON.stringify(montar(vault))
 
     expect(json).toContain('Push A')          // o cardápio não veio vazio
+    /*
+     * O gasto SAIU desta lista em 10/09/2026.
+     *
+     * `Almoço` e `32.5` são um lançamento do diário, e estavam proibidos por
+     * uma decisão de privacidade: extrato não sobe. O dono levantou a
+     * restrição — "os lancamentos podem sim fica tranquilo" — para o celular
+     * poder mostrar a tela de Dinheiro com o gasto do mês e a lista do dia.
+     *
+     * O resto da lista continua igual, e é o que importa: senha, e-mail, CPF,
+     * peso, texto pessoal, observação clínica e título de anotação em pasta
+     * protegida NÃO entraram no acordo. Afrouxar um item não afrouxa os
+     * outros, e é por isso que a mudança está comentada aqui em vez de o teste
+     * ter sido apagado.
+     */
     for (const proibido of [
       'SENHA-SECRETA-123', 'pedro@mail', '99.999.999-9',
-      'Almoço', '32.5', '60 kg', 'texto pessoal',
+      '60 kg', 'texto pessoal',
       'evitar por causa da cirurgia', 'dor lombar recorrente',
       'combinar com consulta psiquiátrica', 'prescrito pelo psiquiatra',
       'restrição renal detectada em exame recente',
@@ -402,17 +416,47 @@ describe('o que ja foi feito hoje sobe junto', () => {
     expect(so(c)?.detalhe).not.toHaveProperty('feito')
   })
 
-  it('so os dois campos do diario sobem -- o resto dele fica', () => {
-    // O diario do dia tambem guarda gasto e anotacao. Este teste e o que
-    // impede alguem de trocar a lista branca por um spread mais tarde.
+  it('o texto solto do diario nao sobe -- so os campos declarados', () => {
+    /*
+     * Este teste é o que impede alguém de trocar a lista branca por um spread
+     * mais tarde. O que ele trava mudou em 10/09/2026: o gasto passou a poder
+     * subir, por decisão do dono, e por isso ele agora aparece como espécie
+     * própria. O texto solto do diário continua fora — é lá que mora o que a
+     * pessoa escreveu sobre o próprio dia.
+     */
     const c = montarCardapio([creatina, diario({
       suplementos_feitos: ['Creatina'],
-      gastos: [{ item: 'SEGREDO-GASTO', valor: 99 }],
+      gastos: [{ item: 'GASTO-DO-DIA', valor: 99 }],
       anotacao: 'SEGREDO-ANOTACAO'
     })], HOJE, [])
     const json = JSON.stringify(c)
-    expect(json).not.toContain('SEGREDO-GASTO')
     expect(json).not.toContain('SEGREDO-ANOTACAO')
+    // E o gasto sobe, como espécie declarada e não como respingo do diário.
+    const t = c.filter(i => i.especie === 'transacao')
+    expect(t).toHaveLength(1)
+    expect(t[0].detalhe).toMatchObject({ item: 'GASTO-DO-DIA', valor: 99, dir: 'saida' })
+  })
+
+  it('a lista antiga `gastos` e sempre saida, mesmo com dir entrada', () => {
+    // Aquela lista nasceu antes de existir entrada. Sem esta regra, um gasto
+    // de 2025 entraria como receita na soma do celular.
+    const c = montarCardapio([diario({
+      gastos: [{ item: 'X', valor: 10, dir: 'entrada' }]
+    })], HOJE, [])
+    expect(c.find(i => i.especie === 'transacao')?.detalhe.dir).toBe('saida')
+  })
+
+  it('medida e cardio sobem com a data como chave', () => {
+    const c = montarCardapio([
+      nota({ path: 'Saude/2026-09-10.md', title: '2026-09-10', tipo: 'medida',
+             date: '2026-09-10', campos: { peso: 62.4, cintura: 71 } }),
+      nota({ path: 'Saude/Treinos/2026-09-10.md', title: 'c', tipo: 'cardio',
+             date: '2026-09-10', campos: { aparelho: 'esteira', minutos: 30 } })
+    ], HOJE, [])
+    expect(c.find(i => i.especie === 'medida')?.detalhe)
+      .toMatchObject({ data: '2026-09-10', peso: 62.4, cintura: 71 })
+    // Data mais aparelho: correr de manhã e pedalar à noite são dois itens.
+    expect(c.find(i => i.especie === 'cardio')?.nome).toBe('2026-09-10 esteira')
   })
 
   it('marca a refeicao do plano ativo', () => {
