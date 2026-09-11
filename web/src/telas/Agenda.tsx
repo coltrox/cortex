@@ -7,7 +7,7 @@ import {
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, diasAte
 } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
-import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
+import { Cabecalho, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
 import type { ItemCardapio } from '@compartilhado/eventos'
