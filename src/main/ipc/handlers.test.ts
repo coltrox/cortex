@@ -604,6 +604,32 @@ describe('cifra dos paineis trancados', () => {
     expect(await noDisco('Saude/Treinos/Push.md')).toBe('# push')
   })
 
+  it('trancar so Contas cifra a pasta e deixa o resto da Vida legivel', async () => {
+    // O recurso inteiro em um teste: a senha protege as contas sem esconder a
+    // lista de compras e as metas, que moram na raiz de `Vida`.
+    await handle(session, 'senha:definir', { atual: null, nova: 'abacaxi', dica: 'lembrete' })
+    await handle(session, 'note:write', { path: 'Vida/Contas/Gmail.md', content: NOTA })
+    await handle(session, 'note:write', { path: 'Vida/Comprar pao.md', content: '# pao' })
+    await handle(session, 'senha:paineis', { atual: 'abacaxi', paineis: ['Vida/Contas'] })
+
+    const conta = await noDisco('Vida/Contas/Gmail.md')
+    expect(conta.startsWith('CORTEX-CIFRADO-1')).toBe(true)
+    expect(conta).not.toContain('Senha do banco')
+    expect(await noDisco('Vida/Comprar pao.md')).toBe('# pao')
+  })
+
+  it('pasta fora da tabela nao tranca nada', async () => {
+    // O renderer e entrada hostil. "Anexos" nao esta em SUBAREAS, e aceita-lo
+    // cifraria uma pasta que nenhuma tela sabe destrancar.
+    await handle(session, 'senha:definir', { atual: null, nova: 'abacaxi', dica: 'lembrete' })
+    await handle(session, 'note:write', { path: 'Vida/Contas/Gmail.md', content: NOTA })
+    const c = await handle(session, 'senha:paineis', {
+      atual: 'abacaxi', paineis: ['Anexos', 'Vida', '..']
+    }) as any
+    expect(c.paineisTrancados).toEqual([])
+    expect(await noDisco('Vida/Contas/Gmail.md')).toBe(NOTA)
+  })
+
   it('destrancar o painel devolve o arquivo a texto puro', async () => {
     await comSenhaETrancado(['vida'])
     await handle(session, 'senha:paineis', { atual: 'abacaxi', paineis: [] })

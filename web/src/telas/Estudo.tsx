@@ -60,7 +60,6 @@ export function Estudo(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela
       <Cabecalho titulo="Estudo" />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="bloco">
-        <span className="campo-rotulo">Matéria</span>
         <Selecao rotulo="Matéria" opcoes={MATERIAS} valor={materia} aoMudar={setMateria} />
         {/* Só quando é "Outra": um campo de texto sempre visível convida a
             digitar o nome à mão, e aí a métrica volta a ter três grafias da

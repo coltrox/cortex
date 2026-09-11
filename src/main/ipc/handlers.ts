@@ -11,6 +11,8 @@ import {
   novoVaultId, projetarConfigParaRenderer, IDS_AREAS,
   pastasDasAreas, pastasProtegidas
 } from '../config'
+import { ehSubArea } from '../../shared/subareas'
+import { lerPrefs, gravarPref } from '../prefs'
 import { criarCofre, abrirCofre, reenvelopar } from '../cifra'
 import { converterPastas } from '../converter'
 import { criarSegredo, conferirSenha } from '../senha'
@@ -218,6 +220,21 @@ export async function handle(
     case 'config:get':
       return projetarConfigParaRenderer(session.config)
 
+    /*
+     * As preferências de tela.
+     *
+     * Ficam fora da exigência de vault aberto que quase todo canal tem: elas
+     * não pertencem ao vault e existem antes de qualquer um ser aberto — a
+     * tela de abertura também tem aparência. Ver `main/prefs.ts` para o motivo
+     * de isto não viver no `localStorage`.
+     */
+    case 'pref:ler':
+      return lerPrefs()
+
+    case 'pref:gravar':
+      await gravarPref(p.chave, p.valor)
+      return { ok: true }
+
     case 'config:areas': {
       const c = await session.salvarConfig({ areas: p.areas, escolheu: true })
       // Criar as pastas na hora que a área é ligada é o que faz o vault ser
@@ -374,10 +391,13 @@ export async function handle(
       if (session.config.senha === null) throw new Error('crie uma senha antes de trancar painéis')
       if (!conferirSenha(p.atual, session.config.senha)) throw new Error('senha incorreta')
 
-      // Filtra por tipo E por area conhecida: o renderer e entrada hostil, e
-      // um id fora de IDS_AREAS trancaria um painel que nao existe.
+      // Filtra por tipo E por nome conhecido: o renderer e entrada hostil, e
+      // um id fora da lista trancaria um painel que nao existe. Sub-area vale
+      // pelo caminho da pasta, e so os da tabela -- sem isso, um renderer
+      // comprometido mandaria "Anexos" e cifraria o vault inteiro.
       const paineis = [...new Set((p.paineis as unknown[]).filter(
-        (x): x is string => typeof x === 'string' && IDS_AREAS.includes(x)
+        (x): x is string =>
+          typeof x === 'string' && (IDS_AREAS.includes(x) || ehSubArea(x))
       ))]
 
       const antes = pastasProtegidas(session.config.paineisTrancados)

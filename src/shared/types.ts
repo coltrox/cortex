@@ -106,6 +106,15 @@ declare global {
       saidaDoProcesso(id: string): Promise<{ linhas: string[] }>
       limparEncerrados(): Promise<{ processos: ProcessoInfo[] }>
       abrirNoVsCode(raiz: string, sub?: string): Promise<{ ok: boolean; motivo?: string }>
+
+      /*
+       * Preferências de tela, gravadas em disco pelo processo principal.
+       * `localStorage` não funciona no app instalado — a janela carrega por
+       * `file://`, origem opaca, e o Chromium recusa gravar. Ver `main/prefs.ts`.
+       */
+      lerPrefs(): Promise<Record<string, string>>
+      gravarPref(chave: string, valor: string): Promise<{ ok: true }>
+
       onVaultChange(cb: (rel: string) => void): () => void
       onVaultAberto(cb: (e: EstadoVault) => void): () => void
     }

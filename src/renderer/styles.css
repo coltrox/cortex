@@ -2511,3 +2511,29 @@ kbd {
 .amostra-claro  { background: #FBFBFA; }
 .amostra-escuro { background: #191919; }
 .amostra-sistema { background: linear-gradient(to right, #FBFBFA 50%, #191919 50%); }
+
+/* ─────────────── Trancar uma pasta dentro da área ─────────────── */
+
+/* Cada área vira uma coluna com as pastas dela embaixo, e não mais uma
+   etiqueta solta na grade: a hierarquia é o que diz que "Contas e senhas"
+   pertence à Vida — sem ela, seriam onze caixas de seleção irmãs. */
+.config-grupo-area {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.config-subarea {
+  margin-left: 22px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.config-subarea input:disabled + span { opacity: .55; }
+
+/* O cadeado na sub-navegação encosta na direita, longe do nome. */
+.subnav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.subnav-cadeado { font-size: 10px; opacity: .6; }

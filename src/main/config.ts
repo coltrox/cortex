@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
+import { ehSubArea } from '../shared/subareas'
 
 /**
  * Configuração do vault — `.vault/config.json`.
@@ -151,7 +152,14 @@ export function pastasDasAreas(areas: string[]): string[] {
  */
 export function pastasProtegidas(paineis: string[]): string[] {
   const out = new Set<string>()
-  for (const a of paineis) for (const p of PASTAS_POR_AREA[a] ?? []) out.add(p)
+  for (const a of paineis) {
+    // Área: vira todas as pastas dela. Sub-área: já é a pasta (ver
+    // shared/subareas.ts). Os dois vocabulários convivem na mesma lista
+    // porque quem consome — o cofre — só entende pasta.
+    const pastas = PASTAS_POR_AREA[a]
+    if (pastas) for (const p of pastas) out.add(p)
+    else if (ehSubArea(a)) out.add(a)
+  }
   return [...out]
 }
 
@@ -201,7 +209,8 @@ export function normalizarConfig(bruto: unknown): Config {
   // cadastrada seria um painel que ninguém abre, nem o dono.
   const paineisTrancados = senha && Array.isArray(o.paineisTrancados)
     ? [...new Set(o.paineisTrancados.filter(
-        (a): a is string => typeof a === 'string' && IDS_AREAS.includes(a)))]
+        (a): a is string =>
+          typeof a === 'string' && (IDS_AREAS.includes(a) || ehSubArea(a))))]
     : []
 
   // Só https, e só um endereço de verdade. Um `javascript:` ou um `file:`

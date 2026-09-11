@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AREAS } from './Abertura'
+import { SUBAREAS, subAreasDaArea } from '../../shared/subareas'
 import type { Config } from '../useVault'
 
 /**
@@ -70,9 +71,19 @@ export function ProtecaoSenha({ config, aoTrocarConfig }: {
     }
   }
 
-  const nomesProtegidos = AREAS
-    .filter(a => config.paineisTrancados.includes(a.id))
-    .map(a => a.nome)
+  /* Área inteira e pasta solta aparecem na mesma frase do resumo: para quem
+     lê, as duas respondem a mesma pergunta — o que está protegido agora.
+     A pasta some da lista quando a área dela já está trancada, senão o resumo
+     diria duas vezes a mesma coisa. */
+  const nomesProtegidos = [
+    ...AREAS
+      .filter(a => config.paineisTrancados.includes(a.id))
+      .map(a => a.nome),
+    ...SUBAREAS
+      .filter(s => config.paineisTrancados.includes(s.pasta)
+        && !config.paineisTrancados.includes(s.area))
+      .map(s => s.nome)
+  ]
 
   return (
     <section className="config-bloco">
@@ -92,7 +103,7 @@ export function ProtecaoSenha({ config, aoTrocarConfig }: {
       {passo.nome === 'nova-area' && (
         <EscolherAreas
           titulo="Passo 1 de 3 · Qual área proteger"
-          dica="Tudo que estiver nas pastas dessa área passa a ser cifrado no disco. O Diário e os Anexos ficam de fora: eles são de todas as áreas, e cifrá-los esconderia o treino e o gasto do mesmo dia."
+          dica="Tudo que estiver nas pastas dessa área passa a ser cifrado no disco. Dá para marcar só uma pasta de dentro — Contas e senhas sem trancar o resto da Vida. O Diário e os Anexos ficam de fora: eles são de todas as áreas, e cifrá-los esconderia o treino e o gasto do mesmo dia."
           marcadas={passo.areas}
           aoAlternar={id => setPasso({
             nome: 'nova-area',
@@ -150,7 +161,7 @@ export function ProtecaoSenha({ config, aoTrocarConfig }: {
       {passo.nome === 'editar-areas' && (
         <EscolherAreas
           titulo="Áreas protegidas"
-          dica="Marcar cifra as pastas da área. Desmarcar decifra — o conteúdo volta a ser legível fora do Cortex."
+          dica="Marcar cifra as pastas. Desmarcar decifra — o conteúdo volta a ser legível fora do Cortex."
           marcadas={passo.areas}
           aoAlternar={id => setPasso({
             ...passo,
@@ -261,11 +272,28 @@ function EscolherAreas({ titulo, dica, marcadas, aoAlternar, rotulo, desligado, 
       <p className="form-dica">{dica}</p>
       <div className="config-paineis">
         {AREAS.map(a => (
-          <label key={a.id} className="config-painel">
-            <input type="checkbox" checked={marcadas.includes(a.id)}
-              onChange={() => aoAlternar(a.id)} />
-            <span>{a.nome}</span>
-          </label>
+          <div key={a.id} className="config-grupo-area">
+            <label className="config-painel">
+              <input type="checkbox" checked={marcadas.includes(a.id)}
+                onChange={() => aoAlternar(a.id)} />
+              <span>{a.nome}</span>
+            </label>
+            {/* As pastas de dentro.
+                Marcar a área inteira já cobre todas elas — por isso ficam
+                marcadas e desligadas nesse caso, em vez de sumirem: some e a
+                pessoa fica sem saber se a conta dela está protegida. */}
+            {subAreasDaArea(a.id).map(s => (
+              <label key={s.pasta} className="config-painel config-subarea">
+                <input
+                  type="checkbox"
+                  checked={marcadas.includes(a.id) || marcadas.includes(s.pasta)}
+                  disabled={marcadas.includes(a.id)}
+                  onChange={() => aoAlternar(s.pasta)}
+                />
+                <span>{s.nome}</span>
+              </label>
+            ))}
+          </div>
         ))}
       </div>
       <div className="config-botoes">

@@ -352,13 +352,22 @@ export function dataCurta(iso: string, hoje: string): string {
  *
  * Faz a conta em dias de calendário, não em milissegundos: com milissegundos,
  * uma prova às 8h de amanhã "falta 0 dias" às 23h de hoje, e a tela mentiria.
+ *
+ * `diasAte` é a mesma conta sem o texto, para quem precisa do número — a tela
+ * Chegando agrupa por semana, e "em 9 dias" não se compara com "em 12 dias"
+ * sem desfazer a frase de volta em número.
  */
-export function faltam(data: string, hoje: string): string {
-  if (!data) return ''
+export function diasAte(data: string, hoje: string): number | null {
+  if (!data) return null
   const dias = Math.round(
     (Date.parse(`${data}T00:00:00`) - Date.parse(`${hoje}T00:00:00`)) / 86_400_000
   )
-  if (Number.isNaN(dias)) return ''
+  return Number.isNaN(dias) ? null : dias
+}
+
+export function faltam(data: string, hoje: string): string {
+  const dias = diasAte(data, hoje)
+  if (dias === null) return ''
   if (dias === 0) return 'hoje'
   if (dias === 1) return 'amanhã'
   if (dias === -1) return 'ontem'

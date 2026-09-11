@@ -93,6 +93,20 @@ const api = {
     return ipcRenderer.invoke('dev:vscode', { raiz, sub })
   },
 
+  /*
+   * As preferências de tela, gravadas pelo processo principal.
+   *
+   * Canal próprio em vez de `localStorage` porque o armazenamento local NÃO
+   * FUNCIONA no app instalado: a janela carrega por `file://`, origem opaca
+   * para o Chromium, e ele recusa gravar ali. Ver `main/prefs.ts`.
+   */
+  lerPrefs(): Promise<Record<string, string>> {
+    return ipcRenderer.invoke('pref:ler', {}) as Promise<Record<string, string>>
+  },
+  gravarPref(chave: string, valor: string): Promise<{ ok: true }> {
+    return ipcRenderer.invoke('pref:gravar', { chave, valor }) as Promise<{ ok: true }>
+  },
+
   onVaultChange(cb: (rel: string) => void): () => void {
     const h = (_e: unknown, rel: string): void => cb(rel)
     ipcRenderer.on('vault:changed', h)

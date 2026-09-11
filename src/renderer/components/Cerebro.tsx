@@ -428,9 +428,8 @@ const CHAVE_AJUSTES = 'cortex.cerebro.ajustes'
  * Campo que não for número vira o padrão, em vez de virar `NaN` e apagar o
  * grafo inteiro.
  */
-function lerAjustes(): Ajustes {
+function lerAjustes(bruto: string | undefined): Ajustes {
   try {
-    const bruto = window.localStorage.getItem(CHAVE_AJUSTES)
     if (!bruto) return AJUSTES_PADRAO
     const o = JSON.parse(bruto) as Partial<Ajustes>
     const num = (v: unknown, padrao: number): number =>
@@ -550,7 +549,7 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
   const [erro, setErro] = useState<string | null>(null)
   const [sobre, setSobre] = useState<No | null>(null)
   const [busca, setBusca] = useState('')
-  const [ajustes, setAjustes] = useState<Ajustes>(lerAjustes)
+  const [ajustes, setAjustes] = useState<Ajustes>(AJUSTES_PADRAO)
   const [painel, setPainel] = useState(false)
   /** O grupo isolado pela legenda, ou `null` para mostrar tudo. */
   const [foco, setFoco] = useState<string | null>(null)
@@ -684,11 +683,33 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     }
   }, [carregar])
 
+  /*
+   * Traz os ajustes guardados, uma vez, na montagem.
+   *
+   * Eles vinham do `localStorage`, que é SÍNCRONO e por isso podia entrar no
+   * `useState` inicial. Só que o armazenamento local não funciona no app
+   * instalado — a janela carrega por `file://`, origem opaca, e o Chromium
+   * recusa gravar ali. Conferido no disco: o armazenamento do app não tinha
+   * uma entrada sequer de `file://`, só as de `localhost:5173` que o modo de
+   * desenvolvimento gravava. Era por isso que os ajustes voltavam ao padrão a
+   * cada vez que o Cortex fechava.
+   *
+   * Agora vêm do processo principal, e por isso chegam DEPOIS do primeiro
+   * quadro. O grafo desenha um instante com os valores padrão e se acerta em
+   * seguida — invisível, porque o assentamento inicial leva mais tempo que
+   * isto.
+   */
+  useEffect(() => {
+    let vivo = true
+    void window.vaultApi.lerPrefs()
+      .then(prefs => { if (vivo) setAjustes(lerAjustes(prefs[CHAVE_AJUSTES])) })
+      .catch(() => { /* sem preferência guardada: os padrões servem */ })
+    return () => { vivo = false }
+  }, [])
+
   /** Guarda os ajustes a cada mudança. Falha em silêncio: é preferência. */
   useEffect(() => {
-    try {
-      window.localStorage.setItem(CHAVE_AJUSTES, JSON.stringify(ajustes))
-    } catch { /* armazenamento cheio ou desligado; a tela funciona igual */ }
+    void window.vaultApi.gravarPref(CHAVE_AJUSTES, JSON.stringify(ajustes)).catch(() => {})
     sujo.current = true
   }, [ajustes])
 

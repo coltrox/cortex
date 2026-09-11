@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   lerConfig, gravarConfig, normalizarConfig, novoVaultId, IDS_AREAS, projetarConfigParaRenderer
-, ENDERECO_APP_PADRAO } from './config'
+, ENDERECO_APP_PADRAO, pastasProtegidas } from './config'
 
 let dir: string, arq: string
 
@@ -31,6 +31,55 @@ describe('normalizarConfig', () => {
   it('tira pasta repetida e valor que nao e string', () => {
     const c = normalizarConfig({ pastasDev: ['/a', '/a', 42, '', '/b'] })
     expect(c.pastasDev).toEqual(['/a', '/b'])
+  })
+})
+
+describe('trancar uma pasta dentro da area', () => {
+  const comSenha = { senha: 'scrypt$16384$aa$bb' }
+
+  it('a area vira todas as pastas dela', () => {
+    expect(pastasProtegidas(['vida'])).toEqual(['Vida', 'Vida/Documentos', 'Vida/Contas'])
+  })
+
+  it('a sub-area vira so a pasta dela', () => {
+    // O ponto do recurso: proteger Contas e senhas sem esconder as metas e a
+    // lista de compras, que moram em `Vida`.
+    expect(pastasProtegidas(['Vida/Contas'])).toEqual(['Vida/Contas'])
+  })
+
+  it('area e sub-area juntas nao duplicam a pasta', () => {
+    const r = pastasProtegidas(['vida', 'Vida/Contas'])
+    expect(r.filter(p => p === 'Vida/Contas')).toHaveLength(1)
+  })
+
+  it('o Diario fica de fora tambem quando a tranca e de uma pasta so', () => {
+    // Mesma razao de sempre: o diario e de todas as areas e de nenhuma.
+    expect(pastasProtegidas(['Vida/Contas'])).not.toContain('Diario')
+  })
+
+  it('pasta que nao esta na tabela nao tranca nada', () => {
+    // Sem isto, um renderer comprometido mandaria "Anexos" -- ou "" -- e
+    // cifraria o vault inteiro por um canal que existe para trancar um painel.
+    expect(pastasProtegidas(['Anexos'])).toEqual([])
+    expect(pastasProtegidas(['..'])).toEqual([])
+    expect(pastasProtegidas([''])).toEqual([])
+  })
+
+  it('a config guarda o caminho da sub-area', () => {
+    const c = normalizarConfig({ ...comSenha, paineisTrancados: ['Vida/Contas'] })
+    expect(c.paineisTrancados).toEqual(['Vida/Contas'])
+  })
+
+  it('a config descarta pasta inventada, como descarta area inventada', () => {
+    const c = normalizarConfig({
+      ...comSenha,
+      paineisTrancados: ['Vida/Contas', 'Vida/Inventada', 'nao-existe', 'saude']
+    })
+    expect(c.paineisTrancados).toEqual(['Vida/Contas', 'saude'])
+  })
+
+  it('sem senha cadastrada, nenhuma pasta fica trancada', () => {
+    expect(normalizarConfig({ paineisTrancados: ['Vida/Contas'] }).paineisTrancados).toEqual([])
   })
 })
 

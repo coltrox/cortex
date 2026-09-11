@@ -195,6 +195,31 @@ export const IPC_SCHEMAS = {
     paineis: z.array(z.string().max(32)).max(32)
   }).strict(),
 
+  /*
+   * As preferências de TELA — as do renderizador, não as do vault.
+   *
+   * Existem porque `localStorage` NÃO FUNCIONA no app instalado. A janela de
+   * produção carrega por `file://`, que para o Chromium é origem opaca, e ali
+   * ele recusa o armazenamento local. Como quem lia e gravava engolia a
+   * exceção num `try/catch`, a falha era invisível: os ajustes do Cérebro
+   * pareciam salvar durante a sessão, porque o estado do React os segurava, e
+   * desapareciam ao reabrir.
+   *
+   * Medido antes de consertar: o armazenamento local do app instalado não
+   * tinha UMA entrada de `file://` — só de `http://localhost:5173`, gravadas
+   * quando o app roda em desenvolvimento, onde a origem é de verdade.
+   *
+   * Por isso a preferência passa pelo processo principal, que grava em disco
+   * como o resto: um JSON em `userData`, com chave e valor de texto.
+   */
+  'pref:ler': z.object({}).strict(),
+  'pref:gravar': z.object({
+    chave: z.string().min(1).max(64),
+    // Texto, e não `unknown`: quem chama serializa. Assim este canal não vira
+    // uma porta para gravar objeto arbitrário no disco de quem usa.
+    valor: z.string().max(100_000)
+  }).strict(),
+
   'dev:folders': z.object({}).strict(),
   'dev:remove-folder': z.object({ raiz: raizDev }).strict(),
   'dev:tree': z.object({ raiz: raizDev, sub: relDev.default('') }).strict(),

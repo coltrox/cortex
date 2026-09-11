@@ -4,6 +4,7 @@ import { TIPOS_NOTA_CARDAPIO } from '../shared/eventos'
 import type { NoteComCampos } from './tipos'
 import { hojeISO } from './tipos'
 import { SUBS } from './subnav'
+import { subAreaDaAba } from '../shared/subareas'
 import { FORMULARIOS, ITENS } from './formularios'
 import {
   IconeHoje, IconeVida, IconeSaude, IconeDev,
@@ -91,9 +92,18 @@ export function App() {
    * atual deixa de ser a destrancada -- que e o momento exato em que a pessoa
    * saiu.
    */
+  /*
+   * O que o token aberto precisa casar para continuar valendo.
+   *
+   * Destrancar a lente inteira vale em qualquer sub-aba dela — é o painel que
+   * foi aberto. Destrancar uma sub-área vale só naquela aba: trocar de aba é
+   * sair dali, e sair tranca de novo, pela mesma razão de trocar de lente.
+   */
+  const subAreaAtual = subAreaDaAba(v.lente, v.sub)
   useEffect(() => {
-    if (destrancado !== null && v.lente !== destrancado) setDestrancado(null)
-  }, [v.lente, destrancado])
+    const vale = destrancado === v.lente || destrancado === subAreaAtual?.pasta
+    if (destrancado !== null && !vale) setDestrancado(null)
+  }, [v.lente, subAreaAtual?.pasta, destrancado])
   // Quantas rodadas automáticas seguidas falharam (rejeitaram a promise —
   // credencial ausente/inválida, chave revogada, DNS que não resolve mais).
   // Zera a cada rodada que sequer conclui, mesmo pulada por concorrência: o
@@ -201,6 +211,29 @@ export function App() {
       return <Tranca nome={nome} dica={v.config.dicaSenha} aoDestrancar={() => setDestrancado(v.lente)} />
     }
 
+    /*
+     * A tranca de uma pasta só, dentro de uma lente aberta.
+     *
+     * Trancar a Vida inteira para proteger Contas e senhas escondia junto as
+     * metas e a lista de compras. Aqui a lente abre normal e o cadeado fica
+     * na aba — mesmo lugar, mesmo componente, pedaço menor.
+     *
+     * A lente destrancada vale por cima: quem digitou a senha para abrir o
+     * painel inteiro não digita de novo para entrar numa aba dele.
+     */
+    if (
+      subAreaAtual && v.config.paineisTrancados.includes(subAreaAtual.pasta)
+      && destrancado !== subAreaAtual.pasta && destrancado !== v.lente
+    ) {
+      return (
+        <Tranca
+          nome={subAreaAtual.nome}
+          dica={v.config.dicaSenha}
+          aoDestrancar={() => setDestrancado(subAreaAtual.pasta)}
+        />
+      )
+    }
+
     const comuns = { notas: v.notas, sub: v.sub, hoje, ...acoes }
     switch (v.lente) {
       // Fora de `comuns` de propósito: o cérebro não lê `v.notas`, porque
@@ -292,6 +325,15 @@ export function App() {
                 onClick={() => { v.setSub(s.id); v.fechar() }}
               >
                 {s.nome}
+                {/* O cadeado diz qual aba pede senha antes de a pessoa clicar.
+                    Sem ele, a única pista seria a tranca aparecendo — e aí já
+                    é tarde para escolher outra aba. */}
+                {(() => {
+                  const sa = subAreaDaAba(v.lente, s.id)
+                  return sa && v.config.paineisTrancados.includes(sa.pasta)
+                    ? <span className="subnav-cadeado" aria-label="trancada">🔒</span>
+                    : null
+                })()}
               </button>
             ))}
           </aside>

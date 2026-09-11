@@ -1,15 +1,27 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoProvaEstudada, eventoProvaEtapa, eventoItemApagado } from '../montar'
 import type { Evento } from '@compartilhado/eventos'
 import { dobra, pontuar } from '@compartilhado/busca'
-import { provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta } from '../cardapio'
+import {
+  provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, diasAte
+} from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { Cabecalho, Botao, Aviso, Secao, Detalhe } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
 import type { ItemCardapio } from '@compartilhado/eventos'
 import type { EdicaoItem, TipoNovo } from './NovoItem'
+
+/** Um item da agenda sabendo de que tipo é: a lista mistura os três. */
+type Linha = { tipo: 'prova' | 'compromisso' | 'tarefa'; item: ItemCardapio }
+
+/** Como cada tipo se chama na tela. */
+const ROTULO: Record<Linha['tipo'], string> = {
+  prova: 'Prova',
+  compromisso: 'Compromisso',
+  tarefa: 'Tarefa'
+}
 
 /**
  * O que está chegando.
@@ -175,12 +187,272 @@ export function Agenda(p: {
   const ts = filtrar(tarefas(p.cardapio.cardapio))
   const vazio = ps.length === 0 && cs.length === 0 && ts.length === 0
 
+  /*
+   * Tudo numa fila só, na ordem em que a vida vai cobrar.
+   *
+   * Três listas por tipo respondiam "quais provas eu tenho", que não é a
+   * pergunta de quem abre esta aba — a pergunta é "o que vem agora". Provas,
+   * compromissos e tarefas se misturam e a data manda; o tipo vira etiqueta.
+   *
+   * Com busca escrita, quem manda é o acerto, e `filtrar` já ordenou assim:
+   * digitei um nome, quero aquele item na frente, não o mais próximo que
+   * também bateu. Por isso a ordenação por data só acontece sem termo.
+   */
+  const linhas: Linha[] = [
+    ...ps.map((item): Linha => ({ tipo: 'prova', item })),
+    ...cs.map((item): Linha => ({ tipo: 'compromisso', item })),
+    ...ts.map((item): Linha => ({ tipo: 'tarefa', item }))
+  ]
+  if (!termo) {
+    // Item sem data vai para o fim, e não para o começo: string vazia é o
+    // menor texto que existe, e ordenar cru jogaria o indefinido na frente
+    // do que tem dia marcado.
+    const chave = (l: Linha): string => dataDe(l.item) || '9999-99-99'
+    linhas.sort((a, b) => chave(a).localeCompare(chave(b)))
+  }
+
+  /*
+   * As faixas.
+   *
+   * Semana corrida a partir de hoje, e não semana do calendário: na quinta,
+   * "esta semana" tem que incluir a segunda que vem, senão a prova de segunda
+   * cai em "semana que vem" e parece longe.
+   */
+  const FAIXAS: { nome: string; ate: number }[] = [
+    { nome: 'Atrasado', ate: -1 },
+    { nome: 'Esta semana', ate: 7 },
+    { nome: 'Semana que vem', ate: 14 },
+    { nome: 'Depois', ate: Number.POSITIVE_INFINITY }
+  ]
+  const faixaDe = (l: Linha): string => {
+    const d = diasAte(dataDe(l.item), dia)
+    if (d === null) return 'Sem data'
+    return (FAIXAS.find(f => d <= f.ate) ?? FAIXAS[FAIXAS.length - 1]).nome
+  }
+
+  /* Os grupos saem da lista já ordenada, então cada faixa aparece uma vez só. */
+  const grupos: { nome: string; linhas: Linha[] }[] = []
+  for (const l of linhas) {
+    const nome = termo ? 'Resultados' : faixaDe(l)
+    const ultimo = grupos[grupos.length - 1]
+    if (ultimo && ultimo.nome === nome) ultimo.linhas.push(l)
+    else grupos.push({ nome, linhas: [l] })
+  }
+
+  /* O destaque é o próximo que ainda não passou. Some durante a busca: com um
+     termo digitado, o topo da tela é o resultado, não a agenda. */
+  const destaque = termo
+    ? undefined
+    : linhas.find(l => {
+      const d = diasAte(dataDe(l.item), dia)
+      return d !== null && d >= 0
+    })
+
+  /*
+   * Um cartão por tipo.
+   *
+   * Eram três listas separadas, e para saber o que vem primeiro era preciso ler
+   * as três e comparar as datas de cabeça. Agora quem ordena e agrupa é a tela;
+   * estas funções só desenham, cada uma com as ações do seu tipo.
+   */
+  const cartaoProva = (i: ItemCardapio) => {
+    const path = caminhoDe(i)
+    const apagada = feitos.includes(`apagar:${path}`)
+    const etapa = etapaDe(i, path)
+    const travado = apagada || path === ''
+    return (
+      <div
+        className={`item item-acao ${etapa.feito || apagada ? 'item-feito' : ''}`}
+        key={path || i.nome}
+      >
+        <div className="item-corpo">
+          <span className="item-tipo">{ROTULO.prova}</span>
+          <div className="item-nome">{i.nome}</div>
+          <Quando data={dataCurta(dataDe(i), dia)} falta={faltam(dataDe(i), dia)} />
+          <Sobre partes={[i.detalhe.materia, i.detalhe.local]} />
+        </div>
+
+        {/* A etapa da vez ocupa a linha inteira, e o resto se recolhe
+            atrás do "⋯". Antes eram três botões competindo pelo mesmo
+            espaço em cada card, e o que a pessoa realmente vai fazer
+            agora — se inscrever — ficava do tamanho de "excluir". */}
+        <div className="item-acoes">
+          {etapa.qual === 'estudo' && (
+            <button
+              className={`acao-lado ${etapa.feito ? 'acao-feita' : ''}`}
+              type="button"
+              // Sem `disabled` quando feito: é o mesmo botão que desmarca.
+              disabled={travado}
+              aria-pressed={etapa.feito}
+              onClick={() => alternar(
+                `prova:${path}`, etapa.feito,
+                feito => eventoProvaEstudada(path, dia, feito)
+              )}
+            >
+              {etapa.feito ? 'estudei ✓' : 'estudei'}
+            </button>
+          )}
+          {etapa.qual === 'inscricao' && (
+            <button
+              className="acao-lado acao-etapa"
+              type="button"
+              disabled={travado}
+              onClick={() => alternar(
+                `insc:${path}`, false,
+                feito => eventoProvaEtapa(path, 'inscrito', dia, feito)
+              )}
+            >
+              fazer inscrição
+            </button>
+          )}
+          {etapa.qual === 'pagamento' && (
+            <button
+              className="acao-lado acao-etapa"
+              type="button"
+              disabled={travado}
+              onClick={() => alternar(
+                `pago:${path}`, false,
+                feito => eventoProvaEtapa(path, 'pago', dia, feito)
+              )}
+            >
+              fazer pagamento
+            </button>
+          )}
+          {/* `pronto` não ganha botão nenhum: inscrito e pago, o que
+              sobra da prova é a data chegando. */}
+          {etapa.qual === 'pronto' && (
+            <span className="acao-pronta">inscrição paga ✓</span>
+          )}
+          <button
+            className="acao-mais"
+            type="button"
+            aria-label={`ações de ${i.nome}`}
+            aria-expanded={aberto === path}
+            onClick={() => setAberto(aberto === path ? null : path)}
+          >
+            ⋯
+          </button>
+        </div>
+
+        {aberto === path && (
+          <div className="item-acoes item-acoes-abertas">
+            <button className="acao-lado" type="button" disabled={travado}
+              onClick={() => { setAberto(null); p.aoEditar('prova', paraEditar(i)) }}>
+              editar
+            </button>
+            {/* Desfazer a etapa vive aqui, e não no botão da frente: o
+                da frente é para andar, e um toque errado nele não pode
+                custar o registro da inscrição. */}
+            {i.detalhe.inscricao === true && etapa.qual !== 'inscricao' && (
+              <button className="acao-lado" type="button" disabled={travado}
+                onClick={() => {
+                  setAberto(null)
+                  const desfazPagamento = etapa.qual === 'pronto'
+                  const chave = desfazPagamento ? `pago:${path}` : `insc:${path}`
+                  alternar(chave, true, feito => eventoProvaEtapa(
+                    path, desfazPagamento ? 'pago' : 'inscrito', dia, feito
+                  ))
+                }}>
+                desfazer {etapa.qual === 'pronto' ? 'pagamento' : 'inscrição'}
+              </button>
+            )}
+            <button
+              className="acao-lado acao-destrutiva"
+              type="button"
+              disabled={travado}
+              onClick={() => {
+                if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
+                setAberto(null)
+                marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+              }}
+            >
+              {apagada ? 'excluída' : 'excluir'}
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const cartaoCompromisso = (i: ItemCardapio) => {
+    const path = caminhoDe(i)
+    const apagado = feitos.includes(`apagar:${path}`)
+    return (
+      <div className={`item item-acao ${apagado ? 'item-feito' : ''}`}
+        key={path || i.nome}>
+        <div className="item-corpo">
+          <span className="item-tipo">{ROTULO.compromisso}</span>
+          <div className="item-nome">{i.nome}</div>
+          <Quando
+            data={dataCurta(dataDe(i), dia)}
+            falta={faltam(dataDe(i), dia)}
+            hora={txt(i.detalhe.hora)}
+          />
+          <Sobre partes={[i.detalhe.local]} />
+        </div>
+        {/* Editar antes de excluir: mudar de horário é o que mais
+            acontece, e cancelar é a saída. */}
+        <div className="item-acoes">
+          <button
+            className="acao-lado"
+            type="button"
+            disabled={apagado || path === ''}
+            onClick={() => p.aoEditar('compromisso', paraEditar(i))}
+          >
+            editar
+          </button>
+          <button
+            className="acao-lado acao-destrutiva"
+            type="button"
+            disabled={apagado || path === ''}
+            onClick={() => {
+              // Confirmar aqui e o que substitui o "marcar cancelado" de
+              // antes: apagar no vault nao tem desfazer pelo celular.
+              if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
+              marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+            }}
+          >
+            {apagado ? 'excluído' : 'excluir'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const cartaoTarefa = (i: ItemCardapio) => (
+    <div className="item item-acao" key={caminhoDe(i) || i.nome}>
+      <div className="item-corpo">
+        <span className="item-tipo">{ROTULO.tarefa}</span>
+        <div className="item-nome">{i.nome}</div>
+        <Quando data={dataCurta(dataDe(i), dia)} falta={faltam(dataDe(i), dia)} />
+        <Sobre partes={[i.detalhe.materia]} />
+      </div>
+    </div>
+  )
+
+
   return (
     <div className="tema-agenda">
       <Cabecalho titulo="Chegando" />
       {p.cardapio.erro && <Aviso>{p.cardapio.erro}</Aviso>}
 
       <div className="bloco">
+        {/* O que vem primeiro, em tamanho de quem vem primeiro.
+
+            Antes a tela abria com tres listas e a coisa mais perto podia estar
+            no fim da terceira. O cartao responde de uma olhada a pergunta que
+            faz alguem abrir esta aba: o que e a proxima, e quanto falta. */}
+        {destaque && (
+          <div className="chegando-heroi">
+            <span className="heroi-tipo">{ROTULO[destaque.tipo]}</span>
+            <strong className="heroi-nome">{destaque.item.nome}</strong>
+            <span className="heroi-quando">
+              {[dataCurta(dataDe(destaque.item), dia), txt(destaque.item.detalhe.hora)]
+                .filter(x => x !== '').join(' · ')}
+            </span>
+            <span className="heroi-falta">{faltam(dataDe(destaque.item), dia)}</span>
+          </div>
+        )}
         {/* Os mesmos chips do Cortex: marcar algo daqui e um toque, e a
             fileira mostra de uma vez o que da para marcar. */}
         {/* Um botão só, e a escolha do tipo em seguida.
@@ -239,179 +511,15 @@ export function Agenda(p: {
           </p>
         )}
 
-        {ps.length > 0 && <Secao nome="Provas" />}
-        {ps.map(i => {
-          const path = caminhoDe(i)
-          const apagada = feitos.includes(`apagar:${path}`)
-          const etapa = etapaDe(i, path)
-          const travado = apagada || path === ''
-          return (
-            <div
-              className={`item item-acao ${etapa.feito || apagada ? 'item-feito' : ''}`}
-              key={path || i.nome}
-            >
-              <div className="item-corpo">
-                <div className="item-nome">{i.nome}</div>
-                <Quando data={dataCurta(dataDe(i), dia)} falta={faltam(dataDe(i), dia)} />
-                <Sobre partes={[i.detalhe.materia, i.detalhe.local]} />
-              </div>
-
-              {/* A etapa da vez ocupa a linha inteira, e o resto se recolhe
-                  atrás do "⋯". Antes eram três botões competindo pelo mesmo
-                  espaço em cada card, e o que a pessoa realmente vai fazer
-                  agora — se inscrever — ficava do tamanho de "excluir". */}
-              <div className="item-acoes">
-                {etapa.qual === 'estudo' && (
-                  <button
-                    className={`acao-lado ${etapa.feito ? 'acao-feita' : ''}`}
-                    type="button"
-                    // Sem `disabled` quando feito: é o mesmo botão que desmarca.
-                    disabled={travado}
-                    aria-pressed={etapa.feito}
-                    onClick={() => alternar(
-                      `prova:${path}`, etapa.feito,
-                      feito => eventoProvaEstudada(path, dia, feito)
-                    )}
-                  >
-                    {etapa.feito ? 'estudei ✓' : 'estudei'}
-                  </button>
-                )}
-                {etapa.qual === 'inscricao' && (
-                  <button
-                    className="acao-lado acao-etapa"
-                    type="button"
-                    disabled={travado}
-                    onClick={() => alternar(
-                      `insc:${path}`, false,
-                      feito => eventoProvaEtapa(path, 'inscrito', dia, feito)
-                    )}
-                  >
-                    fazer inscrição
-                  </button>
-                )}
-                {etapa.qual === 'pagamento' && (
-                  <button
-                    className="acao-lado acao-etapa"
-                    type="button"
-                    disabled={travado}
-                    onClick={() => alternar(
-                      `pago:${path}`, false,
-                      feito => eventoProvaEtapa(path, 'pago', dia, feito)
-                    )}
-                  >
-                    fazer pagamento
-                  </button>
-                )}
-                {/* `pronto` não ganha botão nenhum: inscrito e pago, o que
-                    sobra da prova é a data chegando. */}
-                {etapa.qual === 'pronto' && (
-                  <span className="acao-pronta">inscrição paga ✓</span>
-                )}
-                <button
-                  className="acao-mais"
-                  type="button"
-                  aria-label={`ações de ${i.nome}`}
-                  aria-expanded={aberto === path}
-                  onClick={() => setAberto(aberto === path ? null : path)}
-                >
-                  ⋯
-                </button>
-              </div>
-
-              {aberto === path && (
-                <div className="item-acoes item-acoes-abertas">
-                  <button className="acao-lado" type="button" disabled={travado}
-                    onClick={() => { setAberto(null); p.aoEditar('prova', paraEditar(i)) }}>
-                    editar
-                  </button>
-                  {/* Desfazer a etapa vive aqui, e não no botão da frente: o
-                      da frente é para andar, e um toque errado nele não pode
-                      custar o registro da inscrição. */}
-                  {i.detalhe.inscricao === true && etapa.qual !== 'inscricao' && (
-                    <button className="acao-lado" type="button" disabled={travado}
-                      onClick={() => {
-                        setAberto(null)
-                        const desfazPagamento = etapa.qual === 'pronto'
-                        const chave = desfazPagamento ? `pago:${path}` : `insc:${path}`
-                        alternar(chave, true, feito => eventoProvaEtapa(
-                          path, desfazPagamento ? 'pago' : 'inscrito', dia, feito
-                        ))
-                      }}>
-                      desfazer {etapa.qual === 'pronto' ? 'pagamento' : 'inscrição'}
-                    </button>
-                  )}
-                  <button
-                    className="acao-lado acao-destrutiva"
-                    type="button"
-                    disabled={travado}
-                    onClick={() => {
-                      if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
-                      setAberto(null)
-                      marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
-                    }}
-                  >
-                    {apagada ? 'excluída' : 'excluir'}
-                  </button>
-                </div>
-              )}
-            </div>
-          )
-        })}
-
-        {cs.length > 0 && <Secao nome="Compromissos" />}
-        {cs.map(i => {
-          const path = caminhoDe(i)
-          const apagado = feitos.includes(`apagar:${path}`)
-          return (
-            <div className={`item item-acao ${apagado ? 'item-feito' : ''}`}
-              key={path || i.nome}>
-              <div className="item-corpo">
-                <div className="item-nome">{i.nome}</div>
-                <Quando
-                  data={dataCurta(dataDe(i), dia)}
-                  falta={faltam(dataDe(i), dia)}
-                  hora={txt(i.detalhe.hora)}
-                />
-                <Sobre partes={[i.detalhe.local]} />
-              </div>
-              {/* Editar antes de excluir: mudar de horário é o que mais
-                  acontece, e cancelar é a saída. */}
-              <div className="item-acoes">
-                <button
-                  className="acao-lado"
-                  type="button"
-                  disabled={apagado || path === ''}
-                  onClick={() => p.aoEditar('compromisso', paraEditar(i))}
-                >
-                  editar
-                </button>
-                <button
-                  className="acao-lado acao-destrutiva"
-                  type="button"
-                  disabled={apagado || path === ''}
-                  onClick={() => {
-                    // Confirmar aqui e o que substitui o "marcar cancelado" de
-                    // antes: apagar no vault nao tem desfazer pelo celular.
-                    if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
-                    marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
-                  }}
-                >
-                  {apagado ? 'excluído' : 'excluir'}
-                </button>
-              </div>
-            </div>
-          )
-        })}
-
-        {ts.length > 0 && <Secao nome="Tarefas" />}
-        {ts.map(i => (
-          <div className="item item-acao" key={caminhoDe(i) || i.nome}>
-            <div className="item-corpo">
-              <div className="item-nome">{i.nome}</div>
-              <Quando data={dataCurta(dataDe(i), dia)} falta={faltam(dataDe(i), dia)} />
-              <Sobre partes={[i.detalhe.materia]} />
-            </div>
-          </div>
+        {grupos.length > 0 && grupos.map(g => (
+          <Fragment key={g.nome}>
+            <Secao nome={g.nome} />
+            {g.linhas.map(l => (
+              l.tipo === 'prova' ? cartaoProva(l.item)
+                : l.tipo === 'compromisso' ? cartaoCompromisso(l.item)
+                  : cartaoTarefa(l.item)
+            ))}
+          </Fragment>
         ))}
       </div>
     </div>
