@@ -7,7 +7,7 @@ import {
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, diasAte
 } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
-import { Cabecalho, Aviso, Secao, Detalhe } from '../componentes'
+import { Cabecalho, Aviso, Secao, Detalhe, Selecao } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
 import type { ItemCardapio } from '@compartilhado/eventos'
@@ -22,6 +22,13 @@ const ROTULO: Record<Linha['tipo'], string> = {
   compromisso: 'Compromisso',
   tarefa: 'Tarefa'
 }
+
+/** O que dá para marcar, na ordem em que aparece no seletor. */
+const TIPOS_MARCAR: [TipoNovo, string][] = [
+  ['compromisso', 'Compromisso'],
+  ['prova', 'Prova'],
+  ['tarefa', 'Tarefa']
+]
 
 /**
  * O que está chegando.
@@ -40,8 +47,8 @@ export function Agenda(p: {
 }) {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
-  /** O "+ Marcar" foi tocado e a tela está perguntando de que tipo. */
-  const [escolhendo, setEscolhendo] = useState(false)
+  /** Que tipo o seletor de Marcar está mostrando. */
+  const [aMarcar, setAMarcar] = useState<TipoNovo>('compromisso')
   /** O caminho da nota cujas ações estão abertas — uma de cada vez. */
   const [aberto, setAberto] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
@@ -453,37 +460,26 @@ export function Agenda(p: {
             <span className="heroi-falta">{faltam(dataDe(destaque.item), dia)}</span>
           </div>
         )}
-        {/* Os mesmos chips do Cortex: marcar algo daqui e um toque, e a
-            fileira mostra de uma vez o que da para marcar. */}
-        {/* Um botão só, e a escolha do tipo em seguida.
-            Três chips lado a lado ocupavam a largura inteira da tela para uma
-            coisa que se faz de vez em quando, e empurravam para baixo o que a
-            aba existe para mostrar: o que está chegando. */}
+        {/* Escolher entre três coisas é um seletor, como no resto do app.
+            Eram chips que apareciam em cascata depois de um primeiro toque:
+            dois gestos, um vocabulário só desta tela, e a largura inteira
+            ocupada por algo que se faz de vez em quando. */}
         <Secao nome="Marcar" />
-        {escolhendo ? (
-          <div className="chips">
-            {([
-              ['compromisso', 'Compromisso'],
-              ['prova', 'Prova'],
-              ['tarefa', 'Tarefa']
-            ] as [TipoNovo, string][]).map(([t, rotulo]) => (
-              <button key={t} className="chip" type="button"
-                onClick={() => { setEscolhendo(false); p.aoMarcar(t) }}>
-                {rotulo}
-              </button>
-            ))}
-            <button className="chip" type="button" onClick={() => setEscolhendo(false)}>
-              cancelar
-            </button>
-          </div>
-        ) : (
-          <div className="chips">
-            <button className="chip chip-ligado" type="button"
-              onClick={() => setEscolhendo(true)}>
-              + Marcar
-            </button>
-          </div>
-        )}
+        <div className="marcar">
+          <Selecao
+            rotulo="O que marcar"
+            opcoes={TIPOS_MARCAR.map(t => t[1])}
+            valor={TIPOS_MARCAR.find(t => t[0] === aMarcar)?.[1] ?? ''}
+            aoMudar={nome => {
+              const achado = TIPOS_MARCAR.find(t => t[1] === nome)
+              if (achado) setAMarcar(achado[0])
+            }}
+          />
+          <button className="btn btn-principal marcar-botao" type="button"
+            onClick={() => p.aoMarcar(aMarcar)}>
+            Marcar
+          </button>
+        </div>
 
         {/* A busca fica acima das listas e some quando não há o que buscar:
             com dois itens na agenda, um campo de procurar é só ruído. */}

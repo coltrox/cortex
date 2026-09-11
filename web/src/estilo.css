@@ -211,7 +211,7 @@ body{
    com o respiro em cima que faz o título parecer começo de página. */
 .cabecalho{
   max-width:var(--largura); margin:0 auto;
-  padding: calc(var(--topo-seguro) + 26px) var(--e4) 18px var(--e4);
+  padding: calc(var(--topo-seguro) + 44px) var(--e4) 20px var(--e4);
   display:flex; align-items:baseline; gap:var(--e3);
 }
 .voltar{
@@ -1626,4 +1626,33 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   background:var(--painel-topo); color:var(--txt-3);
   font-family:var(--fonte-num); font-size:9px; font-weight:700;
   letter-spacing:.08em; text-transform:uppercase;
+}
+
+/* ═══════════ SEM ZOOM ═══════════ */
+
+/* O `user-scalable=no` da meta resolve no Android; o Safari o ignora de
+   propósito, por acessibilidade. `touch-action` é o que sobra: `pan-y` deixa
+   rolar a lista e recusa a pinça, e `manipulation` nos alvos de toque mata o
+   atraso e o zoom do toque duplo. */
+html{ touch-action:pan-y; }
+button, a, input, textarea, select, label, .item, .chip, .item-ver{
+  touch-action:manipulation;
+}
+
+/* O iPhone dá zoom sozinho ao focar um campo com fonte menor que 16px, e
+   depois não volta — é assim que a tela fica torta sem ninguém ter pedido.
+   16px em todo campo de digitar é o preço de não acontecer. */
+input, textarea, select{ font-size:16px; }
+
+/* O seletor de "Marcar" e o botão, lado a lado: escolher e confirmar são um
+   gesto só, e separá-los em duas linhas gastaria meia tela da aba. */
+.marcar{ display:flex; align-items:flex-end; gap:var(--e2); margin-bottom:var(--e4); }
+.marcar .campo{ flex:1; min-width:0; margin-bottom:0; }
+.marcar-botao{ flex:none; width:auto; padding:0 var(--e5); min-height:var(--toque); }
+
+/* Nota recolhida: duas linhas, e a seta revela o resto. Uma lista em que cada
+   item tem cinco linhas deixa de ser lista — vira rolagem. */
+.anotada-recolhida{
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+  overflow:hidden;
 }

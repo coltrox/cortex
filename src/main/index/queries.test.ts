@@ -6,7 +6,8 @@ import { Vault } from '../vault/vault'
 import { openIndex, type Db } from './db'
 import { Indexer } from './indexer'
 import {
-  getNote, listNotes, listNotesWithFields, searchFullText, getBacklinks, getOutlinks, getBrokenLinks
+  getNote, listNotes, listNotesWithFields, searchFullText, getBacklinks, getOutlinks, getBrokenLinks,
+  grafoDoVault
 } from './queries'
 
 let root: string, vault: Vault, db: Db, ix: Indexer
@@ -187,5 +188,93 @@ describe('listNotesWithFields', () => {
   it('filtra por desde/ate incluindo as duas pontas', () => {
     const notas = listNotesWithFields(db, { tipo: 'diario', desde: '2026-08-20', ate: '2026-08-25' })
     expect(notas.map(n => n.path).sort()).toEqual(['Diario/2026-08-20.md', 'Diario/2026-08-25.md'])
+  })
+})
+
+/**
+ * O grafo do Cérebro.
+ *
+ * Tres especies de no convivem na mesma lista: a nota que existe, a etiqueta,
+ * e a nota que alguem linkou e nunca criou. Os ids das duas ultimas levam
+ * prefixo justamente para nao colidirem com um caminho de arquivo -- ja houve
+ * um caso em que a etiqueta `#cortex` colidiu com o no do centro e fez o grafo
+ * inteiro girar sozinho.
+ */
+describe('grafoDoVault', () => {
+  it('toda nota vira no, inclusive a que nao liga a nada', () => {
+    const { nos } = grafoDoVault(db)
+    const notas = nos.filter(n => n.especie === 'nota').map(n => n.id)
+    expect(notas).toContain('Projetos/LCKP.md')
+    // Ela nao tem link nenhum: some da tela se o grafo so listar quem conecta,
+    // e e justamente o que falta ligar que interessa ver.
+    expect(nos.find(n => n.id === 'Projetos/LCKP.md')?.grau).toBe(0)
+  })
+
+  it('link resolvido vira aresta entre as duas notas', () => {
+    const { arestas } = grafoDoVault(db)
+    const tem = arestas.some(a =>
+      (a.de === 'Projetos/Nima.md' && a.para === 'Segurança/MOC - Segurança.md') ||
+      (a.para === 'Projetos/Nima.md' && a.de === 'Segurança/MOC - Segurança.md'))
+    expect(tem).toBe(true)
+  })
+
+  it('link para nota que nao existe vira no proprio, com especie e prefixo', () => {
+    const { nos } = grafoDoVault(db)
+    const fantasma = nos.find(n => n.title === 'Fantasma')
+    expect(fantasma?.especie).toBe('inexistente')
+    expect(fantasma?.grupo).toBe('(inexistente)')
+    // O id NAO pode ser um caminho de arquivo cru: ele conviveria com o id de
+    // uma nota de verdade chamada "Fantasma" se ela fosse criada depois.
+    expect(fantasma?.id).not.toBe('Fantasma')
+    expect(fantasma?.id.endsWith('Fantasma')).toBe(true)
+  })
+
+  it('a mesma aresta nao entra duas vezes, venha de que lado vier', () => {
+    const { arestas } = grafoDoVault(db)
+    const chaves = arestas.map(a => (a.de < a.para ? `${a.de}|${a.para}` : `${a.para}|${a.de}`))
+    expect(new Set(chaves).size).toBe(chaves.length)
+  })
+
+  it('o grau de cada no bate com quantas arestas o tocam', () => {
+    const { nos, arestas } = grafoDoVault(db)
+    const contado = new Map<string, number>()
+    for (const a of arestas) {
+      contado.set(a.de, (contado.get(a.de) ?? 0) + 1)
+      contado.set(a.para, (contado.get(a.para) ?? 0) + 1)
+    }
+    for (const n of nos) expect(n.grau).toBe(contado.get(n.id) ?? 0)
+  })
+
+  it('o grupo e a pasta de primeiro nivel, e a raiz tem nome proprio', () => {
+    const { nos } = grafoDoVault(db)
+    expect(nos.find(n => n.id === 'Projetos/Nima.md')?.grupo).toBe('Projetos')
+    // Sem isto, nota na raiz cairia num grupo de nome vazio -- e a legenda do
+    // Cerebro mostraria uma linha em branco clicavel.
+    expect(nos.filter(n => n.grupo === '').length).toBe(0)
+  })
+
+  it('nao devolve aresta de uma nota para ela mesma', () => {
+    const { arestas } = grafoDoVault(db)
+    expect(arestas.filter(a => a.de === a.para)).toHaveLength(0)
+  })
+})
+
+describe('grafoDoVault — etiquetas', () => {
+  it('a etiqueta vira no proprio, ligado a nota que a usa', async () => {
+    // Escrita aqui, e nao no fixture de cima, para nao mexer nas contagens
+    // que os outros testes deste arquivo afirmam.
+    await vault.writeAtomic('Notas/Com etiqueta.md', '---\ntipo: nota\ntags: [cortex]\n---\ncorpo')
+    await ix.syncAll()
+
+    const { nos, arestas } = grafoDoVault(db)
+    const tag = nos.find(n => n.especie === 'tag' && n.title.endsWith('cortex'))
+    expect(tag).toBeDefined()
+    expect(tag?.grupo).toBe('#tags')
+    // O id da etiqueta NAO pode ser um caminho: quando ele foi, a etiqueta
+    // `#cortex` colidiu com o no do centro do Cerebro e girou o grafo sozinho.
+    expect(tag?.id).not.toBe('cortex')
+    expect(arestas.some(a =>
+      (a.de === 'Notas/Com etiqueta.md' && a.para === tag?.id) ||
+      (a.para === 'Notas/Com etiqueta.md' && a.de === tag?.id))).toBe(true)
   })
 })

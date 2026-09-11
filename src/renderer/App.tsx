@@ -153,13 +153,20 @@ export function App() {
   // campainha avisa o celular no instante em que a publicação volta do banco.
   // E a assinatura evita republicar quando mudou outra coisa qualquer do
   // vault — um gasto lançado não mexe no cardápio.
-  const assinaturaCardapio = v.notas
-    .filter(n => (TIPOS_NOTA_CARDAPIO as readonly string[]).includes(n.tipo))
-    .map(n => `${n.path}:${n.mtime}`)
-    .join('|')
+  //
+  // As áreas ligadas entram na assinatura junto das notas. É por elas que o
+  // celular decide quais abas mostrar, e ele só descobre a mudança quando o
+  // cardápio é republicado: sem esta parte, desligar Estudos aqui não tirava
+  // o botão de lá até alguém editar uma nota qualquer — o que pode levar dias.
+  const assinaturaCardapio = [
+    v.config.areas.join(','),
+    ...v.notas
+      .filter(n => (TIPOS_NOTA_CARDAPIO as readonly string[]).includes(n.tipo))
+      .map(n => `${n.path}:${n.mtime}`)
+  ].join('|')
 
   useEffect(() => {
-    if (!v.root || !assinaturaCardapio) return
+    if (!v.root) return
     const t = setTimeout(() => {
       void window.vaultApi.invoke('nuvem:publicar', {}).catch(() => {})
     }, 1500)

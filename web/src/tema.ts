@@ -43,4 +43,35 @@ export function gravarTema(g: Guardado, t: Tema): void {
  */
 export function aplicarTema(t: Tema): void {
   document.documentElement.dataset.tema = t
+  pintarBarraDeStatus(t)
+}
+
+/** As duas cores de casco, iguais às de `estilo.css`. */
+const CASCO = { claro: '#efede8', escuro: '#0c0e11' }
+
+/**
+ * A cor da barra de status do celular.
+ *
+ * Ela vinha só das duas metas `theme-color` com `prefers-color-scheme`, e por
+ * isso seguia o tema do APARELHO, não o do app. Com o celular no claro e o app
+ * no escuro, o Android pintava a faixa de cima de bege sobre uma tela preta —
+ * a linha branca no topo.
+ *
+ * Uma meta sem `media` vence as duas com `media`, então basta manter esta em
+ * dia. As outras continuam no HTML para a primeira pintura, antes de o
+ * JavaScript rodar.
+ *
+ * `sistema` volta a perguntar ao aparelho, que é o que a opção quer dizer.
+ */
+function pintarBarraDeStatus(t: Tema): void {
+  const escuro = t === 'escuro' || (
+    t === 'sistema' && window.matchMedia?.('(prefers-color-scheme: dark)').matches === true
+  )
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]:not([media])')
+  if (!meta) {
+    meta = document.createElement('meta')
+    meta.name = 'theme-color'
+    document.head.appendChild(meta)
+  }
+  meta.content = escuro ? CASCO.escuro : CASCO.claro
 }

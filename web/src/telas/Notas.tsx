@@ -17,6 +17,16 @@ const MESES = [
 const dois = (n: number): string => String(n).padStart(2, '0')
 
 /**
+ * Quantas letras cabem nas duas linhas que o cartão mostra recolhido.
+ *
+ * É uma estimativa, e tem que ser: medir o parágrafo de verdade custaria um
+ * `ResizeObserver` por nota. Errar para mais mostra uma seta que abre pouca
+ * coisa; errar para menos esconderia texto sem dar como abrir — por isso o
+ * número é folgado para baixo.
+ */
+const LIMITE_RECOLHIDO = 80
+
+/**
  * O cabeçalho do grupo: "hoje", "ontem" ou a data por extenso.
  *
  * A string ISO é cortada direto para o dia e o mês. `Date` entra só na conta
@@ -67,13 +77,29 @@ function Nota({ a, etiqueta, hoje, soAqui }: {
   const [aberto, setAberto] = useState(false)
   const tom = a.prioridade ? 'pri' : a.data === hoje ? 'hoje' : 'normal'
 
+  /*
+   * Só abre o que tem o que mostrar.
+   *
+   * A maioria das anotações do celular é uma linha, e o conteúdo mora no
+   * próprio título — não há corpo nenhum. Uma seta em todas elas seria uma
+   * seta que quase sempre não faz nada, e é assim que se aprende a não tocar
+   * nela.
+   *
+   * O limiar acompanha o corte de duas linhas do CSS: abaixo dele não há nada
+   * escondido para revelar.
+   */
+  const cortado = a.texto.length > LIMITE_RECOLHIDO || a.texto.includes('\n')
+  const temMais = Boolean(a.corpo) || cortado
+
   return (
     <div className="nota" data-tom={tom}>
       <div className="nota-linha">
         <span className="nota-barra" aria-hidden="true" />
         <div className="nota-corpo">
           {etiqueta && <span className="nota-etiqueta">{etiqueta}</span>}
-          <p className="anotada-texto">{a.texto}</p>
+          <p className={`anotada-texto ${aberto || !cortado ? '' : 'anotada-recolhida'}`}>
+            {a.texto}
+          </p>
           <span className="nota-quando">
             {a.data === undefined
               ? 'fixa'
@@ -85,7 +111,7 @@ function Nota({ a, etiqueta, hoje, soAqui }: {
         </div>
         {/* Mesma seta da tarefa do Hoje, pelo mesmo motivo: o texto longo
             fica guardado até alguém pedir, e a lista continua sendo lista. */}
-        {a.corpo && (
+        {temMais && (
           <button
             className="item-ver"
             type="button"
