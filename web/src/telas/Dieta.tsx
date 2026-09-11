@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Tela } from '../App'
+import { SubNavSaude } from './Saude'
 import type { useEnvio, useCardapio } from '../envio'
 import { refeicoesDoPlano, areaLigada } from '../cardapio'
 import { eventoRefeicaoPlano, diaLocal } from '../montar'
@@ -114,6 +115,7 @@ export function Dieta(p: {
       />
 
       <div className="bloco">
+        <SubNavSaude atual="dieta" irPara={p.irPara} />
         {!temSaude && (
           <Aviso tom="neutro">
             A área Saúde está desligada no Cortex. Ligue lá para a dieta

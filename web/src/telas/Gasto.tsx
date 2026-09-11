@@ -27,7 +27,7 @@ export function Gasto(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela)
 
   return (
     <div className="tema-dinheiro">
-      <Cabecalho titulo={saiu ? 'Gasto' : 'Entrada'} aoVoltar={() => p.irPara('hoje')} />
+      <Cabecalho titulo={saiu ? 'Gasto' : 'Entrada'} />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="bloco">
         <div className="alternador">

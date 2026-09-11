@@ -3,6 +3,7 @@ import { diaLocal, eventoMedida, eventoPeso } from '../montar'
 import { Cabecalho, Botao, CampoNumero, Aviso, Secao } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
+import { SubNavSaude } from './Saude'
 
 /** Os nomes de campo são os que a lente de Saúde já lê. */
 const MEDIDAS = [
@@ -41,9 +42,10 @@ export function Medidas(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tel
 
   return (
     <div className="tema-treino">
-      <Cabecalho titulo="Peso e medidas" aoVoltar={() => p.irPara('hoje')} />
+      <Cabecalho titulo="Peso e medidas" />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="bloco">
+        <SubNavSaude atual="corpo" irPara={p.irPara} />
         <CampoNumero rotulo="Peso (kg)" valor={peso} aoMudar={setPeso} dica="78,4" grande />
         <Secao nome="Fita métrica" />
         {MEDIDAS.map(m => (

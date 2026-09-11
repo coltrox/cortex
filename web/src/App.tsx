@@ -19,6 +19,7 @@ import { NovoItem, type EdicaoItem, type TipoNovo } from './telas/NovoItem'
 import { Porquinho } from './telas/Porquinho'
 import { Ajustes } from './telas/Ajustes'
 import { Dieta } from './telas/Dieta'
+import { Saude } from './telas/Saude'
 
 /**
  * A tela da câmera vem em separado, e só quando alguém abre.
@@ -41,7 +42,7 @@ export type Tela =
   // sendo a tela de ESCREVER uma; `notas` é a de LER as que existem.
   | 'estudo' | 'notas'
   // As abas do desenho `Rotina` que ainda não tinham tela própria.
-  | 'dieta' | 'corpo' | 'dinheiro'
+  | 'saude' | 'dieta' | 'corpo' | 'dinheiro'
 
 /**
  * As abas de baixo, na ordem do desenho `Rotina`.
@@ -58,8 +59,11 @@ export type Tela =
  */
 const ABAS: { id: Tela; nome: string; area: string | null; forma: string }[] = [
   { id: 'hoje',     nome: 'Hoje',     area: null,         forma: '7px' },
-  { id: 'dieta',    nome: 'Dieta',    area: 'saude',      forma: '9px 3px 9px 3px' },
-  { id: 'corpo',    nome: 'Corpo',    area: 'saude',      forma: '50%' },
+  // Saúde junta dieta, corpo e treino, mais hidratação e suplementos. Eram
+  // três abas; viraram uma com sub-navegação, porque as três respondem à
+  // mesma pergunta e três abas vizinhas do mesmo assunto gastam metade da
+  // barra para dizer "saúde" de três jeitos.
+  { id: 'saude',    nome: 'Saúde',    area: 'saude',      forma: '50%' },
   { id: 'dinheiro', nome: 'Dinheiro', area: 'financas',   forma: '4px' },
   { id: 'notas',    nome: 'Notas',    area: 'vida',       forma: '3px 10px 3px 3px' },
   // O desenho chama esta aba de "Chegando"; a tela sempre se chamou `agenda`.
@@ -77,7 +81,8 @@ const ABAS: { id: Tela; nome: string; area: string | null; forma: string }[] = [
  */
 const ABA_DE: Partial<Record<Tela, Tela>> = {
   novo: 'agenda', compromisso: 'agenda',
-  treino: 'corpo', cardio: 'corpo', medidas: 'corpo',
+  treino: 'saude', cardio: 'saude', medidas: 'saude',
+  dieta: 'saude', corpo: 'saude',
   gasto: 'dinheiro', porquinho: 'dinheiro',
   anotacao: 'notas', estudo: 'hoje',
   // Ajustes saiu da barra: no desenho ele é um botão no cabeçalho de Hoje.
@@ -217,6 +222,7 @@ export function App() {
       {tela === 'porquinho' && <Porquinho envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'anotacao' && <Anotacao envio={envio} irPara={setTela} />}
       {tela === 'notas' && <Notas cardapio={cardapio} envio={envio} irPara={setTela} />}
+      {tela === 'saude' && <Saude envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'dieta' && <Dieta envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'estudo' && <Estudo envio={envio} irPara={setTela} />}
       {tela === 'ajustes' && <Ajustes cardapio={cardapio} irPara={setTela} />}

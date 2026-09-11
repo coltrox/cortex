@@ -29,7 +29,7 @@ export function Cardio(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela
 
   return (
     <div className="tema-treino">
-      <Cabecalho titulo="Cardio" aoVoltar={() => p.irPara('hoje')} />
+      <Cabecalho titulo="Cardio" />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="bloco">
         <Selecao rotulo="Aparelho" opcoes={APARELHOS} valor={aparelho} aoMudar={setAparelho} />

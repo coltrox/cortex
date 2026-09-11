@@ -104,7 +104,7 @@ export function NovoItem(p: {
     <div className="tema-agenda">
       <Cabecalho
         titulo={e ? f.tituloEdicao : f.titulo}
-        aoVoltar={() => p.irPara('agenda')}
+       
       />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="bloco">

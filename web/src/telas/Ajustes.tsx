@@ -53,7 +53,7 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
     const quando = haQuantoTempo(p.cardapio.cardapio.atualizadoEm)
     return (
       <div className="tema-hoje">
-        <Cabecalho titulo="Ajustes" aoVoltar={() => p.irPara('hoje')} />
+        <Cabecalho titulo="Ajustes" />
 
         <div className="bloco">
           {/*

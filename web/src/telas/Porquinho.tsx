@@ -50,7 +50,7 @@ export function Porquinho(p: {
 
   return (
     <div className="tema-dinheiro">
-      <Cabecalho titulo="Porquinho" aoVoltar={() => p.irPara('hoje')} />
+      <Cabecalho titulo="Porquinho" />
 
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
 

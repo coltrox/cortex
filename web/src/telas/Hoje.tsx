@@ -520,26 +520,6 @@ export function Hoje(p: {
           </div>
         )}
 
-        {suplementos.length > 0 && <div className="grupo">
-        <Secao nome="Suplementos" />
-        {/* Dose primeiro, momento sempre. A dose some quando ninguém escreveu
-            uma; o momento cai para "qualquer hora" em vez de deixar a linha
-            muda — ver `momentoDe`. */}
-        {suplementos.map(s => (
-          <Check
-            key={s.nome}
-            rotulo={s.nome}
-            detalhe={<Detalhe partes={[s.detalhe.dose, momentoDe(s)]} />}
-            feito={estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)}
-            aoMarcar={() => alternar(
-              `suplemento:${s.nome}`,
-              estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true),
-              feito => eventoSuplemento(s.nome, dia, feito)
-            )}
-          />
-        ))}
-        </div>}
-
         {agua && (
           <div className="grupo">
             <Secao nome="Hidratação" contagem={agua.meta > 0
@@ -625,38 +605,24 @@ export function Hoje(p: {
         {/* Logo abaixo dos suplementos: é o mesmo gesto, e separar as duas
             listas por uma seção de outra coisa quebraria a sequência de
             toques de quem abre o app de manhã e desce marcando. */}
-        {rotinas.length > 0 && <div className="grupo">
-        <Secao nome="Tarefas do dia" />
-        {/* Mesma regra do suplemento, logo acima: a tarefa sem hora marcada é
-            "qualquer hora", e não uma linha sem resposta. */}
-        {rotinas.map(t => (
-          <Tarefa
-            key={t.nome}
-            nome={t.nome}
-            detalhe={<Detalhe partes={[momentoDe(t)]} />}
-            corpo={txtDe(t.detalhe.corpo)}
-            feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
+        {suplementos.length > 0 && <div className="grupo">
+        <Secao nome="Suplementos" />
+        {/* Dose primeiro, momento sempre. A dose some quando ninguém escreveu
+            uma; o momento cai para "qualquer hora" em vez de deixar a linha
+            muda — ver `momentoDe`. */}
+        {suplementos.map(s => (
+          <Check
+            key={s.nome}
+            rotulo={s.nome}
+            detalhe={<Detalhe partes={[s.detalhe.dose, momentoDe(s)]} />}
+            feito={estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)}
             aoMarcar={() => alternar(
-              `rotina:${t.nome}`,
-              estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
-              feito => eventoRotina(t.nome, dia, feito)
+              `suplemento:${s.nome}`,
+              estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true),
+              feito => eventoSuplemento(s.nome, dia, feito)
             )}
           />
         ))}
-
-        {/* Logo abaixo das tarefas: o que estava para fazer, e em seguida o
-            que aconteceu. As duas metades da mesma pergunta — "como foi
-            hoje?" — e é por isso que a lista fica aqui, e não numa aba
-            própria que ninguém abriria. */}
-        {(publicadas.length > 0 || locais.length > 0) && <Secao nome="Anotações de hoje" />}
-        {publicadas.map(a => (
-          <Anotada key={`vault:${a.titulo}`} texto={a.texto} prioridade={a.prioridade}
-            corpo={a.corpo} permanente={a.permanente} />
-        ))}
-        {locais.map((a, i) => (
-          <Anotada key={`aqui:${i}:${a.texto}`} texto={a.texto} prioridade={a.prioridade} soAqui />
-        ))}
-
         </div>}
 
         {refeicoes.length > 0 && <div className="grupo">
@@ -692,33 +658,29 @@ export function Hoje(p: {
           * de mais útil: os dois registros mais frequentes a um toque, sem
           * descer até a grade lá embaixo.
           */}
-        {(temSaude || temEstudos) && (
-          <div className="par-cartoes">
-            {temSaude && (
-              <div className="cartao-curto">
-                <span className="cartao-curto-nome">Cardio</span>
-                <span className="cartao-curto-nota">Corrida, bike, caminhada</span>
-                <button className="btn btn-secundario" type="button"
-                  onClick={() => p.irPara('cardio')}>Registrar</button>
-              </div>
+        {rotinas.length > 0 && <div className="grupo">
+        <Secao nome="Tarefas do dia" />
+        {/* Mesma regra do suplemento, logo acima: a tarefa sem hora marcada é
+            "qualquer hora", e não uma linha sem resposta. */}
+        {rotinas.map(t => (
+          <Tarefa
+            key={t.nome}
+            nome={t.nome}
+            detalhe={<Detalhe partes={[momentoDe(t)]} />}
+            corpo={txtDe(t.detalhe.corpo)}
+            feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
+            aoMarcar={() => alternar(
+              `rotina:${t.nome}`,
+              estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
+              feito => eventoRotina(t.nome, dia, feito)
             )}
-            {temEstudos && (
-              <div className="cartao-curto">
-                <span className="cartao-curto-nome">Estudo</span>
-                <span className="cartao-curto-nota">Matéria, tempo e questões</span>
-                <button className="btn btn-principal" type="button"
-                  onClick={() => p.irPara('estudo')}>Registrar</button>
-              </div>
-            )}
-          </div>
-        )}
+          />
+        ))}
 
-        {/*
-          * O que está chegando, em duas linhas.
-          *
-          * Só as duas próximas: a aba Chegando tem a lista inteira, e repetir
-          * ela aqui faria o Hoje virar a mesma tela com outro título.
-          */}
+        {/* Logo abaixo das tarefas: o que estava para fazer, e em seguida o
+            que aconteceu. As duas metades da mesma pergunta — "como foi
+            hoje?" — e é por isso que a lista fica aqui, e não numa aba
+            própria que ninguém abriria. */}
         {proximos.length > 0 && (
           <div className="grupo">
             <Secao nome="Chegando" />
@@ -737,6 +699,17 @@ export function Hoje(p: {
             </button>
           </div>
         )}
+
+        {(publicadas.length > 0 || locais.length > 0) && <Secao nome="Anotações de hoje" />}
+        {publicadas.map(a => (
+          <Anotada key={`vault:${a.titulo}`} texto={a.texto} prioridade={a.prioridade}
+            corpo={a.corpo} permanente={a.permanente} />
+        ))}
+        {locais.map((a, i) => (
+          <Anotada key={`aqui:${i}:${a.texto}`} texto={a.texto} prioridade={a.prioridade} soAqui />
+        ))}
+
+        </div>}
 
         {vazio && !p.cardapio.erro && (
           <p className="secao-vazia">

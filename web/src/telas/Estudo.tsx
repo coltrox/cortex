@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { eventoEstudo } from '../montar'
-import { Cabecalho, Botao, Campo, CampoNumero, Aviso, Chips } from '../componentes'
+import { Cabecalho, Botao, Campo, CampoNumero, Aviso, Chips, Selecao } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
 
@@ -57,11 +57,11 @@ export function Estudo(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela
 
   return (
     <div className="tema-estudo">
-      <Cabecalho titulo="Estudo" aoVoltar={() => p.irPara('hoje')} />
+      <Cabecalho titulo="Estudo" />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="bloco">
         <span className="campo-rotulo">Matéria</span>
-        <Chips opcoes={MATERIAS} escolhida={materia} aoEscolher={setMateria} />
+        <Selecao rotulo="Matéria" opcoes={MATERIAS} valor={materia} aoMudar={setMateria} />
         {/* Só quando é "Outra": um campo de texto sempre visível convida a
             digitar o nome à mão, e aí a métrica volta a ter três grafias da
             mesma matéria. */}

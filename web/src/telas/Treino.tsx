@@ -5,6 +5,7 @@ import { guardadoDoNavegador } from '../guardado'
 import { Cabecalho, Botao, Aviso } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
+import { SubNavSaude } from './Saude'
 
 const CHAVE = 'cortex.treino'
 
@@ -82,13 +83,14 @@ export function Treino(p: {
   if (!sessao) {
     return (
       <div className="tema-treino">
-        <Cabecalho titulo="Treino" aoVoltar={() => p.irPara('hoje')} />
+        <Cabecalho titulo="Treino" />
         {modelos.length === 0 && (
           <Aviso titulo="Nenhum treino ainda">
             Cadastre um treino no Cortex — ele aparece aqui sozinho.
           </Aviso>
         )}
         <div className="bloco">
+        <SubNavSaude atual="treino" irPara={p.irPara} />
           <div className="lista">
             {modelos.map(m => {
               const n = exerciciosDoTreino(m).length
@@ -189,7 +191,7 @@ export function Treino(p: {
         titulo={sessao.modelo}
         // Voltar não descarta o treino: ele fica no disco e a tela reabre onde
         // parou. Sair de vez é registrar, ou descartar lá embaixo.
-        aoVoltar={() => p.irPara('hoje')}
+       
         direita={<span className="contador-serie">{concluidos.length}/{sessao.itens.length}</span>}
       />
 

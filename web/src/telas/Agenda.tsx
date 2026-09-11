@@ -177,7 +177,7 @@ export function Agenda(p: {
 
   return (
     <div className="tema-agenda">
-      <Cabecalho titulo="Chegando" aoVoltar={() => p.irPara('hoje')} />
+      <Cabecalho titulo="Chegando" />
       {p.cardapio.erro && <Aviso>{p.cardapio.erro}</Aviso>}
 
       <div className="bloco">

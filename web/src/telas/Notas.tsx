@@ -124,8 +124,26 @@ export function Notas(p: {
       dobra(a.corpo ?? '').includes(termo))
   }, [todas, busca])
 
-  const fixas = achadas.filter(a => a.data === undefined)
-  const comData = achadas.filter(a => a.data !== undefined)
+  /*
+   * A ordem: prioridade, hoje, fixas, o resto por dia.
+   *
+   * Antes eram as fixas e depois os dias. O problema é que prioridade e "de
+   * hoje" são as duas razões para alguém ABRIR esta tela, e as duas ficavam
+   * espalhadas no meio da cronologia — uma nota marcada como prioridade na
+   * terça descia para o fundo na quinta, justamente por ser de terça.
+   *
+   * Cada nota aparece uma vez só: quem entrou em prioridade sai das outras
+   * listas, e quem é de hoje sai dos grupos por dia. Repetir a mesma nota em
+   * duas seções faria a contagem mentir e o toque de apagar virar adivinhação.
+   */
+  const prioritarias = achadas.filter(a => a.prioridade)
+  const usadas = new Set(prioritarias)
+
+  const deHoje = achadas.filter(a => !usadas.has(a) && a.data === hoje)
+  for (const a of deHoje) usadas.add(a)
+
+  const fixas = achadas.filter(a => !usadas.has(a) && a.data === undefined)
+  for (const a of fixas) usadas.add(a)
 
   /*
    * Os grupos, na ordem em que vieram.
@@ -135,15 +153,16 @@ export function Notas(p: {
    * regra de ordem para a mesma lista.
    */
   const grupos: { data: string; itens: AnotacaoPublicada[] }[] = []
-  for (const a of comData) {
+  for (const a of achadas) {
+    if (usadas.has(a) || a.data === undefined) continue
     const ultimo = grupos[grupos.length - 1]
     if (ultimo && ultimo.data === a.data) ultimo.itens.push(a)
-    else grupos.push({ data: a.data as string, itens: [a] })
+    else grupos.push({ data: a.data, itens: [a] })
   }
 
   return (
     <div className="tema-vida">
-      <Cabecalho titulo="Notas" aoVoltar={() => p.irPara('hoje')} />
+      <Cabecalho titulo="Notas" />
       {p.cardapio.erro && <Aviso>{p.cardapio.erro}</Aviso>}
 
       <div className="bloco">
@@ -198,6 +217,12 @@ export function Notas(p: {
             />
           </div>
         )}
+
+        {prioritarias.length > 0 && <Secao nome="Prioridade" />}
+        {prioritarias.map(a => <Nota key={`pri:${a.titulo}`} a={a} />)}
+
+        {deHoje.length > 0 && <Secao nome="De hoje" contagem={String(deHoje.length)} />}
+        {deHoje.map(a => <Nota key={`hoje:${a.titulo}`} a={a} />)}
 
         {fixas.length > 0 && <Secao nome="Fixas" />}
         {fixas.map(a => <Nota key={`fixa:${a.titulo}`} a={a} />)}
