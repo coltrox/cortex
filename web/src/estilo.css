@@ -854,6 +854,149 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   backdrop-filter:blur(18px) saturate(140%);
   border-top:1px solid var(--borda);
 }
+/* ─────────── A abertura da tela Hoje ───────────
+   Ela ROLA com o conteúdo, ao contrário do `.cabecalho` fixo das outras
+   telas. A margem negativa devolve o espaço que o `#raiz` reserva para aquele
+   cabeçalho — desconto dos MESMOS tokens que criam a reserva, para os dois
+   nunca divergirem. */
+.hoje-abertura{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:var(--e3); padding:0 var(--e4) var(--e4);
+  margin-top: calc(-1 * (var(--alt-cabecalho) + var(--e4)));
+  padding-top: calc(var(--topo-seguro) + 18px);
+}
+.hoje-abertura-txt{ min-width:0; }
+.hoje-data{
+  font-family:var(--fonte-num); font-size:10.5px; letter-spacing:.15em;
+  text-transform:uppercase; color:var(--txt-3);
+}
+.hoje-saudacao{
+  margin:5px 0 0; font-size:28px; font-weight:600;
+  letter-spacing:-.025em; color:var(--txt); line-height:1.1;
+}
+.hoje-abertura-dir{
+  flex:none; display:flex; align-items:center; gap:var(--e2); margin-top:6px;
+}
+.hoje-selo{
+  font-family:var(--fonte-num); font-size:10.5px; font-weight:700;
+  padding:5px 9px; border-radius:99px;
+  background:var(--acento-fraco); color:var(--acento-forte);
+}
+.hoje-selo[data-tom="fila"]{ background:var(--atencao-fraco); color:var(--atencao); }
+.hoje-ajustes{
+  display:inline-flex; align-items:center; gap:7px;
+  height:34px; padding:0 12px; border-radius:99px;
+  border:1.5px solid var(--borda-forte); background:transparent;
+  font:600 11px var(--fonte); color:var(--txt-2); cursor:pointer;
+}
+.hoje-ajustes:hover{ background:var(--painel-topo); color:var(--txt); }
+/* Três traços de comprimentos diferentes: o mesmo desenho da maquete, e mais
+   legível a 11 px do que uma engrenagem. */
+.hoje-ajustes-linhas{ display:flex; flex-direction:column; gap:3px; align-items:flex-end; }
+.hoje-ajustes-linhas i{ display:block; height:1.5px; background:currentColor; }
+.hoje-ajustes-linhas i:nth-child(1){ width:13px; }
+.hoje-ajustes-linhas i:nth-child(2){ width:9px; }
+.hoje-ajustes-linhas i:nth-child(3){ width:13px; }
+
+/* ─────────── A seção como UM cartão ───────────
+   O app fazia um cartão por item; o desenho faz um cartão por SEÇÃO, com as
+   linhas dentro separadas por um fio. A diferença não é enfeite: com um
+   cartão por item, oito suplementos são oito caixas flutuando, e o olho conta
+   caixas em vez de ler uma lista. Aqui a caixa é a lista.
+
+   Os itens continuam sendo os mesmos componentes — o que muda é que dentro do
+   grupo eles perdem moldura própria e ganham o fio de cima. */
+.grupo{
+  background:var(--painel); border:1px solid var(--borda);
+  border-radius:var(--r3); padding:4px 18px 6px;
+  margin-bottom:var(--e5);
+}
+/* O título entra no cartão, e por isso perde o recuo e a margem que ele tem
+   quando é cabeçalho de bloco solto. */
+.grupo > .secao{
+  margin:0; padding:14px 0 4px;
+}
+.grupo > .item,
+.grupo > .item-par,
+.grupo > .com-corpo > .item,
+.grupo > .com-corpo > .item-par{
+  background:transparent; border:0; border-radius:0;
+  border-top:1px solid var(--borda);
+  width:100%;
+}
+/* O primeiro de cada grupo não leva fio: ele encosta no título, e um fio ali
+   separaria o título do próprio conteúdo dele. */
+.grupo > .secao + .item,
+.grupo > .secao + .item-par,
+.grupo > .secao + .com-corpo > .item,
+.grupo > .secao + .com-corpo > .item-par{ border-top:0; }
+.grupo > .com-corpo{ border-top:1px solid var(--borda); }
+.grupo > .secao + .com-corpo{ border-top:0; }
+.grupo > .com-corpo > .item-par{ border-top:0; }
+/* Feito continua legível dentro do grupo, mas sem pintar a linha inteira: o
+   fundo verde que funcionava num cartão solto vira uma tarja no meio da
+   lista. A marca fica no símbolo e no texto. */
+.grupo .item-feito{ background:transparent; }
+
+/* O atalho no pé de um grupo: leva à aba que tem a versão completa. */
+.grupo-mais{
+  width:100%; border:0; background:transparent; cursor:pointer;
+  border-top:1px solid var(--borda); padding:13px 0 11px;
+  font:600 12.5px var(--fonte); color:var(--acento); text-align:left;
+}
+.grupo-mais:hover{ color:var(--acento-forte); }
+
+/* ─────────── As garrafas de água ───────────
+   Uma caixa por garrafa da meta, enchendo de baixo para cima. A barra antiga
+   dizia a proporção; estas dizem QUANTAS FALTAM, que é a pergunta de quem
+   está com a garrafa na mão. */
+.agua-garrafas{ display:flex; gap:5px; margin:2px 0 12px; }
+.agua-garrafa{
+  flex:1; height:44px; border-radius:8px; overflow:hidden;
+  border:1.5px solid var(--borda-forte); background:var(--painel-topo);
+  display:flex; align-items:flex-end;
+}
+.agua-garrafa i{
+  display:block; width:100%; background:var(--acento);
+  transition:height 260ms ease;
+}
+/* Os tres botoes cabem numa linha so: 'garrafa' quebrando em duas linhas
+   estourava a altura do cartao e desalinhava o menos. */
+.agua-acoes .btn{ white-space:nowrap; font-size:13px; padding-left:0; padding-right:0; }
+.agua-acoes .btn-principal, .agua-acoes .btn-secundario{ flex:1; min-width:0; }
+.agua-acoes .agua-tirar{ flex:none; width:52px; }
+
+.agua-nota{
+  font-family:var(--fonte-num); font-size:10px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--txt-3); margin-bottom:11px;
+}
+
+/* ─────────── O anel do dia ─────────── */
+.anel-cartao{
+  display:flex; align-items:center; gap:18px;
+  padding:20px; margin-bottom:var(--e5);
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r3);
+}
+.anel-roda{ position:relative; width:110px; height:110px; flex:none; }
+.anel-roda svg{ width:110px; height:110px; display:block; }
+.anel-trilho{ fill:none; stroke:var(--painel-topo); stroke-width:11; }
+.anel-cheio{
+  fill:none; stroke:var(--acento); stroke-width:11; stroke-linecap:round;
+  transition:stroke-dashoffset 420ms ease;
+}
+.anel-meio{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.anel-pct{
+  font-family:var(--fonte-num); font-size:23px; font-weight:700;
+  letter-spacing:-.04em; color:var(--txt); line-height:1;
+}
+.anel-legenda{ font-size:10px; color:var(--txt-3); margin-top:2px; }
+.anel-txt{ display:flex; flex-direction:column; gap:8px; min-width:0; flex:1; }
+.anel-txt strong{ font-size:14px; font-weight:600; color:var(--txt); }
+.anel-txt p{ margin:0; font-size:12.5px; line-height:1.45; color:var(--txt-2); }
+
 /* — O ícone da aba —
      Uma caixa de 20 px por aba, com um canto diferente em cada uma, cheia
      quando a aba está ativa. É o que o desenho `Rotina` usa no lugar de

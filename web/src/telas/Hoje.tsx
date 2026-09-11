@@ -154,12 +154,76 @@ function Tarefa(p: {
 /** O que veio do banco pode não ser texto. */
 const txtDe = (v: unknown): string => (typeof v === 'string' ? v : '')
 
+/**
+ * O perímetro do anel, `2πr` com r=47 no `viewBox` de 110.
+ *
+ * Constante calculada uma vez: é o comprimento total do traço, e `dashoffset`
+ * conta a partir dele o quanto ainda falta.
+ */
+const PERIMETRO = 2 * Math.PI * 47
+
+/** `quinta, 10 set` — a linha miúda acima da saudação, como no desenho. */
+function dataPorExtenso(d: Date): string {
+  const s = d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' })
+  // O `pt-BR` devolve "quinta-feira, 10 de set." — a forma curta do desenho
+  // tira o "-feira", o "de" e o ponto da abreviação do mês.
+  return s.replace('-feira', '').replace(' de ', ' ').replace('.', '')
+}
+
+/**
+ * Bom dia, boa tarde, boa noite.
+ *
+ * Sem nome depois. O desenho escreve "Bom dia, Ju" porque a maquete precisava
+ * de um nome de exemplo; aqui o nome seria mais uma preferência para cadastrar
+ * e manter, e não diria nada a quem está olhando o próprio celular.
+ */
+function saudacao(d: Date): string {
+  const h = d.getHours()
+  if (h < 12) return 'Bom dia'
+  if (h < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+/**
+ * O anel do dia: quanto do que estava marcado para hoje já foi feito.
+ *
+ * Conta suplemento, refeição e tarefa — as três listas de marcar. A água entra
+ * como UM item, cumprido ao bater a meta: contada em ml, ela sozinha valeria
+ * mais que todo o resto somado e o anel viraria o medidor de água.
+ *
+ * Sem nada para fazer não há fração: `null` diz à tela para não desenhar o
+ * anel, em vez de desenhar um círculo em 0% que parece cobrança por um dia que
+ * não pediu nada.
+ */
+function fracaoDoDia(
+  feitosDeHoje: boolean[],
+  agua: { meta: number } | null,
+  bebido: number
+): { feitos: number; total: number } | null {
+  let feitos = feitosDeHoje.filter(Boolean).length
+  let total = feitosDeHoje.length
+  if (agua && agua.meta > 0) {
+    total += 1
+    if (bebido >= agua.meta) feitos += 1
+  }
+  return total === 0 ? null : { feitos, total }
+}
+
 export function Hoje(p: {
   envio: ReturnType<typeof useEnvio>
   cardapio: UsoDoCardapio
   irPara: (t: Tela) => void
 }) {
   const dia = diaLocal()
+  /*
+   * A hora de agora, fixada no render.
+   *
+   * `new Date()` direto no JSX daria uma hora diferente a cada renderização,
+   * e a saudação poderia trocar no meio de um toque. Uma leitura por render é
+   * o bastante: ninguém fica com a tela aberta atravessando o meio-dia — e
+   * quem ficar vê a saudação certa no próximo toque.
+   */
+  const agora = new Date()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
 
   /*
@@ -273,6 +337,23 @@ export function Hoje(p: {
   }, [p.cardapio, p.envio]))
 
   const { naFila, enviando, avisos } = p.envio.estado
+
+  /*
+   * A fração do dia, montada das MESMAS listas que a tela desenha.
+   *
+   * De propósito: se o anel contasse de outra fonte, ele diria uma coisa e a
+   * lista logo abaixo diria outra — e a pessoa acreditaria na lista, que é o
+   * que ela consegue conferir. Assim não há duas versões da mesma verdade.
+   */
+  const progressoDoDia = fracaoDoDia(
+    [
+      ...suplementos.map(s => estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)),
+      ...refeicoes.map(r => estaFeito(`refeicao:${r.nome}`, r.detalhe.feito === true)),
+      ...rotinas.map(t => estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true))
+    ],
+    agua,
+    bebido
+  )
   const vazio = suplementos.length === 0 && refeicoes.length === 0
     && rotinas.length === 0 && !agua
     // Uma anotação escrita aqui já é conteúdo na tela: dizer "nada no
@@ -308,37 +389,59 @@ export function Hoje(p: {
         />
       </div>
 
-      <Cabecalho
-        titulo="Hoje"
-        /*
-         * O selo só aparece quando há o que dizer.
-         *
-         * "tudo enviado" é o estado normal — quase o tempo todo. Um aviso que
-         * fica permanentemente aceso não avisa nada: vira parte do cenário e
-         * o olho para de ler. Sem ele, a própria PRESENÇA do selo passa a ser
-         * a informação: se há algo escrito ali, é porque falta enviar.
-         *
-         * `enviando…` e `N na fila` continuam — são os dois casos em que a
-         * pessoa precisa saber que o registro ainda não deu a volta.
-         */
-        estado={
-          enviando
-            ? { texto: 'enviando…', tom: 'envia' as const }
-            : naFila > 0
-              ? { texto: `${naFila} na fila`, tom: 'fila' as const }
-              : undefined
-        }
-      />
-
-      {/* Só o conteúdo desce com o dedo — o cabeçalho fica fora deste div de
-          propósito. `transform` num ancestral faz `position: fixed` virar
-          `absolute`, e o cabeçalho desceria junto, deixando de ser fixo. */}
+      {/*
+        * Hoje não usa o cabeçalho fixo das outras telas.
+        *
+        * No desenho, a saudação ROLA junto com o conteúdo: ela é a abertura da
+        * página, não uma barra. Uma barra fixa escrita "Hoje" repetiria o que
+        * a aba acesa lá embaixo já diz, e comeria 58 px da primeira dobra —
+        * que nesta tela é onde mora o anel.
+        *
+        * A margem negativa devolve o espaço que o `#raiz` reserva para o
+        * cabeçalho. É desconto do MESMO token que cria a reserva, então os
+        * dois nunca divergem.
+        */}
+      {/* Tudo desce com o dedo, saudação inclusive: aqui ela é a abertura da
+          página e não uma barra, então ficar parada enquanto o resto escorrega
+          a faria parecer presa. Nenhum `position: fixed` mora dentro deste
+          div — o que havia era o cabeçalho, que esta tela não usa mais. */}
       <div
         style={{
           transform: `translateY(${puxar.distancia}px)`,
           transition: puxar.distancia === 0 ? 'transform .25s ease' : 'none'
         }}
       >
+      <header className="hoje-abertura">
+        <div className="hoje-abertura-txt">
+          <div className="hoje-data">{dataPorExtenso(agora)}</div>
+          <h1 className="hoje-saudacao">{saudacao(agora)}</h1>
+        </div>
+        <div className="hoje-abertura-dir">
+          {/*
+            * O selo só aparece quando há o que dizer.
+            *
+            * "tudo enviado" é o estado normal — quase o tempo todo. Um aviso
+            * permanentemente aceso não avisa nada: vira cenário e o olho para
+            * de ler. Sem ele, a própria PRESENÇA do selo é a informação.
+            */}
+          {(enviando || naFila > 0) && (
+            <span className="hoje-selo" data-tom={enviando ? 'envia' : 'fila'}>
+              {enviando ? 'enviando…' : `${naFila} na fila`}
+            </span>
+          )}
+          <button
+            className="hoje-ajustes"
+            type="button"
+            onClick={() => p.irPara('ajustes')}
+          >
+            <span className="hoje-ajustes-linhas" aria-hidden="true">
+              <i /><i /><i />
+            </span>
+            Ajustes
+          </button>
+        </div>
+      </header>
+
       {avisos.length > 0 && (
         <Aviso tom="erro" aoFechar={p.envio.limparAvisos}>
           {avisos.length} registro(s) recusado(s). O primeiro: {avisos[0]}
@@ -347,7 +450,55 @@ export function Hoje(p: {
       {p.cardapio.erro && <Aviso>{p.cardapio.erro}</Aviso>}
 
       <div className="bloco">
-        {suplementos.length > 0 && <Secao nome="Suplementos" />}
+        {/*
+          * O anel do dia.
+          *
+          * O primeiro cartão da tela, e o único que não se toca: ele responde
+          * "como está hoje?" antes de qualquer lista. `stroke-dasharray` é o
+          * perímetro do círculo e o `dashoffset` é o quanto falta — é assim
+          * que se desenha um anel de progresso sem biblioteca nenhuma.
+          *
+          * Some quando não há nada marcado para o dia: um anel em zero por um
+          * dia que não pediu nada parece cobrança.
+          */}
+        {progressoDoDia && (
+          <div className="anel-cartao">
+            <div className="anel-roda">
+              <svg viewBox="0 0 110 110" aria-hidden="true">
+                <circle className="anel-trilho" cx="55" cy="55" r="47" />
+                <circle
+                  className="anel-cheio"
+                  cx="55" cy="55" r="47"
+                  strokeDasharray={PERIMETRO}
+                  strokeDashoffset={
+                    PERIMETRO * (1 - progressoDoDia.feitos / progressoDoDia.total)
+                  }
+                  transform="rotate(-90 55 55)"
+                />
+              </svg>
+              <div className="anel-meio">
+                <span className="anel-pct">
+                  {Math.round((progressoDoDia.feitos / progressoDoDia.total) * 100)}%
+                </span>
+                <span className="anel-legenda">do dia</span>
+              </div>
+            </div>
+            <div className="anel-txt">
+              <strong>
+                {progressoDoDia.feitos} de {progressoDoDia.total} {' '}
+                {progressoDoDia.total === 1 ? 'coisa' : 'coisas'}
+              </strong>
+              <p>
+                {progressoDoDia.feitos === progressoDoDia.total
+                  ? 'Tudo o que estava marcado para hoje já foi feito.'
+                  : `Faltam ${progressoDoDia.total - progressoDoDia.feitos}. Dá para ir marcando por aqui.`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {suplementos.length > 0 && <div className="grupo">
+        <Secao nome="Suplementos" />
         {/* Dose primeiro, momento sempre. A dose some quando ninguém escreveu
             uma; o momento cai para "qualquer hora" em vez de deixar a linha
             muda — ver `momentoDe`. */}
@@ -364,21 +515,42 @@ export function Hoje(p: {
             )}
           />
         ))}
+        </div>}
 
         {agua && (
-          <>
+          <div className="grupo">
             <Secao nome="Hidratação" contagem={agua.meta > 0
               ? `${litros(bebido)} de ${litros(agua.meta)}`
               : litros(bebido)} />
             <div className="agua">
-              {/* A barra trava em 100%: beber a mais que a meta é bom, e uma
-                  barra que vaza para fora da caixa parece defeito. O número
-                  ao lado continua contando a verdade. */}
+              {/*
+                * As garrafas, e não uma barra.
+                *
+                * A barra dizia a proporção; as garrafas dizem QUANTAS FALTAM,
+                * que é a pergunta de quem está com a garrafa na mão. Uma
+                * caixa por garrafa da meta, cheias da esquerda para a
+                * direita, e a última parcial mostra a metade quando foi meia
+                * garrafa.
+                *
+                * Sem meta cadastrada não há quantas: aí fica só a contagem em
+                * litros no cabeçalho da seção, sem caixas para preencher.
+                */}
               {agua.meta > 0 && (
-                <div className="agua-barra">
-                  <i style={{ width: `${Math.min(100, (bebido / agua.meta) * 100)}%` }} />
+                <div className="agua-garrafas" aria-hidden="true">
+                  {Array.from({ length: Math.min(12, Math.ceil(agua.meta / agua.copo)) }, (_, i) => {
+                    const cheiaAte = bebido / agua.copo
+                    const parte = Math.max(0, Math.min(1, cheiaAte - i))
+                    return (
+                      <div key={i} className="agua-garrafa">
+                        <i style={{ height: `${parte * 100}%` }} />
+                      </div>
+                    )
+                  })}
                 </div>
               )}
+              <div className="agua-nota">
+                garrafa de {agua.copo} ml · definida no Cortex
+              </div>
               <div className="agua-acoes">
                 <button
                   className="btn btn-principal"
@@ -388,7 +560,21 @@ export function Hoje(p: {
                     p.envio.registrar(eventoAgua(agua.copo, dia))
                   }}
                 >
-                  + {agua.copo} ml
+                  + 1 garrafa
+                </button>
+                {/* Meia garrafa: o desenho traz, e o app não tinha. Beber
+                    metade e não ter como registrar fazia a conta do dia ficar
+                    sempre atrasada ou sempre adiantada. */}
+                <button
+                  className="btn btn-secundario"
+                  type="button"
+                  onClick={() => {
+                    const meia = Math.round(agua.copo / 2)
+                    setPendente(somarPendente(guardadoDoNavegador, dia, meia))
+                    p.envio.registrar(eventoAgua(meia, dia))
+                  }}
+                >
+                  + ½ garrafa
                 </button>
                 {/* Desfazer o toque a mais. Some quando não há o que desfazer:
                     um botão que não faz nada é pior do que botão nenhum. */}
@@ -410,13 +596,14 @@ export function Hoje(p: {
                 )}
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* Logo abaixo dos suplementos: é o mesmo gesto, e separar as duas
             listas por uma seção de outra coisa quebraria a sequência de
             toques de quem abre o app de manhã e desce marcando. */}
-        {rotinas.length > 0 && <Secao nome="Tarefas do dia" />}
+        {rotinas.length > 0 && <div className="grupo">
+        <Secao nome="Tarefas do dia" />
         {/* Mesma regra do suplemento, logo acima: a tarefa sem hora marcada é
             "qualquer hora", e não uma linha sem resposta. */}
         {rotinas.map(t => (
@@ -447,7 +634,10 @@ export function Hoje(p: {
           <Anotada key={`aqui:${i}:${a.texto}`} texto={a.texto} prioridade={a.prioridade} soAqui />
         ))}
 
-        {refeicoes.length > 0 && <Secao nome="Refeições" />}
+        </div>}
+
+        {refeicoes.length > 0 && <div className="grupo">
+        <Secao nome="Refeições" />
         {refeicoes.map(r => (
           <Check
             key={r.nome}
@@ -461,6 +651,13 @@ export function Hoje(p: {
             )}
           />
         ))}
+        {/* A ponte para a aba Dieta: aqui é a lista de marcar, lá é o plano
+            inteiro com as calorias. Sem este atalho, quem quisesse conferir o
+            plano teria de descobrir sozinho que existe uma aba para isso. */}
+        <button className="grupo-mais" type="button" onClick={() => p.irPara('dieta')}>
+          Ver o plano inteiro
+        </button>
+        </div>}
 
         {vazio && !p.cardapio.erro && (
           <p className="secao-vazia">
