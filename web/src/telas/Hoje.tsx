@@ -5,7 +5,8 @@ import { Marcacao } from '../marcacao'
 import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua } from '../montar'
 import {
   suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros,
-  anotacoesDoDia, momentoDe, areaLigada
+  anotacoesDoDia, momentoDe, areaLigada,
+  provas, compromissos, tarefas, dataDe, dataCurta, faltam
 } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { lerAnotacoes, conciliarAnotacoes } from '../anotacoes'
@@ -241,6 +242,28 @@ export function Hoje(p: {
   const atalhos = ATALHOS.filter(a => areaLigada(p.cardapio.cardapio, a.area))
   const temSaude = areaLigada(p.cardapio.cardapio, 'saude')
   const temVida = areaLigada(p.cardapio.cardapio, 'vida')
+  const temEstudos = areaLigada(p.cardapio.cardapio, 'conhecimento')
+  const temAgenda = areaLigada(p.cardapio.cardapio, 'calendario')
+
+  /*
+   * As duas próximas coisas com data.
+   *
+   * Prova, compromisso e tarefa na mesma fila, ordenadas pela data — é assim
+   * que elas chegam na vida, e separá-las por tipo aqui faria a mais próxima
+   * das três ficar escondida atrás do cabeçalho da categoria dela.
+   *
+   * O que já passou fica de fora: "chegando" que mostra ontem não é chegando.
+   */
+  const proximos = temAgenda
+    ? [
+        ...provas(p.cardapio.cardapio),
+        ...compromissos(p.cardapio.cardapio),
+        ...tarefas(p.cardapio.cardapio)
+      ]
+      .filter(i => dataDe(i) >= dia)
+      .sort((a, b) => dataDe(a).localeCompare(dataDe(b)))
+      .slice(0, 2)
+    : []
 
   const suplementos = temSaude ? suplementosDoDia(p.cardapio.cardapio, dia) : []
   const refeicoes = temSaude ? refeicoesDoPlano(p.cardapio.cardapio) : []
@@ -658,6 +681,62 @@ export function Hoje(p: {
           Ver o plano inteiro
         </button>
         </div>}
+
+        {/*
+          * Cardio e Estudo, lado a lado.
+          *
+          * O desenho mostra o número de hoje dentro de cada um. Aqui eles
+          * saem SEM número, porque o Cortex não publica o cardio nem o estudo
+          * do dia para o celular — e um número inventado num cartão é pior do
+          * que cartão sem número. O que o par entrega é o que o desenho tem
+          * de mais útil: os dois registros mais frequentes a um toque, sem
+          * descer até a grade lá embaixo.
+          */}
+        {(temSaude || temEstudos) && (
+          <div className="par-cartoes">
+            {temSaude && (
+              <div className="cartao-curto">
+                <span className="cartao-curto-nome">Cardio</span>
+                <span className="cartao-curto-nota">Corrida, bike, caminhada</span>
+                <button className="btn btn-secundario" type="button"
+                  onClick={() => p.irPara('cardio')}>Registrar</button>
+              </div>
+            )}
+            {temEstudos && (
+              <div className="cartao-curto">
+                <span className="cartao-curto-nome">Estudo</span>
+                <span className="cartao-curto-nota">Matéria, tempo e questões</span>
+                <button className="btn btn-principal" type="button"
+                  onClick={() => p.irPara('estudo')}>Registrar</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/*
+          * O que está chegando, em duas linhas.
+          *
+          * Só as duas próximas: a aba Chegando tem a lista inteira, e repetir
+          * ela aqui faria o Hoje virar a mesma tela com outro título.
+          */}
+        {proximos.length > 0 && (
+          <div className="grupo">
+            <Secao nome="Chegando" />
+            {proximos.map(i => (
+              <div key={`${i.especie}:${i.nome}`} className="chega-linha">
+                <span className="chega-dia">
+                  <b>{dataCurta(dataDe(i), dia).split(' ')[0]}</b>
+                  <i>{dataCurta(dataDe(i), dia).split(' ')[1] ?? ''}</i>
+                </span>
+                <span className="chega-nome">{i.nome}</span>
+                <span className="chega-falta">{faltam(dataDe(i), dia)}</span>
+              </div>
+            ))}
+            <button className="grupo-mais" type="button" onClick={() => p.irPara('agenda')}>
+              Ver tudo o que está marcado
+            </button>
+          </div>
+        )}
 
         {vazio && !p.cardapio.erro && (
           <p className="secao-vazia">

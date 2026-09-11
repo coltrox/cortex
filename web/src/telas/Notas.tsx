@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { dobra } from '@compartilhado/busca'
 import { Marcacao } from '../marcacao'
-import { diaLocal } from '../montar'
+import { diaLocal, eventoAnotacao } from '../montar'
+import { guardadoDoNavegador } from '../guardado'
+import { guardarAnotacao } from '../anotacoes'
 import { todasAnotacoes, type AnotacaoPublicada } from '../cardapio'
 import { Cabecalho, Aviso, Secao } from '../componentes'
-import type { UsoDoCardapio } from '../envio'
+import type { UsoDoCardapio, useEnvio } from '../envio'
 import type { Tela } from '../App'
 
 const MESES = [
@@ -86,9 +88,31 @@ function Nota({ a }: { a: AnotacaoPublicada }) {
  * elas não pertencem a dia nenhum, e enfiá-las na data de criação faria a
  * "senha do wifi" descer para o fundo da lista com o tempo.
  */
-export function Notas(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void }) {
+export function Notas(p: {
+  cardapio: UsoDoCardapio
+  envio: ReturnType<typeof useEnvio>
+  irPara: (t: Tela) => void
+}) {
   const hoje = diaLocal()
   const [busca, setBusca] = useState('')
+  const [rascunho, setRascunho] = useState('')
+  const [prioridade, setPrioridade] = useState(false)
+
+  /*
+   * Salva e limpa o campo na hora.
+   *
+   * A nota aparece na lista quando o Cortex a devolver; enquanto isso ela
+   * fica na cópia local, que é a mesma que a tela Hoje usa. Esperar a volta
+   * para limpar o campo faria quem escreve sem sinal achar que não salvou.
+   */
+  const salvarNota = (): void => {
+    const texto = rascunho.trim()
+    if (texto === '') return
+    p.envio.registrar(eventoAnotacao(texto, hoje, prioridade))
+    guardarAnotacao(guardadoDoNavegador, hoje, texto, prioridade)
+    setRascunho('')
+    setPrioridade(false)
+  }
   const todas = todasAnotacoes(p.cardapio.cardapio)
 
   const achadas = useMemo(() => {
@@ -123,6 +147,44 @@ export function Notas(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void })
       {p.cardapio.erro && <Aviso>{p.cardapio.erro}</Aviso>}
 
       <div className="bloco">
+        {/*
+          * Escrever e ler na mesma tela.
+          *
+          * Eram duas: `anotacao` para escrever, `notas` para ler. O desenho
+          * junta, e tem razão — a lista é o melhor lugar para escrever, porque
+          * o que já está ali é o que lembra o que falta anotar. A tela de
+          * escrever continua existindo para o atalho do Hoje, que abre com o
+          * campo grande e o teclado pronto.
+          */}
+        <div className="cartao-ajuste nota-nova">
+          <div className="nota-nova-tag">anotação rápida</div>
+          <input
+            className="nota-nova-campo"
+            value={rascunho}
+            placeholder="Escreve e aperta Enter…"
+            onChange={e => setRascunho(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') salvarNota() }}
+          />
+          <div className="nota-nova-pe">
+            <button
+              type="button"
+              className={`nota-pri ${prioridade ? 'ligada' : ''}`}
+              aria-pressed={prioridade}
+              onClick={() => setPrioridade(v => !v)}
+            >
+              <i />Prioridade
+            </button>
+            <button
+              type="button"
+              className="btn btn-principal nota-salvar"
+              disabled={rascunho.trim() === ''}
+              onClick={salvarNota}
+            >
+              Salvar
+            </button>
+          </div>
+        </div>
+
         {/* A busca só aparece quando há o que procurar: um campo de busca
             sobre quatro itens é um campo que atrapalha. */}
         {todas.length > 4 && (

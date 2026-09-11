@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { guardadoDoNavegador } from '../guardado'
 import { lerVaultId, gravarVaultId } from '../ajustes'
-import { haQuantoTempo } from '../cardapio'
+import { haQuantoTempo, hidratacao } from '../cardapio'
+import { lerTema, gravarTema, aplicarTema, type Tema } from '../tema'
 import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -24,6 +25,8 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
   const [trocando, setTrocando] = useState(false)
   const [id, setId] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+  const [tema, setTema] = useState<Tema>(() => lerTema(guardadoDoNavegador))
+  const agua = hidratacao(p.cardapio.cardapio)
 
   const salvar = async (): Promise<void> => {
     try {
@@ -52,13 +55,26 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
       <div className="tema-hoje">
         <Cabecalho titulo="Ajustes" aoVoltar={() => p.irPara('hoje')} />
 
-        <div className="bloco tela-calma">
-          <div className="tela-calma-meio">
-            <div className={`selo ${falhou ? 'selo-erro' : ''}`} aria-hidden="true">
-              {falhou ? '!' : '✓'}
+        <div className="bloco">
+          {/*
+            * O cartão da integração, como no desenho.
+            *
+            * Era uma tela centrada com um selo grande no meio. Virou cartão
+            * para caber junto dos outros ajustes — e porque o estado da
+            * conexão é UM ajuste entre vários, não a tela inteira.
+            */}
+          <div className="cartao-ajuste">
+            <div className="integra-topo">
+              <div>
+                <div className="integra-tag">integração</div>
+                <div className="integra-nome">Cortex</div>
+              </div>
+              <span className={`integra-estado ${falhou ? 'e-falha' : ''}`}>
+                <i />
+                {falhou ? 'sem dados' : 'ligado'}
+              </span>
             </div>
-            <h2>{falhou ? 'Sem dados agora' : 'Conectado ao seu Cortex'}</h2>
-            <p>
+            <p className="cartao-ajuste-txt">
               {falhou
                 ? p.cardapio.erro
                 : quantos > 0
@@ -67,14 +83,69 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
             </p>
             {/* O horário responde "ainda está funcionando?", que é a pergunta
                 que traz alguém a esta tela. Não é botão, e não vira um. */}
-            {quando && <span className="quando">Atualizado {quando}</span>}
-          </div>
-
-          <div className="tela-calma-pe">
+            {quando && <div className="integra-quando">Atualizado {quando}</div>}
             <Botao aoClicar={() => { setTrocando(true); setId('') }}>
               Trocar de vault
             </Botao>
           </div>
+
+          {/*
+            * Aparência.
+            *
+            * O app era escuro sem escolha. A escolha entra junto com a virada
+            * para o claro, que é o que evita a pergunta óbvia de quem gostava
+            * do escuro.
+            */}
+          <div className="cartao-ajuste">
+            <div className="cartao-ajuste-nome">Aparência</div>
+            <div className="tema-opcoes">
+              {(['claro', 'escuro', 'sistema'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`tema-opcao ${tema === t ? 'ligada' : ''}`}
+                  aria-pressed={tema === t}
+                  onClick={() => {
+                    gravarTema(guardadoDoNavegador, t)
+                    aplicarTema(t)
+                    setTema(t)
+                  }}
+                >
+                  {t === 'claro' ? 'Claro' : t === 'escuro' ? 'Escuro' : 'Sistema'}
+                </button>
+              ))}
+            </div>
+            <p className="cartao-ajuste-txt">
+              {tema === 'sistema'
+                ? 'Acompanha o aparelho: escuro à noite, se ele estiver assim.'
+                : `Sempre ${tema}, independente do aparelho.`}
+            </p>
+          </div>
+
+          {/*
+            * Hidratação: mostra, não edita.
+            *
+            * O desenho põe aqui os botões de tamanho de garrafa e de meta. No
+            * app de verdade quem decide isso é o Cortex, que publica os dois
+            * no cardápio — e dois lugares editando o mesmo número divergem no
+            * primeiro dia sem sinal. Aqui fica a leitura, e o caminho.
+            */}
+          {agua && (
+            <div className="cartao-ajuste">
+              <div className="cartao-ajuste-nome">Hidratação</div>
+              <div className="ajuste-par">
+                <span>Garrafa</span>
+                <b>{agua.copo} ml</b>
+              </div>
+              <div className="ajuste-par">
+                <span>Meta do dia</span>
+                <b>{agua.meta > 0 ? `${agua.meta} ml` : 'sem meta'}</b>
+              </div>
+              <p className="cartao-ajuste-txt">
+                Definidas no Cortex, em Saúde. O celular só mostra e registra.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     )

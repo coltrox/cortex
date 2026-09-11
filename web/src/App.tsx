@@ -216,7 +216,7 @@ export function App() {
       {(tela === 'gasto' || tela === 'dinheiro') && <Gasto envio={envio} irPara={setTela} />}
       {tela === 'porquinho' && <Porquinho envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'anotacao' && <Anotacao envio={envio} irPara={setTela} />}
-      {tela === 'notas' && <Notas cardapio={cardapio} irPara={setTela} />}
+      {tela === 'notas' && <Notas cardapio={cardapio} envio={envio} irPara={setTela} />}
       {tela === 'dieta' && <Dieta envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'estudo' && <Estudo envio={envio} irPara={setTela} />}
       {tela === 'ajustes' && <Ajustes cardapio={cardapio} irPara={setTela} />}
