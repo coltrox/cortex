@@ -4,7 +4,10 @@ import {
   Cartao, Serie, Secao, Check, Titulo, Linha, ListaNotas, Vazio, Progresso,
   nf, num, txt, lista, textos, porData, type PropsLente
 } from './base'
-import { suplementosDoDia, seriePeso, serieAgua, litros, totaisDoDia } from '../dados'
+import {
+  suplementosDoDia, seriePeso, serieAgua, litros, totaisDoDia,
+  fatorDaRefeicao, trocaDaRefeicao
+} from '../dados'
 
 /**
  * Saúde.
@@ -500,6 +503,11 @@ function Dieta({
             {refeicoes.map((r, i) => {
               const nome = txt(r.nome) || `Refeição ${i + 1}`
               const feito = feitas.includes(nome)
+              // O que o celular respondeu: quanto comeu e o que comeu no
+              // lugar. Só aparece quando há resposta — "comi tudo" é o caso
+              // normal e não precisa de etiqueta para se anunciar.
+              const fator = feito ? fatorDaRefeicao(diarioHoje, nome) : 1
+              const troca = feito ? trocaDaRefeicao(diarioHoje, nome) : ''
               return (
                 <Linha key={i}>
                   <Check
@@ -512,9 +520,16 @@ function Dieta({
                   <span className="linha-data">{txt(r.hora)}</span>
                   <span className="linha-titulo" data-feito={feito}>
                     {nome}
-                    {txt(r.itens) && <em> — {txt(r.itens)}</em>}
+                    {fator < 1 && <strong className="dieta-nivel">
+                      {fator === 0.5 ? 'metade' : 'pouco'}
+                    </strong>}
+                    {troca
+                      ? <em> — no lugar: {troca}</em>
+                      : txt(r.itens) && <em> — {txt(r.itens)}</em>}
                   </span>
-                  <span className="linha-valor">{num(r.kcal)} kcal · {num(r.prot)} g</span>
+                  <span className="linha-valor">
+                    {Math.round(num(r.kcal) * fator)} kcal · {Math.round(num(r.prot) * fator)} g
+                  </span>
                 </Linha>
               )
             })}

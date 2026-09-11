@@ -495,6 +495,77 @@ describe('desmarcar o check no diario', () => {
 })
 
 /**
+ * Quanto da refeicao foi comido, no arquivo.
+ *
+ * `planejar` decide `diario-item`; aqui se prova o que sobra no diario. O
+ * ponto da operacao e ela SUBSTITUIR: responder duas vezes sobre a mesma
+ * refeicao tem que deixar uma linha, nao duas se contradizendo.
+ */
+describe('detalhe da refeicao no diario', () => {
+  const ler = async (path: string) =>
+    parseFrontmatter(await session.vault.read(path)).frontmatter
+
+  it('grava o nivel e a troca ao lado do check', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'refeicao_plano', { nome: 'Almoço', nivel: 'metade', troca: 'sanduíche' })
+    ])).sincronizar()
+
+    const fm = await ler('Diario/2026-08-27.md')
+    expect(fm.dieta_feitas).toEqual(['Almoço'])
+    expect(fm.dieta_detalhes).toEqual([{ nome: 'Almoço', nivel: 'metade', troca: 'sanduíche' }])
+  })
+
+  it('responder de novo substitui, e nao acumula', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'refeicao_plano', { nome: 'Almoço', nivel: 'metade' })
+    ])).sincronizar()
+    await sinc(new ClienteFalso([
+      ev('e2', 'refeicao_plano', { nome: 'Almoço', nivel: 'pouco' })
+    ])).sincronizar()
+
+    expect((await ler('Diario/2026-08-27.md')).dieta_detalhes)
+      .toEqual([{ nome: 'Almoço', nivel: 'pouco' }])
+  })
+
+  it('marcar inteiro depois apaga a chave, sem deixar lista vazia', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'refeicao_plano', { nome: 'Almoço', nivel: 'metade' })
+    ])).sincronizar()
+    await sinc(new ClienteFalso([
+      ev('e2', 'refeicao_plano', { nome: 'Almoço' })
+    ])).sincronizar()
+
+    const fm = await ler('Diario/2026-08-27.md')
+    expect(fm).not.toHaveProperty('dieta_detalhes')
+    // O check continua: comer tudo e comer.
+    expect(fm.dieta_feitas).toEqual(['Almoço'])
+  })
+
+  it('o detalhe de uma refeicao nao mexe no da outra', async () => {
+    await sinc(new ClienteFalso([
+      ev('e1', 'refeicao_plano', { nome: 'Almoço', nivel: 'metade' }),
+      ev('e2', 'refeicao_plano', { nome: 'Janta', troca: 'pizza' })
+    ])).sincronizar()
+
+    expect((await ler('Diario/2026-08-27.md')).dieta_detalhes).toEqual([
+      { nome: 'Almoço', nivel: 'metade' },
+      { nome: 'Janta', troca: 'pizza' }
+    ])
+  })
+
+  it('desmarcar sem diario nenhum nao cria arquivo', async () => {
+    // Mesma razao do `diario-tirar`: um diario vazio so para registrar que
+    // nada foi feito e pior do que nao fazer nada.
+    const r = await sinc(new ClienteFalso([
+      ev('e1', 'refeicao_plano', { nome: 'Almoço', feito: false })
+    ])).sincronizar()
+
+    expect(r.aplicados).toBe(1)
+    expect(await session.vault.exists('Diario/2026-08-27.md')).toBe(false)
+  })
+})
+
+/**
  * A agua do dia, no arquivo.
  *
  * O `planejar` decide `diario-somar`; aqui se prova o que sobra no diario --

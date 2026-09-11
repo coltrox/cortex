@@ -83,12 +83,52 @@ export function eventoSuplemento(
   })
 }
 
+/**
+ * Quanto do prato foi comido.
+ *
+ * Três níveis, e não um campo de porcentagem: ninguém sabe dizer se comeu 60%
+ * ou 70% de um prato, e perguntar isso num celular às sete da manhã garante
+ * que o registro deixe de ser feito. "Tudo" é o caso normal e não precisa
+ * viajar — a ausência já quer dizer isso, e é o que todo evento gravado antes
+ * desta mudança significa.
+ */
+export const NIVEIS_REFEICAO = ['tudo', 'metade', 'pouco'] as const
+export type NivelRefeicao = (typeof NIVEIS_REFEICAO)[number]
+
+/** O peso de cada nível na conta de caloria. */
+export const FATOR_NIVEL: Record<NivelRefeicao, number> = {
+  tudo: 1, metade: 0.5, pouco: 0.25
+}
+
+/**
+ * A refeição do plano, marcada.
+ *
+ * `nivel` e `troca` são opcionais e só viajam quando dizem algo: marcar
+ * continua sendo um toque só. Quem quiser detalhar abre o painel da refeição
+ * e diz quanto comeu, ou o que comeu no lugar.
+ *
+ * `troca` é texto livre de propósito. Uma lista de substituições teria de ser
+ * mantida no Cortex, e metade das trocas da vida real ("comi na casa da minha
+ * avó") não caberia em lista nenhuma.
+ */
 export function eventoRefeicaoPlano(
-  nome: string, dia: string = diaLocal(), feito = true
+  nome: string,
+  dia: string = diaLocal(),
+  feito = true,
+  nivel?: NivelRefeicao,
+  troca?: string
 ): Evento {
   return validarEvento({
     tipo: 'refeicao_plano', dia,
-    dados: comValor({ nome: texto(nome, 'nome'), feito: feito ? undefined : false })
+    dados: comValor({
+      nome: texto(nome, 'nome'),
+      feito: feito ? undefined : false,
+      // Desmarcar apaga o detalhe junto: um "comi metade" pendurado numa
+      // refeição que a pessoa acabou de dizer que não comeu é contradição
+      // dentro do próprio diário.
+      nivel: feito && nivel && nivel !== 'tudo' ? nivel : undefined,
+      troca: feito && troca ? troca.trim().slice(0, 120) : undefined
+    })
   })
 }
 

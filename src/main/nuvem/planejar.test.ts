@@ -13,8 +13,15 @@ describe('planejar', () => {
   })
 
   it('refeicao do plano entra em dieta_feitas', () => {
+    // Duas operacoes: o check, e a limpeza do detalhe. Marcar sem dizer
+    // quanto comeu quer dizer "comi tudo" -- e um "comi metade" de antes nao
+    // pode ficar pendurado numa refeicao que acabou de ser marcada inteira.
     expect(planejar(ev('refeicao_plano', { nome: 'Café' }))).toEqual([
-      { acao: 'diario-conjunto', dia: '2026-08-27', campo: 'dieta_feitas', valor: 'Café' }
+      { acao: 'diario-conjunto', dia: '2026-08-27', campo: 'dieta_feitas', valor: 'Café' },
+      {
+        acao: 'diario-item', dia: '2026-08-27', campo: 'dieta_detalhes',
+        chave: 'nome', valor: 'Café', item: null
+      }
     ])
   })
 
@@ -390,7 +397,11 @@ describe('planejar — desmarcar suplemento e refeicao', () => {
       { acao: 'diario-tirar', dia: '2026-08-27', campo: 'suplementos_feitos', valor: 'Creatina' }
     ])
     expect(planejar(ev('refeicao_plano', { nome: 'Café', feito: false }))).toEqual([
-      { acao: 'diario-tirar', dia: '2026-08-27', campo: 'dieta_feitas', valor: 'Café' }
+      { acao: 'diario-tirar', dia: '2026-08-27', campo: 'dieta_feitas', valor: 'Café' },
+      {
+        acao: 'diario-item', dia: '2026-08-27', campo: 'dieta_detalhes',
+        chave: 'nome', valor: 'Café', item: null
+      }
     ])
   })
 
@@ -413,6 +424,57 @@ describe('planejar — desmarcar suplemento e refeicao', () => {
 
   it('desmarcar sem nome nao vira operacao', () => {
     expect(planejar(ev('suplemento', { feito: false }))).toEqual([])
+  })
+})
+
+/**
+ * Comi quanto, e troquei por que.
+ *
+ * O detalhe vive numa lista propria (`dieta_detalhes`), e nao dentro de
+ * `dieta_feitas`: aquele conjunto e o que a lente Saude conta e o que o
+ * celular usa para desenhar o check, e mudar o formato dele quebraria os dois
+ * para todo dia ja gravado.
+ */
+describe('planejar — detalhe da refeicao', () => {
+  const detalhe = (ops: ReturnType<typeof planejar>) =>
+    ops.find(o => o.acao === 'diario-item')
+
+  it('nivel vira um item de dieta_detalhes', () => {
+    expect(detalhe(planejar(ev('refeicao_plano', { nome: 'Almoço', nivel: 'metade' })))).toEqual({
+      acao: 'diario-item', dia: '2026-08-27', campo: 'dieta_detalhes',
+      chave: 'nome', valor: 'Almoço', item: { nome: 'Almoço', nivel: 'metade' }
+    })
+  })
+
+  it('a troca entra junto, e sozinha tambem vale', () => {
+    expect(detalhe(planejar(ev('refeicao_plano', { nome: 'Janta', troca: 'pizza' })))?.item)
+      .toEqual({ nome: 'Janta', troca: 'pizza' })
+    expect(detalhe(planejar(ev('refeicao_plano', {
+      nome: 'Janta', nivel: 'pouco', troca: 'pizza'
+    })))?.item).toEqual({ nome: 'Janta', nivel: 'pouco', troca: 'pizza' })
+  })
+
+  it('nivel que a tela nao conhece e descartado', () => {
+    // `dados` vem do banco como registro livre. Um "nivel: 3" viraria um
+    // valor que nenhuma das duas telas sabe desenhar, escrito no vault.
+    expect(detalhe(planejar(ev('refeicao_plano', { nome: 'Café', nivel: 'tudo' })))?.item).toBe(null)
+    expect(detalhe(planejar(ev('refeicao_plano', { nome: 'Café', nivel: 3 })))?.item).toBe(null)
+    expect(detalhe(planejar(ev('refeicao_plano', { nome: 'Café', nivel: 'muito' })))?.item).toBe(null)
+  })
+
+  it('desmarcar apaga o detalhe, mesmo com nivel no evento', () => {
+    // Senao o diario guardaria "comi metade" de uma refeicao que a propria
+    // pessoa acabou de dizer que nao comeu.
+    expect(detalhe(planejar(ev('refeicao_plano', {
+      nome: 'Café', feito: false, nivel: 'metade', troca: 'nada'
+    })))?.item).toBe(null)
+  })
+
+  it('a troca tem teto de 120 caracteres', () => {
+    const item = detalhe(planejar(ev('refeicao_plano', {
+      nome: 'Café', troca: 'x'.repeat(500)
+    })))?.item as { troca: string }
+    expect(item.troca).toHaveLength(120)
   })
 })
 

@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { dobra } from '@compartilhado/busca'
 import { Marcacao } from '../marcacao'
 import { diaLocal, eventoAnotacao } from '../montar'
 import { guardadoDoNavegador } from '../guardado'
-import { guardarAnotacao } from '../anotacoes'
+import { guardarAnotacao, lerAnotacoes, conciliarAnotacoes } from '../anotacoes'
 import { todasAnotacoes, type AnotacaoPublicada } from '../cardapio'
 import { Cabecalho, Aviso, Secao } from '../componentes'
 import type { UsoDoCardapio, useEnvio } from '../envio'
@@ -50,11 +50,19 @@ export function tituloDoGrupo(data: string, hoje: string): string {
  * o resto — e como ela corre a altura inteira do cartão, funciona também
  * quando o texto tem cinco linhas, o que um ícone no topo não faz.
  */
-function Nota({ a, etiqueta, hoje }: {
+function Nota({ a, etiqueta, hoje, soAqui }: {
   a: AnotacaoPublicada
   /** `PRIORIDADE`, `DE HOJE` — a faixa miúda dentro do cartão. */
   etiqueta?: string
   hoje: string
+  /**
+   * Escrita neste aparelho e ainda não devolvida pelo Cortex.
+   *
+   * É informação, não erro: com o computador desligado, este é o estado
+   * normal por horas. Omitir faria a nota parecer guardada no vault quando
+   * ela ainda está só aqui. Mesma marca que a tela Hoje usa.
+   */
+  soAqui?: boolean
 }) {
   const [aberto, setAberto] = useState(false)
   const tom = a.prioridade ? 'pri' : a.data === hoje ? 'hoje' : 'normal'
@@ -72,6 +80,7 @@ function Nota({ a, etiqueta, hoje }: {
               : a.data === hoje
                 ? 'hoje'
                 : tituloDoGrupo(a.data, hoje)}
+            {soAqui && <em className="nota-so-aqui">só neste aparelho</em>}
           </span>
         </div>
         {/* Mesma seta da tarefa do Hoje, pelo mesmo motivo: o texto longo
@@ -129,11 +138,45 @@ export function Notas(p: {
     const texto = rascunho.trim()
     if (texto === '') return
     p.envio.registrar(eventoAnotacao(texto, hoje, prioridade))
-    guardarAnotacao(guardadoDoNavegador, hoje, texto, prioridade)
+    // O retorno entra no estado na hora. Sem isto a nota era gravada e a tela
+    // continuava igual — ela só reaparecia quando o Cortex a devolvesse, o
+    // que com o computador desligado é no dia seguinte, ou nunca.
+    setLocais(guardarAnotacao(guardadoDoNavegador, hoje, texto, prioridade))
     setRascunho('')
     setPrioridade(false)
   }
   const todas = todasAnotacoes(p.cardapio.cardapio)
+
+  /*
+   * As que este aparelho escreveu e o Cortex ainda não devolveu.
+   *
+   * A tela Hoje sempre mostrou as duas fontes; esta lia só o cardápio, e por
+   * isso engolia a nota recém-escrita. Mesma função de conciliação das duas,
+   * de propósito: duas regras para a mesma cópia local dariam telas que
+   * discordam sobre a mesma anotação.
+   */
+  const [locais, setLocais] = useState(() => lerAnotacoes(guardadoDoNavegador, hoje))
+  useEffect(() => {
+    setLocais(conciliarAnotacoes(
+      guardadoDoNavegador, hoje,
+      todas.filter(a => a.data === hoje).map(a => a.texto)
+    ))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.cardapio.cardapio, hoje])
+
+  /* A cópia local no mesmo formato da publicada, para a lista ser uma só. */
+  const comoPublicada = (a: { texto: string; prioridade: boolean }): AnotacaoPublicada => ({
+    titulo: a.texto.split('\n')[0].slice(0, 80),
+    texto: a.texto,
+    prioridade: a.prioridade,
+    data: hoje
+  })
+  const termoBusca = dobra(busca.trim())
+  const locaisAchadas = locais
+    .filter(a => termoBusca === '' || dobra(a.texto).includes(termoBusca))
+    .map(comoPublicada)
+  const locaisPri = locaisAchadas.filter(a => a.prioridade)
+  const locaisComuns = locaisAchadas.filter(a => !a.prioridade)
 
   const achadas = useMemo(() => {
     const termo = dobra(busca.trim())
@@ -238,10 +281,20 @@ export function Notas(p: {
           </div>
         )}
 
-        {prioritarias.length > 0 && <Secao nome="Prioridade" />}
+        {/* As locais entram nas mesmas duas seções das publicadas, e em cima:
+            são as mais novas, e são as que a pessoa acabou de escrever. */}
+        {(prioritarias.length + locaisPri.length) > 0 && <Secao nome="Prioridade" />}
+        {locaisPri.map((a, i) => (
+          <Nota key={`pri-local:${i}`} a={a} hoje={hoje} etiqueta="prioridade" soAqui />
+        ))}
         {prioritarias.map(a => <Nota key={`pri:${a.titulo}`} a={a} hoje={hoje} etiqueta="prioridade" />)}
 
-        {deHoje.length > 0 && <Secao nome="De hoje" contagem={String(deHoje.length)} />}
+        {(deHoje.length + locaisComuns.length) > 0 && (
+          <Secao nome="De hoje" contagem={String(deHoje.length + locaisComuns.length)} />
+        )}
+        {locaisComuns.map((a, i) => (
+          <Nota key={`hoje-local:${i}`} a={a} hoje={hoje} etiqueta="de hoje" soAqui />
+        ))}
         {deHoje.map(a => <Nota key={`hoje:${a.titulo}`} a={a} hoje={hoje} etiqueta="de hoje" />)}
 
         {fixas.length > 0 && <Secao nome="Fixas" />}
@@ -254,9 +307,9 @@ export function Notas(p: {
           </div>
         ))}
 
-        {achadas.length === 0 && (
+        {achadas.length === 0 && locaisAchadas.length === 0 && (
           <p className="secao-vazia">
-            {todas.length === 0
+            {todas.length === 0 && locais.length === 0
               ? 'Nenhuma nota ainda. As que você escrever aqui ou no Cortex aparecem nesta lista.'
               : `Nada com "${busca.trim()}".`}
           </p>

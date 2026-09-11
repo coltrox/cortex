@@ -1582,3 +1582,48 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   letter-spacing:.13em; text-transform:uppercase;
   color:var(--txt-3); margin-bottom:5px;
 }
+
+/* ═══════════ DIETA — COMI QUANTO, TROQUEI POR ═══════════ */
+
+/* O painel fica DENTRO do cartão da refeição, colado nele: solto embaixo, com
+   a lista rolando, ele parecia pertencer à refeição de baixo. */
+.refeicao + .refeicao{ margin-top:var(--e2); }
+.refeicao-painel{
+  margin-top:2px; padding:var(--e4);
+  background:var(--painel); border:1px solid var(--borda);
+  border-radius:var(--r2);
+}
+.refeicao-pergunta{
+  display:block; font-family:var(--fonte-num); font-size:10px; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase;
+  color:var(--txt-3); margin-bottom:var(--e3);
+}
+/* A segunda pergunta precisa de ar depois dos chips da primeira. */
+.refeicao-painel .chips + .refeicao-pergunta{ margin-top:var(--e4); }
+
+.refeicao-troca{ display:flex; gap:var(--e2); }
+.troca-campo{
+  flex:1; min-width:0; min-height:var(--toque); padding:0 var(--e4);
+  background:var(--painel-alto); border:1px solid var(--borda); border-radius:999px;
+  color:var(--txt); font:500 15px/1 var(--fonte);
+  outline:none; -webkit-appearance:none; appearance:none;
+}
+.troca-campo:focus{ border-color:var(--acento); box-shadow:0 0 0 3px var(--acento-fraco); }
+.troca-campo::placeholder{ color:var(--txt-3); }
+.troca-salvar{
+  flex:none; min-height:var(--toque); padding:0 var(--e4);
+  background:var(--acento); border:1px solid var(--acento); border-radius:999px;
+  color:#fff; font:600 14px/1 var(--fonte); cursor:pointer;
+}
+/* Desligado enquanto não há mudança: salvar o mesmo texto mandaria um evento
+   para o banco dizer o que ele já sabe. */
+.troca-salvar:disabled{ opacity:.4; cursor:default; }
+
+/* "só neste aparelho": a nota saiu do dedo mas ainda não deu a volta pelo
+   Cortex. Miúda e ao lado do quando — é ressalva, não alarme. */
+.nota-so-aqui{
+  font-style:normal; margin-left:8px; padding:2px 7px; border-radius:999px;
+  background:var(--painel-topo); color:var(--txt-3);
+  font-family:var(--fonte-num); font-size:9px; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase;
+}

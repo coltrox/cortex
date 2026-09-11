@@ -151,8 +151,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .rail-item {
   position: relative;
-  width: 52px;
-  padding: 8px 0 6px;
+  /* A largura útil do trilho, e não 52px fixos: o rótulo tem que poder usar
+     o espaço que existe antes de precisar quebrar. */
+  width: calc(var(--rail) - 8px);
+  box-sizing: border-box;
+  padding: 8px 3px 6px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -185,14 +188,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 .rail-item:disabled { opacity: .34; cursor: default; }
-/* 11,5px, e não 10: a 10 o rótulo era legenda do ícone, e não o nome de um
-   lugar para onde se vai. `text-wrap: balance` por causa de "Configurações",
-   a única palavra que não cabe na largura do trilho e precisa quebrar bem. */
+/* O rótulo do trilho.
+ *
+ * Era 11,5px, e "Configurações" saía por fora do trilho: a palavra tem 13
+ * letras e mede mais de 70px nesse tamanho, contra 68px de trilho inteiro.
+ * `text-wrap: balance` não resolvia — ele equilibra linhas, não quebra
+ * palavra, e ali não havia onde quebrar.
+ *
+ * Agora são 10px, o item ocupa a largura útil do trilho, e a palavra longa
+ * hifeniza em português (o `lang` está no index.html). `overflow-wrap` é a
+ * rede embaixo: se o hífen não couber, ela quebra em vez de vazar.
+ */
 .rail-item span {
-  font-size: 11.5px;
+  font-size: 10px;
   letter-spacing: .01em;
-  line-height: 1.15;
+  line-height: 1.2;
   text-wrap: balance;
+  max-width: 100%;
+  hyphens: auto;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- os campos de uma nota ---------- */
@@ -2537,3 +2551,17 @@ kbd {
   gap: 8px;
 }
 .subnav-cadeado { font-size: 10px; opacity: .6; }
+
+/* A etiqueta de "comi metade" na linha da refeição.
+   Discreta de propósito: ela qualifica o nome, não compete com ele. */
+.dieta-nivel {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--realce);
+  color: var(--text-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}

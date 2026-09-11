@@ -168,6 +168,27 @@ export function montarCardapio(
     rotina: new Set(listaDeTexto(diario?.campos.rotinas_feitas))
   }
 
+  /*
+   * Quanto de cada refeição foi comido hoje, e o que entrou no lugar.
+   *
+   * Campo a campo, como todo o resto desta função: o item vem do frontmatter,
+   * que pode ter sido editado à mão, e espalhar o objeto aqui mandaria para a
+   * nuvem qualquer chave que alguém tenha escrito dentro dele.
+   *
+   * `nivel` só passa se for um dos dois valores que a tela entende. Um texto
+   * qualquer viraria um botão que não existe no celular.
+   */
+  const detalhesRefeicao = new Map<string, { nivel?: string; troca?: string }>()
+  for (const d of lista(diario?.campos.dieta_detalhes)) {
+    const nome = txt(d.nome)
+    if (!nome) continue
+    const nivel = txt(d.nivel)
+    detalhesRefeicao.set(nome, {
+      nivel: nivel === 'metade' || nivel === 'pouco' ? nivel : undefined,
+      troca: txt(d.troca).slice(0, 120) || undefined
+    })
+  }
+
   for (const n of notas.filter(x => x.tipo === 'treino-modelo')) {
     out.push({
       especie: 'treino',
@@ -249,12 +270,18 @@ export function montarCardapio(
   for (const r of lista(ativo?.campos.refeicoes)) {
     const nome = txt(r.nome)
     if (!nome) continue
+    // O detalhe do dia — quanto foi comido e o que entrou no lugar. Volta
+    // para o celular para o painel abrir já com a resposta de antes, em vez
+    // de a pessoa precisar lembrar o que respondeu de manhã.
+    const detalheDoDia = detalhesRefeicao.get(nome)
     out.push({
       especie: 'refeicao',
       nome,
       detalhe: comValor({
         hora: txt(r.hora), itens: txt(r.itens), kcal: num(r.kcal), prot: num(r.prot),
-        feito: feitosHoje.refeicao.has(nome) ? true : undefined
+        feito: feitosHoje.refeicao.has(nome) ? true : undefined,
+        nivel: detalheDoDia?.nivel,
+        troca: detalheDoDia?.troca
       })
     })
   }

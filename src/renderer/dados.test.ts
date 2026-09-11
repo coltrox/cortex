@@ -3,6 +3,7 @@ import type { NoteComCampos } from './tipos'
 import {
   corpoAlinhado, extrairTransacoes, porCategoria, saldoPorquinho,
   suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia,
+  fatorDaRefeicao, trocaDaRefeicao,
   seriePeso, serieAgua, litros, textos, camposExibiveis, textoDoCampo
 } from './dados'
 import { FORMULARIOS, type Campo } from './formularios'
@@ -203,6 +204,50 @@ describe('totaisDoDia', () => {
     const t = totaisDoDia(plano, diario)
     expect(t.kcal).toBe(700)
     expect(t.prot).toBe(40)
+  })
+
+  it('comer metade conta metade da caloria', () => {
+    // Sem isto, marcar meio prato somaria o prato inteiro, e o numero do dia
+    // passaria a mentir a favor de quem responde.
+    const diario = nota({
+      path: 'd.md', tipo: 'diario',
+      campos: {
+        dieta_feitas: ['Cafe', 'Almoco'],
+        dieta_detalhes: [{ nome: 'Almoco', nivel: 'metade' }]
+      }
+    })
+    const t = totaisDoDia(plano, diario)
+    expect(t.kcal).toBe(800)  // 400 do cafe inteiro + 400 de meio almoco
+    expect(t.prot).toBe(55)   // 30 + 25
+    // A contagem de refeicoes nao muda: meia refeicao comida continua sendo
+    // uma refeicao respondida.
+    expect(t.marcadas).toBe(2)
+  })
+
+  it('"pouco" vale um quarto, e nivel desconhecido vale tudo', () => {
+    const com = (nivel: unknown) => nota({
+      path: 'd.md', tipo: 'diario',
+      campos: { dieta_feitas: ['Almoco'], dieta_detalhes: [{ nome: 'Almoco', nivel }] }
+    })
+    expect(totaisDoDia(plano, com('pouco')).kcal).toBe(200)
+    // Qualquer outra coisa cai no lado seguro: o valor cheio, que e o que
+    // marcar sempre quis dizer.
+    expect(totaisDoDia(plano, com('muito')).kcal).toBe(800)
+    expect(totaisDoDia(plano, com(0.5)).kcal).toBe(800)
+  })
+
+  it('o detalhe de uma refeicao nao mexe nas outras', () => {
+    const diario = nota({
+      path: 'd.md', tipo: 'diario',
+      campos: {
+        dieta_feitas: ['Cafe', 'Almoco', 'Janta'],
+        dieta_detalhes: [{ nome: 'Janta', nivel: 'pouco', troca: 'pizza' }]
+      }
+    })
+    expect(fatorDaRefeicao(diario, 'Cafe')).toBe(1)
+    expect(fatorDaRefeicao(diario, 'Janta')).toBe(0.25)
+    expect(trocaDaRefeicao(diario, 'Janta')).toBe('pizza')
+    expect(trocaDaRefeicao(diario, 'Cafe')).toBe('')
   })
 
   it('dia sem nada marcado zera — e o que faz o dia novo comecar limpo', () => {

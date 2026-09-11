@@ -359,8 +359,30 @@ export function anotacoesDoDia(notas: NoteComCampos[], dia: string): NoteComCamp
 }
 
 /**
+ * Quanto de cada refeição foi comido, pelo que o celular registrou.
+ *
+ * `dieta_detalhes` é gravado por `nuvem/planejar.ts` quando alguém responde
+ * "comi metade" no celular. Sem detalhe, o fator é 1: marcar sempre quis
+ * dizer "comi tudo", e todo dia gravado antes disto significa exatamente isso.
+ */
+export function fatorDaRefeicao(diario: NoteComCampos | undefined, nome: string): number {
+  const d = lista(diario?.campos.dieta_detalhes).find(x => txt(x.nome) === nome)
+  const nivel = txt(d?.nivel)
+  return nivel === 'metade' ? 0.5 : nivel === 'pouco' ? 0.25 : 1
+}
+
+/** O que foi comido no lugar da refeição do plano, quando houve troca. */
+export function trocaDaRefeicao(diario: NoteComCampos | undefined, nome: string): string {
+  return txt(lista(diario?.campos.dieta_detalhes).find(x => txt(x.nome) === nome)?.troca)
+}
+
+/**
  * Calorias e proteína consumidas num dia: as refeições do plano que foram
  * marcadas, mais o que foi comido fora do plano.
+ *
+ * Meio prato conta meia caloria. O Cortex e o celular têm que chegar ao MESMO
+ * número — duas contas diferentes para o mesmo dia é a situação em que a
+ * pessoa deixa de acreditar nas duas.
  */
 export function totaisDoDia(
   plano: NoteComCampos | undefined,
@@ -371,9 +393,12 @@ export function totaisDoDia(
   const extras = lista(diario?.campos.extras)
 
   const doPlano = refeicoes.filter(r => feitas.includes(txt(r.nome)))
+  const pesado = (campo: 'kcal' | 'prot'): number => Math.round(
+    doPlano.reduce((s, r) => s + num(r[campo]) * fatorDaRefeicao(diario, txt(r.nome)), 0)
+  )
   return {
-    kcal: doPlano.reduce((s, r) => s + num(r.kcal), 0) + extras.reduce((s, e) => s + num(e.kcal), 0),
-    prot: doPlano.reduce((s, r) => s + num(r.prot), 0) + extras.reduce((s, e) => s + num(e.prot), 0),
+    kcal: pesado('kcal') + extras.reduce((s, e) => s + num(e.kcal), 0),
+    prot: pesado('prot') + extras.reduce((s, e) => s + num(e.prot), 0),
     marcadas: doPlano.length,
     total: refeicoes.length
   }

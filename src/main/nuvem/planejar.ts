@@ -35,6 +35,19 @@ export type Operacao =
   /** Acrescenta a uma lista do diário (gasto, refeição extra). */
   | { acao: 'diario-lista'; dia: string; campo: string; item: Record<string, unknown> }
   /**
+   * Põe (ou substitui) UM item de uma lista do diário, achado pela chave.
+   *
+   * Diferente de `diario-lista`, que sempre acrescenta. Existe porque o
+   * detalhe de uma refeição é uma resposta, não um histórico: dizer "comi
+   * metade" e depois corrigir para "comi tudo" tem que deixar uma linha no
+   * diário, não duas se contradizendo. `item: null` tira a entrada — é o que
+   * acontece ao desmarcar a refeição.
+   */
+  | {
+      acao: 'diario-item'; dia: string; campo: string
+      chave: string; valor: string; item: Record<string, unknown> | null
+    }
+  /**
    * Cria uma nota nova. `seExistir` decide o que fazer quando `path` já
    * existe: `'mesclar'` funde o frontmatter novo por cima do que já está lá
    * (dois cardios no mesmo dia devem virar um registro só); `'criarOutro'`
@@ -109,11 +122,43 @@ export function planejar(evento: Evento): Operacao[] {
       return [{ acao, dia, campo: 'suplementos_feitos', valor: nome }]
     }
 
+    /*
+     * A refeição do plano — e, desde 1.2.0, quanto dela foi comido.
+     *
+     * Duas operações, e não uma. `dieta_feitas` continua sendo o conjunto de
+     * nomes: é o que a lente Saúde conta e o que o celular usa para desenhar
+     * o check, e mudar o formato dele quebraria os dois para todo dia já
+     * gravado. O detalhe vai em `dieta_detalhes`, uma lista à parte, e só
+     * existe quando há algo a dizer.
+     *
+     * "Comi tudo" não gera detalhe nenhum: é o caso normal, e uma linha por
+     * refeição dizendo `nivel: tudo` encheria o diário de ruído para repetir
+     * o que o check já disse.
+     */
     case 'refeicao_plano': {
       const nome = txt(dados.nome)
       if (!nome) return []
-      const acao = dados.feito === false ? 'diario-tirar' : 'diario-conjunto'
-      return [{ acao, dia, campo: 'dieta_feitas', valor: nome }]
+      const desmarcou = dados.feito === false
+      const ops: Operacao[] = [{
+        acao: desmarcou ? 'diario-tirar' : 'diario-conjunto',
+        dia, campo: 'dieta_feitas', valor: nome
+      }]
+
+      // Só os dois níveis que dizem algo. Qualquer outro texto vindo do banco
+      // é descartado, e não escrito no vault: `dados` é registro livre.
+      const nivelBruto = txt(dados.nivel)
+      const nivel = nivelBruto === 'metade' || nivelBruto === 'pouco' ? nivelBruto : undefined
+      const troca = txt(dados.troca).slice(0, 120)
+
+      if (desmarcou || (!nivel && !troca)) {
+        ops.push({ acao: 'diario-item', dia, campo: 'dieta_detalhes', chave: 'nome', valor: nome, item: null })
+      } else {
+        ops.push({
+          acao: 'diario-item', dia, campo: 'dieta_detalhes', chave: 'nome', valor: nome,
+          item: comValor({ nome, nivel, troca })
+        })
+      }
+      return ops
     }
 
     /*

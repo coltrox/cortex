@@ -169,6 +169,39 @@ export async function executar(
         break
       }
 
+      /*
+       * Um item da lista, achado pela chave e substituído.
+       *
+       * Tirar um item de um dia que nem começou não é nada, e criar o arquivo
+       * para isso deixaria um diário vazio no vault — mesma razão do
+       * `diario-tirar`. Só pôr abre o dia.
+       *
+       * A comparação passa por `String(...)` porque o que está no disco pode
+       * ter sido editado à mão: um `nome: 123` no YAML não pode fazer a busca
+       * estourar, e o que não é objeto é descartado em vez de reescrito.
+       */
+      case 'diario-item': {
+        const path = `Diario/${op.dia}.md`
+        if (op.item === null && !(await vault.exists(path))) break
+        await garantir(vault, path, cabecalhoDiario(op.dia))
+        const raw = await vault.read(path)
+        const atual = parseFrontmatter(raw).frontmatter[op.campo]
+        const lista = Array.isArray(atual)
+          ? atual.filter((x): x is Record<string, unknown> => x !== null && typeof x === 'object')
+          : []
+        const restante = lista.filter(x => String(x[op.chave] ?? '') !== op.valor)
+        // Nada a tirar e nada a pôr: não reescreve o arquivo por nada.
+        if (op.item === null && restante.length === lista.length) break
+        const nova = op.item === null ? restante : [...restante, op.item]
+        // Igual ao `diario-tirar`: lista vazia vira `null`, que apaga a chave
+        // em vez de deixar um `dieta_detalhes: []` em toda nota do dia.
+        await vault.writeAtomic(path, patchFrontmatter(raw, {
+          [op.campo]: nova.length > 0 ? nova : null
+        }))
+        await indexarSemFalhar(indexer, path)
+        break
+      }
+
       case 'nota': {
         if (op.seExistir === 'mesclar') {
           // Já existir não é erro: dois cardios no mesmo dia (ou duas
