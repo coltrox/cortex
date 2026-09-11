@@ -187,18 +187,24 @@ export function Corpo(p: {
             )}
           </div>
 
-          {/* O gráfico. Só com três ou mais pontos: duas barras não são uma
-              evolução, são dois números lado a lado. */}
-          {serie.length >= 3 && (
+          {/* O gráfico, desde a primeira pesagem.
+              Antes ele só nascia com três pontos, e a tela de quem está
+              começando não tinha gráfico nenhum — sem sinal de que passaria a
+              ter. Uma barra só já mostra onde ela vai ficar, e a segunda já
+              compara. A última é a mais recente e vem destacada. */}
+          {serie.length >= 1 && (
             <div className="peso-barras">
               {serie.map((m, i) => (
                 <div key={m.data} className="peso-col">
                   <div
                     className={`peso-barra ${i === serie.length - 1 ? 'ultima' : ''}`}
                     style={{ height: `${(((m.peso as number) - base) / alcance) * 100}%` }}
+                    title={`${(m.peso as number).toLocaleString('pt-BR')} kg`}
                   />
+                  {/* "hoje" só quando é hoje mesmo: a última pesagem pode ser
+                      de semana passada, e chamá-la de hoje seria mentira. */}
                   <span className="peso-rot">
-                    {i === serie.length - 1 ? 'hoje' : diaCurto(m.data)}
+                    {m.data === dia ? 'hoje' : diaCurto(m.data)}
                   </span>
                 </div>
               ))}

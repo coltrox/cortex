@@ -78,9 +78,15 @@ const TETO_CORPO = 8000
  *
  * Duas perguntas, e as duas precisam ser sim.
  *
- * O tipo: só `rotina` e `anotacao`. Corpo é texto livre — o que cabe ali é
- * qualquer coisa —, e por isso quem entra nesta lista se decide aqui, uma
- * vez, e não caso a caso lá embaixo.
+ * O tipo: só `rotina`. Corpo é texto livre — o que cabe ali é qualquer coisa
+ * —, e por isso quem entra nesta lista se decide aqui, uma vez, e não caso a
+ * caso lá embaixo.
+ *
+ * `anotacao` SAIU da lista em 11/09/2026, a pedido do dono: "essa é a
+ * estrutura de uma anotação, não é para mostrar o que tem dentro da nota e
+ * ponto final". E ele tem razão sobre este vault — a anotação do celular é
+ * uma linha, o conteúdo mora no próprio título, e o corpo do arquivo é só o
+ * rodapé de links que o app escreve em toda nota nova. Era isso que subia.
  *
  * A pasta: `Vida/Contas` e `Vida/Documentos` ficam de fora mesmo que uma nota
  * de tipo publicável apareça lá dentro. Hoje aquelas pastas guardam `conta` e
@@ -91,7 +97,7 @@ const TETO_CORPO = 8000
  * próprio, e não de um teste que a alcance de raspão por outro caminho.
  */
 export function podePublicarCorpo(tipo: string | null | undefined, caminho: string): boolean {
-  if (tipo !== 'rotina' && tipo !== 'anotacao') return false
+  if (tipo !== 'rotina') return false
   return !emPastaProtegida(caminho)
 }
 

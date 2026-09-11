@@ -773,20 +773,28 @@ describe('o corpo da nota, que agora sobe', () => {
 })
 
 describe('quem pode ter o corpo publicado', () => {
-  it('so rotina e anotacao', () => {
+  it('so rotina', () => {
     // Corpo e texto livre: o que cabe ali e qualquer coisa, e por isso a
     // lista se decide num lugar so.
     expect(podePublicarCorpo('rotina', 'Vida/x.md')).toBe(true)
-    expect(podePublicarCorpo('anotacao', 'Vida/x.md')).toBe(true)
     for (const t of ['conta', 'documento', 'diario', 'prova', 'treino-modelo', 'compra', null]) {
       expect(podePublicarCorpo(t, 'Vida/x.md'), t + ' nao pode').toBe(false)
     }
   })
 
-  it('nem rotina nem anotacao escapam da pasta protegida', () => {
+  it('anotacao NAO publica corpo', () => {
+    // Pedido do dono em 11/09/2026: "essa e a estrutura de uma anotacao, nao
+    // e para mostrar o que tem dentro da nota e ponto final". A anotacao do
+    // celular e uma linha, e o conteudo mora no proprio titulo; o corpo do
+    // arquivo e so o rodape de links que o app escreve em toda nota nova.
+    expect(podePublicarCorpo('anotacao', 'Vida/x.md')).toBe(false)
+    expect(podePublicarCorpo('anotacao', 'Diario/2026-09-11.md')).toBe(false)
+  })
+
+  it('rotina nao escapa da pasta protegida', () => {
     // O tipo e escolhido no formulario; a pasta e onde o arquivo esta. Uma
-    // anotacao salva em Vida/Contas passaria pelo corte por tipo.
-    expect(podePublicarCorpo('anotacao', 'Vida/Contas/Banco.md')).toBe(false)
+    // rotina salva em Vida/Contas passaria pelo corte por tipo.
+    expect(podePublicarCorpo('rotina', 'Vida/Contas/Banco.md')).toBe(false)
     expect(podePublicarCorpo('rotina', 'Vida/Documentos/RG.md')).toBe(false)
   })
 
@@ -796,7 +804,7 @@ describe('quem pode ter o corpo publicado', () => {
 
   it('pasta de nome parecido nao e a protegida', () => {
     // `Vida/Contaspublicas` comeca igual, mas nao e `Vida/Contas/`.
-    expect(podePublicarCorpo('anotacao', 'Vida/Contaspublicas/x.md')).toBe(true)
+    expect(podePublicarCorpo('rotina', 'Vida/Contaspublicas/x.md')).toBe(true)
   })
 })
 
