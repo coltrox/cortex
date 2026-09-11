@@ -1,9 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Tela } from '../App'
 import { SubNavSaude } from './Saude'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import { medidas, cardios, areaLigada, type Medida } from '../cardapio'
-import { diaLocal, eventoPeso } from '../montar'
+import { diaLocal, eventoPeso, eventoMedida } from '../montar'
+import { guardadoDoNavegador } from '../guardado'
+import {
+  lerMedidasLocais, guardarMedidasLocais, conciliarMedidas
+} from '../medidasLocais'
 import { Cabecalho, Aviso, Secao } from '../componentes'
 
 /**
@@ -25,6 +29,13 @@ const ACOMPANHADAS: { chave: keyof Medida; nome: string; unidade: string }[] = [
   { chave: 'braco',   nome: 'Braço',   unidade: 'cm' },
   { chave: 'coxa',    nome: 'Coxa',    unidade: 'cm' }
 ]
+
+/** Um dia sem nenhuma medida publicada — a base sobre a qual a local entra. */
+const medidaVazia = (data: string): Medida => ({
+  data,
+  peso: null, gordura: null, cintura: null, quadril: null,
+  braco: null, coxa: null, peito: null, panturrilha: null
+})
 
 const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun',
@@ -63,13 +74,50 @@ export function Corpo(p: {
   const dia = diaLocal()
   const [rascunho, setRascunho] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+  /** O que foi registrado agora e o Cortex ainda não devolveu. */
+  const [locais, setLocais] = useState(() => lerMedidasLocais(guardadoDoNavegador, dia))
 
   const temSaude = areaLigada(p.cardapio.cardapio, 'saude')
-  const todas = temSaude ? medidas(p.cardapio.cardapio) : []
+  const doCardapio = temSaude ? medidas(p.cardapio.cardapio) : []
+
+  /*
+   * O que o vault sabe, mais o que acabou de sair daqui.
+   *
+   * Sem esta mistura, registrar o peso não mudava nada na tela: o número, o
+   * gráfico e os cartões vêm todos do cardápio, e o cardápio só muda depois da
+   * volta inteira pelo computador. Quem tocou em Salvar via exatamente a tela
+   * de antes — e concluía que não tinha salvado.
+   */
+  const doDia = doCardapio.find(m => m.data === dia)
+  const todas: Medida[] = Object.keys(locais).length === 0
+    ? doCardapio
+    : [
+      ...doCardapio.filter(m => m.data !== dia),
+      // O local vem por cima do publicado do mesmo dia: ele é mais novo.
+      { ...(doDia ?? medidaVazia(dia)), ...locais, data: dia } as Medida
+    ]
+
   // As oito últimas, que é o que cabe em barras num celular sem virar risco.
   const serie = todas.filter(m => m.peso !== null).slice(-8)
   const ultima = todas.length > 0 ? todas[todas.length - 1] : null
   const penultima = todas.length > 1 ? todas[todas.length - 2] : null
+
+  /*
+   * Some daqui o que o Cortex já absorveu.
+   *
+   * Sem isto, o valor local passaria a esconder o do vault para sempre — e uma
+   * correção feita no computador nunca apareceria neste celular.
+   */
+  useEffect(() => {
+    const publicado: Record<string, number> = {}
+    if (doDia) {
+      for (const [k, v] of Object.entries(doDia)) {
+        if (typeof v === 'number' && Number.isFinite(v)) publicado[k] = v
+      }
+    }
+    setLocais(conciliarMedidas(guardadoDoNavegador, dia, publicado))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.cardapio.cardapio, dia])
   const sessoes = temSaude ? cardios(p.cardapio.cardapio).slice(0, 5) : []
 
   /*
@@ -87,13 +135,31 @@ export function Corpo(p: {
 
   const salvarPeso = (): void => {
     try {
-      p.envio.registrar(eventoPeso(Number(rascunho.replace(',', '.')), dia))
+      const peso = Number(rascunho.replace(',', '.'))
+      p.envio.registrar(eventoPeso(peso, dia))
+      // Guarda antes de limpar o campo: é o que faz o número grande e a barra
+      // de hoje mudarem no mesmo toque, em vez de só amanhã.
+      setLocais(guardarMedidasLocais(guardadoDoNavegador, dia, { peso }))
       setRascunho('')
       setErro(null)
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'não deu para registrar')
     }
   }
+
+  /** Uma medida do corpo, corrigida ali mesmo no cartão. */
+  const salvarMedida = (chave: string, valor: number): void => {
+    try {
+      p.envio.registrar(eventoMedida({ [chave]: valor }, dia))
+      setLocais(guardarMedidasLocais(guardadoDoNavegador, dia, { [chave]: valor }))
+      setErro(null)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'não deu para registrar')
+    }
+  }
+
+  /** Um valor ainda a caminho do Cortex ganha a marca de pendente. */
+  const pendente = (chave: string): boolean => locais[chave] !== undefined
 
   return (
     <div className="tema-hoje">
@@ -162,24 +228,25 @@ export function Corpo(p: {
           </div>
         </div>
 
-        {/* As quatro medidas, duas a duas. Cada uma some quando nunca foi
-            medida: um cartão escrito "—" ocupa o mesmo espaço de um com dado
-            e não diz nada. */}
-        {ultima && ACOMPANHADAS.some(m => ultima[m.chave] !== null) && (
+        {/* As quatro medidas, duas a duas, SEMPRE visíveis.
+            Antes cada cartão sumia enquanto aquela medida nunca tivesse sido
+            tirada — e aí não havia onde registrá-la pela primeira vez: era
+            preciso adivinhar que a tela de Medidas existia. Agora o cartão
+            vazio é o convite, e o toque no número abre o campo. */}
+        {temSaude && (
           <div className="medidas-grade">
-            {ACOMPANHADAS.filter(m => ultima[m.chave] !== null).map(m => (
-              <div key={m.chave} className="medida-cartao">
-                <span className="medida-nome">{m.nome}</span>
-                <span className="medida-valor">
-                  {(ultima[m.chave] as number).toLocaleString('pt-BR')}
-                  <i>{m.unidade}</i>
-                </span>
-                {penultima && (
-                  <span className="medida-delta">
-                    {delta(ultima[m.chave] as number, penultima[m.chave] as number | null, m.unidade)}
-                  </span>
-                )}
-              </div>
+            {ACOMPANHADAS.map(m => (
+              <MedidaCartao
+                key={m.chave}
+                nome={m.nome}
+                unidade={m.unidade}
+                valor={ultima ? (ultima[m.chave] as number | null) : null}
+                delta={ultima && penultima
+                  ? delta(ultima[m.chave] as number | null, penultima[m.chave] as number | null, m.unidade)
+                  : ''}
+                pendente={pendente(m.chave)}
+                aoSalvar={v => salvarMedida(m.chave, v)}
+              />
             ))}
           </div>
         )}
@@ -213,5 +280,73 @@ export function Corpo(p: {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Um cartão de medida que também é o lugar de registrá-la.
+ *
+ * Fechado, é o número que se lê de relance. Tocado, vira um campo — a mesma
+ * ideia do peso logo acima, e a razão de não existir um segundo formulário
+ * escondido noutra tela: a medida que se quer corrigir é a que está na sua
+ * frente.
+ */
+function MedidaCartao(p: {
+  nome: string
+  unidade: string
+  valor: number | null
+  delta: string
+  pendente: boolean
+  aoSalvar: (v: number) => void
+}) {
+  const [editando, setEditando] = useState(false)
+  const [rascunho, setRascunho] = useState('')
+
+  const salvar = (): void => {
+    const v = Number(rascunho.replace(',', '.'))
+    // Zero e negativo não são medida de corpo; texto solto vira NaN. Nos três
+    // casos o certo é não mandar nada, e não mandar um número inventado.
+    if (Number.isFinite(v) && v > 0) p.aoSalvar(v)
+    setRascunho('')
+    setEditando(false)
+  }
+
+  if (editando) {
+    return (
+      <div className="medida-cartao">
+        <span className="medida-nome">{p.nome}</span>
+        <div className="medida-edita">
+          <input
+            className="medida-campo"
+            inputMode="decimal"
+            autoFocus
+            value={rascunho}
+            placeholder={p.valor !== null ? String(p.valor).replace('.', ',') : p.unidade}
+            aria-label={`${p.nome} em ${p.unidade}`}
+            onChange={e => setRascunho(e.target.value)}
+            onBlur={salvar}
+            onKeyDown={e => {
+              if (e.key === 'Enter') salvar()
+              if (e.key === 'Escape') { setRascunho(''); setEditando(false) }
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <button className="medida-cartao medida-toque" type="button"
+      onClick={() => setEditando(true)}
+      aria-label={`alterar ${p.nome}`}>
+      <span className="medida-nome">{p.nome}</span>
+      <span className="medida-valor">
+        {p.valor !== null ? p.valor.toLocaleString('pt-BR') : '—'}
+        <i>{p.unidade}</i>
+      </span>
+      {p.pendente
+        ? <span className="medida-delta medida-pendente">só neste aparelho</span>
+        : p.delta && <span className="medida-delta">{p.delta}</span>}
+    </button>
   )
 }

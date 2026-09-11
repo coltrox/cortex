@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { dobra } from '@compartilhado/busca'
 import { Marcacao } from '../marcacao'
+import { corpoVisivel } from '@compartilhado/corpo'
 import { diaLocal, eventoAnotacao } from '../montar'
 import { guardadoDoNavegador } from '../guardado'
 import { guardarAnotacao, lerAnotacoes, conciliarAnotacoes } from '../anotacoes'
@@ -89,7 +90,7 @@ function Nota({ a, etiqueta, hoje, soAqui }: {
    * escondido para revelar.
    */
   const cortado = a.texto.length > LIMITE_RECOLHIDO || a.texto.includes('\n')
-  const temMais = Boolean(a.corpo) || cortado
+  const temMais = Boolean(corpoVisivel(a.corpo)) || cortado
 
   return (
     <div className="nota" data-tom={tom}>

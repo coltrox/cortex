@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactElement, type ReactNode } f
 import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from '../guardado'
 import { Marcacao } from '../marcacao'
+import { corpoVisivel } from '@compartilhado/corpo'
 import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua } from '../montar'
 import {
   suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros,
@@ -42,8 +43,13 @@ function Anotada(p: {
       {p.soAqui && <span className="anotada-marca">só neste aparelho</span>}
       {/* O corpo escrito no Cortex, com os links clicáveis. Fica embaixo e
           ocupa a linha toda: é onde moram as observações e o passo a passo,
-          e antes nada disso saía do computador. */}
-      {p.corpo && <div className="anotada-corpo"><Marcacao texto={p.corpo} /></div>}
+          e antes nada disso saía do computador.
+          `corpoVisivel`, e não `p.corpo` cru: toda nota nascida no celular tem
+          corpo, mas só com o rodapé de links, e a caixa aparecia vazia embaixo
+          de todas elas. */}
+      {corpoVisivel(p.corpo) && (
+        <div className="anotada-corpo"><Marcacao texto={p.corpo ?? ''} /></div>
+      )}
     </div>
   )
 }

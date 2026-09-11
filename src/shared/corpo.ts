@@ -49,7 +49,14 @@ export function semDependenciasDaRede(corpo: string): string {
       // A régua fecha a seção e sai junto: é o rodapé do bloco de links, e
       // sozinha no topo do texto seria lixo herdado de algo que não está lá.
       if (/^-{3,}$/.test(t)) { pulando = false; continue }
-      if (t === '' || /^[-*+]\s+/.test(t)) continue
+      // Item de lista, com texto ou sem. O marcador SOZINHO é o caso mais
+      // comum de todos e escapava: o rodapé que este app escreve em toda nota
+      // nova é `### Dependências da Rede` seguido de um `-` esperando o
+      // primeiro link. Como o padrão antigo exigia espaço depois do traço, a
+      // linha sobrevivia ao corte e virava o corpo da nota — foi assim que
+      // toda anotação do celular passou a mostrar um traço solto embaixo do
+      // texto.
+      if (t === '' || /^[-*+](\s+|$)/.test(t)) continue
       // Qualquer outra coisa já é o texto da nota.
       pulando = false
     }
@@ -60,6 +67,19 @@ export function semDependenciasDaRede(corpo: string): string {
   }
 
   return out.join('\n').trim()
+}
+
+/**
+ * O que sobra do corpo depois da limpeza — vazio quando não sobra nada.
+ *
+ * Existe para quem precisa DECIDIR, e não só desenhar: a tela só deve mostrar
+ * a caixa do corpo, ou a seta que o abre, quando há texto de verdade ali. A
+ * maioria das notas deste vault tem corpo só com o rodapé de links, e testar
+ * `corpo` cru dava verdadeiro para todas elas — uma seta em toda nota que ao
+ * abrir mostrava uma caixa vazia.
+ */
+export function corpoVisivel(corpo: string | undefined): string {
+  return semDependenciasDaRede((corpo ?? '').trim())
 }
 
 /**

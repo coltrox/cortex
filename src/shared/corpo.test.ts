@@ -90,3 +90,38 @@ describe('semColchetesDeLink', () => {
     expect(semColchetesDeLink('Trinta minutos.')).toBe('Trinta minutos.')
   })
 })
+
+/**
+ * O rodape de verdade, o que `templates.ts` escreve.
+ *
+ * Ele termina num traco SOZINHO -- um item de lista vazio, esperando o
+ * primeiro link. Toda nota criada pelo celular nasce assim, e foi esse traco
+ * que apareceu como "corpo" de todas as anotacoes do Pedro no app: o cardapio
+ * publicava `corpo: "-"` e a tela desenhava uma linha com um traco.
+ */
+describe('semDependenciasDaRede — o rodape que o proprio app escreve', () => {
+  it('traco sozinho nao sobra como corpo', () => {
+    expect(semDependenciasDaRede('### Dependências da Rede\n-')).toBe('')
+  })
+
+  it('vale para os tres marcadores de lista', () => {
+    for (const m of ['-', '*', '+']) {
+      expect(semDependenciasDaRede(`### Dependências da Rede\n${m}`)).toBe('')
+    }
+  })
+
+  it('o texto da nota depois do rodape continua de pe', () => {
+    const nota = '### Dependências da Rede\n-\n\nEstudar logaritmo.'
+    expect(semDependenciasDaRede(nota)).toBe('Estudar logaritmo.')
+  })
+
+  it('traco sozinho FORA da secao continua sendo texto', () => {
+    // Sem secao aberta nao ha o que pular: cortar aqui seria comer conteudo.
+    expect(semDependenciasDaRede('-')).toBe('-')
+    expect(semDependenciasDaRede('Titulo\n\n-')).toBe('Titulo\n\n-')
+  })
+
+  it('a regua de tres tracos continua fechando a secao', () => {
+    expect(semDependenciasDaRede('### Dependências da Rede\n-\n---\nTexto')).toBe('Texto')
+  })
+})

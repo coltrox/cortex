@@ -1656,3 +1656,18 @@ input, textarea, select{ font-size:16px; }
   display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
   overflow:hidden;
 }
+
+/* O cartão de medida agora é botão: tocar abre o campo no lugar do número. */
+.medida-toque{
+  text-align:left; cursor:pointer; font:inherit; color:inherit;
+  -webkit-appearance:none; appearance:none;
+}
+.medida-edita{ display:flex; }
+.medida-campo{
+  width:100%; min-width:0; min-height:40px; padding:0 10px;
+  background:var(--painel-topo); border:1px solid var(--acento); border-radius:var(--r1);
+  color:var(--txt); font:700 18px/1 var(--fonte-num); letter-spacing:-.03em;
+  outline:none; -webkit-appearance:none; appearance:none;
+}
+.medida-campo::placeholder{ color:var(--txt-4); font-weight:600; }
+.medida-pendente{ color:var(--txt-3); }
