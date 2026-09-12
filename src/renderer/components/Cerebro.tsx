@@ -278,15 +278,17 @@ const RETORNO_PAREDE = 0.06
  * A folga em volta do nó do meio, em múltiplos do espaçamento de equilíbrio.
  *
  * O centro não entra na física, então nada impedia uma nota de assentar em
- * cima dele — e aí o ponto grande e claro comia o vizinho.
+ * cima dele — e aí o ponto grande e claro comia o vizinho. 1,1 abre um
+ * respiro do tamanho de um vizinho: no zoom de abertura são cerca de vinte
+ * pixels entre a borda do centro e o primeiro nó. O bastante para o centro se
+ * ler sozinho, pouco o bastante para não virar uma cratera no meio da rede.
  *
- * Era 1,1, o tamanho de um vizinho, e não bastava: TODAS as notas ligam ao
- * centro, então a atração as puxa para lá ao mesmo tempo e elas se acumulavam
- * encostadas no respiro, formando um anel apertado em volta dele. 2,4 abre um
- * respiro de dois vizinhos e meio — espaço para o anel se desfazer e o centro
- * se ler sozinho, sem virar uma cratera no meio da rede.
+ * Foi a 2,4 uma vez, para tentar desfazer o anel de nós que se forma perto do
+ * meio — todas as notas ligam ao centro, e a atração as puxa para lá juntas.
+ * O resultado foi a cratera que este comentário já previa: metade da tela
+ * vazia, com a rede inteira empurrada para as bordas. O valor voltou.
  */
-const FOLGA_CENTRO = 2.4
+const FOLGA_CENTRO = 1.1
 
 /** Quanto o cursor precisa ficar parado para o realce pesado entrar, em ms. */
 const ATRASO_FOCO = 420
