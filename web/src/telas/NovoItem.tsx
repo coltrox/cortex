@@ -2,6 +2,8 @@ import { useState } from 'react'
 import {
   diaLocal, eventoCompromisso, eventoItemEditado, eventoProvaNova, eventoTarefaNova, eventoDataComemorativa
 } from '../montar'
+import { guardadoDoNavegador } from '../guardado'
+import { guardarPendenteAgenda } from '../agendaLocal'
 import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
@@ -110,6 +112,27 @@ export function NovoItem(p: {
         p.envio.registrar(eventoCompromisso(titulo, data, {
           hora: hora || undefined, local: local || undefined
         }, hoje))
+      }
+      /*
+       * Guarda uma cópia local antes de sair da tela.
+       *
+       * É o que faz o item aparecer na lista NO MESMO TOQUE. Sem isto, ele
+       * só nasce depois da volta inteira pelo computador — e quem marcava
+       * um compromisso voltava para uma lista idêntica à de antes, concluía
+       * que não tinha ido, e marcava de novo.
+       *
+       * Só na criação: editar já mexe num item que está na tela.
+       */
+      if (!e) {
+        guardarPendenteAgenda(guardadoDoNavegador, hoje, {
+          tipo: p.tipo === 'comemorativa' ? 'compromisso' : p.tipo,
+          titulo: titulo.trim(),
+          data,
+          hora: hora || undefined,
+          local: local || undefined,
+          materia: materia || undefined,
+          comemorativa: p.tipo === 'comemorativa' ? true : undefined
+        })
       }
       p.irPara('agenda')
     } catch (err) {

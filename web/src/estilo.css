@@ -1811,3 +1811,21 @@ input, textarea, select{ font-size:16px; }
 }
 .cal-passos li{ margin-bottom:3px; }
 .cal-ressalva{ margin-top:var(--e4); color:var(--txt-3); }
+
+/* Os dois botões de assinar, lado a lado quando há espaço. */
+.cal-botoes{ display:flex; flex-wrap:wrap; gap:var(--e2); margin-bottom:var(--e2); }
+.cal-botoes .btn{
+  flex:1; min-width:140px;
+  display:inline-flex; align-items:center; justify-content:center;
+  text-decoration:none;
+}
+/* O passo a passo recolhido: existe para quando o botão não abrir, e não
+   precisa ocupar meia tela enquanto ele abre. */
+.cal-manual{ margin-top:var(--e4); }
+.cal-manual summary{
+  cursor:pointer; font:500 13px/1.4 var(--fonte); color:var(--txt-3);
+  list-style:none;
+}
+.cal-manual summary::-webkit-details-marker{ display:none; }
+.cal-manual summary::before{ content:'＋ '; font-family:var(--fonte-num); }
+.cal-manual[open] summary::before{ content:'− '; }

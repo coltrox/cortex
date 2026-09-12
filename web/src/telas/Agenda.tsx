@@ -7,6 +7,7 @@ import {
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, diasAte
 } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
+import { lerPendentesAgenda, conciliarAgenda } from '../agendaLocal'
 import { Cabecalho, Aviso, Secao, Detalhe, Selecao } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -90,6 +91,8 @@ export function Agenda(p: {
   /** O caminho da nota cujas ações estão abertas — uma de cada vez. */
   const [aberto, setAberto] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
+  /** O que foi marcado aqui e o Cortex ainda nao devolveu. */
+  const [locais, setLocais] = useState(() => lerPendentesAgenda(guardadoDoNavegador, dia))
 
   const txt = (v: unknown): string => (typeof v === 'string' ? v : '')
 
@@ -133,6 +136,20 @@ export function Agenda(p: {
       conferir(`pago:${path}`, i.detalhe.pago === true)
     }
     if (mexeu) setFeitos(jaFeitos(guardadoDoNavegador, dia))
+
+    /*
+     * E o item marcado aqui sai da cópia local assim que o Cortex o devolve.
+     *
+     * Sem isto ele apareceria DUAS vezes: uma vinda do cardápio e outra da
+     * cópia local, que nunca seria apagada.
+     */
+    const publicados = [
+      ...provas(p.cardapio.cardapio).map(i => ({ tipo: 'prova', titulo: i.nome, data: dataDe(i) })),
+      ...compromissos(p.cardapio.cardapio)
+        .map(i => ({ tipo: 'compromisso', titulo: i.nome, data: dataDe(i) })),
+      ...tarefas(p.cardapio.cardapio).map(i => ({ tipo: 'tarefa', titulo: i.nome, data: dataDe(i) }))
+    ]
+    setLocais(conciliarAgenda(guardadoDoNavegador, dia, publicados))
     // `feitos` fora das dependências de propósito: o efeito lê do disco, não
     // do estado, e listá-lo faria ele rodar de novo por causa da própria
     // limpeza que acabou de fazer.
@@ -246,7 +263,34 @@ export function Agenda(p: {
   const ps = filtrar(provas(p.cardapio.cardapio))
   const cs = filtrar(compromissos(p.cardapio.cardapio))
   const ts = filtrar(tarefas(p.cardapio.cardapio))
+
+  /*
+   * O que foi marcado agora entra na lista no mesmo toque.
+   *
+   * Antes o item só aparecia depois da volta inteira pelo computador — e quem
+   * marcava um compromisso voltava para uma lista idêntica à de antes,
+   * concluía que não tinha ido, e marcava de novo.
+   *
+   * Vira `ItemCardapio` para a lista ser UMA só: dois formatos aqui dentro
+   * espalhariam um `if` por cada cartão, e o cartão é o mesmo.
+   *
+   * Sem `path`, de propósito: a nota ainda não existe, e é isso que desliga
+   * editar e excluir nestes cartões — não há arquivo para alcançar.
+   */
+  const pendentes = filtrar(locais.map(l => ({
+    especie: l.tipo,
+    nome: l.titulo,
+    detalhe: {
+      data: l.data,
+      hora: l.hora,
+      local: l.local,
+      materia: l.materia,
+      comemorativa: l.comemorativa
+    }
+  }) as ItemCardapio))
+
   const vazio = ps.length === 0 && cs.length === 0 && ts.length === 0
+    && pendentes.length === 0
 
   /*
    * Tudo numa fila só, na ordem em que a vida vai cobrar.
@@ -262,7 +306,14 @@ export function Agenda(p: {
   const linhas: Linha[] = [
     ...ps.map((item): Linha => ({ tipo: 'prova', item })),
     ...cs.map((item): Linha => ({ tipo: 'compromisso', item })),
-    ...ts.map((item): Linha => ({ tipo: 'tarefa', item }))
+    ...ts.map((item): Linha => ({ tipo: 'tarefa', item })),
+    // Os marcados agora entram na mesma fila; a ordem por data cuida do resto.
+    ...pendentes.map((item): Linha => ({
+      tipo: item.especie === 'prova' || item.especie === 'tarefa'
+        ? item.especie
+        : 'compromisso',
+      item
+    }))
   ]
   if (!termo) {
     // Item sem data vai para o fim, e não para o começo: string vazia é o

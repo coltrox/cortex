@@ -1,4 +1,5 @@
 import { montarIcs, type EventoIcs } from '../src/shared/ics'
+import { diasNoMes } from '../src/shared/datas'
 
 /**
  * O calendário do vault, para o Google e o iPhone assinarem.
@@ -33,6 +34,16 @@ type Res = {
   setHeader: (k: string, v: string) => void
   send: (corpo: string) => void
 }
+
+/**
+ * Quantos anos de uma data comemorativa entram no calendario.
+ *
+ * Cinco, e nao um com repeticao: repeticao carrega uma descricao so, e a
+ * idade mudaria de ano para ano sem o texto mudar junto. Cinco cobre o que
+ * alguem olha para frente, e a janela anda sozinha porque o Cortex republica
+ * o tempo todo.
+ */
+const ANOS_A_FRENTE = 5
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -102,18 +113,54 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     if (!data) continue
 
     const partes = [txt(d.materia), txt(d.local)].filter(x => x !== '')
-    if (typeof d.anos === 'number') partes.push(`faz ${d.anos} anos`)
+    // O caminho da nota é o id estável. Sem ele, o título: dois eventos de
+    // mesmo nome virariam um só no calendário, o que ainda é melhor do que um
+    // evento novo a cada leitura — que é o que um id sorteado causaria.
+    const id = txt(d.path) || `${especie}:${txt(i.nome)}`
+
+    /*
+     * A data comemorativa vira UM EVENTO POR ANO, e não uma repetição.
+     *
+     * `RRULE:FREQ=YEARLY` parecia a resposta óbvia e estava errada: um evento
+     * que se repete carrega UMA descrição para todas as vezes. O aniversário
+     * de 1983 dizia "faz 43 anos" em 2026 — e continuava dizendo 43 em 2027,
+     * em 2028 e para sempre, porque é o mesmo evento desenhado de novo.
+     *
+     * Com um evento por ano, cada um carrega a idade daquele ano. A janela é
+     * curta de propósito: o Cortex republica o tempo todo, então ela anda
+     * sozinha, e dez anos de aniversários de toda a família seria muito evento
+     * para resolver um problema que não existe.
+     */
+    if (d.comemorativa === true) {
+      const anoBase = Number(data.slice(0, 4))
+      const mes = Number(data.slice(5, 7))
+      const dia = Number(data.slice(8, 10))
+      const naOcorrencia = typeof d.anos === 'number' ? d.anos : null
+      const dois = (n: number): string => String(n).padStart(2, '0')
+
+      for (let k = 0; k < ANOS_A_FRENTE; k++) {
+        const ano = anoBase + k
+        // 29 de fevereiro não existe todo ano. Cai no dia 28, e não em 1º de
+        // março, porque quem nasceu em fevereiro comemora em fevereiro — a
+        // mesma regra que `proximaOcorrencia` já usa no Cortex.
+        const diaDoAno = Math.min(dia, diasNoMes(mes, ano))
+        const idade = naOcorrencia === null ? null : naOcorrencia + k
+        eventos.push({
+          id: `${id}#${ano}`,
+          titulo: txt(i.nome),
+          data: `${ano}-${dois(mes)}-${dois(diaDoAno)}`,
+          descricao: idade !== null && idade > 0 ? `faz ${idade} anos` : undefined
+        })
+      }
+      continue
+    }
 
     eventos.push({
-      // O caminho da nota é o id estável. Sem ele, o título: dois eventos de
-      // mesmo nome virariam um só no calendário, o que ainda é melhor do que
-      // um evento novo a cada leitura — que é o que um id sorteado causaria.
-      id: txt(d.path) || `${especie}:${txt(i.nome)}`,
+      id,
       titulo: txt(i.nome),
       data,
       hora: txt(d.hora) || undefined,
-      descricao: partes.length > 0 ? partes.join(' · ') : undefined,
-      anual: d.comemorativa === true
+      descricao: partes.length > 0 ? partes.join(' · ') : undefined
     })
   }
 

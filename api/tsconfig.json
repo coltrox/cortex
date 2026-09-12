@@ -16,7 +16,14 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["./**/*.ts", "../src/shared/ics.ts"]
+  "include": [
+    "./**/*.ts",
+    "../src/shared/ics.ts",
+    "../src/shared/datas.ts",
+    "../src/shared/busca.ts"
+  ]
 }

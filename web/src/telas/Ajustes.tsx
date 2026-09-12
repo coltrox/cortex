@@ -216,6 +216,9 @@ function CartaoCalendario({ vault }: { vault: string | null }) {
   if (!vault) return null
 
   const endereco = `${window.location.origin}/agenda.ics?vault=${vault}`
+  // O MESMO endereço com outro protocolo. É o que faz o sistema entender
+  // "assinar isto" em vez de "baixar um arquivo".
+  const webcal = endereco.replace(/^https?:/, 'webcal:')
   const sistema = qualSistema(navigator.userAgent, navigator.maxTouchPoints)
 
   const copiar = (): void => {
@@ -241,11 +244,39 @@ function CartaoCalendario({ vault }: { vault: string | null }) {
           do vault e é longo demais para caber numa linha de celular. */}
       <code className="cal-endereco">{endereco}</code>
 
-      <button className="btn btn-principal" type="button" onClick={copiar}>
+      {/*
+        * Um toque em cada sistema, em vez de seis passos escritos.
+        *
+        * `webcal:` é o mesmo endereço com outro protocolo — o iPhone o entende
+        * como "assinar isto" e abre o Calendário já no diálogo certo.
+        *
+        * O Google tem o equivalente: `/calendar/r?cid=` abre o Google Agenda
+        * direto na pergunta "adicionar este calendário?". Ele precisa do
+        * endereço codificado e de uma sessão aberta do Google — por isso o
+        * passo a passo continua aqui embaixo, recolhido, para quando não abrir.
+        */}
+      <div className="cal-botoes">
+        {(sistema === 'iphone' || sistema === 'outro') && (
+          <a className="btn btn-principal" href={webcal}>Assinar no iPhone</a>
+        )}
+        {(sistema === 'android' || sistema === 'outro') && (
+          <a
+            className="btn btn-principal"
+            href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Assinar no Google
+          </a>
+        )}
+      </div>
+
+      <button className="btn btn-secundario" type="button" onClick={copiar}>
         {copiado ? 'Copiado' : 'Copiar endereço'}
       </button>
 
-      {(sistema === 'android' || sistema === 'outro') && (
+      <details className="cal-manual">
+        <summary>Se o botão não abrir, dá para fazer à mão</summary>
         <div className="cal-passos">
           <span className="cal-titulo">No Google Agenda</span>
           <ol>
@@ -254,9 +285,6 @@ function CartaoCalendario({ vault }: { vault: string | null }) {
             <li>Cole o endereço e confirme.</li>
           </ol>
         </div>
-      )}
-
-      {(sistema === 'iphone' || sistema === 'outro') && (
         <div className="cal-passos">
           <span className="cal-titulo">No iPhone</span>
           <ol>
@@ -265,7 +293,7 @@ function CartaoCalendario({ vault }: { vault: string | null }) {
             <li>Cole o endereço e toque em Seguinte.</li>
           </ol>
         </div>
-      )}
+      </details>
 
       <p className="cartao-ajuste-txt cal-ressalva">
         É de mão única: o que está no Cortex aparece no calendário, e o que

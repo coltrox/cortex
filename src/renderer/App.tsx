@@ -139,7 +139,19 @@ export function App() {
         .catch(() => setFalhasSincSeguidas(n => n + 1))
     }
     puxar()
-    const t = setInterval(puxar, 120000)
+    /*
+     * 45 segundos, e não mais dois minutos.
+     *
+     * Este relógio é a REDE DE SEGURANÇA: o caminho normal é a campainha, que
+     * traz o evento do celular no instante em que ele chega ao banco. Quando
+     * ela falha — rede que bloqueia WebSocket, Realtime fora do ar, aparelho
+     * que dormiu — é este número que vira a espera, e dois minutos olhando uma
+     * tela que não muda é tempo demais para quem acabou de marcar algo.
+     *
+     * Uma rodada custa uma chamada que quase sempre volta vazia. Quatro vezes
+     * mais chamadas vazias por minuto é barato; dois minutos de dúvida, não.
+     */
+    const t = setInterval(puxar, 45000)
     return () => clearInterval(t)
   }, [v.root])
 
@@ -169,7 +181,10 @@ export function App() {
     if (!v.root) return
     const t = setTimeout(() => {
       void window.vaultApi.invoke('nuvem:publicar', {}).catch(() => {})
-    }, 1500)
+      // 900 ms, e nao 1500: continua juntando a rajada de um salvamento
+      // inteiro (o watcher dispara em decimos de segundo), e corta meio
+      // segundo da espera entre marcar no Cortex e ver no celular.
+    }, 900)
     return () => clearTimeout(t)
   }, [v.root, assinaturaCardapio])
 

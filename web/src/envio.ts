@@ -97,10 +97,33 @@ export function useEnvio() {
   useEffect(() => {
     void drenar()
     const relogio = setInterval(() => void drenar(), INTERVALO_MS)
-    const aoVoltar = () => void drenar()
+    const aoVoltar = (): void => { void drenar() }
+
+    /*
+     * Voltar para o app esvazia a fila AGORA.
+     *
+     * Faltava, e era o que fazia um registro "às vezes não ir": o relógio de
+     * 30 segundos congela junto com o aparelho, e quem marcava um compromisso
+     * e bloqueava a tela em seguida deixava o item parado até o app voltar E
+     * o relógio descongelar — que no Android pode demorar minutos.
+     *
+     * O cardápio já buscava ao voltar; só a fila não era esvaziada. A
+     * assimetria era o defeito: o app aprendia a novidade dos outros e não
+     * contava a dele.
+     *
+     * `pageshow` cobre o iPhone, que guarda a página inteira congelada ao
+     * trocar de app e a devolve sem disparar `visibilitychange`.
+     */
+    const aoAparecer = (): void => {
+      if (document.visibilityState === 'visible') void drenar()
+    }
+    document.addEventListener('visibilitychange', aoAparecer)
+    window.addEventListener('pageshow', aoVoltar)
     window.addEventListener('online', aoVoltar)
     return () => {
       clearInterval(relogio)
+      document.removeEventListener('visibilitychange', aoAparecer)
+      window.removeEventListener('pageshow', aoVoltar)
       window.removeEventListener('online', aoVoltar)
     }
   }, [drenar])
