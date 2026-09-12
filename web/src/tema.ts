@@ -46,8 +46,14 @@ export function aplicarTema(t: Tema): void {
   pintarBarraDeStatus(t)
 }
 
-/** As duas cores de casco, iguais às de `estilo.css`. */
-const CASCO = { claro: '#efede8', escuro: '#0c0e11' }
+/**
+ * As duas cores do TOPO DA PÁGINA (`--fundo` em `estilo.css`).
+ *
+ * Eram as do casco, um tom abaixo do fundo — e o manifesto tinha um terceiro
+ * escuro. A emenda entre a barra de status e o topo da página aparecia como
+ * uma linha. Os mesmos dois valores estão no script do `index.html`.
+ */
+const FUNDO = { claro: '#faf9f6', escuro: '#101215' }
 
 /**
  * A cor da barra de status do celular.
@@ -73,5 +79,5 @@ function pintarBarraDeStatus(t: Tema): void {
     meta.name = 'theme-color'
     document.head.appendChild(meta)
   }
-  meta.content = escuro ? CASCO.escuro : CASCO.claro
+  meta.content = escuro ? FUNDO.escuro : FUNDO.claro
 }

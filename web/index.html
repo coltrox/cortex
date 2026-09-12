@@ -7,17 +7,44 @@
          Num app de lista e botão o zoom só acontece por acidente — a pinça que
          devia rolar a tela, o toque duplo que devia marcar — e deixa a pessoa
          com a tela torta sem saber como desfazer.
-         `interactive-widget` impede que o teclado do Android encolha a
-         viewport e reescale tudo ao abrir um campo. -->
+
+         SEM `interactive-widget=resizes-content`. Ele esteve aqui e fazia a
+         tela encolher quando o teclado abria: a barra de abas, fixa no fundo
+         da tela, subia junto e ficava por cima do teclado. Sem ele o teclado
+         cobre a tela, e a barra fica embaixo, escondida atrás dele. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
-    <!-- Acompanha o casco do app nos dois temas: é a cor que o Android pinta
-         na barra de status, e ela destoando do topo da tela é a coisa mais
-         visível que um app instalado pode ter de errado. -->
-    <meta name="theme-color" content="#efede8" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0c0e11" media="(prefers-color-scheme: dark)" />
+    <!-- A cor da barra de status é a do TOPO DA PÁGINA, `--fundo`. Chegaram a
+         existir três escuros diferentes — o manifesto, esta meta e a página —,
+         e a emenda entre eles aparecia como uma linha no topo do app. -->
+    <meta name="theme-color" content="#faf9f6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#101215" media="(prefers-color-scheme: dark)" />
+    <!-- O tema entra ANTES da primeira pintura.
+
+         Ele era aplicado por `main.tsx`, que é módulo e roda depois de o
+         navegador já ter pintado o primeiro quadro — no tema claro, porque
+         sem `data-tema` valem as cores claras. O Android guardava a cor
+         daquele quadro nas barras do sistema, e a linha branca no topo ficava
+         até a página ser recarregada.
+
+         Script comum no `<head>` bloqueia a pintura até rodar: é por isso
+         que ele é minúsculo. A chave e os valores são os de `src/tema.ts`. -->
+    <script>
+      (function () {
+        var t = 'sistema'
+        try { t = localStorage.getItem('cortex.tema') || 'sistema' } catch (e) {}
+        if (t !== 'claro' && t !== 'escuro') t = 'sistema'
+        document.documentElement.setAttribute('data-tema', t)
+        var escuro = t === 'escuro' || (t === 'sistema' && !!window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches)
+        var m = document.createElement('meta')
+        m.name = 'theme-color'
+        m.content = escuro ? '#101215' : '#faf9f6'
+        document.head.appendChild(m)
+      })()
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
 
     <!-- As duas fontes do desenho. `preconnect` porque elas vêm de outro

@@ -1703,13 +1703,6 @@ input, textarea, select{ font-size:16px; }
 .nota-editar-acoes{ display:flex; gap:var(--e2); margin-top:var(--e2); }
 .nota-editar-acoes .btn{ width:auto; padding:0 var(--e4); min-height:44px; }
 
-/* O que já passou continua na lista, riscado.
-   Apagar o dentista de ontem seria dizer que ele nunca aconteceu; o risco diz
-   a verdade — foi, e já era. Ele sai sozinho da tela quando o Cortex parar de
-   publicá-lo, dois dias depois. */
-.item-passado{ opacity:.6; }
-.item-passado .item-nome{ text-decoration:line-through; text-decoration-thickness:1.5px; }
-.item-passado .item-tipo{ color:var(--txt-4); }
 
 /* ═══════════ INSTALAR NA TELA INICIAL ═══════════ */
 
@@ -1804,3 +1797,14 @@ input, textarea, select{ font-size:16px; }
 }
 /* O passo a passo recolhido: existe para quando o botão não abrir, e não
    precisa ocupar meia tela enquanto ele abre. */
+
+/* A barra de abas some enquanto se digita.
+   Sem isto, em alguns aparelhos ela acompanhava o teclado e ficava por cima
+   dele, tapando o campo. Só campo de TEXTO conta: marcar uma caixa não abre
+   teclado nenhum, e esconder a barra ali seria piscar a tela à toa. */
+body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, textarea:focus) .barra-baixo{
+  display:none;
+}
+
+/* O filtro por tipo da aba Chegando, logo acima da lista. */
+.filtro-agenda{ margin-bottom:var(--e4); }

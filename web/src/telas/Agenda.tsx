@@ -4,7 +4,7 @@ import { diaLocal, eventoProvaEstudada, eventoProvaEtapa, eventoItemApagado } fr
 import type { Evento } from '@compartilhado/eventos'
 import { dobra, pontuar } from '@compartilhado/busca'
 import {
-  provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, diasAte
+  provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, diasAte, areaLigada
 } from '../cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { lerPendentesAgenda, conciliarAgenda } from '../agendaLocal'
@@ -70,6 +70,23 @@ const TIPOS_MARCAR: [TipoNovo, string][] = [
 ]
 
 /**
+ * O que a lista mostra.
+ *
+ * `comemorativa` é filtro próprio mesmo sendo, por dentro, um compromisso
+ * com uma marca: para quem procura o aniversário da tia, "compromisso" não
+ * é a palavra.
+ */
+type Filtro = 'todos' | 'compromisso' | 'prova' | 'tarefa' | 'comemorativa'
+
+const FILTROS: [Filtro, string][] = [
+  ['todos', 'Tudo'],
+  ['compromisso', 'Compromissos'],
+  ['prova', 'Provas'],
+  ['tarefa', 'Tarefas'],
+  ['comemorativa', 'Datas comemorativas']
+]
+
+/**
  * O que está chegando.
  *
  * Só leitura e dois botões. Marcar "estudei" e cancelar são os dois únicos
@@ -91,6 +108,8 @@ export function Agenda(p: {
   /** O caminho da nota cujas ações estão abertas — uma de cada vez. */
   const [aberto, setAberto] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
+  /** O que a lista está mostrando — tudo, ou um tipo só. */
+  const [filtro, setFiltro] = useState<Filtro>('todos')
   /** O que foi marcado aqui e o Cortex ainda nao devolveu. */
   const [locais, setLocais] = useState(() => lerPendentesAgenda(guardadoDoNavegador, dia))
 
@@ -188,10 +207,9 @@ export function Agenda(p: {
   /**
    * A data já passou?
    *
-   * O que passou continua na lista, riscado, em vez de exigir que alguém o
-   * apague: o dentista de ontem ACONTECEU, e apagá-lo seria dizer que ele
-   * nunca existiu. Ele sai sozinho da tela quando o Cortex parar de
-   * publicá-lo — dois dias depois, ver JANELA_PASSADO_DIAS no Cortex.
+   * O que passou sai desta aba, que é o que está CHEGANDO, e continua no
+   * Cortex, no calendário de lá. Não precisa ser apagado: o dentista de
+   * ontem aconteceu, e apagá-lo seria dizer que ele nunca existiu.
    */
   const jaPassou = (i: ItemCardapio): boolean => {
     const d = diasAte(dataDe(i), dia)
@@ -289,8 +307,6 @@ export function Agenda(p: {
     }
   }) as ItemCardapio))
 
-  const vazio = ps.length === 0 && cs.length === 0 && ts.length === 0
-    && pendentes.length === 0
 
   /*
    * Tudo numa fila só, na ordem em que a vida vai cobrar.
@@ -324,6 +340,36 @@ export function Agenda(p: {
   }
 
   /*
+   * Estudos ligado ou não decide se prova e tarefa existem nesta tela.
+   *
+   * Quem não acompanha estudos no Cortex não tem prova nem tarefa para ver,
+   * e um filtro "Provas" que nunca mostra nada seria uma opção morta.
+   */
+  const temEstudos = areaLigada(p.cardapio.cardapio, 'conhecimento')
+
+  /** O tipo que o filtro enxerga: a data comemorativa separada do compromisso. */
+  const tipoDoFiltro = (l: Linha): Filtro =>
+    l.item.detalhe.comemorativa === true ? 'comemorativa' : l.tipo
+
+  /*
+   * O que a lista mostra de fato.
+   *
+   * O que já passou NÃO entra. Antes ele aparecia aqui riscado, e ocupava o
+   * topo da lista com o que não pede mais nada de ninguém.
+   */
+  const visiveis = linhas.filter(l => {
+    if (jaPassou(l.item)) return false
+    if (!temEstudos && (l.tipo === 'prova' || l.tipo === 'tarefa')) return false
+    return filtro === 'todos' || tipoDoFiltro(l) === filtro
+  })
+
+  /* Só oferece o tipo que existe para este dono. */
+  const cabeEstudos = <T extends string>([t]: [T, string]): boolean =>
+    temEstudos || (t !== 'prova' && t !== 'tarefa')
+  const filtros = FILTROS.filter(cabeEstudos)
+  const tiposMarcar = TIPOS_MARCAR.filter(cabeEstudos)
+
+  /*
    * As faixas.
    *
    * Semana corrida a partir de hoje, e não semana do calendário: na quinta,
@@ -331,7 +377,6 @@ export function Agenda(p: {
    * cai em "semana que vem" e parece longe.
    */
   const FAIXAS: { nome: string; ate: number }[] = [
-    { nome: 'Já passou', ate: -1 },
     { nome: 'Esta semana', ate: 7 },
     { nome: 'Semana que vem', ate: 14 },
     { nome: 'Depois', ate: Number.POSITIVE_INFINITY }
@@ -344,7 +389,7 @@ export function Agenda(p: {
 
   /* Os grupos saem da lista já ordenada, então cada faixa aparece uma vez só. */
   const grupos: { nome: string; linhas: Linha[] }[] = []
-  for (const l of linhas) {
+  for (const l of visiveis) {
     const nome = termo ? 'Resultados' : faixaDe(l)
     const ultimo = grupos[grupos.length - 1]
     if (ultimo && ultimo.nome === nome) ultimo.linhas.push(l)
@@ -355,7 +400,7 @@ export function Agenda(p: {
      termo digitado, o topo da tela é o resultado, não a agenda. */
   const destaque = termo
     ? undefined
-    : linhas.find(l => {
+    : visiveis.find(l => {
       const d = diasAte(dataDe(l.item), dia)
       return d !== null && d >= 0
     })
@@ -374,7 +419,7 @@ export function Agenda(p: {
     const travado = apagada || path === ''
     return (
       <div
-        className={`item item-acao ${etapa.feito || apagada ? 'item-feito' : ''} ${jaPassou(i) ? 'item-passado' : ''}`}
+        className={`item item-acao ${etapa.feito || apagada ? 'item-feito' : ''}`}
         key={path || i.nome}
       >
         <div className="item-corpo">
@@ -490,7 +535,7 @@ export function Agenda(p: {
     const path = caminhoDe(i)
     const apagado = feitos.includes(`apagar:${path}`)
     return (
-      <div className={`item item-acao ${apagado ? 'item-feito' : ''} ${jaPassou(i) ? 'item-passado' : ''}`}
+      <div className={`item item-acao ${apagado ? 'item-feito' : ''}`}
         key={path || i.nome}>
         <div className="item-corpo">
           {/* A data comemorativa sobe como compromisso — a espécie é a mesma
@@ -509,7 +554,13 @@ export function Agenda(p: {
           />
           <Sobre partes={[
             i.detalhe.local,
-            typeof i.detalhe.anos === 'number' ? `faz ${i.detalhe.anos} anos` : ''
+            typeof i.detalhe.anos === 'number'
+              // No dia é "faz"; antes é "vai fazer": a data é a próxima vez
+              // que cai, então a idade é a que a pessoa ainda VAI completar.
+              ? (dataDe(i) === dia
+                ? `faz ${i.detalhe.anos} anos hoje`
+                : `vai fazer ${i.detalhe.anos} anos`)
+              : ''
           ]} />
         </div>
         {/* Editar antes de excluir: mudar de horário é o que mais
@@ -542,7 +593,7 @@ export function Agenda(p: {
   }
 
   const cartaoTarefa = (i: ItemCardapio) => (
-    <div className={`item item-acao ${jaPassou(i) ? 'item-passado' : ''}`}
+    <div className={`item item-acao`}
       key={caminhoDe(i) || i.nome}>
       <div className="item-corpo">
         <span className="item-tipo">{ROTULO.tarefa}</span>
@@ -567,8 +618,19 @@ export function Agenda(p: {
             faz alguem abrir esta aba: o que e a proxima, e quanto falta. */}
         {destaque && (
           <div className="chegando-heroi">
-            <span className="heroi-tipo">{ROTULO[destaque.tipo]}</span>
+            <span className="heroi-tipo">
+              {destaque.item.detalhe.comemorativa === true
+                ? (txt(destaque.item.detalhe.oque) || 'Data comemorativa')
+                : ROTULO[destaque.tipo]}
+            </span>
             <strong className="heroi-nome">{destaque.item.nome}</strong>
+            {typeof destaque.item.detalhe.anos === 'number' && (
+              <span className="heroi-quando">
+                {dataDe(destaque.item) === dia
+                  ? `faz ${destaque.item.detalhe.anos} anos hoje`
+                  : `vai fazer ${destaque.item.detalhe.anos} anos`}
+              </span>
+            )}
             <span className="heroi-quando">
               {[dataCurta(dataDe(destaque.item), dia), txt(destaque.item.detalhe.hora)]
                 .filter(x => x !== '').join(' · ')}
@@ -584,7 +646,7 @@ export function Agenda(p: {
         <div className="marcar">
           <Selecao
             rotulo="O que marcar"
-            opcoes={TIPOS_MARCAR.map(t => t[1])}
+            opcoes={tiposMarcar.map(t => t[1])}
             valor={TIPOS_MARCAR.find(t => t[0] === aMarcar)?.[1] ?? ''}
             aoMudar={nome => {
               const achado = TIPOS_MARCAR.find(t => t[1] === nome)
@@ -614,11 +676,26 @@ export function Agenda(p: {
           </div>
         )}
 
-        {vazio && !p.cardapio.erro && (
+        {/* Separar por tipo. Um seletor, como as outras escolhas do app. */}
+        <div className="filtro-agenda">
+          <Selecao
+            rotulo="Mostrar"
+            opcoes={filtros.map(f => f[1])}
+            valor={FILTROS.find(f => f[0] === filtro)?.[1] ?? 'Tudo'}
+            aoMudar={nome => {
+              const achado = FILTROS.find(f => f[1] === nome)
+              if (achado) setFiltro(achado[0])
+            }}
+          />
+        </div>
+
+        {visiveis.length === 0 && !p.cardapio.erro && (
           <p className="secao-vazia">
             {termo
               ? `Nada com "${busca.trim()}".`
-              : `Nada marcado nos próximos dias. Provas, compromissos e tarefas
+              : filtro !== 'todos'
+                ? 'Nada deste tipo chegando.'
+                : `Nada marcado nos próximos dias. Provas, compromissos e tarefas
                  aparecem aqui assim que existirem no Cortex.`}
           </p>
         )}
