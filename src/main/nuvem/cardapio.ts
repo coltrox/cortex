@@ -220,6 +220,10 @@ export function montarCardapio(
       especie: 'suplemento',
       nome: txt(n.title),
       detalhe: comValor({
+        // O caminho da nota: e a referencia que o celular devolve ao editar.
+        // Casar por titulo alcancaria o suplemento errado se dois tivessem o
+        // mesmo nome.
+        path: n.path,
         dose: txt(n.campos.dose),
         quando: txt(n.campos.quando),
         // Item a item, igual exercicios/refeicoes: um objeto disfarçado de dia não passa.
@@ -239,6 +243,7 @@ export function montarCardapio(
       especie: 'rotina',
       nome: txt(n.title),
       detalhe: comValor({
+        path: n.path,
         quando: txt(n.campos.quando),
         dias: listaDeTexto(n.campos.dias),
         feito: feitosHoje.rotina.has(txt(n.title)) ? true : undefined,

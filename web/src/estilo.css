@@ -1710,3 +1710,80 @@ input, textarea, select{ font-size:16px; }
 .item-passado{ opacity:.6; }
 .item-passado .item-nome{ text-decoration:line-through; text-decoration-thickness:1.5px; }
 .item-passado .item-tipo{ color:var(--txt-4); }
+
+/* ═══════════ INSTALAR NA TELA INICIAL ═══════════ */
+
+/* Por cima de tudo, e não uma faixa no topo: é a primeira coisa que a pessoa
+   vê no app, e uma faixa competiria com a tela que ela veio usar. */
+.instalar-fundo{
+  position:fixed; inset:0; z-index:60;
+  display:flex; align-items:flex-end; justify-content:center;
+  padding:var(--e4);
+  background:rgba(0,0,0,.5);
+  animation:instalar-entra .18s ease;
+}
+@keyframes instalar-entra{ from{ opacity:0; } to{ opacity:1; } }
+.instalar-caixa{
+  width:100%; max-width:var(--largura);
+  padding:var(--e5) var(--e4) calc(var(--e4) + var(--baixo-seguro));
+  background:var(--painel); border:1px solid var(--borda); border-radius:var(--r3) var(--r3) 0 0;
+  box-shadow:0 -20px 50px rgba(0,0,0,.3);
+}
+.instalar-etiqueta{
+  display:block; font-family:var(--fonte-num); font-size:9.5px; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--acento);
+}
+.instalar-titulo{
+  margin:var(--e2) 0 var(--e4);
+  font:800 24px/1.15 var(--fonte); letter-spacing:-.03em; color:var(--txt);
+}
+.instalar-passos{
+  list-style:none; margin:0; padding:0;
+  display:flex; flex-direction:column; gap:var(--e3);
+}
+.instalar-passos li{
+  display:flex; align-items:flex-start; gap:var(--e3);
+  font:500 15px/1.45 var(--fonte); color:var(--txt-2);
+}
+/* O número dentro de um círculo: a ordem importa aqui, e uma lista sem
+   marcador faria os três passos parecerem três opções. */
+.instalar-numero{
+  flex:none; width:24px; height:24px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--acento-fraco); color:var(--acento-forte);
+  font-family:var(--fonte-num); font-size:12px; font-weight:700;
+}
+.instalar-fecho{
+  margin:var(--e4) 0 0; font:400 13px/1.5 var(--fonte); color:var(--txt-3);
+}
+.instalar-acoes{ display:flex; gap:var(--e2); margin-top:var(--e5); }
+.instalar-acoes .btn{ flex:1; }
+
+/* ═══════════ ALTERAR SUPLEMENTO E TAREFA DIÁRIA ═══════════ */
+
+/* O painel abre colado no item, dentro do mesmo cartão visual: solto embaixo
+   ele pareceria pertencer ao item de baixo. */
+.editar-item{
+  margin-top:2px; padding:var(--e4);
+  background:var(--painel); border:1px solid var(--acento-linha); border-radius:var(--r2);
+}
+.editar-item-nome{
+  display:block; margin-bottom:var(--e3);
+  font-family:var(--fonte-num); font-size:10px; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--acento-forte);
+}
+
+/* Sete botões numa fileira. O dia da semana é escolha múltipla, e ver de uma
+   vez quais estão ligados é metade da informação — um seletor esconderia
+   isso atrás de um toque. */
+.editar-dias{ display:flex; gap:6px; margin:var(--e2) 0 var(--e2); }
+.dia-chip{
+  flex:1; min-width:0; min-height:44px;
+  background:var(--painel-topo); border:1px solid var(--borda); border-radius:var(--r1);
+  color:var(--txt-3); font:700 13px/1 var(--fonte); cursor:pointer;
+  transition:background .15s ease, color .15s ease, border-color .15s ease;
+}
+.dia-ligado{ background:var(--acento); border-color:var(--acento); color:#fff; }
+.editar-dica{ margin:0; font:400 12px/1.4 var(--fonte); color:var(--txt-3); }
+.editar-acoes{ display:flex; gap:var(--e2); margin-top:var(--e4); }
+.editar-acoes .btn{ flex:1; }

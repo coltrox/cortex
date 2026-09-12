@@ -278,12 +278,15 @@ const RETORNO_PAREDE = 0.06
  * A folga em volta do nó do meio, em múltiplos do espaçamento de equilíbrio.
  *
  * O centro não entra na física, então nada impedia uma nota de assentar em
- * cima dele — e aí o ponto grande e claro comia o vizinho. 1,1 abre um
- * respiro do tamanho de um vizinho: no zoom de abertura são cerca de vinte
- * pixels entre a borda do centro e o primeiro nó. O bastante para o centro se
- * ler sozinho, pouco o bastante para não virar uma cratera no meio da rede.
+ * cima dele — e aí o ponto grande e claro comia o vizinho.
+ *
+ * Era 1,1, o tamanho de um vizinho, e não bastava: TODAS as notas ligam ao
+ * centro, então a atração as puxa para lá ao mesmo tempo e elas se acumulavam
+ * encostadas no respiro, formando um anel apertado em volta dele. 2,4 abre um
+ * respiro de dois vizinhos e meio — espaço para o anel se desfazer e o centro
+ * se ler sozinho, sem virar uma cratera no meio da rede.
  */
-const FOLGA_CENTRO = 1.1
+const FOLGA_CENTRO = 2.4
 
 /** Quanto o cursor precisa ficar parado para o realce pesado entrar, em ms. */
 const ATRASO_FOCO = 420
@@ -1265,7 +1268,19 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
      * repetir este bloco era o que travava a tela por segundos a fio.
      */
     if (precisaResolver.current) {
-      for (let i = 0; i < PASSOS_ANTES; i++) {
+      /*
+       * Os mesmos passos que "Reorganizar" daria, e não menos.
+       *
+       * O assentamento inicial parava em `PASSOS_ANTES`, e o botão levava a
+       * rede a `PASSOS_ANTES + PASSOS_DESTINO`: a tela abria num estado que
+       * um toque no botão ainda melhorava, e era aí que uma nota aparecia
+       * encostada no nó do meio. Somando os dois, abrir e reorganizar param
+       * no MESMO lugar — que é o que o dono pediu.
+       *
+       * Custa os 400 quadros a mais uma vez por sessão, fora da tela: o
+       * layout fica guardado em `memoria` e volta pronto na próxima montagem.
+       */
+      for (let i = 0; i < PASSOS_ANTES + PASSOS_DESTINO; i++) {
         passoEm(px, py, dx, dy, ETA, PASSO_MAX, -1, Infinity)
       }
       precisaResolver.current = false

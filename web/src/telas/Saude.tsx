@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import type { Tela } from '../App'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import { suplementosDoDia, hidratacao, litros, momentoDe, areaLigada } from '../cardapio'
-import { diaLocal, eventoSuplemento, eventoAgua } from '../montar'
+import { diaLocal, eventoSuplemento, eventoAgua, eventoItemEditado } from '../montar'
 import { guardadoDoNavegador } from '../guardado'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { lerPendente, somarPendente, conciliarPendente, totalNaTela } from '../agua'
 import { Cabecalho, Check, Detalhe, Aviso, Secao } from '../componentes'
+import { EditarItemDoDia } from './EditarItemDoDia'
 
 /**
  * A área Saúde inteira, com sub-navegação.
@@ -55,6 +56,9 @@ export function SubNavSaude(p: { atual: Tela; irPara: (t: Tela) => void }) {
   )
 }
 
+/** O que veio do banco pode não ser texto. */
+const txtDo = (v: unknown): string => (typeof v === 'string' ? v : '')
+
 export function Saude(p: {
   envio: ReturnType<typeof useEnvio>
   cardapio: UsoDoCardapio
@@ -62,6 +66,9 @@ export function Saude(p: {
 }) {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
+
+  /** Qual suplemento está com o painel de alterar aberto — um de cada vez. */
+  const [editando, setEditando] = useState<string | null>(null)
 
   const temSaude = areaLigada(p.cardapio.cardapio, 'saude')
   const suplementos = temSaude ? suplementosDoDia(p.cardapio.cardapio, dia) : []
@@ -176,18 +183,55 @@ export function Saude(p: {
         {suplementos.length > 0 && (
           <div className="grupo">
             <Secao nome="Suplementos" />
-            {suplementos.map(s => (
-              <Check
-                key={s.nome}
-                rotulo={s.nome}
-                detalhe={<Detalhe partes={[s.detalhe.dose, momentoDe(s)]} />}
-                feito={estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)}
-                aoMarcar={() => alternar(
-                  s.nome,
-                  estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)
-                )}
-              />
-            ))}
+            {suplementos.map(s => {
+              const caminho = txtDo(s.detalhe.path)
+              return (
+                <div key={s.nome}>
+                  <Check
+                    rotulo={s.nome}
+                    detalhe={<Detalhe partes={[s.detalhe.dose, momentoDe(s)]} />}
+                    feito={estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)}
+                    aoMarcar={() => alternar(
+                      s.nome,
+                      estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)
+                    )}
+                    acao={caminho ? (
+                      // Sem caminho não há nota para alcançar — é o caso de um
+                      // cardápio publicado por um Cortex mais antigo.
+                      <button
+                        className="item-ver nota-mais"
+                        type="button"
+                        aria-expanded={editando === s.nome}
+                        aria-label={`alterar ${s.nome}`}
+                        onClick={() => setEditando(editando === s.nome ? null : s.nome)}
+                      >
+                        ⋯
+                      </button>
+                    ) : undefined}
+                  />
+                  {editando === s.nome && (
+                    <EditarItemDoDia
+                      nome={s.nome}
+                      temDose
+                      valores={{
+                        dose: txtDo(s.detalhe.dose),
+                        quando: txtDo(s.detalhe.quando),
+                        dias: Array.isArray(s.detalhe.dias)
+                          ? s.detalhe.dias.map(d => String(d))
+                          : []
+                      }}
+                      aoSalvar={v => {
+                        p.envio.registrar(eventoItemEditado(caminho, {
+                          dose: v.dose, quando: v.quando, dias: v.dias
+                        }, dia))
+                        setEditando(null)
+                      }}
+                      aoCancelar={() => setEditando(null)}
+                    />
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 

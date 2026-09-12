@@ -88,6 +88,30 @@ export type Operacao =
    */
   | { acao: 'apagar'; path: string; tiposPermitidos: string[] }
 
+/**
+ * Os dias da semana, no vocabulário do Cortex.
+ *
+ * Sem acento em `sab`, e exatamente estes sete: é o que os formulários da
+ * interface gravam, e um `sáb` com acento vindo de fora faria o suplemento de
+ * sábado nunca mais aparecer — a comparação é por texto.
+ */
+const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab']
+
+/**
+ * A lista de dias que veio de fora, filtrada.
+ *
+ * `undefined` quando não veio nada, para `comValor` tirar o campo em vez de
+ * gravar uma lista vazia — que apagaria os dias em vez de deixá-los como
+ * estavam. Lista vazia DE PROPÓSITO não existe aqui: "todo dia" se diz não
+ * mandando o campo.
+ */
+function diasDaSemana(bruto: unknown): string[] | undefined {
+  if (!Array.isArray(bruto)) return undefined
+  const dias = [...new Set(bruto.map(d => txt(d).trim().toLowerCase()))]
+    .filter(d => DIAS_SEMANA.includes(d))
+  return dias.length > 0 ? DIAS_SEMANA.filter(d => dias.includes(d)) : undefined
+}
+
 /** Higieniza um título para virar nome de arquivo, igual ao renderer faz. */
 const nomeArquivo = (s: string): string =>
   s.replace(/[/:*?"<>|\\]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120)
@@ -381,12 +405,29 @@ export function planejar(evento: Evento): Operacao[] {
         // o nome do arquivo na lista, e `texto`, que é o conteúdo. Editar só
         // um deixaria a nota dizendo duas coisas diferentes sobre si mesma.
         // As outras telas não mandam este campo, e aí ele não entra.
-        texto: txt(dados.texto).trim()
+        texto: txt(dados.texto).trim(),
+        /*
+         * O que o suplemento e a tarefa diária têm de seu.
+         *
+         * `dose` é a quantidade ("30 g"), `quando` é o momento ("pós-treino"),
+         * e `dias` é em que dias da semana aquilo entra. Antes só davam para
+         * mexer no computador — e trocar a dose de um suplemento é o tipo de
+         * coisa que se decide na hora de tomar, com o pote na mão.
+         */
+        dose: txt(dados.dose).trim(),
+        quando: txt(dados.quando).trim(),
+        // Item a item, e só os sete dias que o Cortex conhece: um objeto
+        // disfarçado de dia não entra no frontmatter do vault.
+        dias: diasDaSemana(dados.dias)
       })
       if (Object.keys(campos).length === 0) return []
       return [{
         acao: 'marcar', path,
-        tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao'],
+        tiposPermitidos: [
+          'evento', 'prova', 'simulado', 'tarefa', 'anotacao',
+          // Os dois que o celular marca todo dia, e agora também corrige.
+          'suplemento', 'rotina'
+        ],
         campos
       }]
     }

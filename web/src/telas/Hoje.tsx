@@ -3,7 +3,10 @@ import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from '../guardado'
 import { Marcacao } from '../marcacao'
 import { corpoVisivel } from '@compartilhado/corpo'
-import { diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua } from '../montar'
+import { EditarItemDoDia } from './EditarItemDoDia'
+import {
+  diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRotina, eventoAgua, eventoItemEditado
+} from '../montar'
 import {
   suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros,
   anotacoesDoDia, momentoDe, areaLigada,
@@ -73,11 +76,30 @@ function Tarefa(p: {
   feito: boolean
   aoMarcar: () => void
   corpo: string
+  /** Abre o painel de alterar. Ausente quando não há nota para alcançar. */
+  aoAlterar?: () => void
+  alterando?: boolean
 }) {
   const [aberto, setAberto] = useState(false)
 
+  /* O "⋯" de alterar, quando há o que alterar. Mesmo botão da tela Notas. */
+  const botaoAlterar = p.aoAlterar ? (
+    <button
+      className="item-ver nota-mais"
+      type="button"
+      aria-expanded={p.alterando === true}
+      aria-label={`alterar ${p.nome}`}
+      onClick={p.aoAlterar}
+    >
+      ⋯
+    </button>
+  ) : undefined
+
   if (!p.corpo) {
-    return <Check rotulo={p.nome} detalhe={p.detalhe} feito={p.feito} aoMarcar={p.aoMarcar} />
+    return (
+      <Check rotulo={p.nome} detalhe={p.detalhe} feito={p.feito} aoMarcar={p.aoMarcar}
+        acao={botaoAlterar} />
+    )
   }
 
   return (
@@ -88,6 +110,8 @@ function Tarefa(p: {
         feito={p.feito}
         aoMarcar={p.aoMarcar}
         acao={
+          <>
+          {botaoAlterar}
           <button
             className="item-ver"
             type="button"
@@ -102,6 +126,7 @@ function Tarefa(p: {
               <path d="M5.5 7 9 10.5 12.5 7" />
             </svg>
           </button>
+          </>
         }
       />
       {aberto && (
@@ -180,6 +205,8 @@ export function Hoje(p: {
   irPara: (t: Tela) => void
 }) {
   const dia = diaLocal()
+  /** Qual tarefa do dia está com o painel de alterar aberto — uma de cada vez. */
+  const [alterando, setAlterando] = useState<string | null>(null)
   /*
    * A hora de agora, fixada no render.
    *
@@ -630,20 +657,48 @@ export function Hoje(p: {
         />
         {/* Mesma regra do suplemento, logo acima: a tarefa sem hora marcada é
             "qualquer hora", e não uma linha sem resposta. */}
-        {rotinas.map(t => (
-          <Tarefa
-            key={t.nome}
-            nome={t.nome}
-            detalhe={<Detalhe partes={[momentoDe(t)]} />}
-            corpo={txtDe(t.detalhe.corpo)}
-            feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
-            aoMarcar={() => alternar(
-              `rotina:${t.nome}`,
-              estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
-              feito => eventoRotina(t.nome, dia, feito)
-            )}
-          />
-        ))}
+        {rotinas.map(t => {
+          const caminho = txtDe(t.detalhe.path)
+          return (
+            <div key={t.nome}>
+              <Tarefa
+                nome={t.nome}
+                detalhe={<Detalhe partes={[momentoDe(t)]} />}
+                corpo={txtDe(t.detalhe.corpo)}
+                feito={estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true)}
+                aoMarcar={() => alternar(
+                  `rotina:${t.nome}`,
+                  estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true),
+                  feito => eventoRotina(t.nome, dia, feito)
+                )}
+                // Sem caminho não há nota para alcançar — é o caso de um
+                // cardápio publicado por um Cortex mais antigo.
+                aoAlterar={caminho
+                  ? () => setAlterando(alterando === t.nome ? null : t.nome)
+                  : undefined}
+                alterando={alterando === t.nome}
+              />
+              {alterando === t.nome && (
+                <EditarItemDoDia
+                  nome={t.nome}
+                  temDose={false}
+                  valores={{
+                    quando: txtDe(t.detalhe.quando),
+                    dias: Array.isArray(t.detalhe.dias) ? t.detalhe.dias.map(d => String(d)) : [],
+                    descricao: txtDe(t.detalhe.corpo)
+                  }}
+                  aoSalvar={v => {
+                    p.envio.registrar(eventoItemEditado(caminho, {
+                      quando: v.quando, dias: v.dias, texto: v.descricao
+                    }, dia))
+                    setAlterando(null)
+                  }}
+                  aoCancelar={() => setAlterando(null)}
+                />
+              )}
+            </div>
+          )
+        })}
         </div>}
 
         {/*

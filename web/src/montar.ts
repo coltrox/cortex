@@ -382,6 +382,10 @@ export function eventoItemEditado(
     local?: string; materia?: string
     /** Só a anotação manda: nela o conteúdo mora no título E neste campo. */
     texto?: string
+    /* O suplemento e a tarefa diária: quanto, quando, e em que dias. */
+    dose?: string
+    quando?: string
+    dias?: string[]
   },
   dia: string = diaLocal()
 ): Evento {
@@ -392,7 +396,12 @@ export function eventoItemEditado(
     hora: campos.hora?.trim(),
     local: campos.local?.trim(),
     materia: campos.materia?.trim(),
-    texto: campos.texto?.trim()
+    texto: campos.texto?.trim(),
+    dose: campos.dose?.trim(),
+    quando: campos.quando?.trim(),
+    // Lista vazia NÃO viaja: ela apagaria os dias em vez de deixá-los como
+    // estavam, e "todo dia" se diz não mandando o campo.
+    dias: campos.dias && campos.dias.length > 0 ? campos.dias : undefined
   })
   // Só `path` significa "nada a mudar" — e um evento que não muda nada é
   // uma escrita à toa no vault.

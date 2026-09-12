@@ -46,7 +46,8 @@ describe('montarCardapio', () => {
     })])
     expect(c[0]).toEqual({
       especie: 'suplemento', nome: 'Whey',
-      detalhe: { dose: '30 g', quando: 'pós-treino', dias: ['seg', 'qua'] }
+      // O caminho vai junto: e a referencia que o celular devolve ao editar.
+      detalhe: { path: 's.md', dose: '30 g', quando: 'pós-treino', dias: ['seg', 'qua'] }
     })
   })
 
@@ -562,7 +563,7 @@ describe('a tarefa diaria sobe como especie propria', () => {
     const c = montarCardapio([rotina], HOJE2, [])
     expect(c).toEqual([{
       especie: 'rotina', nome: 'Tomar 3 L de agua',
-      detalhe: { quando: 'manhã', dias: ['seg', 'qua'] }
+      detalhe: { path: 'Vida/Agua.md', quando: 'manhã', dias: ['seg', 'qua'] }
     }])
   })
 
@@ -824,7 +825,8 @@ describe('o corpo publicado ja sai limpo', () => {
       corpo: '### Dependencias da Rede\n- [[Esteira 30 min]]\n\n---\n\nTrinta minutos.'
     }])
     expect(c).toEqual([{
-      especie: 'rotina', nome: 'Escada 30 min', detalhe: { dias: [], corpo: 'Trinta minutos.' }
+      especie: 'rotina', nome: 'Escada 30 min',
+      detalhe: { path: 'Vida/Escada 30 min.md', dias: [], corpo: 'Trinta minutos.' }
     }])
   })
 
@@ -834,7 +836,9 @@ describe('o corpo publicado ja sai limpo', () => {
       ...nota({ path: 'Vida/x.md', title: 'X', tipo: 'rotina' }),
       corpo: '### Dependencias da Rede\n- [[A]]\n'
     }])
-    expect(c).toEqual([{ especie: 'rotina', nome: 'X', detalhe: { dias: [] } }])
+    expect(c).toEqual([{
+      especie: 'rotina', nome: 'X', detalhe: { path: 'Vida/x.md', dias: [] }
+    }])
   })
 })
 

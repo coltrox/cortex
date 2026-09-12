@@ -236,7 +236,9 @@ describe('planejar — agenda e estudos', () => {
     })
     expect(ops).toEqual([{
       acao: 'marcar', path: 'Estudos/Provas/ENEM.md',
-      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao'],
+      tiposPermitidos: [
+        'evento', 'prova', 'simulado', 'tarefa', 'anotacao', 'suplemento', 'rotina'
+      ],
       campos: { date: '2026-09-12', materia: 'fisica' }
     }])
   })
@@ -743,5 +745,59 @@ describe('planejar — data comemorativa', () => {
       titulo: 'Aniversário da mãe', data: '1970-12-20', comemorativa: true
     }))
     expect(op).toMatchObject({ seExistir: 'mesclar' })
+  })
+})
+
+/**
+ * Corrigir o suplemento e a tarefa diaria pelo celular.
+ *
+ * Trocar a dose de um suplemento e o tipo de coisa que se decide na hora de
+ * tomar, com o pote na mao -- e antes so dava para fazer no computador.
+ */
+describe('planejar — editar suplemento e tarefa diaria', () => {
+  const editar = (dados: Record<string, unknown>) =>
+    planejar(ev('compromisso_editado', { path: 'Saude/Whey.md', ...dados }))[0] as {
+      acao: string; tiposPermitidos: string[]; campos: Record<string, unknown>
+    }
+
+  it('a dose e o momento viram campos da nota', () => {
+    expect(editar({ dose: '30 g', quando: 'pós-treino' }).campos)
+      .toEqual({ dose: '30 g', quando: 'pós-treino' })
+  })
+
+  it('os dias da semana passam item a item', () => {
+    expect(editar({ dias: ['seg', 'qua', 'sex'] }).campos).toEqual({ dias: ['seg', 'qua', 'sex'] })
+  })
+
+  it('dia que o Cortex nao conhece e descartado', () => {
+    // A comparacao e por texto: um `sáb` com acento faria o suplemento de
+    // sabado nunca mais aparecer na tela.
+    expect(editar({ dias: ['seg', 'sáb', 'lunes', 'qua'] }).campos).toEqual({ dias: ['seg', 'qua'] })
+  })
+
+  it('os dias saem sempre na ordem da semana, nao na ordem em que vieram', () => {
+    expect(editar({ dias: ['sex', 'seg'] }).campos).toEqual({ dias: ['seg', 'sex'] })
+  })
+
+  it('dia repetido entra uma vez so', () => {
+    expect(editar({ dias: ['seg', 'seg', 'SEG'] }).campos).toEqual({ dias: ['seg'] })
+  })
+
+  it('lista vazia nao apaga os dias -- ela some do evento', () => {
+    // Apagar os dias por engano faria o suplemento sumir da tela sem que
+    // ninguem tivesse pedido isso. "Todo dia" se diz nao mandando o campo.
+    expect(planejar(ev('compromisso_editado', { path: 'Saude/Whey.md', dias: [] }))).toEqual([])
+  })
+
+  it('alcanca suplemento e rotina, alem dos quatro de antes', () => {
+    expect(editar({ dose: '30 g' }).tiposPermitidos)
+      .toEqual(['evento', 'prova', 'simulado', 'tarefa', 'anotacao', 'suplemento', 'rotina'])
+  })
+
+  it('um objeto disfarcado de dia nao entra no vault', () => {
+    expect(planejar(ev('compromisso_editado', {
+      path: 'Saude/Whey.md',
+      dias: [{ dia: 'seg', motivo: 'SEGREDO-MOTIVO' }]
+    }))).toEqual([])
   })
 })

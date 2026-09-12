@@ -5,6 +5,8 @@ import { lerVaultId, gravarVaultId, idDoFragmento } from './ajustes'
 import { useEnvio, useCardapio } from './envio'
 import { faltaCredencial } from './credencial'
 import { areaLigada } from './cardapio'
+import { jaInstalado, viuTutorial, marcarTutorialVisto } from './instalar'
+import { Instalar } from './telas/Instalar'
 import { Aviso } from './componentes'
 import { Hoje } from './telas/Hoje'
 import { Treino } from './telas/Treino'
@@ -183,6 +185,18 @@ export function App() {
    */
   const abas = ABAS.filter(a => a.area === null || areaLigada(cardapio.cardapio, a.area))
 
+  /*
+   * O convite para instalar, uma vez só.
+   *
+   * Quem já abriu como app não precisa ouvir como instalar, e quem já viu
+   * o passo a passo não precisa vê-lo de novo — é a diferença entre um
+   * aviso e um estorvo. O estado nasce da resposta das duas perguntas,
+   * numa função para não custar uma leitura de disco a cada render.
+   */
+  const [ensinando, setEnsinando] = useState(
+    () => !jaInstalado() && !viuTutorial(guardadoDoNavegador)
+  )
+
   if (faltaCredencial()) {
     return (
       <Aviso tom="erro">
@@ -195,6 +209,9 @@ export function App() {
 
   return (
     <>
+      {ensinando && (
+        <Instalar aoFechar={() => { marcarTutorialVisto(guardadoDoNavegador); setEnsinando(false) }} />
+      )}
       {tela === 'hoje' && <Hoje envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'agenda' && (
         <Agenda
