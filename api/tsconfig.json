@@ -1,0 +1,22 @@
+{
+  "//": [
+    "As funcoes do Vercel rodam em Node, e nao num bundler.",
+    "",
+    "O tsconfig da raiz usa `module: ESNext` com `moduleResolution: bundler`,",
+    "que e o que o Vite quer e o que o Node nao entende. O resultado foi a",
+    "funcao estourar no carregamento, antes de a primeira linha rodar, com um",
+    "FUNCTION_INVOCATION_FAILED sem explicacao nenhuma.",
+    "",
+    "Este arquivo existe so para dizer ao compilador que aqui e Node."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "../src/shared/ics.ts"]
+}
