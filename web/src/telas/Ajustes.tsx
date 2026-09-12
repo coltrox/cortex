@@ -3,6 +3,7 @@ import { guardadoDoNavegador } from '../guardado'
 import { lerVaultId, gravarVaultId } from '../ajustes'
 import { haQuantoTempo, hidratacao } from '../cardapio'
 import { lerTema, gravarTema, aplicarTema, type Tema } from '../tema'
+import { qualSistema } from '../instalar'
 import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -88,6 +89,18 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
               Trocar de vault
             </Botao>
           </div>
+
+          {/*
+            * O calendário, para o Google e o iPhone assinarem.
+            *
+            * Um endereço, e não uma integração com login. A API do Google
+            * exigiria aplicativo registrado, consentimento e token que expira
+            * — e serviria só ao Google. Este mesmo endereço os dois assinam.
+            *
+            * De mão única, e o cartão diz isso: o que está no Cortex aparece
+            * no calendário; o que for criado no calendário não volta.
+            */}
+          <CartaoCalendario vault={atual} />
 
           {/*
             * Aparência.
@@ -182,6 +195,83 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
           Conectar com este id
         </Botao>
       </div>
+    </div>
+  )
+}
+
+/**
+ * O endereço do calendário, com o passo a passo de assinar.
+ *
+ * Um endereço, e não uma integração com login. A API do Google exigiria
+ * aplicativo registrado, tela de consentimento, chave secreta e token que
+ * expira — e serviria só ao Google, porque o iPhone não a entende. Este mesmo
+ * endereço os dois assinam, sem login nenhum.
+ *
+ * As instruções aparecem uma de cada vez, pelo aparelho, como no tutorial de
+ * instalação: no computador saem as duas, porque ali quem lê está montando o
+ * celular e não usando este app.
+ */
+function CartaoCalendario({ vault }: { vault: string | null }) {
+  const [copiado, setCopiado] = useState(false)
+  if (!vault) return null
+
+  const endereco = `${window.location.origin}/agenda.ics?vault=${vault}`
+  const sistema = qualSistema(navigator.userAgent, navigator.maxTouchPoints)
+
+  const copiar = (): void => {
+    // `clipboard` falha em página sem HTTPS e em navegador antigo. Aí o
+    // endereço continua na tela, selecionável — que é o caminho de sempre.
+    navigator.clipboard?.writeText(endereco)
+      .then(() => {
+        setCopiado(true)
+        setTimeout(() => setCopiado(false), 2000)
+      })
+      .catch(() => {})
+  }
+
+  return (
+    <div className="cartao-ajuste">
+      <div className="cartao-ajuste-nome">Calendário</div>
+      <p className="cartao-ajuste-txt">
+        Provas, compromissos e datas comemorativas do Cortex, dentro do seu
+        calendário. Assine este endereço:
+      </p>
+
+      {/* O endereço inteiro na tela, quebrando onde precisar: ele carrega o id
+          do vault e é longo demais para caber numa linha de celular. */}
+      <code className="cal-endereco">{endereco}</code>
+
+      <button className="btn btn-principal" type="button" onClick={copiar}>
+        {copiado ? 'Copiado' : 'Copiar endereço'}
+      </button>
+
+      {(sistema === 'android' || sistema === 'outro') && (
+        <div className="cal-passos">
+          <span className="cal-titulo">No Google Agenda</span>
+          <ol>
+            <li>Abra o Google Agenda pelo computador — o app do celular não assina.</li>
+            <li>Em "Outras agendas", toque no + e escolha "De URL".</li>
+            <li>Cole o endereço e confirme.</li>
+          </ol>
+        </div>
+      )}
+
+      {(sistema === 'iphone' || sistema === 'outro') && (
+        <div className="cal-passos">
+          <span className="cal-titulo">No iPhone</span>
+          <ol>
+            <li>Ajustes, Aplicativos, Calendário, Contas.</li>
+            <li>Adicionar conta, Outra, Adicionar calendário assinado.</li>
+            <li>Cole o endereço e toque em Seguinte.</li>
+          </ol>
+        </div>
+      )}
+
+      <p className="cartao-ajuste-txt cal-ressalva">
+        É de mão única: o que está no Cortex aparece no calendário, e o que
+        você criar no calendário não volta para cá. O Google relê algumas vezes
+        por dia; o iPhone deixa escolher de quanto em quanto tempo.
+      </p>
     </div>
   )
 }

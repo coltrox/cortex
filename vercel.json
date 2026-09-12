@@ -1,5 +1,11 @@
 {
   "buildCommand": "npm run web:build",
   "outputDirectory": "dist-web",
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/agenda.ics",
+      "destination": "/api/agenda"
+    }
+  ]
 }
