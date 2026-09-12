@@ -200,64 +200,39 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
 }
 
 /**
- * O endereço do calendário, com o passo a passo de assinar.
+ * Conectar o calendário — um botão, e nada mais.
  *
- * Um endereço, e não uma integração com login. A API do Google exigiria
- * aplicativo registrado, tela de consentimento, chave secreta e token que
- * expira — e serviria só ao Google, porque o iPhone não a entende. Este mesmo
- * endereço os dois assinam, sem login nenhum.
+ * Havia aqui o endereço na tela, um botão de copiar e o passo a passo dos
+ * dois sistemas. Tudo aquilo existia porque a primeira versão não tinha o
+ * botão: era o material de quem ia fazer à mão.
  *
- * As instruções aparecem uma de cada vez, pelo aparelho, como no tutorial de
- * instalação: no computador saem as duas, porque ali quem lê está montando o
- * celular e não usando este app.
+ * `webcal:` é o mesmo endereço com outro protocolo, e é o que faz o sistema
+ * entender "assinar isto" em vez de "baixar um arquivo": o iPhone abre o
+ * Calendário já no diálogo de assinar, e o Google Agenda tem o equivalente.
+ * Com os dois funcionando, o endereço cru na tela era só um id de vault
+ * exposto à toa.
+ *
+ * Um sistema de cada vez, como no tutorial de instalação. No computador
+ * saem os dois, porque ali quem lê está montando o celular.
  */
 function CartaoCalendario({ vault }: { vault: string | null }) {
-  const [copiado, setCopiado] = useState(false)
   if (!vault) return null
 
   const endereco = `${window.location.origin}/agenda.ics?vault=${vault}`
-  // O MESMO endereço com outro protocolo. É o que faz o sistema entender
-  // "assinar isto" em vez de "baixar um arquivo".
   const webcal = endereco.replace(/^https?:/, 'webcal:')
   const sistema = qualSistema(navigator.userAgent, navigator.maxTouchPoints)
-
-  const copiar = (): void => {
-    // `clipboard` falha em página sem HTTPS e em navegador antigo. Aí o
-    // endereço continua na tela, selecionável — que é o caminho de sempre.
-    navigator.clipboard?.writeText(endereco)
-      .then(() => {
-        setCopiado(true)
-        setTimeout(() => setCopiado(false), 2000)
-      })
-      .catch(() => {})
-  }
 
   return (
     <div className="cartao-ajuste">
       <div className="cartao-ajuste-nome">Calendário</div>
       <p className="cartao-ajuste-txt">
-        Provas, compromissos e datas comemorativas do Cortex, dentro do seu
-        calendário. Assine este endereço:
+        Provas, compromissos e datas comemorativas do Cortex, dentro do
+        calendário do seu celular.
       </p>
 
-      {/* O endereço inteiro na tela, quebrando onde precisar: ele carrega o id
-          do vault e é longo demais para caber numa linha de celular. */}
-      <code className="cal-endereco">{endereco}</code>
-
-      {/*
-        * Um toque em cada sistema, em vez de seis passos escritos.
-        *
-        * `webcal:` é o mesmo endereço com outro protocolo — o iPhone o entende
-        * como "assinar isto" e abre o Calendário já no diálogo certo.
-        *
-        * O Google tem o equivalente: `/calendar/r?cid=` abre o Google Agenda
-        * direto na pergunta "adicionar este calendário?". Ele precisa do
-        * endereço codificado e de uma sessão aberta do Google — por isso o
-        * passo a passo continua aqui embaixo, recolhido, para quando não abrir.
-        */}
       <div className="cal-botoes">
         {(sistema === 'iphone' || sistema === 'outro') && (
-          <a className="btn btn-principal" href={webcal}>Assinar no iPhone</a>
+          <a className="btn btn-principal" href={webcal}>Conectar ao iPhone</a>
         )}
         {(sistema === 'android' || sistema === 'outro') && (
           <a
@@ -266,39 +241,14 @@ function CartaoCalendario({ vault }: { vault: string | null }) {
             target="_blank"
             rel="noreferrer"
           >
-            Assinar no Google
+            Conectar ao Google
           </a>
         )}
       </div>
 
-      <button className="btn btn-secundario" type="button" onClick={copiar}>
-        {copiado ? 'Copiado' : 'Copiar endereço'}
-      </button>
-
-      <details className="cal-manual">
-        <summary>Se o botão não abrir, dá para fazer à mão</summary>
-        <div className="cal-passos">
-          <span className="cal-titulo">No Google Agenda</span>
-          <ol>
-            <li>Abra o Google Agenda pelo computador — o app do celular não assina.</li>
-            <li>Em "Outras agendas", toque no + e escolha "De URL".</li>
-            <li>Cole o endereço e confirme.</li>
-          </ol>
-        </div>
-        <div className="cal-passos">
-          <span className="cal-titulo">No iPhone</span>
-          <ol>
-            <li>Ajustes, Aplicativos, Calendário, Contas.</li>
-            <li>Adicionar conta, Outra, Adicionar calendário assinado.</li>
-            <li>Cole o endereço e toque em Seguinte.</li>
-          </ol>
-        </div>
-      </details>
-
       <p className="cartao-ajuste-txt cal-ressalva">
         É de mão única: o que está no Cortex aparece no calendário, e o que
-        você criar no calendário não volta para cá. O Google relê algumas vezes
-        por dia; o iPhone deixa escolher de quanto em quanto tempo.
+        você criar no calendário não volta para cá.
       </p>
     </div>
   )
