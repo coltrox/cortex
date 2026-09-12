@@ -23,6 +23,43 @@ const ROTULO: Record<Linha['tipo'], string> = {
   tarefa: 'Tarefa'
 }
 
+/**
+ * As formas em que uma data pode ser procurada.
+ *
+ * A busca comparava só a forma ISO (`2026-10-18`), que é como a data viaja e
+ * não como alguém a escreve. Quem procura a prova de outubro digita `18/10`,
+ * ou `out`, ou `outubro` — e não achava nada, o que fazia a busca parecer
+ * quebrada quando ela só estava surda para o vocabulário certo.
+ *
+ * Sem `Date`: a string ISO já tem os três números, e construir um `Date` a
+ * partir dela devolveria o dia anterior num fuso negativo.
+ */
+const MESES_BUSCA = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+]
+
+export function formasDaData(iso: string, hoje: string): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return []
+  const ano = iso.slice(0, 4)
+  const mes = Number(iso.slice(5, 7))
+  const dia = Number(iso.slice(8, 10))
+  const dd = String(dia).padStart(2, '0')
+  const mm = String(mes).padStart(2, '0')
+  const nome = MESES_BUSCA[mes - 1] ?? ''
+  return [
+    iso,
+    // Com zero e sem zero: quem digita "5/9" e quem digita "05/09" procuram a
+    // mesma coisa, e a comparação é por texto.
+    `${dd}/${mm}`, `${dia}/${mes}`,
+    `${dd}/${mm}/${ano}`, `${dia}/${mes}/${ano}`,
+    `${dia} ${nome.slice(0, 3)}`, nome,
+    // "hoje" e "amanhã" achando o que está marcado para eles: é como se fala
+    // da agenda, e o texto já existe pronto na própria tela.
+    faltam(iso, hoje)
+  ].filter(x => x !== '')
+}
+
 /** O que dá para marcar, na ordem em que aparece no seletor. */
 const TIPOS_MARCAR: [TipoNovo, string][] = [
   ['compromisso', 'Compromisso'],
@@ -131,6 +168,19 @@ export function Agenda(p: {
     p.envio.registrar(montar(!estava))
   }
 
+  /**
+   * A data já passou?
+   *
+   * O que passou continua na lista, riscado, em vez de exigir que alguém o
+   * apague: o dentista de ontem ACONTECEU, e apagá-lo seria dizer que ele
+   * nunca existiu. Ele sai sozinho da tela quando o Cortex parar de
+   * publicá-lo — dois dias depois, ver JANELA_PASSADO_DIAS no Cortex.
+   */
+  const jaPassou = (i: ItemCardapio): boolean => {
+    const d = diasAte(dataDe(i), dia)
+    return d !== null && d < 0
+  }
+
   /** O estado de uma marca: o cardápio decide, a marca local só adianta. */
   const marcado = (chave: string, doCardapio: boolean): boolean =>
     !feitos.includes(`nao-${chave}`) && (doCardapio || feitos.includes(chave))
@@ -183,7 +233,10 @@ export function Agenda(p: {
         i,
         // Nome primeiro; depois o que descreve o item; a data por último,
         // para "18 out" ainda achar, sem ganhar de um acerto no nome.
-        nota: pontuar([i.nome, txt(i.detalhe.materia), txt(i.detalhe.local), dataDe(i)], termo)
+        nota: pontuar(
+          [i.nome, txt(i.detalhe.materia), txt(i.detalhe.local), ...formasDaData(dataDe(i), dia)],
+          termo
+        )
       }))
       .filter((x): x is { i: ItemCardapio; nota: number } => x.nota !== null)
       .sort((a, b) => a.nota - b.nota)
@@ -227,7 +280,7 @@ export function Agenda(p: {
    * cai em "semana que vem" e parece longe.
    */
   const FAIXAS: { nome: string; ate: number }[] = [
-    { nome: 'Atrasado', ate: -1 },
+    { nome: 'Já passou', ate: -1 },
     { nome: 'Esta semana', ate: 7 },
     { nome: 'Semana que vem', ate: 14 },
     { nome: 'Depois', ate: Number.POSITIVE_INFINITY }
@@ -270,7 +323,7 @@ export function Agenda(p: {
     const travado = apagada || path === ''
     return (
       <div
-        className={`item item-acao ${etapa.feito || apagada ? 'item-feito' : ''}`}
+        className={`item item-acao ${etapa.feito || apagada ? 'item-feito' : ''} ${jaPassou(i) ? 'item-passado' : ''}`}
         key={path || i.nome}
       >
         <div className="item-corpo">
@@ -386,7 +439,7 @@ export function Agenda(p: {
     const path = caminhoDe(i)
     const apagado = feitos.includes(`apagar:${path}`)
     return (
-      <div className={`item item-acao ${apagado ? 'item-feito' : ''}`}
+      <div className={`item item-acao ${apagado ? 'item-feito' : ''} ${jaPassou(i) ? 'item-passado' : ''}`}
         key={path || i.nome}>
         <div className="item-corpo">
           {/* A data comemorativa sobe como compromisso — a espécie é a mesma
@@ -438,7 +491,8 @@ export function Agenda(p: {
   }
 
   const cartaoTarefa = (i: ItemCardapio) => (
-    <div className="item item-acao" key={caminhoDe(i) || i.nome}>
+    <div className={`item item-acao ${jaPassou(i) ? 'item-passado' : ''}`}
+      key={caminhoDe(i) || i.nome}>
       <div className="item-corpo">
         <span className="item-tipo">{ROTULO.tarefa}</span>
         <div className="item-nome">{i.nome}</div>
