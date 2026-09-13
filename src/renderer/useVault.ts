@@ -357,6 +357,26 @@ export function useVault() {
     try { await window.vaultApi.abrirTerminal(raiz, subPasta); setErro(null) } catch (e) { falhou(e) }
   }, [])
 
+  /**
+   * Cria um projeto na pasta `projetos` da Área de Trabalho.
+   *
+   * O processo principal autoriza a pasta `projetos` na mesma chamada, e a
+   * lista volta junto: sem atualizá-la aqui, a lente Dev não enxergaria a
+   * pasta recém-criada até reabrir o vault.
+   */
+  const novoProjeto = useCallback(async (
+    modelo: import('../shared/types').ModeloProjeto,
+    linguagem: import('../shared/types').LinguagemProjeto,
+    nome: string
+  ): Promise<import('../shared/types').ProjetoCriado | null> => {
+    try {
+      const r = await window.vaultApi.novoProjeto(modelo, linguagem, nome)
+      setConfig(c => ({ ...c, pastasDev: r.pastasDev }))
+      setErro(null)
+      return r
+    } catch (e) { falhou(e); return null }
+  }, [])
+
   const revelar = useCallback(async (raiz: string, subPasta = ''): Promise<void> => {
     try { await window.vaultApi.abrirNoExplorador(raiz, subPasta); setErro(null) } catch (e) { falhou(e) }
   }, [])
@@ -396,7 +416,7 @@ export function useVault() {
     abrir, abrirPorNome, abrirLink, fechar, salvar,
     criar, alterar, excluir, mover, criarPasta, lancar, marcarNoDia,
     autorizarPasta, autorizarArrastadas, removerPasta,
-    arvoreDev, lerArquivo, gravarArquivo, abrirTerminal, revelar,
+    arvoreDev, lerArquivo, gravarArquivo, abrirTerminal, revelar, novoProjeto,
     erro, limparErro: () => setErro(null)
   }
 }

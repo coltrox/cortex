@@ -2272,6 +2272,58 @@ kbd {
   white-space: pre-wrap;
   word-break: break-word;
 }
+.rodar-saida-nome { font: 12px var(--mono); color: var(--text-2); }
+
+/* ---------- Terminal flutuante ----------
+   Fica no canto de qualquer área enquanto houver processo: os servidores
+   seguem rodando quando a pessoa sai do Dev, e a tela deles precisa de um
+   lugar que não suma junto com a lente. */
+.terminal-botao {
+  position: fixed; right: 18px; bottom: 18px; z-index: 40;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+}
+.terminal-flutuante {
+  position: fixed; right: 18px; bottom: 64px; z-index: 40;
+  width: min(760px, calc(100vw - 36px));
+  display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+}
+.terminal-flutuante-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.terminal-flutuante .rodar-linhas { max-height: 50vh; }
+
+/* ---------- Novo projeto ---------- */
+.dev-secao-botoes, .dev-vazio-botoes { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dev-vazio-botoes { justify-content: center; }
+.novo-projeto {
+  width: min(540px, calc(100vw - 40px));
+  display: flex; flex-direction: column; gap: 10px; padding: 18px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px;
+}
+.novo-projeto-topo { display: flex; align-items: center; justify-content: space-between; }
+.novo-projeto-modelos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.novo-projeto-modelo {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px; text-align: left;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunk);
+  color: var(--text); font: inherit; cursor: pointer;
+}
+.novo-projeto-modelo span { font-size: 12px; line-height: 1.4; color: var(--text-3); }
+.novo-projeto-modelo[aria-pressed="true"],
+.novo-projeto .chip[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.novo-projeto-campo { display: flex; flex-direction: column; gap: 4px; }
+.novo-projeto-campo input {
+  padding: 8px 10px; font: inherit; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 6px;
+}
+.novo-projeto-comando {
+  margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--surface-sunk);
+  font: 11.5px/1.5 var(--mono); color: var(--text-2); white-space: pre-wrap; word-break: break-all;
+}
+.novo-projeto-rodape { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
 /* ---------- Editor de código com numeração ---------- */
 

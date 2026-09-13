@@ -27,6 +27,7 @@ import { LenteSaude } from './components/LenteSaude'
 import { LenteEstudos } from './components/LenteEstudos'
 import { LenteGrana } from './components/LenteGrana'
 import { LenteDev } from './components/LenteDev'
+import { TerminalFlutuante } from './components/TerminalFlutuante'
 
 /** Engrenagem do rodapé do rail — abre as Configurações. */
 function IconeConfig({ size = 18 }: { size?: number }) {
@@ -291,6 +292,7 @@ export function App() {
             lerArquivo={v.lerArquivo}
             gravarArquivo={v.gravarArquivo}
             aoTerminal={(raiz, sub) => void v.abrirTerminal(raiz, sub)}
+            aoNovoProjeto={(modelo, linguagem, nome) => v.novoProjeto(modelo, linguagem, nome)}
             aoRevelar={(raiz, sub) => void v.revelar(raiz, sub)}
             aoCriarPasta={p => void v.criarPasta(p)}
             aoMoverNota={(de, para) => void v.mover(de, para)}
@@ -396,6 +398,10 @@ export function App() {
           ) : view()}
         </main>
       </div>
+
+      {/* Fora da lente Dev de propósito: os processos seguem rodando quando a
+          pessoa troca de área, e a tela deles não pode sumir junto. */}
+      <TerminalFlutuante />
 
       {paleta && (
         <Paleta

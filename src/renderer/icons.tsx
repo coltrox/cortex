@@ -101,17 +101,18 @@ export function IconeCalendario({ size = 19 }: Props) {
 export function IconeCerebro({ size = 19 }: Props) {
   return (
     <svg {...base(size)}>
-      {/* O contorno de perfil: um hemisfério visto de lado, do lobo frontal
-          (à esquerda) à nuca (à direita). */}
-      <path d="M7.7 16.9c-2.2-.2-3.6-2-3.3-3.9-1.4-1.3-1.3-3.6.3-4.7 0-2.4 2.3-4.2 4.7-3.8C10.8 2.9 13.5 3 14.9 4.6c2.6-.1 4.8 1.9 5 4.5 1.3 1.3 1.2 3.6-.3 4.8-.1 1.8-1.6 3.1-3.4 3" />
-      {/* A base e o tronco. É o tronco que faz o desenho virar cérebro de
-          lado em vez de nuvem: sem ele a silhueta fica ambígua. */}
-      <path d="M7.7 16.9h6.5" />
-      <path d="M14.2 16.9c.1 1.6.5 2.8 1.4 4.1" />
-      {/* Dois sulcos, e não seis: a 19 px, mais traços fecham entre si e o
-          miolo do ícone vira um borrão. */}
-      <path d="M8.2 8.6c1.4 1.1 1.4 3 .1 4.2" />
-      <path d="M12.4 5.6c1.5 1.5 1.4 3.8-.3 5.1 1.3 1.2 1.5 3.1.4 4.5" />
+      {/* De frente, e não de perfil: os dois hemisférios espelhados leem como
+          cérebro na hora, a 19 px. O de perfil pedia um tronco para não virar
+          nuvem, e mesmo assim o dono achou feio. */}
+      <path d="M12 5.2c-.8-1.5-2.8-2.1-4.3-1.2-1.1.6-1.7 1.8-1.6 3-1.5.4-2.5 1.8-2.3 3.4.1.8.5 1.5 1.1 2-.6 1.1-.5 2.5.3 3.4.7.8 1.7 1.2 2.7 1.1.4 1.5 1.8 2.5 3.4 2.3.3 0 .5-.1.7-.2" />
+      <path d="M12 5.2c.8-1.5 2.8-2.1 4.3-1.2 1.1.6 1.7 1.8 1.6 3 1.5.4 2.5 1.8 2.3 3.4-.1.8-.5 1.5-1.1 2 .6 1.1.5 2.5-.3 3.4-.7.8-1.7 1.2-2.7 1.1-.4 1.5-1.8 2.5-3.4 2.3-.3 0-.5-.1-.7-.2" />
+      {/* A fissura entre os hemisférios. */}
+      <path d="M12 5.2v14.4" />
+      {/* Um sulco de cada lado, espelhados. Mais do que isso fecha o desenho. */}
+      <path d="M8.4 9.2c1 .3 1.6 1.2 1.5 2.3" />
+      <path d="M15.6 9.2c-1 .3-1.6 1.2-1.5 2.3" />
+      <path d="M7.6 14.6c.9-.3 1.9 0 2.4.8" />
+      <path d="M16.4 14.6c-.9-.3-1.9 0-2.4.8" />
     </svg>
   )
 }

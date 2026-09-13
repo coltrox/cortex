@@ -6,9 +6,13 @@ import { Session } from './session'
 import { registerIpc, sincronizadorDe } from './ipc/handlers'
 import { ligarCampainha, desligarCampainha } from './nuvem/campainha'
 import { Processos, scriptsDoProjeto } from './dev/processos'
+import {
+  etapasNovoProjeto, nomeDeProjetoValido, MODELOS_PROJETO, LINGUAGENS_PROJETO
+} from './dev/novoProjeto'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 import { ehOuContem } from './caminhos'
 import { ligarAtualizacaoAutomatica } from './atualizador'
+import { instrucoesParaClaude } from './instrucoesClaude'
 
 const session = new Session()
 
@@ -413,6 +417,78 @@ ipcMain.handle('dev:saida', async (_e, payload: unknown) => {
 ipcMain.handle('dev:limpar-encerrados', async () => {
   processos.limparEncerrados()
   return { processos: processos.listar() }
+})
+
+/**
+ * Cria um projeto novo em `Área de Trabalho\projetos` e já instala tudo.
+ *
+ * A tela manda três coisas: o modelo e a linguagem, de listas fechadas, e um
+ * nome, conferido pelo formato estreito de `novoProjeto.ts`. Os comandos são
+ * montados aqui, daquela tabela.
+ *
+ * A pasta `projetos` entra na lista de autorização sem o diálogo nativo, e é
+ * a exceção consciente: não é a tela nomeando um caminho do disco — é este
+ * botão, apertado pela pessoa, criando uma pasta num lugar fixo que o próprio
+ * processo principal escolhe.
+ */
+ipcMain.handle('dev:novo-projeto', async (_e, payload: unknown) => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { modelo?: unknown; linguagem?: unknown; nome?: unknown }
+  const modelo = MODELOS_PROJETO.find(m => m === p.modelo)
+  const linguagem = LINGUAGENS_PROJETO.find(l => l === p.linguagem)
+  if (!modelo) throw new Error('modelo inválido')
+  if (!linguagem) throw new Error('linguagem inválida')
+  if (!nomeDeProjetoValido(p.nome)) {
+    throw new Error('nome inválido: comece com letra minúscula e use só letras, números, - e _')
+  }
+  const nome = p.nome
+
+  const base = join(app.getPath('desktop'), 'projetos')
+  await mkdir(base, { recursive: true })
+  if (await stat(join(base, nome)).catch(() => null)) {
+    throw new Error(`já existe uma pasta "${nome}" em projetos`)
+  }
+
+  let pastasDev = session.config.pastasDev
+  let raiz = pastasDev.find(x => resolve(x) === resolve(base))
+  if (!raiz) {
+    pastasDev = (await session.salvarConfig({ pastasDev: [...pastasDev, base] })).pastasDev
+    raiz = base
+  }
+
+  const etapas = etapasNovoProjeto(modelo, linguagem, nome, base)
+  const rotulo = `criar ${modelo === 'expo' ? 'Expo' : 'Vite'} · ${nome}`
+  const processo = processos.iniciarEtapas(raiz, rotulo, etapas)
+  return { processo, raiz, pasta: nome, pastasDev }
+})
+
+/**
+ * Grava `CLAUDE.md` na raiz do vault: as instruções para o Claude Code de
+ * quem usar este vault — apresentar o app, entrevistar a pessoa, e escrever o
+ * resumo do diário.
+ *
+ * O texto é montado aqui (`instrucoesClaude.ts`); a tela só pede. Um
+ * `CLAUDE.md` que já existe pode ter sido escrito à mão, e só é substituído
+ * com a pessoa confirmando no diálogo nativo.
+ */
+ipcMain.handle('vault:instrucoes-claude', async () => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const rel = 'CLAUDE.md'
+  const caminho = join(session.vault.root, rel)
+  if (await session.vault.exists(rel)) {
+    const r = await dialog.showMessageBox({
+      type: 'question',
+      title: 'Instruções para o Claude Code',
+      message: 'Já existe um CLAUDE.md neste vault. Substituir pelo modelo do Cortex?',
+      detail: 'O arquivo atual será sobrescrito.',
+      buttons: ['Substituir', 'Cancelar'],
+      defaultId: 1,
+      cancelId: 1
+    })
+    if (r.response !== 0) return { criado: false, caminho }
+  }
+  await session.vault.writeAtomic(rel, instrucoesParaClaude(session.config.areas))
+  return { criado: true, caminho }
 })
 
 /**

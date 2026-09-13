@@ -17,6 +17,9 @@ import { randomUUID } from 'node:crypto'
  * jamais concatenados numa string de shell. Sem isso, esta classe seria uma
  * execução de comando arbitrário à disposição de qualquer código que rodasse
  * no renderer — que é entrada hostil neste projeto.
+ *
+ * Criar projeto novo (`novoProjeto.ts`) passa pelo mesmo caminho: as etapas
+ * são montadas pelo processo principal a partir de uma tabela fixa.
  */
 
 /** Quantas linhas de saída ficam guardadas por processo. */
@@ -36,7 +39,7 @@ const TETO_LINHAS = 400
  * bugado". Limpar aqui, e não no renderer, mantém guardado o mesmo texto que
  * a tela mostra e que a busca do endereço lê.
  *
- * Montadas com `new RegExp` a partir de string: um `` literal dentro de
+ * Montadas com `new RegExp` a partir de string: um `` literal dentro de
  * uma expressão regular some com facilidade ao editar o arquivo, e um escape
  * perdido aqui transforma a limpeza numa função que não limpa nada.
  *
@@ -68,7 +71,27 @@ export type ProcessoInfo = {
   saiu: number | null
 }
 
-type Processo = ProcessoInfo & { linhas: string[]; filho: ChildProcess | null }
+/**
+ * Um comando de uma sequência — `npx create-vite ...`, depois `npm install`.
+ *
+ * Quem monta é SEMPRE o processo principal, a partir de tabelas fixas: os
+ * scripts do `package.json` em `iniciar`, e `novoProjeto.ts`. A tela nunca
+ * chega perto disto.
+ */
+export type Etapa = {
+  comando: string
+  args: string[]
+  cwd: string
+  /** Variáveis a mais só para esta etapa — `CI=1` tira as perguntas dos criadores. */
+  env?: Record<string, string>
+}
+
+type Processo = ProcessoInfo & {
+  linhas: string[]
+  filho: ChildProcess | null
+  /** Parado pelo botão: a próxima etapa da sequência não começa. */
+  parado: boolean
+}
 
 /** Os scripts declarados no package.json do projeto, ou lista vazia. */
 export async function scriptsDoProjeto(cwd: string): Promise<string[]> {
@@ -99,25 +122,22 @@ export class Processos {
     if (!permitidos.includes(script)) {
       throw new Error('"' + script + '" não é um script do package.json deste projeto')
     }
+    return this.iniciarEtapas(raiz, script, [{ comando: 'npm', args: ['run', script], cwd }])
+  }
 
-    const id = randomUUID()
+  /**
+   * Roda uma sequência de comandos, um depois do outro, como UM processo na
+   * tela — criar o projeto e instalar aparecem numa saída só.
+   *
+   * Uma etapa que sai com erro encerra a sequência: rodar `npm install` numa
+   * pasta que o criador não terminou de montar só empilharia erros por cima
+   * do erro que importa.
+   */
+  iniciarEtapas(raiz: string, rotulo: string, etapas: Etapa[]): ProcessoInfo {
     const p: Processo = {
-      id, raiz, script, pid: null, url: null, saiu: null, linhas: [], filho: null
+      id: randomUUID(), raiz, script: rotulo, pid: null, url: null, saiu: null,
+      linhas: [], filho: null, parado: false
     }
-
-    // `shell: true` no Windows porque `npm` é um .cmd e sem shell o spawn não
-    // o encontra. Os argumentos continuam indo como lista — o nome do script
-    // já foi conferido contra o package.json, então não existe string de
-    // comando montada a partir de entrada do renderer.
-    const filho = spawn('npm', ['run', script], {
-      cwd,
-      shell: process.platform === 'win32',
-      windowsHide: true,
-      env: { ...process.env, FORCE_COLOR: '0' }
-    })
-
-    p.filho = filho
-    p.pid = filho.pid ?? null
 
     const engolir = (b: Buffer | string): void => {
       for (const bruta of String(b).split(/\r?\n/)) {
@@ -136,15 +156,49 @@ export class Processos {
       }
     }
 
-    filho.stdout?.on('data', engolir)
-    filho.stderr?.on('data', engolir)
-    filho.on('error', e => engolir('[cortex] não deu para iniciar: ' + e.message))
-    filho.on('close', codigo => {
-      p.saiu = codigo ?? 0
-      p.filho = null
-    })
+    const rodar = (i: number): void => {
+      const etapa = etapas[i]
+      if (!etapa) { p.saiu = 0; return }
+      // Numa sequência, cada comando se anuncia: sem isto a saída do `npm
+      // install` pareceria continuação do criador do projeto.
+      if (etapas.length > 1) engolir(`[cortex] ${etapa.comando} ${etapa.args.join(' ')}`)
 
-    this.mapa.set(id, p)
+      // `shell: true` no Windows porque `npm` e `npx` são .cmd e sem shell o
+      // spawn não os encontra. Os argumentos continuam indo como lista, e
+      // todos saem de tabela fixa ou de nome já conferido — não existe string
+      // de comando montada a partir de entrada do renderer.
+      const filho = spawn(etapa.comando, etapa.args, {
+        cwd: etapa.cwd,
+        shell: process.platform === 'win32',
+        windowsHide: true,
+        env: { ...process.env, FORCE_COLOR: '0', ...etapa.env }
+      })
+
+      p.filho = filho
+      p.pid = filho.pid ?? null
+      let falhou = false
+
+      filho.stdout?.on('data', engolir)
+      filho.stderr?.on('data', engolir)
+      filho.on('error', e => {
+        // Pasta que não existe, comando que não existe: o `close` pode nem
+        // vir, e sem marcar aqui o processo ficaria "rodando" para sempre.
+        falhou = true
+        engolir('[cortex] não deu para iniciar: ' + e.message)
+        p.filho = null
+        if (p.saiu === null) p.saiu = 1
+      })
+      filho.on('close', codigo => {
+        if (falhou) return
+        p.filho = null
+        const c = codigo ?? 0
+        if (c !== 0 || p.parado) { p.saiu = c; return }
+        rodar(i + 1)
+      })
+    }
+
+    this.mapa.set(p.id, p)
+    rodar(0)
     return this.publico(p)
   }
 
@@ -157,7 +211,11 @@ export class Processos {
    */
   parar(id: string): void {
     const p = this.mapa.get(id)
-    if (!p?.filho) return
+    if (!p) return
+    // Antes de matar: numa sequência, o `close` que vem a seguir não pode
+    // começar a próxima etapa.
+    p.parado = true
+    if (!p.filho) return
     const pid = p.filho.pid
     if (pid === undefined) return
 

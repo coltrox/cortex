@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { NoteComCampos } from '../tipos'
 import { feriadosDoAno, type Feriado } from '../../shared/feriados'
+import { diasNoMes as diasDoMesNoAno } from '../../shared/datas'
 import { Linha, txt } from './base'
 
 const MESES = [
@@ -9,15 +10,22 @@ const MESES = [
 ]
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
 
-/** O que dá para criar direto de um dia do calendário. */
+/**
+ * O que dá para criar direto de um dia do calendário.
+ *
+ * Os mesmos quatro que o calendário mostra. Consulta, cardio e medida saíram
+ * junto com as notas: marcar ali algo que o calendário não desenha criaria uma
+ * nota que some da própria tela onde foi criada.
+ */
 const CRIAVEIS = [
   { tipo: 'evento', nome: 'Compromisso' },
   { tipo: 'prova', nome: 'Prova' },
-  { tipo: 'consulta', nome: 'Consulta' },
   { tipo: 'tarefa', nome: 'Tarefa' },
-  { tipo: 'cardio', nome: 'Cardio' },
-  { tipo: 'medida', nome: 'Medida' }
+  { tipo: 'data-comemorativa', nome: 'Data comemorativa' }
 ]
+
+/** Os tipos com data marcada que o calendário mostra. A data comemorativa vem à parte. */
+const TIPOS_DO_CALENDARIO = new Set(['evento', 'prova', 'simulado', 'tarefa'])
 
 /** Constrói ISO sem passar por Date — evita a viagem de fuso do toISOString. */
 function iso(ano: number, mes: number, dia: number): string {
@@ -52,12 +60,42 @@ function legenda(f: Feriado): string {
 }
 
 /**
+ * O que aparece em cada dia do ano que a grade mostra.
+ *
+ * Só compromissos, provas, tarefas e datas comemorativas — a pedido do dono.
+ * Antes o calendário lia o `date:` de QUALQUER nota, e anotação, medida,
+ * treino feito e movimento do porquinho enchiam os quadradinhos e enterravam
+ * o que tem hora para acontecer.
+ *
+ * A data comemorativa não tem `date`: tem dia e mês, e cai todo ano. Aparece no
+ * dia dela do ano da grade; 29/02 em ano comum cai em 28/02, como no resto do
+ * app, e um dia que não existe em mês nenhum (31/04) não aparece.
+ */
+export function porDiaDoCalendario(notas: NoteComCampos[], ano: number): Map<string, NoteComCampos[]> {
+  const m = new Map<string, NoteComCampos[]>()
+  const por = (data: string, n: NoteComCampos): void => {
+    const atual = m.get(data)
+    if (atual) atual.push(n)
+    else m.set(data, [n])
+  }
+  for (const n of notas) {
+    if (n.tipo === 'data-comemorativa') {
+      const dia = Number(n.campos.dia)
+      const mes = Number(n.campos.mes)
+      if (!Number.isInteger(dia) || !Number.isInteger(mes) || mes < 1 || mes > 12 || dia < 1) continue
+      if (dia > diasDoMesNoAno(mes, 2024)) continue
+      por(iso(ano, mes - 1, Math.min(dia, diasDoMesNoAno(mes, ano))), n)
+      continue
+    }
+    if (!n.date || !TIPOS_DO_CALENDARIO.has(n.tipo)) continue
+    por(n.date, n)
+  }
+  return m
+}
+
+/**
  * Grade mensal. Clicar num dia abre o popup daquele dia: o que está marcado,
  * e os botões para marcar mais uma coisa ali.
- *
- * Não existe "evento" como entidade privilegiada — o calendário lê o campo
- * `date:` de qualquer nota. Prova, consulta, treino e viagem caem aqui pelo
- * mesmo caminho.
  */
 export function Calendario({
   notas, hoje, aoAbrir, aoAdicionar, aoExcluir
@@ -78,19 +116,7 @@ export function Calendario({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const porDia = useMemo(() => {
-    const m = new Map<string, NoteComCampos[]>()
-    for (const n of notas) {
-      if (!n.date) continue
-      // O diário do dia é o arquivo de trabalho do app, não um compromisso:
-      // ele apareceria em todo santo dia da grade e enterraria o que importa.
-      if (n.tipo === 'diario') continue
-      const atual = m.get(n.date)
-      if (atual) atual.push(n)
-      else m.set(n.date, [n])
-    }
-    return m
-  }, [notas])
+  const porDia = useMemo(() => porDiaDoCalendario(notas, ano), [notas, ano])
 
   /*
    * Os feriados do ano na tela.
@@ -236,7 +262,14 @@ export function Calendario({
                   <button
                     key={c.tipo}
                     className="chip"
-                    onClick={() => { aoAdicionar(c.tipo, { date: dia }); setDia(null) }}
+                    onClick={() => {
+                      // A data comemorativa guarda dia e mês, não uma data: o
+                      // ano de algo que se repete é quando começou.
+                      aoAdicionar(c.tipo, c.tipo === 'data-comemorativa'
+                        ? { dia: Number(dia.slice(8, 10)), mes: Number(dia.slice(5, 7)) }
+                        : { date: dia })
+                      setDia(null)
+                    }}
                   >
                     + {c.nome}
                   </button>

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type DragEvent } from 'react'
 import { PainelRodar } from './PainelRodar'
 import { EditorCodigo } from './EditorCodigo'
+import { NovoProjeto } from './NovoProjeto'
 import type { EntradaDev } from '../useVault'
+import type { LinguagemProjeto, ModeloProjeto } from '../../shared/types'
 import { Secao, Titulo, Linha, Vazio, txt, type PropsLente } from './base'
 
 /**
@@ -33,6 +35,10 @@ type PropsDev = PropsLente & {
   aoCriarPasta: (pasta: string) => void
   aoMoverNota: (de: string, paraPasta: string) => void
   aoSoltarPastas: (arquivos: FileList) => void
+  /** Cria um projeto em Área de Trabalho\projetos; `null` se não deu. */
+  aoNovoProjeto: (
+    modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
+  ) => Promise<{ raiz: string } | null>
 }
 
 const nomeBase = (p: string): string => p.slice(p.lastIndexOf('/') + 1).replace(/\.md$/i, '')
@@ -204,7 +210,7 @@ function NavegadorVault({
 
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
-  aoTerminal, aoRevelar, aoSoltarPastas
+  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto
 }: PropsDev) {
   const [sobrevoando, setSobrevoando] = useState(false)
   const [raiz, setRaiz] = useState<string | null>(pastasDev[0] ?? null)
@@ -217,14 +223,30 @@ function Codigo({
   const [gravado, setGravado] = useState('')
   const [salvando, setSalvando] = useState(false)
 
+  const [criandoProjeto, setCriandoProjeto] = useState(false)
+  /**
+   * A pasta `projetos` de um projeto recém-criado, esperando a lista de
+   * pastas autorizadas chegar com ela. Selecionar antes faria o efeito abaixo
+   * achar a raiz "não autorizada" e trocar para a primeira da lista.
+   */
+  const [querRaiz, setQuerRaiz] = useState<string | null>(null)
+
   // Uma pasta autorizada agora, ou a última removida, muda quem deve estar
   // selecionado — sem isto a tela ficaria apontando para uma raiz que saiu.
   useEffect(() => {
+    if (querRaiz) {
+      if (!pastasDev.includes(querRaiz)) return
+      setRaiz(querRaiz)
+      setPastaAtual('')
+      setArquivo(null)
+      setQuerRaiz(null)
+      return
+    }
     if (raiz && pastasDev.includes(raiz)) return
     setRaiz(pastasDev[0] ?? null)
     setPastaAtual('')
     setArquivo(null)
-  }, [pastasDev, raiz])
+  }, [pastasDev, raiz, querRaiz])
 
   const carregar = useCallback(async (r: string, sub: string) => {
     setCarregando(true)
@@ -235,6 +257,21 @@ function Codigo({
     if (raiz) void carregar(raiz, pastaAtual)
     else setItens([])
   }, [raiz, pastaAtual, carregar])
+
+  // Um processo que termina (a criação de um projeto, um build) muda o que há
+  // na pasta: a árvore é lida de novo sem ninguém apertar nada.
+  const recarregar = useCallback(() => {
+    if (raiz) void carregar(raiz, pastaAtual)
+  }, [raiz, pastaAtual, carregar])
+
+  const criarProjeto = async (
+    modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
+  ): Promise<boolean> => {
+    const r = await aoNovoProjeto(modelo, linguagem, nome)
+    if (!r) return false
+    setQuerRaiz(r.raiz)
+    return true
+  }
 
   const abrirArquivo = async (rel: string): Promise<void> => {
     if (!raiz) return
@@ -268,6 +305,10 @@ function Codigo({
     }
   }
 
+  const janelaNovoProjeto = criandoProjeto && (
+    <NovoProjeto aoCriar={criarProjeto} aoFechar={() => setCriandoProjeto(false)} />
+  )
+
   if (pastasDev.length === 0) {
     return (
       <div {...zona} data-soltar={sobrevoando}>
@@ -279,8 +320,12 @@ function Codigo({
             enxerga as pastas que você autorizar, uma a uma — nada fora delas é
             lido ou gravado, nem o resto do disco, nem o próprio vault.
           </p>
-          <button className="btn grande" onClick={aoAutorizar}>Escolher uma pasta</button>
+          <div className="dev-vazio-botoes">
+            <button className="btn grande" onClick={() => setCriandoProjeto(true)}>Novo projeto</button>
+            <button className="btn-fantasma" onClick={aoAutorizar}>Escolher uma pasta</button>
+          </div>
         </div>
+        {janelaNovoProjeto}
       </div>
     )
   }
@@ -289,7 +334,12 @@ function Codigo({
     <div {...zona} data-soltar={sobrevoando}>
       <Secao
         nome="Pastas de código"
-        direita={<button className="btn-fantasma" onClick={aoAutorizar}>+ Autorizar pasta</button>}
+        direita={
+          <span className="dev-secao-botoes">
+            <button className="btn-fantasma" onClick={() => setCriandoProjeto(true)}>+ Novo projeto</button>
+            <button className="btn-fantasma" onClick={aoAutorizar}>+ Autorizar pasta</button>
+          </span>
+        }
       />
 
       <div className="chips">
@@ -335,7 +385,7 @@ function Codigo({
             </div>
           </div>
 
-          <PainelRodar raiz={raiz} sub={pastaAtual} />
+          <PainelRodar raiz={raiz} sub={pastaAtual} aoTerminar={recarregar} />
 
           <div className="dev-corpo">
             <div className="dev-arvore">
@@ -386,6 +436,8 @@ function Codigo({
           </div>
         </>
       )}
+
+      {janelaNovoProjeto}
     </div>
   )
 }

@@ -83,6 +83,19 @@ export type ProcessoInfo = {
   saiu: number | null
 }
 
+/** Criar projeto pela lente Dev. Ver main/dev/novoProjeto.ts. */
+export type ModeloProjeto = 'expo' | 'vite'
+export type LinguagemProjeto = 'ts' | 'js'
+export type ProjetoCriado = {
+  /** A criação e a instalação, rodando como um processo só. */
+  processo: ProcessoInfo
+  /** A pasta `projetos` da Área de Trabalho, já autorizada. */
+  raiz: string
+  /** O nome do projeto, que vira a subpasta. */
+  pasta: string
+  pastasDev: string[]
+}
+
 declare global {
   interface Window {
     vaultApi: {
@@ -106,6 +119,9 @@ declare global {
       saidaDoProcesso(id: string): Promise<{ linhas: string[] }>
       limparEncerrados(): Promise<{ processos: ProcessoInfo[] }>
       abrirNoVsCode(raiz: string, sub?: string): Promise<{ ok: boolean; motivo?: string }>
+      novoProjeto(modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string): Promise<ProjetoCriado>
+      /** Grava o CLAUDE.md do vault. Ver main/instrucoesClaude.ts. */
+      instrucoesClaude(): Promise<{ criado: boolean; caminho: string }>
 
       /*
        * Preferências de tela, gravadas em disco pelo processo principal.

@@ -92,6 +92,21 @@ const api = {
   abrirNoVsCode(raiz: string, sub = ''): Promise<{ ok: boolean; motivo?: string }> {
     return ipcRenderer.invoke('dev:vscode', { raiz, sub })
   },
+  /*
+   * Cria um projeto em Área de Trabalho\projetos. A tela manda só o modelo, a
+   * linguagem e o nome; os comandos são montados no processo principal.
+   */
+  novoProjeto(
+    modelo: import('../shared/types').ModeloProjeto,
+    linguagem: import('../shared/types').LinguagemProjeto,
+    nome: string
+  ): Promise<import('../shared/types').ProjetoCriado> {
+    return ipcRenderer.invoke('dev:novo-projeto', { modelo, linguagem, nome })
+  },
+  /** Grava o CLAUDE.md na raiz do vault. O texto é montado no processo principal. */
+  instrucoesClaude(): Promise<{ criado: boolean; caminho: string }> {
+    return ipcRenderer.invoke('vault:instrucoes-claude')
+  },
 
   /*
    * As preferências de tela, gravadas pelo processo principal.
