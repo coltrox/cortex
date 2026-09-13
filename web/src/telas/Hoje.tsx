@@ -361,7 +361,8 @@ export function Hoje(p: {
   const progressoDoDia = fracaoDoDia(
     [
       ...suplementos.map(s => estaFeito(`suplemento:${s.nome}`, s.detalhe.feito === true)),
-      ...refeicoes.map(r => estaFeito(`refeicao:${r.nome}`, r.detalhe.feito === true)),
+      // Sem as refeições: elas saíram desta tela, e o anel conta só o que
+      // a lista abaixo dele mostra — ver o comentário acima.
       ...rotinas.map(t => estaFeito(`rotina:${t.nome}`, t.detalhe.feito === true))
     ],
     agua,
@@ -616,28 +617,9 @@ export function Hoje(p: {
         ))}
         </div>}
 
-        {refeicoes.length > 0 && <div className="grupo">
-        <Secao nome="Refeições" />
-        {refeicoes.map(r => (
-          <Check
-            key={r.nome}
-            rotulo={r.nome}
-            detalhe={<Detalhe partes={[r.detalhe.hora, r.detalhe.itens]} />}
-            feito={estaFeito(`refeicao:${r.nome}`, r.detalhe.feito === true)}
-            aoMarcar={() => alternar(
-              `refeicao:${r.nome}`,
-              estaFeito(`refeicao:${r.nome}`, r.detalhe.feito === true),
-              feito => eventoRefeicaoPlano(r.nome, dia, feito)
-            )}
-          />
-        ))}
-        {/* A ponte para a aba Dieta: aqui é a lista de marcar, lá é o plano
-            inteiro com as calorias. Sem este atalho, quem quisesse conferir o
-            plano teria de descobrir sozinho que existe uma aba para isso. */}
-        <button className="grupo-mais" type="button" onClick={() => p.irPara('dieta')}>
-          Ver o plano inteiro
-        </button>
-        </div>}
+        {/* As refeições NÃO moram aqui: só na aba Dieta, a pedido do dono —
+            com o plano inteiro, cada refeição é um parágrafo, e o Hoje virava
+            um cardápio em vez de um resumo do dia. */}
 
         {/*
           * Cardio e Estudo, lado a lado.
