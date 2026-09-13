@@ -261,7 +261,7 @@ describe('planejar — agenda e estudos', () => {
       dados: { path: 'Agenda/Dentista.md' }
     })).toEqual([{
       acao: 'apagar', path: 'Agenda/Dentista.md',
-      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao']
+      tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao', 'data-comemorativa']
     }])
   })
 

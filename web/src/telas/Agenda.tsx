@@ -103,8 +103,8 @@ export function Agenda(p: {
 }) {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
-  /** Que tipo o seletor de Marcar está mostrando. */
-  const [aMarcar, setAMarcar] = useState<TipoNovo>('compromisso')
+  /** A lista de tipos do botão Marcar está aberta? */
+  const [escolhendo, setEscolhendo] = useState(false)
   /** O caminho da nota cujas ações estão abertas — uma de cada vez. */
   const [aberto, setAberto] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
@@ -672,41 +672,25 @@ export function Agenda(p: {
                 : null}
           </div>
         )}
-        {/* Escolher entre três coisas é um seletor, como no resto do app.
-            Eram chips que apareciam em cascata depois de um primeiro toque:
-            dois gestos, um vocabulário só desta tela, e a largura inteira
-            ocupada por algo que se faz de vez em quando. */}
+        {/* Só o botão. O tipo se escolhe depois de tocar nele — pedido do
+            dono: um seletor ao lado do botão era uma decisão a mais na tela
+            para algo que se faz de vez em quando. */}
         <Secao nome="Marcar" />
         <div className="marcar">
-          <Selecao
-            rotulo="O que marcar"
-            opcoes={tiposMarcar.map(t => t[1])}
-            valor={TIPOS_MARCAR.find(t => t[0] === aMarcar)?.[1] ?? ''}
-            aoMudar={nome => {
-              const achado = TIPOS_MARCAR.find(t => t[1] === nome)
-              if (achado) setAMarcar(achado[0])
-            }}
-          />
           <button className="btn btn-principal marcar-botao" type="button"
-            onClick={() => p.aoMarcar(aMarcar)}>
+            aria-expanded={escolhendo}
+            onClick={() => setEscolhendo(!escolhendo)}>
             Marcar
           </button>
         </div>
-
-        {/* A busca fica acima das listas e some quando não há o que buscar:
-            com dois itens na agenda, um campo de procurar é só ruído. */}
-        {(provas(p.cardapio.cardapio).length
-          + compromissos(p.cardapio.cardapio).length
-          + tarefas(p.cardapio.cardapio).length) > 4 && (
-          <div className="busca">
-            <input
-              className="busca-campo"
-              type="search"
-              value={busca}
-              onChange={e => setBusca(e.target.value)}
-              placeholder="procurar por nome, matéria ou local"
-              aria-label="procurar na agenda"
-            />
+        {escolhendo && (
+          <div className="chips marcar-tipos">
+            {tiposMarcar.map(([t, nome]) => (
+              <button key={t} className="chip" type="button"
+                onClick={() => { setEscolhendo(false); p.aoMarcar(t) }}>
+                {nome}
+              </button>
+            ))}
           </div>
         )}
 
@@ -722,6 +706,24 @@ export function Agenda(p: {
             }}
           />
         </div>
+
+        {/* A busca vem DEPOIS do filtro, logo acima da lista que ela procura,
+            e some quando não há o que buscar: com dois itens na agenda, um
+            campo de procurar é só ruído. */}
+        {(provas(p.cardapio.cardapio).length
+          + compromissos(p.cardapio.cardapio).length
+          + tarefas(p.cardapio.cardapio).length) > 4 && (
+          <div className="busca">
+            <input
+              className="busca-campo"
+              type="search"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="procurar por nome, matéria ou local"
+              aria-label="procurar na agenda"
+            />
+          </div>
+        )}
 
         {visiveis.length === 0 && !p.cardapio.erro && (
           <p className="secao-vazia">

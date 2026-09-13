@@ -375,7 +375,9 @@ export function planejar(evento: Evento): Operacao[] {
         // poder ser apagada de lá também. Continua sendo uma lista curta de
         // tipos que o próprio celular cria — este evento nunca alcança conta,
         // documento, projeto ou diário.
-        tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao']
+        // `data-comemorativa` entrou em 13/09/2026: ela é criada pelo celular
+        // desde a 1.9, e o excluir de lá era descartado aqui em silêncio.
+        tiposPermitidos: ['evento', 'prova', 'simulado', 'tarefa', 'anotacao', 'data-comemorativa']
       }]
     }
 

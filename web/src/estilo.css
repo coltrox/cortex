@@ -1632,6 +1632,12 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 /* O painel fica DENTRO do cartão da refeição, colado nele: solto embaixo, com
    a lista rolando, ele parecia pertencer à refeição de baixo. */
 .refeicao + .refeicao{ margin-top:var(--e2); }
+/* Refeição aberta: o texto continua na linha de baixo em vez de cortar. */
+.refeicao-aberta .item-meta{ white-space:normal; overflow:visible; }
+
+/* Chegando: só o botão Marcar; o tipo se escolhe depois de tocar nele. */
+.marcar .marcar-botao{ flex:1; }
+.marcar-tipos{ margin-top:var(--e2); }
 .refeicao-painel{
   margin-top:2px; padding:var(--e4);
   background:var(--painel); border:1px solid var(--borda);

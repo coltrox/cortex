@@ -229,7 +229,9 @@ export function Dieta(p: {
           const d = detalheDe(r.nome)
           const aberto = aberta === r.nome
           return (
-            <div key={r.nome} className="refeicao">
+            // Aberta, a linha dos itens deixa de cortar com reticências: a seta
+            // é o jeito de ler a refeição inteira, e não só de responder.
+            <div key={r.nome} className={`refeicao ${aberto ? 'refeicao-aberta' : ''}`}>
               <Check
                 rotulo={r.nome}
                 detalhe={<Detalhe partes={[
