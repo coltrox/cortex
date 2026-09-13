@@ -6,7 +6,7 @@ import {
 import { guardadoDoNavegador } from '../guardado'
 import { guardarPendenteAgenda, pendenteComemorativo } from '../agendaLocal'
 import { dataCurta, faltam } from '../cardapio'
-import { proximaOcorrencia, anosCompletados } from '@compartilhado/datas'
+import { proximaOcorrencia, anosCompletados, OQUE_COMEMORATIVA } from '@compartilhado/datas'
 import { Cabecalho, Botao, Campo, CampoNumero, Selecao, Aviso } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
@@ -33,6 +33,8 @@ export type EdicaoItem = {
   dia?: number
   mes?: number
   ano?: number
+  /** Data comemorativa: o que ela é ("aniversário"…). */
+  oque?: string
 }
 
 const MESES = [
@@ -40,7 +42,20 @@ const MESES = [
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
 ]
 
-type Quando = { dia: number; mes: number; ano?: number }
+type Quando = { dia: number; mes: number; ano?: number; oque?: string }
+
+/**
+ * "O que é" a data: a neutra primeiro, depois a lista do Cortex.
+ *
+ * "outro" não aparece: ele é a própria "Data comemorativa". O valor vazio não
+ * vira etiqueta — o cartão continua dizendo "Data comemorativa".
+ */
+const OQUE_OPCOES: [valor: string, nome: string][] = [
+  ['', 'Data comemorativa'],
+  ...OQUE_COMEMORATIVA
+    .filter(o => o !== 'outro')
+    .map((o): [string, string] => [o, o[0].toUpperCase() + o.slice(1)])
+]
 
 /**
  * A forma de cada tipo.
@@ -142,10 +157,13 @@ export function NovoItem(p: {
   const [diaC, setDiaC] = useState(() => String(e?.dia ?? Number((e?.data || diaLocal()).slice(8, 10))))
   const [mesC, setMesC] = useState(() => e?.mes ?? Number((e?.data || diaLocal()).slice(5, 7)))
   const [anoC, setAnoC] = useState(e?.ano !== undefined ? String(e.ano) : '')
+  const [oqueC, setOqueC] = useState(e?.oque && e.oque !== 'outro' ? e.oque : '')
   const [erro, setErro] = useState<string | null>(null)
 
   const hoje = diaLocal()
-  const quando: Quando = { dia: Number(diaC), mes: mesC, ano: anoC === '' ? undefined : Number(anoC) }
+  const quando: Quando = {
+    dia: Number(diaC), mes: mesC, ano: anoC === '' ? undefined : Number(anoC), oque: oqueC || undefined
+  }
   const problema = comemorativa ? problemaDa(quando, hoje) : null
   // Ano pela metade é digitação, não erro: nada de aviso no "20" de "2026".
   const digitando = diaC === '' || (anoC !== '' && anoC.length < 4)
@@ -217,6 +235,11 @@ export function NovoItem(p: {
 
         {comemorativa ? (
           <>
+            {/* Pedido do dono: escolher "Aniversário" faz o cartão dizer
+                aniversário em vez de "data comemorativa". */}
+            <Selecao rotulo="O que é" opcoes={OQUE_OPCOES.map(o => o[1])}
+              valor={(OQUE_OPCOES.find(o => o[0] === oqueC) ?? OQUE_OPCOES[0])[1]}
+              aoMudar={nome => setOqueC(OQUE_OPCOES.find(o => o[1] === nome)?.[0] ?? '')} />
             <div className="par-campos">
               <CampoNumero rotulo="Dia" valor={diaC} dica="12"
                 aoMudar={v => setDiaC(v.replace(/\D/g, '').slice(0, 2))} />

@@ -1,3 +1,5 @@
+import { OQUE_COMEMORATIVA } from '../shared/datas'
+
 /**
  * Schemas dos formulários.
  *
@@ -395,7 +397,8 @@ export const FORMULARIOS: Record<string, Formulario> = {
         dica: 'Opcional. Com ele o Cortex mostra quantos anos faz.' },
       {
         k: 'oque', rotulo: 'O que é', tipo: 'select',
-        opcoes: ['aniversário', 'casamento', 'formatura', 'falecimento', 'outro']
+        // A mesma lista do celular e do planejador — ver `OQUE_COMEMORATIVA`.
+        opcoes: [...OQUE_COMEMORATIVA]
       },
       { k: 'pessoa', rotulo: 'Pessoa', tipo: 'texto',
         dica: 'O nome da nota de pessoa, para ligar as duas.' },

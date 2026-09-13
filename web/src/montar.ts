@@ -1,5 +1,5 @@
 import { validarEvento, type Evento } from '@compartilhado/eventos'
-import { proximaOcorrencia, anoDeOrigem } from '@compartilhado/datas'
+import { proximaOcorrencia, anoDeOrigem, OQUE_COMEMORATIVA } from '@compartilhado/datas'
 
 /**
  * A tradução da tabela de eventos da spec, campo a campo.
@@ -424,6 +424,8 @@ export function eventoItemEditado(
     comemorativa?: boolean
     /** Data comemorativa: o ano de começo, ou `null` para tirá-lo da nota. */
     ano?: number | null
+    /** Data comemorativa: o que ela é, ou `null` para voltar a "Data comemorativa". */
+    oque?: string | null
   },
   dia: string = diaLocal()
 ): Evento {
@@ -445,6 +447,7 @@ export function eventoItemEditado(
   // O ano da comemorativa viaja mesmo quando é `null`: `comValor` o tiraria,
   // e é esse "não sei" que apaga da nota um ano apagado no formulário.
   if (campos.comemorativa === true && campos.ano !== undefined) dados.ano = campos.ano
+  if (campos.comemorativa === true && campos.oque !== undefined) dados.oque = campos.oque
   // Só `path` significa "nada a mudar" — e um evento que não muda nada é
   // uma escrita à toa no vault.
   if (Object.keys(dados).length < 2) throw new Error('nada foi alterado')
@@ -560,7 +563,7 @@ function dataIso(data: string, dia: string): string {
  */
 export function eventoDataComemorativa(
   titulo: string,
-  quando: { dia: number; mes: number; ano?: number },
+  quando: { dia: number; mes: number; ano?: number; oque?: string },
   dia: string = diaLocal()
 ): Evento {
   const nome = texto(titulo, 'de quem')
@@ -583,17 +586,23 @@ export function eventoDataComemorativa(
  * descarta. As mensagens de erro são as que a tela mostra embaixo dos campos.
  */
 export function dadosComemorativa(
-  q: { dia: number; mes: number; ano?: number }, hoje: string
-): { data: string; ano: number | null } {
+  q: { dia: number; mes: number; ano?: number; oque?: string }, hoje: string
+): { data: string; ano: number | null; oque: string | null } {
   if (proximaOcorrencia(q.dia, q.mes, hoje) === null) {
     throw new Error('esse dia não existe nesse mês')
   }
   if (q.ano !== undefined && anoDeOrigem(q.ano, q.mes, q.dia, hoje) === undefined) {
     throw new Error('o começo precisa ser de 1900 até hoje')
   }
+  // O que a data é vai como um valor da lista, ou `null` para "Data
+  // comemorativa" — o mesmo "não sei" do ano, que tira a etiqueta da nota.
+  if (q.oque !== undefined && !(OQUE_COMEMORATIVA as readonly string[]).includes(q.oque)) {
+    throw new Error('escolha o que a data é na lista')
+  }
   const dois = (n: number): string => String(n).padStart(2, '0')
   return {
     data: `${q.ano ?? hoje.slice(0, 4)}-${dois(q.mes)}-${dois(q.dia)}`,
-    ano: q.ano ?? null
+    ano: q.ano ?? null,
+    oque: q.oque ?? null
   }
 }

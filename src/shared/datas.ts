@@ -92,3 +92,13 @@ export function anoDeOrigem(
   if (!Number.isInteger(mes) || !Number.isInteger(dia)) return undefined
   return `${ano}-${dois(mes)}-${dois(dia)}` <= hoje ? ano : undefined
 }
+
+/**
+ * O que uma data comemorativa é.
+ *
+ * Uma lista só para as três pontas: o formulário do Cortex, o do celular e o
+ * planejador, que só grava um valor daqui — texto livre vindo do celular não
+ * vira etiqueta de cartão. É o que faz o cartão dizer "aniversário" em vez de
+ * "data comemorativa".
+ */
+export const OQUE_COMEMORATIVA = ['aniversário', 'casamento', 'formatura', 'falecimento', 'outro'] as const

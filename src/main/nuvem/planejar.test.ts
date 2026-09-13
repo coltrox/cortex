@@ -841,6 +841,30 @@ describe('planejar — data comemorativa', () => {
     expect(op.campos).toEqual({ dia: 12, mes: 1, ano: null })
   })
 
+  it('o que a data e: so um valor da lista, na criacao e na edicao', () => {
+    const [nova] = planejar(ev('compromisso', {
+      titulo: 'Niver da Clara', data: '2009-03-27', comemorativa: true, oque: 'aniversário'
+    })) as { frontmatter: Record<string, unknown> }[]
+    expect(nova.frontmatter).toMatchObject({ oque: 'aniversário' })
+
+    // Texto livre vindo do celular nao vira etiqueta de cartao.
+    const [torta] = planejar(ev('compromisso', {
+      titulo: 'X', data: '2009-03-27', comemorativa: true, oque: '<b>qualquer</b>'
+    })) as { frontmatter: Record<string, unknown> }[]
+    expect(torta.frontmatter).not.toHaveProperty('oque')
+
+    const [editada] = planejar(ev('compromisso_editado', {
+      path: 'Agenda/x.md', data: '2026-01-12', comemorativa: true, oque: 'aniversário'
+    })) as { campos: Record<string, unknown> }[]
+    expect(editada.campos).toMatchObject({ oque: 'aniversário' })
+
+    // Voltar para "Data comemorativa" no formulario tira a etiqueta da nota.
+    const [neutra] = planejar(ev('compromisso_editado', {
+      path: 'Agenda/x.md', data: '2026-01-12', comemorativa: true, oque: null
+    })) as { campos: Record<string, unknown> }[]
+    expect(neutra.campos).toMatchObject({ oque: null })
+  })
+
   it('a marca nao alcanca outra especie de nota', () => {
     const [op] = planejar(ev('compromisso_editado', {
       path: 'Vida/Senhas/banco.md', data: '1990-01-01', comemorativa: true

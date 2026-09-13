@@ -1,6 +1,6 @@
 import type { Evento } from '../../shared/eventos'
 import { txt, num, comValor } from './util'
-import { anoDeOrigem, proximaOcorrencia } from '../../shared/datas'
+import { anoDeOrigem, proximaOcorrencia, OQUE_COMEMORATIVA } from '../../shared/datas'
 
 /**
  * Traduz um evento vindo do celular nas mudanças que ele causa no vault.
@@ -147,6 +147,17 @@ function anoDaComemorativa(
 ): number | undefined {
   const ano = 'ano' in dados ? (typeof dados.ano === 'number' ? dados.ano : NaN) : anoDaData
   return anoDeOrigem(ano, mes, diaDoMes, hoje)
+}
+
+/**
+ * O que a data comemorativa é, se for um valor da lista.
+ *
+ * Vem do celular, e o celular é entrada hostil: texto livre aqui viraria a
+ * etiqueta do cartão. Só passa o que o formulário oferece.
+ */
+function oqueDaComemorativa(v: unknown): string | undefined {
+  const o = typeof v === 'string' ? v.trim() : ''
+  return (OQUE_COMEMORATIVA as readonly string[]).includes(o) ? o : undefined
 }
 
 export function planejar(evento: Evento): Operacao[] {
@@ -481,6 +492,13 @@ export function planejar(evento: Evento): Operacao[] {
         // O ano apagado no formulário sai da nota: `null` é o que
         // `patchFrontmatter` lê como "remover a chave".
         if (dataValida && 'ano' in dados && ano === undefined) campos.ano = null
+        // O que a data é ("aniversário", "casamento"…): só um valor da lista,
+        // e `null` quando o formulário voltou para "Data comemorativa".
+        if ('oque' in dados) {
+          const oque = oqueDaComemorativa(dados.oque)
+          if (oque) campos.oque = oque
+          else if (dados.oque === null) campos.oque = null
+        }
         if (Object.keys(campos).length === 0) return []
         return [{ acao: 'marcar', path, tiposPermitidos: ['data-comemorativa'], campos }]
       }
@@ -562,7 +580,7 @@ export function planejar(evento: Evento): Operacao[] {
             // O ano só entra quando pode ser um começo: de 1900 até o dia do
             // evento. Ver `anoDeOrigem`.
             ano: anoDaComemorativa(dados, anoDaData, mes, diaDoMes, dia),
-            oque: txt(dados.oque).trim() || undefined
+            oque: oqueDaComemorativa(dados.oque)
           })
         }]
       }

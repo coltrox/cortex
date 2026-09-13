@@ -133,6 +133,12 @@ export function Agenda(p: {
    * Juntos numa linha só — "em 174 dias · vai fazer 37 anos" — porque ela
    * volta todo ano, e a pergunta é uma: quando é a próxima, e qual é.
    */
+  /** A etiqueta da data comemorativa: o que ela é, ou "Data comemorativa". */
+  const rotuloComemorativa = (i: ItemCardapio): string => {
+    const oque = txt(i.detalhe.oque)
+    return oque && oque !== 'outro' ? oque : 'Data comemorativa'
+  }
+
   const faltaDe = (i: ItemCardapio): string => {
     const quando = faltam(dataDe(i), dia)
     const anos = i.detalhe.anos
@@ -157,7 +163,8 @@ export function Agenda(p: {
       ...base,
       dia: inteiro(i.detalhe.dia) ?? Number(base.data.slice(8, 10)),
       mes: inteiro(i.detalhe.mes) ?? Number(base.data.slice(5, 7)),
-      ano: inteiro(i.detalhe.ano)
+      ano: inteiro(i.detalhe.ano),
+      oque: txt(i.detalhe.oque) || undefined
     }
   }
 
@@ -343,7 +350,8 @@ export function Agenda(p: {
       local: l.local,
       materia: l.materia,
       comemorativa: l.comemorativa,
-      anos: l.anos
+      anos: l.anos,
+      oque: l.oque
     }
   }) as ItemCardapio))
 
@@ -602,7 +610,7 @@ export function Agenda(p: {
                 faz a etiqueta dizer o que aquilo é de verdade. */}
             <span className="item-tipo">
               {i.detalhe.comemorativa === true
-                ? (txt(i.detalhe.oque) || 'Data comemorativa')
+                ? rotuloComemorativa(i)
                 : ROTULO.compromisso}
             </span>
             <div className="item-nome">{i.nome}</div>
@@ -676,7 +684,7 @@ export function Agenda(p: {
           <div className="chegando-heroi">
             <span className="heroi-tipo">
               {destaque.item.detalhe.comemorativa === true
-                ? (txt(destaque.item.detalhe.oque) || 'Data comemorativa')
+                ? rotuloComemorativa(destaque.item)
                 : ROTULO[destaque.tipo]}
             </span>
             <strong className="heroi-nome">{destaque.item.nome}</strong>

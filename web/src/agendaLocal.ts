@@ -36,6 +36,8 @@ export type PendenteAgenda = {
   comemorativa?: boolean
   /** Data comemorativa: quantos anos vai fazer na próxima vez que cair. */
   anos?: number
+  /** Data comemorativa: o que ela é ("aniversário"…), para a etiqueta do cartão. */
+  oque?: string
 }
 
 /**
@@ -52,7 +54,7 @@ export type PendenteAgenda = {
  * (`anoDeOrigem`): de 1900 até hoje, inclusive no ano corrente.
  */
 export function pendenteComemorativo(
-  titulo: string, data: { dia: number; mes: number; ano?: number }, hoje: string
+  titulo: string, data: { dia: number; mes: number; ano?: number; oque?: string }, hoje: string
 ): PendenteAgenda | null {
   const quando = proximaOcorrencia(data.dia, data.mes, hoje)
   if (!quando) return null
@@ -65,7 +67,8 @@ export function pendenteComemorativo(
     titulo: titulo.trim(),
     data: quando,
     comemorativa: true,
-    anos: anos !== null && anos > 0 ? anos : undefined
+    anos: anos !== null && anos > 0 ? anos : undefined,
+    oque: data.oque || undefined
   }
 }
 
@@ -100,7 +103,8 @@ function ler(g: Guardado, dia: string): PendenteAgenda[] {
         comemorativa: o.comemorativa === true ? true : undefined,
         anos: typeof o.anos === 'number' && Number.isInteger(o.anos) && o.anos > 0
           ? o.anos
-          : undefined
+          : undefined,
+        oque: typeof o.oque === 'string' && o.oque !== '' ? o.oque : undefined
       })
     }
     return out

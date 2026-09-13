@@ -228,7 +228,7 @@ describe('agenda e estudos', () => {
   it('data comemorativa manda dia e mes na data, e o ano a parte', () => {
     // O namoro de 12/01/2026: o ano corrente e um comeco de verdade.
     expect(eventoDataComemorativa('Namoro', { dia: 12, mes: 1, ano: 2026 }, DIA2).dados).toEqual({
-      titulo: 'Namoro', data: '2026-01-12', comemorativa: true, ano: 2026
+      titulo: 'Namoro', data: '2026-01-12', comemorativa: true, ano: 2026, oque: null
     })
     // Sem ano: a data leva o ano corrente, e `ano: null` diz que ele nao conta.
     expect(eventoDataComemorativa('Niver', { dia: 5, mes: 3 }, DIA2).dados).toMatchObject({
@@ -241,7 +241,17 @@ describe('agenda e estudos', () => {
     expect(() => eventoDataComemorativa('X', { dia: 20, mes: 12, ano: 2026 }, DIA2)).toThrow('começo')
     expect(() => eventoDataComemorativa('X', { dia: 1, mes: 1, ano: 1850 }, DIA2)).toThrow('começo')
     // 29/02 existe -- so nao todo ano.
-    expect(dadosComemorativa({ dia: 29, mes: 2 }, DIA2)).toEqual({ data: '2026-02-29', ano: null })
+    expect(dadosComemorativa({ dia: 29, mes: 2 }, DIA2)).toEqual({ data: '2026-02-29', ano: null, oque: null })
+  })
+
+  it('data comemorativa leva o que ela e, so da lista', () => {
+    expect(eventoDataComemorativa('Clara', { dia: 27, mes: 3, ano: 2009, oque: 'aniversário' }, DIA2).dados)
+      .toMatchObject({ oque: 'aniversário' })
+    expect(() => eventoDataComemorativa('X', { dia: 1, mes: 1, oque: 'qualquer coisa' }, DIA2)).toThrow('lista')
+    // Editar para "Data comemorativa" manda null, que tira a etiqueta da nota.
+    expect(eventoItemEditado(
+      'Agenda/x.md', { titulo: 'X', data: '2026-01-12', oque: null, comemorativa: true }, DIA2
+    ).dados).toMatchObject({ oque: null })
   })
 
   it('caminho vazio nao vira evento', () => {

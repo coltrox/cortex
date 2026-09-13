@@ -142,6 +142,16 @@ describe('data comemorativa marcada no celular', () => {
     expect(pendenteComemorativo('Namoro', { dia: 12, mes: 1 }, HOJE)?.anos).toBeUndefined()
   })
 
+  it('leva o que a data e, e a copia guardada devolve', () => {
+    // E o que faz o cartao dizer "aniversario" no mesmo toque, antes de o
+    // Cortex devolver a nota.
+    const g = guardadoDeMemoria()
+    const p = pendenteComemorativo('Clara', { dia: 27, mes: 3, ano: 2009, oque: 'aniversário' }, HOJE)!
+    expect(p.oque).toBe('aniversário')
+    guardarPendenteAgenda(g, HOJE, p)
+    expect(lerPendentesAgenda(g, HOJE)[0].oque).toBe('aniversário')
+  })
+
   it('casa com o que o Cortex devolve, e sai da copia local', () => {
     // O Cortex publica a proxima ocorrencia; com a data crua isto nunca casava
     // e o pendente ficava para sempre.
