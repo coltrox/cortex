@@ -204,6 +204,16 @@ describe('agenda e estudos', () => {
     expect(() => eventoItemEditado('Agenda/Dentista.md', { titulo: '  ' }, DIA2)).toThrow()
   })
 
+  it('editar data comemorativa leva a marca', () => {
+    // Sem ela o Cortex trataria a edicao como compromisso comum, e a nota da
+    // data comemorativa nao seria tocada.
+    expect(eventoItemEditado(
+      'Agenda/niver.md', { titulo: 'Niver', data: '1983-09-11', comemorativa: true }, DIA2
+    ).dados).toEqual({
+      path: 'Agenda/niver.md', comemorativa: true, titulo: 'Niver', data: '1983-09-11'
+    })
+  })
+
   it('caminho vazio nao vira evento', () => {
     expect(() => eventoProvaEstudada('   ', DIA2)).toThrow()
     expect(() => eventoItemApagado('', DIA2)).toThrow()

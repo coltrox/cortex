@@ -100,7 +100,13 @@ export function NovoItem(p: {
       const hoje = diaLocal()
       if (e) {
         p.envio.registrar(eventoItemEditado(
-          e.path, { titulo, data, hora, local, materia }, hoje
+          e.path,
+          p.tipo === 'comemorativa'
+            // Só o que o formulário dela tem. A marca faz o Cortex gravar
+            // dia, mês e ano, e não uma data que a nota não lê.
+            ? { titulo, data, comemorativa: true }
+            : { titulo, data, hora, local, materia },
+          hoje
         ))
       } else if (p.tipo === 'prova') {
         p.envio.registrar(eventoProvaNova(titulo, data, { materia, local }, hoje))

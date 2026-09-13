@@ -386,11 +386,14 @@ export function eventoItemEditado(
     dose?: string
     quando?: string
     dias?: string[]
+    /** Data comemorativa: a data é a de quando começou, e vira dia e mês. */
+    comemorativa?: boolean
   },
   dia: string = diaLocal()
 ): Evento {
   const dados = comValor({
     path: texto(path, 'item'),
+    comemorativa: campos.comemorativa === true ? true : undefined,
     titulo: campos.titulo?.trim(),
     data: campos.data?.trim(),
     hora: campos.hora?.trim(),

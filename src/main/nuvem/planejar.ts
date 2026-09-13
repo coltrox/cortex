@@ -1,5 +1,6 @@
 import type { Evento } from '../../shared/eventos'
 import { txt, num, comValor } from './util'
+import { anoDeOrigem } from '../../shared/datas'
 
 /**
  * Traduz um evento vindo do celular nas mudanças que ele causa no vault.
@@ -393,6 +394,33 @@ export function planejar(evento: Evento): Operacao[] {
     case 'compromisso_editado': {
       const path = txt(dados.path)
       if (!path) return []
+
+      /*
+       * Editar uma data comemorativa.
+       *
+       * A nota dela não tem `date`: tem DIA, MÊS e o ano de quando começou.
+       * Pelo caminho comum abaixo, a edição escreveria `date` numa nota que
+       * não lê esse campo — e nem chegaria a escrever, porque
+       * `data-comemorativa` não está na lista de tipos que ele alcança. Era o
+       * botão de editar que não fazia nada.
+       *
+       * Só alcança `data-comemorativa`: a marca não pode servir para mexer em
+       * dia e mês de outra espécie de nota.
+       */
+      if (dados.comemorativa === true) {
+        const [ano, mes, diaDoMes] = txt(dados.data).split('-').map(Number)
+        const dataValida = Number.isInteger(mes) && mes >= 1 && mes <= 12
+          && Number.isInteger(diaDoMes) && diaDoMes >= 1 && diaDoMes <= 31
+        const campos = comValor({
+          title: txt(dados.titulo).trim(),
+          // Dia e mês andam juntos: um sem o outro seria outra data.
+          dia: dataValida ? diaDoMes : undefined,
+          mes: dataValida ? mes : undefined,
+          ano: dataValida ? anoDeOrigem(ano, dia) : undefined
+        })
+        if (Object.keys(campos).length === 0) return []
+        return [{ acao: 'marcar', path, tiposPermitidos: ['data-comemorativa'], campos }]
+      }
       // Só os campos que a tela do celular sabe editar, um a um. Um spread de
       // `dados` aqui deixaria um evento reescrever `tipo` e virar outra coisa.
       const campos = comValor({
@@ -463,9 +491,7 @@ export function planejar(evento: Evento): Operacao[] {
             // O ano só entra quando é plausível: o campo do celular é uma
             // data inteira, e quem não sabe o ano de nascimento põe o
             // corrente — o que faria a tela anunciar "faz 0 anos".
-            ano: Number.isInteger(ano) && ano >= 1900 && ano < Number(dia.slice(0, 4))
-              ? ano
-              : undefined,
+            ano: anoDeOrigem(ano, dia),
             oque: txt(dados.oque).trim() || undefined
           })
         }]

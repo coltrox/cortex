@@ -1604,6 +1604,19 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   border-top:1px solid rgba(255,255,255,.2);
   font-family:var(--fonte-num); font-size:13px; font-weight:700; color:#fff;
 }
+/* Os botões do item em destaque. Ele não se repete na lista de baixo, então
+   editar, excluir e a etapa da prova moram aqui — em branco sobre o acento,
+   que o cinza da lista some neste fundo. */
+.heroi-acoes{ margin-top:6px; }
+.chegando-heroi .acao-lado,
+.chegando-heroi .acao-etapa,
+.chegando-heroi .acao-feita{
+  background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.3); color:#fff;
+}
+.chegando-heroi .acao-destrutiva{
+  background:transparent; border-color:rgba(255,255,255,.45); color:#fff;
+}
+.chegando-heroi .acao-lado:disabled{ opacity:.55; }
 
 /* A etiqueta do tipo dentro de cada cartão da lista.
    As três listas viraram uma só, ordenada pela data; sem a etiqueta, prova,

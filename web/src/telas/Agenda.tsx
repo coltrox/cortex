@@ -125,6 +125,34 @@ export function Agenda(p: {
     materia: txt(i.detalhe.materia)
   })
 
+  /**
+   * Quanto falta, e numa data comemorativa também quantos anos vai fazer.
+   *
+   * Juntos numa linha só — "em 174 dias · vai fazer 37 anos" — porque ela
+   * volta todo ano, e a pergunta é uma: quando é a próxima, e qual é.
+   */
+  const faltaDe = (i: ItemCardapio): string => {
+    const quando = faltam(dataDe(i), dia)
+    const anos = i.detalhe.anos
+    if (i.detalhe.comemorativa !== true || typeof anos !== 'number') return quando
+    const n = `${anos} ${anos === 1 ? 'ano' : 'anos'}`
+    return `${quando} · ${dataDe(i) === dia ? `faz ${n}` : `vai fazer ${n}`}`
+  }
+
+  /**
+   * A data de quando a comemorativa começou, para o formulário de edição.
+   *
+   * O cardápio traz a PRÓXIMA ocorrência e quantos anos ela completa; o ano
+   * de origem é a diferença. Sem `anos`, a nota não tem ano, e a data da
+   * próxima vez serve — o Cortex não guarda um ano que não seja passado.
+   */
+  const origemDe = (i: ItemCardapio): string => {
+    const data = dataDe(i)
+    const anos = i.detalhe.anos
+    if (typeof anos !== 'number' || data.length !== 10) return data
+    return `${Number(data.slice(0, 4)) - anos}${data.slice(4)}`
+  }
+
   /*
    * As marcas locais valem só até o Cortex confirmar.
    *
@@ -388,15 +416,6 @@ export function Agenda(p: {
     return (FAIXAS.find(f => d <= f.ate) ?? FAIXAS[FAIXAS.length - 1]).nome
   }
 
-  /* Os grupos saem da lista já ordenada, então cada faixa aparece uma vez só. */
-  const grupos: { nome: string; linhas: Linha[] }[] = []
-  for (const l of visiveis) {
-    const nome = termo ? 'Resultados' : faixaDe(l)
-    const ultimo = grupos[grupos.length - 1]
-    if (ultimo && ultimo.nome === nome) ultimo.linhas.push(l)
-    else grupos.push({ nome, linhas: [l] })
-  }
-
   /* O destaque é o próximo que ainda não passou. Some durante a busca: com um
      termo digitado, o topo da tela é o resultado, não a agenda. */
   const destaque = termo
@@ -406,6 +425,18 @@ export function Agenda(p: {
       return d !== null && d >= 0
     })
 
+  /* Os grupos saem da lista já ordenada, então cada faixa aparece uma vez só.
+     O destaque NÃO entra: ele já está no topo, com os botões dele, e o
+     mesmo item duas vezes na tela só empurra o resto para baixo. */
+  const grupos: { nome: string; linhas: Linha[] }[] = []
+  for (const l of visiveis) {
+    if (l === destaque) continue
+    const nome = termo ? 'Resultados' : faixaDe(l)
+    const ultimo = grupos[grupos.length - 1]
+    if (ultimo && ultimo.nome === nome) ultimo.linhas.push(l)
+    else grupos.push({ nome, linhas: [l] })
+  }
+
   /*
    * Um cartão por tipo.
    *
@@ -413,22 +444,27 @@ export function Agenda(p: {
    * as três e comparar as datas de cabeça. Agora quem ordena e agrupa é a tela;
    * estas funções só desenham, cada uma com as ações do seu tipo.
    */
-  const cartaoProva = (i: ItemCardapio) => {
+  /* `soAcoes`: só os botões, para o cartão de destaque — o corpo ele já tem. */
+  const cartaoProva = (i: ItemCardapio, soAcoes = false) => {
     const path = caminhoDe(i)
     const apagada = feitos.includes(`apagar:${path}`)
     const etapa = etapaDe(i, path)
     const travado = apagada || path === ''
     return (
       <div
-        className={`item item-acao ${etapa.feito || apagada ? 'item-feito' : ''}`}
+        className={soAcoes
+          ? 'heroi-acoes'
+          : `item item-acao ${etapa.feito || apagada ? 'item-feito' : ''}`}
         key={path || i.nome}
       >
-        <div className="item-corpo">
-          <span className="item-tipo">{ROTULO.prova}</span>
-          <div className="item-nome">{i.nome}</div>
-          <Quando data={dataCurta(dataDe(i), dia)} falta={faltam(dataDe(i), dia)} />
-          <Sobre partes={[i.detalhe.materia, i.detalhe.local]} />
-        </div>
+        {!soAcoes && (
+          <div className="item-corpo">
+            <span className="item-tipo">{ROTULO.prova}</span>
+            <div className="item-nome">{i.nome}</div>
+            <Quando data={dataCurta(dataDe(i), dia)} falta={faltam(dataDe(i), dia)} />
+            <Sobre partes={[i.detalhe.materia, i.detalhe.local]} />
+          </div>
+        )}
 
         {/* A etapa da vez ocupa a linha inteira, e o resto se recolhe
             atrás do "⋯". Antes eram três botões competindo pelo mesmo
@@ -532,38 +568,31 @@ export function Agenda(p: {
     )
   }
 
-  const cartaoCompromisso = (i: ItemCardapio) => {
+  const cartaoCompromisso = (i: ItemCardapio, soAcoes = false) => {
     const path = caminhoDe(i)
     const apagado = feitos.includes(`apagar:${path}`)
     return (
-      <div className={`item item-acao ${apagado ? 'item-feito' : ''}`}
+      <div className={soAcoes ? 'heroi-acoes' : `item item-acao ${apagado ? 'item-feito' : ''}`}
         key={path || i.nome}>
-        <div className="item-corpo">
-          {/* A data comemorativa sobe como compromisso — a espécie é a mesma
-              para não precisar mexer no banco —, e é a marca no detalhe que
-              faz a etiqueta dizer o que aquilo é de verdade. */}
-          <span className="item-tipo">
-            {i.detalhe.comemorativa === true
-              ? (txt(i.detalhe.oque) || 'Data comemorativa')
-              : ROTULO.compromisso}
-          </span>
-          <div className="item-nome">{i.nome}</div>
-          <Quando
-            data={dataCurta(dataDe(i), dia)}
-            falta={faltam(dataDe(i), dia)}
-            hora={txt(i.detalhe.hora)}
-          />
-          <Sobre partes={[
-            i.detalhe.local,
-            typeof i.detalhe.anos === 'number'
-              // No dia é "faz"; antes é "vai fazer": a data é a próxima vez
-              // que cai, então a idade é a que a pessoa ainda VAI completar.
-              ? (dataDe(i) === dia
-                ? `faz ${i.detalhe.anos} anos hoje`
-                : `vai fazer ${i.detalhe.anos} anos`)
-              : ''
-          ]} />
-        </div>
+        {!soAcoes && (
+          <div className="item-corpo">
+            {/* A data comemorativa sobe como compromisso — a espécie é a mesma
+                para não precisar mexer no banco —, e é a marca no detalhe que
+                faz a etiqueta dizer o que aquilo é de verdade. */}
+            <span className="item-tipo">
+              {i.detalhe.comemorativa === true
+                ? (txt(i.detalhe.oque) || 'Data comemorativa')
+                : ROTULO.compromisso}
+            </span>
+            <div className="item-nome">{i.nome}</div>
+            <Quando
+              data={dataCurta(dataDe(i), dia)}
+              falta={faltaDe(i)}
+              hora={txt(i.detalhe.hora)}
+            />
+            <Sobre partes={[i.detalhe.local]} />
+          </div>
+        )}
         {/* Editar antes de excluir: mudar de horário é o que mais
             acontece, e cancelar é a saída. */}
         <div className="item-acoes">
@@ -571,7 +600,12 @@ export function Agenda(p: {
             className="acao-lado"
             type="button"
             disabled={apagado || path === ''}
-            onClick={() => p.aoEditar('compromisso', paraEditar(i))}
+            onClick={() => i.detalhe.comemorativa === true
+              // A data comemorativa abre o formulário DELA, com a data de
+              // quando começou — o de compromisso tem hora e local, e a
+              // edição por ele não chegava à nota.
+              ? p.aoEditar('comemorativa', { ...paraEditar(i), data: origemDe(i) })
+              : p.aoEditar('compromisso', paraEditar(i))}
           >
             editar
           </button>
@@ -625,18 +659,17 @@ export function Agenda(p: {
                 : ROTULO[destaque.tipo]}
             </span>
             <strong className="heroi-nome">{destaque.item.nome}</strong>
-            {typeof destaque.item.detalhe.anos === 'number' && (
-              <span className="heroi-quando">
-                {dataDe(destaque.item) === dia
-                  ? `faz ${destaque.item.detalhe.anos} anos hoje`
-                  : `vai fazer ${destaque.item.detalhe.anos} anos`}
-              </span>
-            )}
             <span className="heroi-quando">
               {[dataCurta(dataDe(destaque.item), dia), txt(destaque.item.detalhe.hora)]
                 .filter(x => x !== '').join(' · ')}
             </span>
-            <span className="heroi-falta">{faltam(dataDe(destaque.item), dia)}</span>
+            <span className="heroi-falta">{faltaDe(destaque.item)}</span>
+            {/* Os botões dele moram aqui: o destaque não se repete na lista. */}
+            {destaque.tipo === 'prova'
+              ? cartaoProva(destaque.item, true)
+              : destaque.tipo === 'compromisso'
+                ? cartaoCompromisso(destaque.item, true)
+                : null}
           </div>
         )}
         {/* Escolher entre três coisas é um seletor, como no resto do app.

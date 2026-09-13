@@ -1,5 +1,5 @@
 import type { Guardado } from './guardado'
-import { proximaOcorrencia, anosCompletados } from '@compartilhado/datas'
+import { proximaOcorrencia, anosCompletados, anoDeOrigem } from '@compartilhado/datas'
 
 const CHAVE = 'cortex.agenda-pendente'
 
@@ -57,10 +57,7 @@ export function pendenteComemorativo(
   const [ano, mes, dia] = data.split('-').map(Number)
   const quando = proximaOcorrencia(dia, mes, hoje)
   if (!quando) return null
-  const origem = Number.isInteger(ano) && ano >= 1900 && ano < Number(hoje.slice(0, 4))
-    ? ano
-    : undefined
-  const anos = anosCompletados(origem, quando)
+  const anos = anosCompletados(anoDeOrigem(ano, hoje), quando)
   return {
     tipo: 'compromisso',
     titulo: titulo.trim(),

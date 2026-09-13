@@ -70,3 +70,17 @@ export function anosCompletados(anoOrigem: unknown, ocorrencia: string): number 
   const anos = Number(ocorrencia.slice(0, 4)) - anoOrigem
   return anos >= 0 ? anos : null
 }
+
+/**
+ * O ano digitado, se ele puder ser o de quando a data começou.
+ *
+ * O campo do celular é uma data inteira e já nasce com o ano corrente. Quem
+ * não sabe o ano deixa o que veio — e contar isso anunciaria "faz 0 anos".
+ * Por isso só vale um ano ANTERIOR ao corrente. A mesma regra na criação, na
+ * edição e na cópia local do celular: cada uma com a sua, elas divergiriam.
+ */
+export function anoDeOrigem(ano: number, hoje: string): number | undefined {
+  return Number.isInteger(ano) && ano >= 1900 && ano < Number(hoje.slice(0, 4))
+    ? ano
+    : undefined
+}

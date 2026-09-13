@@ -746,6 +746,40 @@ describe('planejar — data comemorativa', () => {
     }))
     expect(op).toMatchObject({ seExistir: 'mesclar' })
   })
+
+  it('editar escreve dia, mes e ano -- nao `date`, que a nota nao le', () => {
+    // Era o botao de editar que nao fazia nada: o caminho comum so alcancava
+    // evento/prova/tarefa, e escreveria `date`.
+    const ops = planejar(ev('compromisso_editado', {
+      path: 'Agenda/niver tia lu.md', titulo: 'Niver da tia Lu',
+      data: '1983-09-11', comemorativa: true
+    }))
+    expect(ops).toEqual([{
+      acao: 'marcar', path: 'Agenda/niver tia lu.md',
+      tiposPermitidos: ['data-comemorativa'],
+      campos: { title: 'Niver da tia Lu', dia: 11, mes: 9, ano: 1983 }
+    }])
+  })
+
+  it('editar com o ano corrente mexe em dia e mes, e nao inventa ano', () => {
+    const [op] = planejar(ev('compromisso_editado', {
+      path: 'Agenda/x.md', data: '2026-01-12', comemorativa: true
+    })) as { campos: Record<string, unknown> }[]
+    expect(op.campos).toEqual({ dia: 12, mes: 1 })
+  })
+
+  it('a marca nao alcanca outra especie de nota', () => {
+    const [op] = planejar(ev('compromisso_editado', {
+      path: 'Vida/Senhas/banco.md', data: '1990-01-01', comemorativa: true
+    })) as { tiposPermitidos: string[] }[]
+    expect(op.tiposPermitidos).toEqual(['data-comemorativa'])
+  })
+
+  it('data torta nao vira dia e mes', () => {
+    expect(planejar(ev('compromisso_editado', {
+      path: 'Agenda/x.md', data: '1990-13-40', comemorativa: true
+    }))).toEqual([])
+  })
 })
 
 /**

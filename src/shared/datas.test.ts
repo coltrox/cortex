@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { proximaOcorrencia, anosCompletados, bissexto, diasNoMes } from './datas'
+import { proximaOcorrencia, anosCompletados, anoDeOrigem, bissexto, diasNoMes } from './datas'
 
 describe('bissexto', () => {
   it('nao e so divisivel por 4', () => {
@@ -103,5 +103,22 @@ describe('anosCompletados', () => {
 
   it('origem no futuro nao vira idade negativa', () => {
     expect(anosCompletados(2030, '2026-09-27')).toBeNull()
+  })
+})
+
+describe('anoDeOrigem', () => {
+  it('ano anterior ao corrente vale', () => {
+    expect(anoDeOrigem(1983, '2026-09-12')).toBe(1983)
+    expect(anoDeOrigem(2025, '2026-09-12')).toBe(2025)
+  })
+
+  it('o ano corrente e o padrao do seletor, nao um fato', () => {
+    expect(anoDeOrigem(2026, '2026-09-12')).toBeUndefined()
+  })
+
+  it('futuro, implausivel ou quebrado nao vale', () => {
+    expect(anoDeOrigem(2030, '2026-09-12')).toBeUndefined()
+    expect(anoDeOrigem(1850, '2026-09-12')).toBeUndefined()
+    expect(anoDeOrigem(NaN, '2026-09-12')).toBeUndefined()
   })
 })

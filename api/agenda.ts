@@ -149,7 +149,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           id: `${id}#${ano}`,
           titulo: txt(i.nome),
           data: `${ano}-${dois(mes)}-${dois(diaDoAno)}`,
-          descricao: idade !== null && idade > 0 ? `faz ${idade} anos` : undefined
+          descricao: idade !== null && idade > 0
+            ? `faz ${idade} ${idade === 1 ? 'ano' : 'anos'}`
+            : undefined
         })
       }
       continue
