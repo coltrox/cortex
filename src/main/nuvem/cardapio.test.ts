@@ -472,6 +472,21 @@ describe('o que ja foi feito hoje sobe junto', () => {
     const c = montarCardapio([plano, diario({ dieta_feitas: ['Café da manhã'] })], HOJE, [])
     expect(c.find(i => i.especie === 'refeicao')?.detalhe.feito).toBe(true)
   })
+
+  it('publica a posicao de cada refeicao no plano -- o banco devolve em ordem alfabetica', () => {
+    // Plano de nutricionista quase nunca tem hora em todas: sem a posicao, o
+    // celular nao tem como saber que "Ao acordar" vem antes do almoco.
+    const plano = nota({
+      path: 'Saude/Dieta/Plano.md', title: 'Plano', tipo: 'plano',
+      campos: { ativo: true, refeicoes: [
+        { nome: 'Ao acordar' }, { nome: '1ª refeição', hora: '10:00' }, { nome: 'Almoço' }
+      ] }
+    })
+    const c = montarCardapio([plano], HOJE, []).filter(i => i.especie === 'refeicao')
+    expect(c.map(i => [i.nome, i.detalhe.ordem])).toEqual([
+      ['Ao acordar', 0], ['1ª refeição', 1], ['Almoço', 2]
+    ])
+  })
 })
 
 describe('a anotacao do dia volta para o celular', () => {

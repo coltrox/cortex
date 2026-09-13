@@ -1721,14 +1721,25 @@ kbd {
 .dia-btn[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--surface); }
 
 .itens { display: flex; flex-direction: column; gap: 5px; }
-.item-linha { display: flex; gap: 5px; align-items: center; }
+/* A linha quebra: com cinco colunas e três botões na largura de um modal, o
+   nome de uma refeição ficava com dois caracteres visíveis ("Al", "La"). */
+.item-linha { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .item-campo {
   flex: 1; min-width: 0; padding: 6px 9px; font: inherit; font-size: 12.5px;
   border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface); color: var(--text);
 }
 .item-campo:focus { outline: none; border-color: var(--text-3); }
+/* O nome tem largura mínima de verdade; hora e números são curtos por natureza. */
+.item-campo.campo-texto  { flex: 1 1 150px; }
 .item-campo.campo-numero { flex: 0 0 66px; }
-.item-campo.campo-hora   { flex: 0 0 96px; }
+.item-campo.campo-hora   { flex: 0 0 104px; }
+/* O texto longo (o que se come numa refeição) desce para uma faixa própria,
+   na largura toda, depois dos botões — `order` o tira do meio da linha. */
+.item-campo.campo-longo {
+  order: 10; flex: 1 1 100%; min-height: 58px; resize: vertical;
+  line-height: 1.45; white-space: pre-wrap;
+}
+.item-linha:has(.campo-longo) { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 
 .treino-grade { display: flex; flex-direction: column; gap: 5px; }
 .treino-cab, .treino-linha { display: grid; grid-template-columns: 1fr 76px 96px 110px 28px; gap: 6px; align-items: center; }

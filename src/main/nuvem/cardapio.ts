@@ -279,7 +279,7 @@ export function montarCardapio(
   // Só o plano ativo: publicar todos os planos faria o celular perguntar qual
   // usar, e essa escolha já foi feita no Cortex.
   const ativo = notas.find(x => x.tipo === 'plano' && x.campos.ativo === true)
-  for (const r of lista(ativo?.campos.refeicoes)) {
+  for (const [ordem, r] of lista(ativo?.campos.refeicoes).entries()) {
     const nome = txt(r.nome)
     if (!nome) continue
     // O detalhe do dia — quanto foi comido e o que entrou no lugar. Volta
@@ -290,6 +290,10 @@ export function montarCardapio(
       especie: 'refeicao',
       nome,
       detalhe: comValor({
+        // A posição no plano. O banco devolve o cardápio em ordem alfabética,
+        // e a hora não serve de régua: "Ao acordar", o almoço e o lanche de um
+        // plano de nutricionista quase nunca têm hora escrita.
+        ordem,
         hora: txt(r.hora), itens: txt(r.itens), kcal: num(r.kcal), prot: num(r.prot),
         feito: feitosHoje.refeicao.has(nome) ? true : undefined,
         nivel: detalheDoDia?.nivel,

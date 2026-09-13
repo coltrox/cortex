@@ -176,13 +176,32 @@ describe('agenda no celular', () => {
 })
 
 describe('ordem das refeicoes', () => {
-  const c = (itens: { nome: string; hora?: string }[]) => ({
+  const c = (itens: { nome: string; hora?: string; ordem?: number }[]) => ({
     atualizadoEm: null,
     itens: itens.map(i => ({
       especie: 'refeicao' as const,
       nome: i.nome,
-      detalhe: i.hora ? { hora: i.hora } : {}
+      detalhe: {
+        ...(i.hora ? { hora: i.hora } : {}),
+        ...(i.ordem !== undefined ? { ordem: i.ordem } : {})
+      }
     }))
+  })
+
+  it('a ordem do plano vence a hora -- refeicao sem hora nao cai para o fim', () => {
+    // O plano da nutricionista: so a 1ª refeicao, o pre-treino e o jantar tem
+    // hora. Ordenando pela hora, "Ao acordar", almoco e lanche iam para o fim.
+    const r = refeicoesDoPlano(c([
+      { nome: 'Almoço', ordem: 2 },
+      { nome: 'Jantar', hora: '20:00', ordem: 5 },
+      { nome: 'Ao acordar', ordem: 0 },
+      { nome: '1ª refeição', hora: '10:00', ordem: 1 },
+      { nome: 'Pré-treino', hora: '17:50', ordem: 4 },
+      { nome: 'Lanche da tarde', ordem: 3 }
+    ]))
+    expect(r.map(x => x.nome)).toEqual([
+      'Ao acordar', '1ª refeição', 'Almoço', 'Lanche da tarde', 'Pré-treino', 'Jantar'
+    ])
   })
 
   it('segue o relogio, nao a ordem do banco', () => {

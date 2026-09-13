@@ -58,7 +58,9 @@ const EXERCICIOS: Campo[] = [
 const REFEICOES_PLANO: Campo[] = [
   { k: 'nome', rotulo: 'Refeição', tipo: 'texto', placeholder: 'Café da manhã' },
   { k: 'hora', rotulo: 'Hora', tipo: 'hora' },
-  { k: 'itens', rotulo: 'O quê', tipo: 'texto', placeholder: '2 ovos, 80 g de aveia' },
+  // `longo`: numa conduta de nutricionista o que se come é um parágrafo, com
+  // as opções de troca — numa caixa de uma linha ele não se lê nem se edita.
+  { k: 'itens', rotulo: 'O quê', tipo: 'longo', placeholder: '2 ovos, 80 g de aveia' },
   { k: 'kcal', rotulo: 'kcal', tipo: 'numero' },
   { k: 'prot', rotulo: 'Prot', tipo: 'numero' }
 ]

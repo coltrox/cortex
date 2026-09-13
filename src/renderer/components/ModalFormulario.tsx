@@ -232,7 +232,19 @@ function ListaItens({ subcampos, valor, aoMudar }: {
       {valor.length === 0 && <span className="form-dica">Nenhuma linha ainda.</span>}
       {valor.map((it, i) => (
         <span key={i} className="item-linha">
-          {subcampos.map(sc => (
+          {subcampos.map(sc => sc.tipo === 'longo' ? (
+            // Texto longo vira caixa de várias linhas, e o CSS a põe numa
+            // faixa própria embaixo da linha — ver `.campo-longo`.
+            <textarea
+              key={sc.k}
+              className="item-campo campo-longo"
+              value={String(it[sc.k] ?? '')}
+              placeholder={sc.placeholder ?? sc.rotulo}
+              title={sc.rotulo}
+              rows={3}
+              onChange={e => mudar(i, sc.k, e.target.value)}
+            />
+          ) : (
             <input
               key={sc.k}
               type={sc.tipo === 'numero' ? 'number' : sc.tipo === 'hora' ? 'time' : 'text'}

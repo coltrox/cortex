@@ -255,15 +255,23 @@ export function litros(ml: number): string {
 }
 
 export function refeicoesDoPlano(c: Cardapio): ItemCardapio[] {
-  // Na ordem do dia, nao na ordem em que o banco devolveu: o almoco aparecer
-  // antes do cafe faz a pessoa procurar na lista o que deveria estar na
-  // frente dela. `HH:MM` ordena igual em texto e no relogio.
+  // Na ordem do dia, nao na ordem em que o banco devolveu -- que e alfabetica,
+  // e poe "1ª refeição" antes de "Ao acordar".
   //
-  // Refeicao sem hora vai para o fim, e nao para o comeco: sem hora marcada
-  // ela e o extra, nao a primeira do dia.
+  // A ordem do PLANO manda (`ordem`, a posicao que o Cortex publica): num
+  // plano de nutricionista, "Ao acordar", o almoco e o lanche quase nunca tem
+  // hora escrita, e ordenar so pela hora jogava os tres para o fim da lista.
+  //
+  // Sem `ordem` -- Cortex antigo -- fica a regra de antes: `HH:MM` ordena
+  // igual em texto e no relogio, e refeicao sem hora vai para o fim.
+  const ordemDe = (i: ItemCardapio): number | null =>
+    typeof i.detalhe.ordem === 'number' && Number.isFinite(i.detalhe.ordem) ? i.detalhe.ordem : null
   return c.itens
     .filter(i => i.especie === 'refeicao')
     .sort((x, y) => {
+      const ox = ordemDe(x)
+      const oy = ordemDe(y)
+      if (ox !== null && oy !== null && ox !== oy) return ox - oy
       const a = typeof x.detalhe.hora === 'string' && x.detalhe.hora !== '' ? x.detalhe.hora : '99:99'
       const b = typeof y.detalhe.hora === 'string' && y.detalhe.hora !== '' ? y.detalhe.hora : '99:99'
       return a < b ? -1 : a > b ? 1 : x.nome.localeCompare(y.nome)
