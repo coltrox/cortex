@@ -437,6 +437,15 @@ export function planejar(evento: Evento): Operacao[] {
         // As outras telas não mandam este campo, e aí ele não entra.
         texto: txt(dados.texto).trim(),
         /*
+         * E `titulo` também, quando é anotação (a única que manda `texto`).
+         *
+         * A anotação criada no celular guarda o nome em `titulo`, e o índice
+         * lê `titulo` ANTES de `title`. Editar só `title` deixava o Cortex e o
+         * celular mostrando o texto antigo para sempre. Achado no teste de
+         * ponta a ponta de 13/09/2026.
+         */
+        titulo: txt(dados.texto).trim() ? txt(dados.titulo).trim() : undefined,
+        /*
          * O que o suplemento e a tarefa diária têm de seu.
          *
          * `dose` é a quantidade ("30 g"), `quando` é o momento ("pós-treino"),

@@ -253,6 +253,20 @@ describe('planejar — agenda e estudos', () => {
     expect(Object.keys((ops[0] as { campos: Record<string, unknown> }).campos)).toEqual(['title'])
   })
 
+  it('editar anotacao grava `titulo` junto -- o indice le `titulo` antes de `title`', () => {
+    // A anotacao criada no celular nasce com `titulo`. Editar so `title`
+    // deixava o nome antigo aparecendo no Cortex e no celular.
+    const [op] = planejar({
+      tipo: 'compromisso_editado', dia: '2026-09-13',
+      dados: { path: 'Vida/Comprar presente.md', titulo: 'Comprar presente ate sexta', texto: 'Comprar presente ate sexta' }
+    }) as { campos: Record<string, unknown> }[]
+    expect(op.campos).toEqual({
+      title: 'Comprar presente ate sexta',
+      texto: 'Comprar presente ate sexta',
+      titulo: 'Comprar presente ate sexta'
+    })
+  })
+
   it('apagar um item da agenda apaga a nota', () => {
     // Mudou de "marcar cancelado" para apagar de verdade: foi o que o dono
     // pediu. O que segura um toque errado passa a ser a confirmacao na tela.
