@@ -84,6 +84,34 @@ describe('Fila', () => {
     expect(r).toMatchObject({ enviados: 0, descartados: 0, restam: 1 })
   })
 
+  it('o que entra DURANTE um envio nao se perde, e sai na mesma rodada', async () => {
+    // O defeito: a fila era lida uma vez e regravada por cima depois de cada
+    // envio. Tocar em tres coisas seguidas mandava so a primeira.
+    const { fila } = filaDeTeste()
+    fila.enfileirar(evento('agua'))
+    const enviados: string[] = []
+    const r = await fila.esvaziar(async e => {
+      if (e.dados.nome === 'agua') {
+        fila.enfileirar(evento('creatina'))
+        fila.enfileirar(evento('cafe'))
+      }
+      enviados.push(String(e.dados.nome))
+    })
+    expect(enviados).toEqual(['agua', 'creatina', 'cafe'])
+    expect(r).toMatchObject({ enviados: 3, restam: 0 })
+  })
+
+  it('falha de rede com item novo no meio nao apaga o item novo', async () => {
+    const { fila } = filaDeTeste()
+    fila.enfileirar(evento('agua'))
+    await fila.esvaziar(async () => {
+      fila.enfileirar(evento('creatina'))
+      throw new ErroDeRede('sem sinal')
+    })
+    expect(fila.itens().map(i => [i.evento.dados.nome, i.tentativas]))
+      .toEqual([['agua', 1], ['creatina', 0]])
+  })
+
   it('recomeça vazia se o armazenamento estiver corrompido', () => {
     expect(filaDeTeste({ 'cortex.fila': 'isto não é json' }).fila.quantos()).toBe(0)
   })

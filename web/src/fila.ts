@@ -93,32 +93,48 @@ export class Fila {
     const avisos: string[] = []
     let enviados = 0
     let descartados = 0
-    let pendentes = this.itens()
+    const tentados = new Set<string>()
 
-    while (pendentes.length > 0) {
-      const item = pendentes[0]
+    /*
+     * Relê o armazenamento a CADA item, e mexe só no item enviado, pelo id.
+     *
+     * Antes a fila era lida uma vez no começo, e depois de cada envio aquela
+     * foto era gravada por cima do armazenamento. Tudo o que fosse enfileirado
+     * DURANTE um envio — uns 300 ms de rede — era apagado pela gravação
+     * seguinte. Tocar em água, creatina e café em sequência mandava só a água:
+     * os outros dois sumiam sem aviso, com a tela mostrando os três marcados.
+     * Achado no teste de ponta a ponta de 13/09/2026.
+     *
+     * Reler também faz o que chegou no meio sair nesta mesma rodada.
+     */
+    for (;;) {
+      const item = this.itens().find(i => !tentados.has(i.id))
+      if (!item) break
+      tentados.add(item.id)
       try {
         await enviar(item.evento)
         enviados++
-        pendentes = pendentes.slice(1)
-        this.gravar(pendentes)
+        this.remover(item.id)
       } catch (erro) {
         if (erro instanceof ErroDeDado) {
           descartados++
           avisos.push(erro.message)
-          pendentes = pendentes.slice(1)
-          this.gravar(pendentes)
+          this.remover(item.id)
           continue
         }
         // Rede, ou qualquer coisa que não soubemos classificar: o item fica,
         // com uma tentativa a mais no registro, e paramos por aqui.
-        pendentes = [{ ...item, tentativas: item.tentativas + 1 }, ...pendentes.slice(1)]
-        this.gravar(pendentes)
+        this.gravar(this.itens().map(i =>
+          i.id === item.id ? { ...i, tentativas: i.tentativas + 1 } : i))
         break
       }
     }
 
-    return { enviados, descartados, restam: pendentes.length, avisos }
+    return { enviados, descartados, restam: this.quantos(), avisos }
+  }
+
+  private remover(id: string): void {
+    this.gravar(this.itens().filter(i => i.id !== id))
   }
 
   private gravar(itens: ItemFila[]): void {

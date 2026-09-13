@@ -60,9 +60,12 @@ export function useEnvio() {
   // Impede duas drenagens ao mesmo tempo — o relógio de 30 s e o evento
   // `online` disparam juntos quando o sinal volta.
   const drenando = useRef(false)
+  // Pediram para esvaziar enquanto uma rodada estava no ar: roda de novo ao
+  // terminar, em vez de o registro esperar o relógio de 30 segundos.
+  const deNovo = useRef(false)
 
-  const drenar = useCallback(async () => {
-    if (drenando.current) return
+  const drenar = useCallback(async (): Promise<void> => {
+    if (drenando.current) { deNovo.current = true; return }
     const cliente = clienteAtual()
     if (!cliente || fila.quantos() === 0) {
       setEstado(e => ({ ...e, naFila: fila.quantos() }))
@@ -83,6 +86,10 @@ export function useEnvio() {
     } finally {
       drenando.current = false
       setEstado(e => ({ ...e, enviando: false, naFila: fila.quantos() }))
+    }
+    if (deNovo.current) {
+      deNovo.current = false
+      await drenar()
     }
   }, [fila])
 
