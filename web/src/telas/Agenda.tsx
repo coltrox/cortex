@@ -303,7 +303,8 @@ export function Agenda(p: {
       hora: l.hora,
       local: l.local,
       materia: l.materia,
-      comemorativa: l.comemorativa
+      comemorativa: l.comemorativa,
+      anos: l.anos
     }
   }) as ItemCardapio))
 

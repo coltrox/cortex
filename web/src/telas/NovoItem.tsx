@@ -3,7 +3,7 @@ import {
   diaLocal, eventoCompromisso, eventoItemEditado, eventoProvaNova, eventoTarefaNova, eventoDataComemorativa
 } from '../montar'
 import { guardadoDoNavegador } from '../guardado'
-import { guardarPendenteAgenda } from '../agendaLocal'
+import { guardarPendenteAgenda, pendenteComemorativo } from '../agendaLocal'
 import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
@@ -124,15 +124,19 @@ export function NovoItem(p: {
        * Só na criação: editar já mexe num item que está na tela.
        */
       if (!e) {
-        guardarPendenteAgenda(guardadoDoNavegador, hoje, {
-          tipo: p.tipo === 'comemorativa' ? 'compromisso' : p.tipo,
-          titulo: titulo.trim(),
-          data,
-          hora: hora || undefined,
-          local: local || undefined,
-          materia: materia || undefined,
-          comemorativa: p.tipo === 'comemorativa' ? true : undefined
-        })
+        const pendente = p.tipo === 'comemorativa'
+          // A data comemorativa entra na lista na próxima vez que cai, e não
+          // no dia digitado — que é o de quando começou, e já passou.
+          ? pendenteComemorativo(titulo, data, hoje)
+          : {
+            tipo: p.tipo,
+            titulo: titulo.trim(),
+            data,
+            hora: hora || undefined,
+            local: local || undefined,
+            materia: materia || undefined
+          }
+        if (pendente) guardarPendenteAgenda(guardadoDoNavegador, hoje, pendente)
       }
       p.irPara('agenda')
     } catch (err) {

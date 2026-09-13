@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { guardadoDeMemoria } from './guardado'
 import {
-  lerPendentesAgenda, guardarPendenteAgenda, conciliarAgenda, type PendenteAgenda
+  lerPendentesAgenda, guardarPendenteAgenda, conciliarAgenda, pendenteComemorativo,
+  type PendenteAgenda
 } from './agendaLocal'
 
 /**
@@ -104,6 +105,55 @@ describe('conciliar com o que o Cortex devolveu', () => {
     expect(conciliarAgenda(g, HOJE, [
       { tipo: 'compromisso', titulo: '  Dentista  ', data: '2026-09-15' }
     ])).toEqual([])
+  })
+})
+
+describe('data comemorativa marcada no celular', () => {
+  /*
+   * O defeito: o campo traz a data de quando comecou (1990-03-05), o pendente
+   * guardava isso cru, e a aba Chegando esconde o que ja passou. O evento
+   * subia, e o item sumia da tela no mesmo toque.
+   */
+  it('entra na lista na PROXIMA vez que cai, nao no ano digitado', () => {
+    expect(pendenteComemorativo('Niver da tia', '1983-09-11', HOJE)).toEqual({
+      tipo: 'compromisso', titulo: 'Niver da tia', data: '2027-09-11',
+      comemorativa: true, anos: 44
+    })
+  })
+
+  it('ainda este ano, se a data nao passou', () => {
+    expect(pendenteComemorativo('Meu niver', '2008-12-09', HOJE)?.data).toBe('2026-12-09')
+    expect(pendenteComemorativo('Meu niver', '2008-12-09', HOJE)?.anos).toBe(18)
+  })
+
+  it('hoje conta como a proxima', () => {
+    expect(pendenteComemorativo('Hoje', '2000-09-12', HOJE)?.data).toBe(HOJE)
+  })
+
+  it('o ano corrente e o padrao do seletor, nao uma origem: sem idade', () => {
+    const r = pendenteComemorativo('Namoro', '2026-01-12', HOJE)
+    expect(r?.data).toBe('2027-01-12')
+    expect(r?.anos).toBeUndefined()
+  })
+
+  it('casa com o que o Cortex devolve, e sai da copia local', () => {
+    // O Cortex publica a proxima ocorrencia; com a data crua isto nunca casava
+    // e o pendente ficava para sempre.
+    const g = guardadoDeMemoria()
+    guardarPendenteAgenda(g, HOJE, pendenteComemorativo('Niver da tia', '1983-09-11', HOJE)!)
+    expect(conciliarAgenda(g, HOJE, [
+      { tipo: 'compromisso', titulo: 'Niver da tia', data: '2027-09-11' }
+    ])).toEqual([])
+  })
+
+  it('a idade sobrevive a releitura do armazenamento', () => {
+    const g = guardadoDeMemoria()
+    guardarPendenteAgenda(g, HOJE, pendenteComemorativo('Niver da tia', '1983-09-11', HOJE)!)
+    expect(lerPendentesAgenda(g, HOJE)[0].anos).toBe(44)
+  })
+
+  it('data que nao existe nao vira pendente', () => {
+    expect(pendenteComemorativo('X', '1990-02-31', HOJE)).toBeNull()
   })
 })
 

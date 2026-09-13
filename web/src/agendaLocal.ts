@@ -1,4 +1,5 @@
 import type { Guardado } from './guardado'
+import { proximaOcorrencia, anosCompletados } from '@compartilhado/datas'
 
 const CHAVE = 'cortex.agenda-pendente'
 
@@ -33,6 +34,40 @@ export type PendenteAgenda = {
   materia?: string
   /** Data comemorativa: sobe como compromisso, e a tela mostra diferente. */
   comemorativa?: boolean
+  /** Data comemorativa: quantos anos vai fazer na próxima vez que cair. */
+  anos?: number
+}
+
+/**
+ * O pendente de uma data comemorativa, com a data da PRÓXIMA vez que ela cai.
+ *
+ * O campo do celular traz a data de quando começou — 1990-03-05 para um
+ * aniversário. Guardar isso cru era o "não está registrando": o evento subia,
+ * mas a aba Chegando esconde o que já passou, e 1990 passou. O item sumia no
+ * mesmo toque que devia mostrá-lo. E nunca saía daqui, porque o Cortex
+ * devolve a próxima ocorrência (2027-03-05) e a conciliação casa por data.
+ *
+ * Por isso a conta é a mesma dos dois lados: `proximaOcorrencia` é a de
+ * `montarCardapio`, e o ano só vale se for anterior ao corrente, como no
+ * planejador — o seletor de data traz o ano atual por padrão.
+ */
+export function pendenteComemorativo(
+  titulo: string, data: string, hoje: string
+): PendenteAgenda | null {
+  const [ano, mes, dia] = data.split('-').map(Number)
+  const quando = proximaOcorrencia(dia, mes, hoje)
+  if (!quando) return null
+  const origem = Number.isInteger(ano) && ano >= 1900 && ano < Number(hoje.slice(0, 4))
+    ? ano
+    : undefined
+  const anos = anosCompletados(origem, quando)
+  return {
+    tipo: 'compromisso',
+    titulo: titulo.trim(),
+    data: quando,
+    comemorativa: true,
+    anos: anos !== null && anos > 0 ? anos : undefined
+  }
 }
 
 const TIPOS = ['prova', 'compromisso', 'tarefa'] as const
@@ -63,7 +98,10 @@ function ler(g: Guardado, dia: string): PendenteAgenda[] {
         hora: typeof o.hora === 'string' && o.hora !== '' ? o.hora : undefined,
         local: typeof o.local === 'string' && o.local !== '' ? o.local : undefined,
         materia: typeof o.materia === 'string' && o.materia !== '' ? o.materia : undefined,
-        comemorativa: o.comemorativa === true ? true : undefined
+        comemorativa: o.comemorativa === true ? true : undefined,
+        anos: typeof o.anos === 'number' && Number.isInteger(o.anos) && o.anos > 0
+          ? o.anos
+          : undefined
       })
     }
     return out
