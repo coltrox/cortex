@@ -176,7 +176,11 @@ export function Calendario({
               <span className="cal-num">{c.dia}</span>
               {feriado && <span className="cal-feriado">{feriado.nome}</span>}
               {eventos.slice(0, cabem).map(e => (
-                <span key={e.path} className="cal-chip" data-t={e.tipo}>{e.title}</span>
+                // O título corta na célula, que tem tamanho fixo. Passar o mouse
+                // mostra ele inteiro; clicar abre o dia com todas as notas.
+                <span key={e.path} className="cal-chip" data-t={e.tipo} title={e.title}>
+                  {e.title}
+                </span>
               ))}
               {eventos.length > cabem && <span className="cal-mais">+{eventos.length - cabem}</span>}
             </button>

@@ -798,9 +798,22 @@ kbd {
 
 .cal-seta:hover { background: var(--surface-sunk); color: var(--text); }
 
+/*
+ * A grade tem tamanho FIXO, e o título da nota se ajusta a ela — nunca o
+ * contrário.
+ *
+ * As colunas eram `1fr`, que no grid vale `minmax(auto, 1fr)`: a coluna não
+ * encolhia abaixo do título mais comprido dela. Um compromisso de nome longo
+ * alargava a coluna inteira, espremia as outras seis, e as reticências nunca
+ * apareciam. `minmax(0, 1fr)` deixa as sete sempre iguais.
+ *
+ * E a altura era só um MÍNIMO, então o conteúdo empurrava a linha para baixo.
+ * Agora a linha tem altura cravada. O que não cabe corta, e o dia inteiro, com
+ * o título completo de cada nota, está a um clique — no popup.
+ */
 .cal-semana {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   font-family: var(--mono);
   font-size: 9.5px;
   text-transform: uppercase;
@@ -811,14 +824,15 @@ kbd {
 
 .cal-grade {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  /* Número do dia e três notas cabem em 108px com o "+N" embaixo. Mais que
+     isso vai para o popup. */
+  grid-auto-rows: 108px;
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  flex: 1;
-  min-height: 440px;
 }
 
 .cal-dia {
@@ -826,13 +840,26 @@ kbd {
   flex-direction: column;
   align-items: stretch;
   gap: 3px;
-  min-height: 84px;
+  /* Cravado na célula: sem `min-width: 0` o botão, que é item de grid, se
+     recusaria a ficar mais estreito que o próprio conteúdo. */
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
   padding: 7px 7px 8px;
   border: 0;
   border-radius: 0;
   background: var(--surface);
   text-align: left;
   transition: background 140ms;
+}
+/* A mesma trava nos itens de dentro: numa coluna flex, cada filho herda
+   `min-width: auto` e empurraria a célula de novo. `flex: none` impede que
+   uma nota encolha na altura e fique cortada pela metade. */
+.cal-dia > .cal-chip,
+.cal-dia > .cal-feriado {
+  min-width: 0;
+  max-width: 100%;
+  flex: none;
 }
 
 .cal-dia:hover:not(:disabled) { background: var(--surface-sunk); }
