@@ -16,9 +16,11 @@ const RETENCAO_DIAS_PADRAO = 90
 /**
  * Os únicos tipos de nota que `montarCardapio` usa — ver `publicar()`.
  *
- * Nenhum tipo de Vida entra nesta lista, e não é por esquecimento: documento,
- * senha, conta e compra ficam no computador. Acrescentar um deles aqui faz o
- * teste de vazamento de `cardapio.test.ts` quebrar, que é o combinado.
+ * Da Vida, só `pessoa` entra, e só pelo aniversário: nome e datas sobem,
+ * telefone e papel ficam — ver `montarCardapio`. Documento, senha, conta e
+ * compra ficam no computador, e não é por esquecimento: acrescentar um deles
+ * aqui faz o teste de vazamento de `cardapio.test.ts` quebrar, que é o
+ * combinado.
  */
 const TIPOS_CARDAPIO = TIPOS_NOTA_CARDAPIO
 

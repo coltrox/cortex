@@ -35,4 +35,16 @@ describe('o que o calendario mostra', () => {
     expect(porDiaDoCalendario([bissexto], 2028).get('2028-02-29')).toHaveLength(1)
     expect([...porDiaDoCalendario([torta], 2026).keys()]).toEqual([])
   })
+
+  it('o aniversario de uma pessoa cai no dia dele, todo ano', () => {
+    const clara = nota({
+      path: 'Vida/Clara.md', tipo: 'pessoa',
+      campos: { nascimento_dia: 27, nascimento_mes: 3, nascimento_ano: 2009 }
+    })
+    expect(porDiaDoCalendario([clara], 2026).get('2026-03-27')).toHaveLength(1)
+    expect(porDiaDoCalendario([clara], 2027).get('2027-03-27')).toHaveLength(1)
+    // Pessoa sem aniversário cadastrado não aparece em dia nenhum.
+    const semData = nota({ path: 'Vida/Daniel.md', tipo: 'pessoa', campos: { papel: 'ortopedista' } })
+    expect([...porDiaDoCalendario([semData], 2026).keys()]).toEqual([])
+  })
 })

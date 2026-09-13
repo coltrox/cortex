@@ -59,6 +59,11 @@ function legenda(f: Feriado): string {
   return `${ONDE[f.abrangencia]} · ${f.especie === 'feriado' ? 'feriado' : 'ponto facultativo'}`
 }
 
+/** O que se lê no calendário: o aniversário diz de quem é. */
+function tituloNoCalendario(n: NoteComCampos): string {
+  return n.tipo === 'pessoa' ? `Aniversário de ${n.title}` : n.title
+}
+
 /**
  * O que aparece em cada dia do ano que a grade mostra.
  *
@@ -70,6 +75,10 @@ function legenda(f: Feriado): string {
  * A data comemorativa não tem `date`: tem dia e mês, e cai todo ano. Aparece no
  * dia dela do ano da grade; 29/02 em ano comum cai em 28/02, como no resto do
  * app, e um dia que não existe em mês nenhum (31/04) não aparece.
+ *
+ * O aniversário de uma pessoa cadastrada entra do mesmo jeito, pelo
+ * `nascimento_dia` e `nascimento_mes` da nota dela. Pessoa sem aniversário
+ * não aparece.
  */
 export function porDiaDoCalendario(notas: NoteComCampos[], ano: number): Map<string, NoteComCampos[]> {
   const m = new Map<string, NoteComCampos[]>()
@@ -79,9 +88,14 @@ export function porDiaDoCalendario(notas: NoteComCampos[], ano: number): Map<str
     else m.set(data, [n])
   }
   for (const n of notas) {
-    if (n.tipo === 'data-comemorativa') {
-      const dia = Number(n.campos.dia)
-      const mes = Number(n.campos.mes)
+    const diaMes = n.tipo === 'data-comemorativa'
+      ? [n.campos.dia, n.campos.mes]
+      : n.tipo === 'pessoa'
+        ? [n.campos.nascimento_dia, n.campos.nascimento_mes]
+        : null
+    if (diaMes) {
+      const dia = Number(diaMes[0])
+      const mes = Number(diaMes[1])
       if (!Number.isInteger(dia) || !Number.isInteger(mes) || mes < 1 || mes > 12 || dia < 1) continue
       if (dia > diasDoMesNoAno(mes, 2024)) continue
       por(iso(ano, mes - 1, Math.min(dia, diasDoMesNoAno(mes, ano))), n)
@@ -204,8 +218,8 @@ export function Calendario({
               {eventos.slice(0, cabem).map(e => (
                 // O título corta na célula, que tem tamanho fixo. Passar o mouse
                 // mostra ele inteiro; clicar abre o dia com todas as notas.
-                <span key={e.path} className="cal-chip" data-t={e.tipo} title={e.title}>
-                  {e.title}
+                <span key={e.path} className="cal-chip" data-t={e.tipo} title={tituloNoCalendario(e)}>
+                  {tituloNoCalendario(e)}
                 </span>
               ))}
               {eventos.length > cabem && <span className="cal-mais">+{eventos.length - cabem}</span>}
@@ -243,12 +257,14 @@ export function Calendario({
                     <Linha
                       key={n.path}
                       aoAbrir={() => { aoAbrir(n.path); setDia(null) }}
-                      aoExcluir={() => aoExcluir(n)}
+                      // O aniversário é da ficha da pessoa: excluir aqui apagaria
+                      // a pessoa inteira. Abrir a ficha continua valendo.
+                      aoExcluir={n.tipo === 'pessoa' ? undefined : () => aoExcluir(n)}
                     >
                       {txt(n.campos.hora) && <span className="linha-data">{txt(n.campos.hora)}</span>}
-                      <span className="linha-titulo">{n.title}</span>
+                      <span className="linha-titulo">{tituloNoCalendario(n)}</span>
                       {txt(n.campos.local) && <span className="linha-valor">{txt(n.campos.local)}</span>}
-                      <span className="tipo" data-t={n.tipo}>{n.tipo}</span>
+                      <span className="tipo" data-t={n.tipo}>{n.tipo === 'pessoa' ? 'aniversário' : n.tipo}</span>
                     </Linha>
                   ))}
                 </div>

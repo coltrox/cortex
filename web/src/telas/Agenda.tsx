@@ -583,6 +583,15 @@ export function Agenda(p: {
 
   const cartaoCompromisso = (i: ItemCardapio, soAcoes = false) => {
     const path = caminhoDe(i)
+    /*
+     * O aniversário de uma pessoa cadastrada vem sem editar nem excluir.
+     *
+     * Ele mora na nota da PESSOA: o formulário de data comemorativa não
+     * alcança essa nota, e excluir por aqui apagaria a pessoa inteira, e não
+     * o aniversário. Muda-se no Cortex, na ficha dela.
+     */
+    const daPessoa = i.detalhe.pessoa === true
+    if (soAcoes && daPessoa) return null
     return (
       <div className={soAcoes ? 'heroi-acoes' : 'item item-acao'}
         key={path || i.nome}>
@@ -607,7 +616,7 @@ export function Agenda(p: {
         )}
         {/* Editar antes de excluir: mudar de horário é o que mais
             acontece, e cancelar é a saída. */}
-        <div className="item-acoes">
+        {!daPessoa && <div className="item-acoes">
           <button
             className="acao-lado"
             type="button"
@@ -634,7 +643,7 @@ export function Agenda(p: {
           >
             excluir
           </button>
-        </div>
+        </div>}
       </div>
     )
   }

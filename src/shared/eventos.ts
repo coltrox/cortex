@@ -68,7 +68,9 @@ export type Evento = z.infer<typeof EVENTO_SCHEMA>
  * estudou.
  *
  * Nada de Vida entra aqui. Documentos, senhas e contas ficam no computador,
- * e `cardapio.test.ts` falha se algum deles aparecer no que sobe.
+ * e `cardapio.test.ts` falha se algum deles aparecer no que sobe. O
+ * aniversário de uma pessoa não é espécie nova: sobe como `compromisso`, só
+ * com nome e datas.
  */
 /**
  * Os tipos de NOTA que alimentam o cardápio.
@@ -85,6 +87,9 @@ export const TIPOS_NOTA_CARDAPIO = [
   // Aniversario e afins. Sobem como espécie 'compromisso', na próxima vez
   // que caem -- ver montarCardapio.
   'data-comemorativa',
+  // A pessoa, só pelo aniversário: sobe como a data comemorativa, com nome e
+  // datas e mais nada -- telefone e papel ficam no computador.
+  'pessoa',
   // Os dois do porquinho: os movimentos, para somar o saldo, e a meta ativa.
   'porquinho', 'meta-cofre',
   // A tarefa diária, que aparece no celular junto com os suplementos.

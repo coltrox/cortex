@@ -391,6 +391,46 @@ export function montarCardapio(
   }
 
   /*
+   * O aniversário de quem está cadastrado como pessoa — o mesmo cartão.
+   *
+   * A nota `pessoa` guarda o nascimento em `nascimento_dia`, `_mes` e `_ano`,
+   * e até aqui ele só aparecia no Hoje do Cortex: o dono cadastrou a família
+   * com os aniversários, e nada disso chegava à Chegando do celular nem ao
+   * calendário do aparelho. Sobe como compromisso comemorativo, igual à data
+   * comemorativa, com três cuidados:
+   *
+   * - Só nome e datas. Telefone e papel ficam no computador — por isso cada
+   *   campo é escolhido aqui, e nada é espalhado da nota.
+   * - `pessoa: true`, para o celular não oferecer editar nem excluir: o
+   *   formulário de data comemorativa não alcança uma nota de pessoa, e
+   *   excluir apagaria a PESSOA, não o aniversário.
+   * - Pasta protegida continua fora, como no corpo das notas.
+   */
+  for (const n of notas.filter(x => x.tipo === 'pessoa')) {
+    if (emPastaProtegida(n.path)) continue
+    const dia = num(n.campos.nascimento_dia)
+    const mes = num(n.campos.nascimento_mes)
+    const quando = proximaOcorrencia(dia ?? 0, mes ?? 0, hoje)
+    if (!quando || !aindaInteressa(quando, hoje)) continue
+    const anos = anosCompletados(n.campos.nascimento_ano, quando)
+    out.push({
+      especie: 'compromisso',
+      nome: txt(n.title),
+      detalhe: comValor({
+        path: n.path,
+        data: quando,
+        comemorativa: true,
+        pessoa: true,
+        oque: 'aniversário',
+        dia,
+        mes,
+        ano: anos !== null ? num(n.campos.nascimento_ano) : undefined,
+        anos: anos !== null && anos > 0 ? anos : undefined
+      })
+    })
+  }
+
+  /*
    * As anotações de HOJE, e só as de hoje.
    *
    * Elas voltam para o celular para ele mostrar embaixo das tarefas do dia o

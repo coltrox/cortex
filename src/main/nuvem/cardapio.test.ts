@@ -204,6 +204,11 @@ describe('a Vida nunca sobe', () => {
              campos: { valor: 499.9, loja: 'LOJA-SECRETA' } }),
       nota({ path: 'Vida/Pessoas/Ana.md', title: 'Ana', tipo: 'pessoa', date: HOJE_2,
              campos: { telefone: '11-99999-0000', nota: 'CONTEUDO-PESSOAL' } }),
+      // A pessoa COM aniversário sobe desde 13/09/2026, a pedido do dono — mas
+      // só nome e datas. O resto da ficha continua sem poder vazar.
+      nota({ path: 'Vida/Bia.md', title: 'Bia', tipo: 'pessoa', date: HOJE_2,
+             campos: { nascimento_dia: 10, nascimento_mes: 9, nascimento_ano: 1990,
+                       telefone: '11-98888-1111', papel: 'PAPEL-SECRETO', nota: 'OUTRO-CONTEUDO' } }),
       // Uma prova de verdade junto, senão o teste passaria com um cardápio
       // vazio e não teria provado nada.
       nota({ path: 'Estudos/Provas/ENEM.md', title: 'ENEM', tipo: 'prova', date: HOJE_2,
@@ -212,15 +217,62 @@ describe('a Vida nunca sobe', () => {
     const json = JSON.stringify(montarCardapio(vault, HOJE_2, []))
 
     expect(json).toContain('ENEM')  // o cardápio não veio vazio
+    expect(json).toContain('Bia')   // o aniversário subiu, e só ele
     for (const proibido of [
       'CONTA-99999-7', 'SENHA-SECRETA-123', 'pedro@mail', '99.999.999-9',
       'LOJA-SECRETA', 'CONTEUDO-PESSOAL', '11-99999-0000', '499.9',
+      '11-98888-1111', 'PAPEL-SECRETO', 'OUTRO-CONTEUDO', 'Ana',
       // Os tipos, não só os valores: se um deles aparecer, alguém abriu a
-      // porta para a espécie inteira.
-      'conta', 'senha', 'documento', 'compra', 'pessoa'
+      // porta para a espécie inteira. `pessoa` saiu desta lista em
+      // 13/09/2026: o aniversário sobe com a marca `pessoa` — e o teste
+      // abaixo prova que só ele.
+      'conta', 'senha', 'documento', 'compra'
     ]) {
       expect(json).not.toContain(proibido)
     }
+  })
+})
+
+/*
+ * O aniversário de quem está cadastrado como pessoa.
+ *
+ * A única parte da Vida que sobe, e por pedido do dono (13/09/2026): a família
+ * cadastrada com aniversário não chegava à Chegando nem ao calendário do
+ * aparelho. Sobe como a data comemorativa, e só com nome e datas.
+ */
+describe('aniversario de pessoa no cardapio', () => {
+  const HOJE = '2026-09-13'
+  const pessoa = (campos: Record<string, unknown>, path = 'Vida/Clara.md') => nota({
+    path, title: 'Clara', tipo: 'pessoa', campos
+  })
+
+  it('sobe como compromisso comemorativo, com a marca de pessoa e a idade', () => {
+    const [i] = montarCardapio(
+      [pessoa({ nascimento_dia: 27, nascimento_mes: 3, nascimento_ano: 2009 })], HOJE, []
+    )
+    expect(i).toEqual({
+      especie: 'compromisso', nome: 'Clara',
+      detalhe: {
+        path: 'Vida/Clara.md', data: '2027-03-27', comemorativa: true, pessoa: true,
+        oque: 'aniversário', dia: 27, mes: 3, ano: 2009, anos: 18
+      }
+    })
+  })
+
+  it('so nome e datas: telefone e papel ficam no computador', () => {
+    const json = JSON.stringify(montarCardapio([pessoa({
+      nascimento_dia: 27, nascimento_mes: 3, telefone: '19-97777-2222', papel: 'namorada'
+    })], HOJE, []))
+    expect(json).toContain('Clara')
+    expect(json).not.toContain('19-97777-2222')
+    expect(json).not.toContain('namorada')
+  })
+
+  it('pessoa sem aniversario, ou em pasta protegida, nao sobe', () => {
+    expect(montarCardapio([pessoa({ papel: 'ortopedista' })], HOJE, [])).toEqual([])
+    expect(montarCardapio(
+      [pessoa({ nascimento_dia: 27, nascimento_mes: 3 }, 'Vida/Contas/Clara.md')], HOJE, []
+    )).toEqual([])
   })
 })
 
@@ -326,9 +378,11 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // nao chegava ao celular -- o check de la vivia so na memoria do aparelho.
     // `hidratacao` diz a meta e o tamanho da garrafa; o total bebido vem do
     // `diario`, logo acima. Sao dois tipos para uma secao so na tela.
+    // `pessoa` entrou em 13/09/2026, e so pelo aniversario -- ver o teste de
+    // vazamento, que continua barrando o resto da ficha.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
-      'anotacao', 'data-comemorativa', 'diario', 'evento', 'hidratacao', 'meta-cofre', 'plano',
-      'porquinho', 'prova', 'rotina', 'simulado', 'suplemento', 'tarefa',
+      'anotacao', 'data-comemorativa', 'diario', 'evento', 'hidratacao', 'meta-cofre', 'pessoa',
+      'plano', 'porquinho', 'prova', 'rotina', 'simulado', 'suplemento', 'tarefa',
       'treino-modelo'
     ])
   })
@@ -347,6 +401,10 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       'data-comemorativa': nota({
         path: 'k.md', title: 'Aniversario da mae', tipo: 'data-comemorativa',
         campos: { dia: 20, mes: 12, ano: 1970 }
+      }),
+      pessoa: nota({
+        path: 'l.md', title: 'Clara', tipo: 'pessoa',
+        campos: { nascimento_dia: 27, nascimento_mes: 3 }
       }),
       anotacao: nota({
         path: 'j.md', title: 'Passou o dia', tipo: 'anotacao', date: HOJE,
