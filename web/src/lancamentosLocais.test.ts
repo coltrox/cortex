@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { guardadoDeMemoria } from './guardado'
-import { guardarAlteracao, comAlteracoes, listaOcupada } from './lancamentosLocais'
+import { guardarAlteracao, comAlteracoes, chaveEfetiva } from './lancamentosLocais'
 import type { Transacao } from './cardapio'
 
 const t = (i: number, item: string, valor: number): Transacao => ({
@@ -59,12 +59,31 @@ describe('lancamento editado ou excluido no celular', () => {
     expect(comAlteracoes(g, [t(0, 'almoço', 20)]).map(x => x.item)).toEqual(['almoço'])
   })
 
-  it('trava as outras linhas do mesmo dia enquanto uma alteracao nao volta', () => {
+  it('com uma exclusao pendente antes, a linha anda uma casa -- e continua clicavel', () => {
+    // Existia uma trava aqui, e ela prendia a tela: excluir um lancamento
+    // deixava os outros do dia sem botao ate o Cortex devolver.
     const g = guardadoDeMemoria()
     guardarAlteracao(g, { chave: t(0, 'almoço', 20).chave, antes: { item: 'almoço', valor: 20 }, novo: null })
-    expect(listaOcupada(g, t(1, 'uber', 15))).toBe(true)
-    expect(listaOcupada(g, t(0, 'almoço', 20))).toBe(false)
-    expect(listaOcupada(g, { ...t(0, 'mercado', 80), chave: '2026-09-12#transacoes#0', data: '2026-09-12' })).toBe(false)
+    expect(chaveEfetiva(g, t(2, 'venda', 100))).toBe('2026-09-13#transacoes#1')
+    expect(chaveEfetiva(g, t(1, 'venda', 10))).toBe('2026-09-13#transacoes#0')
+  })
+
+  it('duas exclusoes antes descontam duas; edicao nao desconta', () => {
+    const g = guardadoDeMemoria()
+    guardarAlteracao(g, { chave: t(0, 'a', 1).chave, antes: { item: 'a', valor: 1 }, novo: null })
+    guardarAlteracao(g, { chave: t(1, 'b', 2).chave, antes: { item: 'b', valor: 2 }, novo: null })
+    guardarAlteracao(g, {
+      chave: t(2, 'c', 3).chave, antes: { item: 'c', valor: 3 },
+      novo: { item: 'c', valor: 4, cat: '', entrada: false }
+    })
+    expect(chaveEfetiva(g, t(3, 'd', 5))).toBe('2026-09-13#transacoes#1')
+  })
+
+  it('exclusao de outro dia, ou depois da linha, nao mexe na posicao', () => {
+    const g = guardadoDeMemoria()
+    guardarAlteracao(g, { chave: '2026-09-12#transacoes#0', antes: { item: 'x', valor: 1 }, novo: null })
+    guardarAlteracao(g, { chave: t(5, 'y', 2).chave, antes: { item: 'y', valor: 2 }, novo: null })
+    expect(chaveEfetiva(g, t(2, 'venda', 100))).toBe('2026-09-13#transacoes#2')
   })
 
   it('armazenamento torto nao derruba a tela', () => {

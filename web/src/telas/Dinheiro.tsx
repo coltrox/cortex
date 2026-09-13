@@ -7,7 +7,7 @@ import {
 import { diaLocal, eventoGasto, eventoPorquinho, eventoLancamentoAlterado } from '../montar'
 import { guardadoDoNavegador } from '../guardado'
 import {
-  comAlteracoes, guardarAlteracao, listaOcupada, type Alteracao
+  comAlteracoes, guardarAlteracao, chaveEfetiva, type Alteracao
 } from '../lancamentosLocais'
 import { Cabecalho, Aviso, Secao, Selecao } from '../componentes'
 
@@ -32,10 +32,9 @@ const MESES = [
 ]
 
 /** Uma linha da lista do dia, com o "⋯" que abre editar e excluir. */
-function Linha({ t, aberta, travada, aoAbrir, aoEditar, aoExcluir }: {
+function Linha({ t, aberta, aoAbrir, aoEditar, aoExcluir }: {
   t: Transacao
   aberta: boolean
-  travada: boolean
   aoAbrir: () => void
   aoEditar: () => void
   aoExcluir: () => void
@@ -63,17 +62,14 @@ function Linha({ t, aberta, travada, aoAbrir, aoEditar, aoExcluir }: {
       </div>
       {aberta && (
         <div className="lanc-acoes">
-          <button type="button" className="acao-lado" disabled={travada} onClick={aoEditar}>
+          {/* Sempre clicáveis. Uma exclusão ainda pendente antes desta linha
+              não trava nada: a posição é recalculada — ver `chaveEfetiva`. */}
+          <button type="button" className="acao-lado" onClick={aoEditar}>
             editar
           </button>
-          <button type="button" className="acao-lado acao-destrutiva" disabled={travada} onClick={aoExcluir}>
+          <button type="button" className="acao-lado acao-destrutiva" onClick={aoExcluir}>
             excluir
           </button>
-          {/* Outra linha deste dia mudou e ainda não voltou do Cortex. A
-              posição desta pode andar, e a mudança cairia em vão. */}
-          {travada && (
-            <span className="lanc-espera">Esperando o Cortex confirmar a outra mudança deste dia.</span>
-          )}
         </div>
       )}
     </div>
@@ -206,7 +202,11 @@ export function Dinheiro(p: {
    */
   const alterar = (t: Transacao, novo: Alteracao['novo']): void => {
     try {
-      p.envio.registrar(eventoLancamentoAlterado(t, novo, dia))
+      // A posição que a linha terá quando o Cortex chegar nela: uma exclusão
+      // ainda pendente antes dela a faz andar uma casa — ver `chaveEfetiva`.
+      p.envio.registrar(eventoLancamentoAlterado(
+        { ...t, chave: chaveEfetiva(guardadoDoNavegador, t) }, novo, dia
+      ))
       guardarAlteracao(guardadoDoNavegador, { chave: t.chave, antes: { item: t.item, valor: t.valor }, novo })
       setVersao(v => v + 1)
       setAberta(null)
@@ -358,7 +358,6 @@ export function Dinheiro(p: {
                 key={t.chave}
                 t={t}
                 aberta={aberta === t.chave}
-                travada={listaOcupada(guardadoDoNavegador, t)}
                 aoAbrir={() => setAberta(aberta === t.chave ? null : t.chave)}
                 aoEditar={() => { setEditando(t.chave); setAberta(null) }}
                 aoExcluir={() => {

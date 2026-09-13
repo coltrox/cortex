@@ -93,13 +93,27 @@ export function comAlteracoes(g: Guardado, publicadas: Transacao[]): Transacao[]
 }
 
 /**
- * Esta linha divide a lista com uma alteração ainda no caminho?
+ * A chave que esta linha terá quando o Cortex chegar nela.
  *
- * Editar a linha 2 enquanto a exclusão da linha 1 não chegou mandaria a
- * edição para uma posição que vai andar — e o Cortex a recusaria. Travar a
- * lista daquele dia até a volta evita o toque que não vai dar em nada.
+ * Excluir a linha 0 e depois editar a linha 2 manda a edição para uma posição
+ * que vai andar: quando ela for aplicada, a exclusão já passou e a linha 2 virou
+ * a 1. Os eventos saem na ordem, então a conta é certa — desconta cada exclusão
+ * ainda pendente que esteja ANTES desta linha, na mesma lista do mesmo dia.
+ *
+ * Existia uma trava no lugar disto, e ela prendia a tela: com o computador
+ * desligado, excluir um lançamento deixava todos os outros do dia sem botão.
+ * Se a conta errar, o Cortex confere item e valor antes de mexer e não altera
+ * nada — o pior caso é a mudança não acontecer, nunca cair na linha vizinha.
  */
-export function listaOcupada(g: Guardado, t: Transacao): boolean {
-  const prefixo = t.chave.slice(0, t.chave.lastIndexOf('#'))
-  return ler(g).some(a => a.chave !== t.chave && a.chave.startsWith(`${prefixo}#`))
+export function chaveEfetiva(g: Guardado, t: Transacao): string {
+  const corte = t.chave.lastIndexOf('#')
+  const prefixo = t.chave.slice(0, corte)
+  const indice = Number(t.chave.slice(corte + 1))
+  if (!Number.isInteger(indice)) return t.chave
+  const antes = ler(g).filter(a => {
+    if (a.novo !== null || !a.chave.startsWith(`${prefixo}#`)) return false
+    const i = Number(a.chave.slice(a.chave.lastIndexOf('#') + 1))
+    return Number.isInteger(i) && i < indice
+  }).length
+  return `${prefixo}#${indice - antes}`
 }
