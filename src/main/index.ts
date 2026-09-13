@@ -1,5 +1,5 @@
 import { app, BrowserWindow, Menu, ipcMain, dialog, shell, session as sessaoEletron } from 'electron'
-import { join, resolve, basename } from 'node:path'
+import { join, resolve, basename, relative, isAbsolute, sep } from 'node:path'
 import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises'
 import { Session } from './session'
@@ -12,7 +12,7 @@ import {
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 import { ehOuContem } from './caminhos'
 import { ligarAtualizacaoAutomatica } from './atualizador'
-import { instrucoesParaClaude } from './instrucoesClaude'
+import { instrucoesParaClaude, gravarSeMudou } from './instrucoesClaude'
 
 const session = new Session()
 
@@ -94,6 +94,7 @@ async function abrirVault(root: string): Promise<{ root: string; config: ConfigP
   }
   await session.open(root, avisarMudanca)
   await lembrarVault(session.vault.root)
+  void atualizarInstrucoesClaude()
   ligarCampainha(session.config, aoTocarCampainha)
   return { root: session.vault.root, config: projetarConfigParaRenderer(session.config) }
 }
@@ -463,33 +464,31 @@ ipcMain.handle('dev:novo-projeto', async (_e, payload: unknown) => {
 })
 
 /**
- * Grava `CLAUDE.md` na raiz do vault: as instruções para o Claude Code de
- * quem usar este vault — apresentar o app, entrevistar a pessoa, e escrever o
- * resumo do diário.
+ * O `CLAUDE.md` da pasta de dados do Cortex (`AppData\Roaming\Cortex`).
  *
- * O texto é montado aqui (`instrucoesClaude.ts`); a tela só pede. Um
- * `CLAUDE.md` que já existe pode ter sido escrito à mão, e só é substituído
- * com a pessoa confirmando no diálogo nativo.
+ * Gravado sozinho, sem botão: toda vez que um vault abre, e quando as áreas
+ * mudam. Assim ele sempre aponta para o vault em uso e só pergunta das áreas
+ * ligadas. Mora na pasta de dados, e não dentro do vault, porque é ali que o
+ * dono abre o Claude Code — e o vault é das notas, não do app.
+ *
+ * Falha em silêncio: sem o arquivo o Cortex funciona igual, e um erro de
+ * disco aqui não pode impedir o vault de abrir.
  */
-ipcMain.handle('vault:instrucoes-claude', async () => {
-  if (!session.isOpen) throw new Error('nenhum vault aberto')
-  const rel = 'CLAUDE.md'
-  const caminho = join(session.vault.root, rel)
-  if (await session.vault.exists(rel)) {
-    const r = await dialog.showMessageBox({
-      type: 'question',
-      title: 'Instruções para o Claude Code',
-      message: 'Já existe um CLAUDE.md neste vault. Substituir pelo modelo do Cortex?',
-      detail: 'O arquivo atual será sobrescrito.',
-      buttons: ['Substituir', 'Cancelar'],
-      defaultId: 1,
-      cancelId: 1
-    })
-    if (r.response !== 0) return { criado: false, caminho }
+async function atualizarInstrucoesClaude(): Promise<void> {
+  if (!session.isOpen) return
+  try {
+    const dados = app.getPath('userData')
+    const root = session.vault.root
+    const rel = relative(dados, root)
+    const dentro = rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)
+    await gravarSeMudou(join(dados, 'CLAUDE.md'), instrucoesParaClaude(session.config.areas, {
+      pasta: root,
+      relativo: dentro ? rel.split(sep).join('/') : null
+    }))
+  } catch {
+    // Ver acima: não é motivo para nada deixar de funcionar.
   }
-  await session.vault.writeAtomic(rel, instrucoesParaClaude(session.config.areas))
-  return { criado: true, caminho }
-})
+}
 
 /**
  * Abre a pasta do projeto no VS Code.
@@ -555,7 +554,7 @@ app.whenReady().then(async () => {
     })
   }
 
-  registerIpc(session)
+  registerIpc(session, { aoMudarAreas: () => void atualizarInstrucoesClaude() })
   createWindow()
 
   // Reabre o último vault sozinho. A tela de abertura só aparece de verdade

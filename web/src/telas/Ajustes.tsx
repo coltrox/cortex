@@ -246,6 +246,24 @@ function CartaoCalendario({ vault }: { vault: string | null }) {
         )}
       </div>
 
+      {/*
+        * No Android, só pelo computador.
+        *
+        * O app do Google Agenda não assina calendário por link — isso só se
+        * faz no Google Agenda aberto no navegador do computador. Depois de
+        * assinado lá, a agenda aparece sozinha no celular, na mesma conta.
+        */}
+      {(sistema === 'android' || sistema === 'outro') && (
+        <p className="cartao-ajuste-txt cal-ressalva">
+          <strong>No Android, só funciona pelo computador.</strong> O app do
+          Google Agenda não assina calendário por link. Abra este app no
+          navegador do PC, entre na mesma conta Google do celular e clique em
+          “Conectar ao Google”. Depois disso a agenda aparece sozinha no
+          celular — se não aparecer, no Google Agenda vá em Configurações ›
+          Cortex e ligue “Sincronizar”.
+        </p>
+      )}
+
       <p className="cartao-ajuste-txt cal-ressalva">
         É de mão única: o que está no Cortex aparece no calendário, e o que
         você criar no calendário não volta para cá.

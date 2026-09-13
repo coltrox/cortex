@@ -48,16 +48,18 @@ export type PendenteAgenda = {
  * devolve a próxima ocorrência (2027-03-05) e a conciliação casa por data.
  *
  * Por isso a conta é a mesma dos dois lados: `proximaOcorrencia` é a de
- * `montarCardapio`, e o ano só vale se for anterior ao corrente, como no
- * planejador — o seletor de data traz o ano atual por padrão.
+ * `montarCardapio`, e o ano passa pela mesma régua do planejador
+ * (`anoDeOrigem`): de 1900 até hoje, inclusive no ano corrente.
  */
 export function pendenteComemorativo(
-  titulo: string, data: string, hoje: string
+  titulo: string, data: { dia: number; mes: number; ano?: number }, hoje: string
 ): PendenteAgenda | null {
-  const [ano, mes, dia] = data.split('-').map(Number)
-  const quando = proximaOcorrencia(dia, mes, hoje)
+  const quando = proximaOcorrencia(data.dia, data.mes, hoje)
   if (!quando) return null
-  const anos = anosCompletados(anoDeOrigem(ano, hoje), quando)
+  const origem = data.ano === undefined
+    ? undefined
+    : anoDeOrigem(data.ano, data.mes, data.dia, hoje)
+  const anos = anosCompletados(origem, quando)
   return {
     tipo: 'compromisso',
     titulo: titulo.trim(),

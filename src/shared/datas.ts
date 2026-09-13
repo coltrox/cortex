@@ -72,15 +72,23 @@ export function anosCompletados(anoOrigem: unknown, ocorrencia: string): number 
 }
 
 /**
- * O ano digitado, se ele puder ser o de quando a data começou.
+ * O ano de quando a data começou, se ele puder ser.
  *
- * O campo do celular é uma data inteira e já nasce com o ano corrente. Quem
- * não sabe o ano deixa o que veio — e contar isso anunciaria "faz 0 anos".
- * Por isso só vale um ano ANTERIOR ao corrente. A mesma regra na criação, na
- * edição e na cópia local do celular: cada uma com a sua, elas divergiriam.
+ * Um começo não fica no futuro: vale qualquer data até HOJE, inclusive no ano
+ * corrente. Antes só valia um ano anterior ao corrente — o campo do celular
+ * era uma data inteira que nascia com o ano atual, e a regra existia para não
+ * contar esse padrão. Só que ela apagava o ano de quem começou este ano: o
+ * namoro de 12/01/2026 aparecia sem "vai fazer 1 ano", e a edição mostrava
+ * 2027 como começo. O formulário agora tem um campo de ano próprio, em branco
+ * quando não se sabe.
+ *
+ * A mesma regra na criação, na edição e na cópia local do celular: cada uma
+ * com a sua, elas divergiriam.
  */
-export function anoDeOrigem(ano: number, hoje: string): number | undefined {
-  return Number.isInteger(ano) && ano >= 1900 && ano < Number(hoje.slice(0, 4))
-    ? ano
-    : undefined
+export function anoDeOrigem(
+  ano: number, mes: number, dia: number, hoje: string
+): number | undefined {
+  if (!Number.isInteger(ano) || ano < 1900) return undefined
+  if (!Number.isInteger(mes) || !Number.isInteger(dia)) return undefined
+  return `${ano}-${dois(mes)}-${dois(dia)}` <= hoje ? ano : undefined
 }

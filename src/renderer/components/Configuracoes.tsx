@@ -112,8 +112,6 @@ export function Configuracoes({
             </button>
           </section>
 
-          <BlocoClaudeCode />
-
         </div>
         <div className="form-rodape">
           <button className="btn" onClick={aoFechar}>Fechar</button>
@@ -184,48 +182,12 @@ function BlocoTema() {
   )
 }
 
-/**
- * As instruções para o Claude Code de quem usar este vault.
+/*
+ * Não há mais bloco "Claude Code" aqui.
  *
- * Grava um `CLAUDE.md` na raiz do vault — o arquivo que o Claude Code lê
- * sozinho ao abrir numa pasta. Nele: apresentar o app primeiro, entrevistar a
- * pessoa pelas áreas ligadas, a estrutura das notas, e o diário como resumo
- * do dia escrito pelo Claude. O texto é montado no processo principal.
+ * O CLAUDE.md era gravado por um botão, na raiz do vault. Agora o processo
+ * principal grava sozinho na pasta de dados do Cortex (`AppData\Roaming\
+ * Cortex`) toda vez que um vault abre e quando as áreas mudam — ver
+ * `atualizarInstrucoesClaude` em `main/index.ts`. Um botão para algo que
+ * sempre deve estar lá e em dia era trabalho à toa para quem usa.
  */
-function BlocoClaudeCode() {
-  const [estado, setEstado] = useState<{ tom: 'ok' | 'erro'; texto: string } | null>(null)
-  const [gravando, setGravando] = useState(false)
-
-  const gravar = async (): Promise<void> => {
-    setGravando(true)
-    setEstado(null)
-    try {
-      const r = await window.vaultApi.instrucoesClaude()
-      setEstado(r.criado
-        ? { tom: 'ok', texto: `Gravado em ${r.caminho}. Abra o Claude Code nessa pasta do vault.` }
-        : { tom: 'ok', texto: 'Cancelado — o CLAUDE.md que já existia ficou como estava.' })
-    } catch (e) {
-      setEstado({ tom: 'erro', texto: e instanceof Error ? e.message : 'não deu para gravar' })
-    } finally {
-      setGravando(false)
-    }
-  }
-
-  return (
-    <section className="config-bloco">
-      <h3>Claude Code</h3>
-      <p className="form-dica">
-        Grava um <code>CLAUDE.md</code> no vault. Quando alguém abrir o Claude Code
-        nessa pasta, ele primeiro explica como o Cortex funciona, depois faz as
-        perguntas para encher o vault — só das áreas ligadas — e passa a escrever
-        o diário como resumo do que foi registrado no dia.
-      </p>
-      <button className="btn-fantasma" disabled={gravando} onClick={() => void gravar()}>
-        {gravando ? 'Gravando…' : 'Criar instruções para o Claude Code'}
-      </button>
-      {estado && (
-        <p className="form-dica" data-erro={estado.tom === 'erro' || undefined}>{estado.texto}</p>
-      )}
-    </section>
-  )
-}

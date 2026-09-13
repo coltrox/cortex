@@ -748,14 +748,39 @@ describe('planejar — data comemorativa', () => {
     })
   })
 
-  it('ano igual ao corrente nao entra -- e o padrao do seletor, nao um fato', () => {
-    // O campo do celular e uma data inteira. Quem nao sabe o ano de nascimento
-    // deixa o que veio preenchido, e contar isso anunciaria "faz 0 anos".
+  it('o ano corrente entra quando a data ja chegou -- o namoro de 12/01/2026', () => {
+    // Antes era recusado, e o namoro aparecia sem "vai fazer 1 ano".
     const [op] = planejar(ev('compromisso', {
-      titulo: 'Aniversário do João', data: '2026-03-05', comemorativa: true
+      titulo: 'Namoro', data: '2026-01-12', comemorativa: true
+    }))
+    expect((op as { frontmatter: Record<string, unknown> }).frontmatter)
+      .toMatchObject({ dia: 12, mes: 1, ano: 2026 })
+  })
+
+  it('um comeco depois do dia do evento nao vira ano', () => {
+    const [op] = planejar(ev('compromisso', {
+      titulo: 'Futuro', data: '2026-12-20', comemorativa: true
     }))
     expect((op as { frontmatter: Record<string, unknown> }).frontmatter)
       .not.toHaveProperty('ano')
+  })
+
+  it('o formulario novo manda o ano a parte, e null e "nao sei"', () => {
+    const semAno = planejar(ev('compromisso', {
+      titulo: 'Aniversário do João', data: '2026-03-05', comemorativa: true, ano: null
+    }))[0] as { frontmatter: Record<string, unknown> }
+    expect(semAno.frontmatter).not.toHaveProperty('ano')
+
+    const comAno = planejar(ev('compromisso', {
+      titulo: 'Aniversário do João', data: '2026-03-05', comemorativa: true, ano: 1990
+    }))[0] as { frontmatter: Record<string, unknown> }
+    expect(comAno.frontmatter).toMatchObject({ dia: 5, mes: 3, ano: 1990 })
+  })
+
+  it('dia que nao existe no mes nao vira nota', () => {
+    expect(planejar(ev('compromisso', {
+      titulo: 'Impossível', data: '2026-02-31', comemorativa: true
+    }))).toEqual([])
   })
 
   it('sem a marca continua sendo compromisso comum', () => {
@@ -801,11 +826,19 @@ describe('planejar — data comemorativa', () => {
     }])
   })
 
-  it('editar com o ano corrente mexe em dia e mes, e nao inventa ano', () => {
+  it('editar com o ano corrente guarda o ano quando a data ja chegou', () => {
+    // Era o "muda pra 2027 o ano que comecou": o ano do namoro se perdia.
     const [op] = planejar(ev('compromisso_editado', {
       path: 'Agenda/x.md', data: '2026-01-12', comemorativa: true
     })) as { campos: Record<string, unknown> }[]
-    expect(op.campos).toEqual({ dia: 12, mes: 1 })
+    expect(op.campos).toEqual({ dia: 12, mes: 1, ano: 2026 })
+  })
+
+  it('editar com o ano apagado tira o ano da nota', () => {
+    const [op] = planejar(ev('compromisso_editado', {
+      path: 'Agenda/x.md', data: '2026-01-12', comemorativa: true, ano: null
+    })) as { campos: Record<string, unknown> }[]
+    expect(op.campos).toEqual({ dia: 12, mes: 1, ano: null })
   })
 
   it('a marca nao alcanca outra especie de nota', () => {

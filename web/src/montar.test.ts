@@ -3,7 +3,8 @@ import {
   diaLocal, eventoSuplemento, eventoRefeicaoPlano, eventoRefeicaoExtra,
   eventoGasto, eventoSessao, eventoCardio, eventoMedida, eventoPeso, eventoAnotacao,
   eventoProvaEstudada, eventoCompromisso, eventoItemApagado, eventoPorquinho,
-  eventoProvaNova, eventoTarefaNova, eventoItemEditado, eventoRotina, eventoAgua
+  eventoProvaNova, eventoTarefaNova, eventoItemEditado, eventoRotina, eventoAgua,
+  eventoDataComemorativa, dadosComemorativa
 } from './montar'
 
 const DIA = '2026-08-28'
@@ -212,6 +213,35 @@ describe('agenda e estudos', () => {
     ).dados).toEqual({
       path: 'Agenda/niver.md', comemorativa: true, titulo: 'Niver', data: '1983-09-11'
     })
+  })
+
+  it('editar data comemorativa leva o ano, e null para tira-lo da nota', () => {
+    expect(eventoItemEditado(
+      'Agenda/namoro.md', { titulo: 'Namoro', data: '2026-01-12', ano: 2026, comemorativa: true }, DIA2
+    ).dados).toMatchObject({ ano: 2026 })
+    // `comValor` tiraria o null; e ele que apaga um ano apagado no formulario.
+    expect(eventoItemEditado(
+      'Agenda/namoro.md', { titulo: 'Namoro', data: '2026-01-12', ano: null, comemorativa: true }, DIA2
+    ).dados).toMatchObject({ ano: null })
+  })
+
+  it('data comemorativa manda dia e mes na data, e o ano a parte', () => {
+    // O namoro de 12/01/2026: o ano corrente e um comeco de verdade.
+    expect(eventoDataComemorativa('Namoro', { dia: 12, mes: 1, ano: 2026 }, DIA2).dados).toEqual({
+      titulo: 'Namoro', data: '2026-01-12', comemorativa: true, ano: 2026
+    })
+    // Sem ano: a data leva o ano corrente, e `ano: null` diz que ele nao conta.
+    expect(eventoDataComemorativa('Niver', { dia: 5, mes: 3 }, DIA2).dados).toMatchObject({
+      data: '2026-03-05', ano: null
+    })
+  })
+
+  it('data comemorativa recusa dia que nao existe e comeco no futuro', () => {
+    expect(() => eventoDataComemorativa('X', { dia: 31, mes: 2 }, DIA2)).toThrow('esse dia')
+    expect(() => eventoDataComemorativa('X', { dia: 20, mes: 12, ano: 2026 }, DIA2)).toThrow('começo')
+    expect(() => eventoDataComemorativa('X', { dia: 1, mes: 1, ano: 1850 }, DIA2)).toThrow('começo')
+    // 29/02 existe -- so nao todo ano.
+    expect(dadosComemorativa({ dia: 29, mes: 2 }, DIA2)).toEqual({ data: '2026-02-29', ano: null })
   })
 
   it('caminho vazio nao vira evento', () => {

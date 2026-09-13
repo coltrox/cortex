@@ -506,8 +506,18 @@ export async function handle(
   }
 }
 
-export function registerIpc(session: Session): void {
+export function registerIpc(
+  session: Session,
+  avisos: { aoMudarAreas?: () => void } = {}
+): void {
   for (const canal of Object.keys(IPC_SCHEMAS) as IpcChannel[]) {
-    ipcMain.handle(canal, (_e, payload) => handle(session, canal, payload))
+    ipcMain.handle(canal, async (_e, payload) => {
+      const r = await handle(session, canal, payload)
+      // As áreas ligadas entram no CLAUDE.md da pasta de dados do app — ver
+      // `main/instrucoesClaude.ts`. O aviso vem depois de salvar, e só se
+      // salvou: `handle` lança antes quando o payload é recusado.
+      if (canal === 'config:areas') avisos.aoMudarAreas?.()
+      return r
+    })
   }
 }

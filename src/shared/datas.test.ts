@@ -108,17 +108,24 @@ describe('anosCompletados', () => {
 
 describe('anoDeOrigem', () => {
   it('ano anterior ao corrente vale', () => {
-    expect(anoDeOrigem(1983, '2026-09-12')).toBe(1983)
-    expect(anoDeOrigem(2025, '2026-09-12')).toBe(2025)
+    expect(anoDeOrigem(1983, 9, 11, '2026-09-12')).toBe(1983)
+    expect(anoDeOrigem(2025, 12, 31, '2026-09-12')).toBe(2025)
   })
 
-  it('o ano corrente e o padrao do seletor, nao um fato', () => {
-    expect(anoDeOrigem(2026, '2026-09-12')).toBeUndefined()
+  it('o ano corrente vale quando a data ja chegou -- o namoro de 12/01/2026', () => {
+    // Antes era recusado, e o namoro aparecia sem "vai fazer 1 ano".
+    expect(anoDeOrigem(2026, 1, 12, '2026-09-13')).toBe(2026)
+    expect(anoDeOrigem(2026, 9, 13, '2026-09-13')).toBe(2026)
   })
 
-  it('futuro, implausivel ou quebrado nao vale', () => {
-    expect(anoDeOrigem(2030, '2026-09-12')).toBeUndefined()
-    expect(anoDeOrigem(1850, '2026-09-12')).toBeUndefined()
-    expect(anoDeOrigem(NaN, '2026-09-12')).toBeUndefined()
+  it('um comeco no futuro nao vale', () => {
+    expect(anoDeOrigem(2026, 12, 20, '2026-09-13')).toBeUndefined()
+    expect(anoDeOrigem(2030, 1, 1, '2026-09-12')).toBeUndefined()
+  })
+
+  it('implausivel ou quebrado nao vale', () => {
+    expect(anoDeOrigem(1850, 1, 1, '2026-09-12')).toBeUndefined()
+    expect(anoDeOrigem(NaN, 1, 1, '2026-09-12')).toBeUndefined()
+    expect(anoDeOrigem(2000, NaN, 1, '2026-09-12')).toBeUndefined()
   })
 })

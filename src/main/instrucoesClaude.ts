@@ -1,9 +1,14 @@
+import { readFile, writeFile, rename } from 'node:fs/promises'
+
 /**
- * O `CLAUDE.md` que o Cortex grava na raiz do vault.
+ * O `CLAUDE.md` que o Cortex grava sozinho na pasta de dados dele
+ * (`AppData\Roaming\Cortex`).
  *
- * É para o Claude Code de OUTRA pessoa — alguém que instalou o Cortex e abriu
- * o Claude Code na pasta do vault. O Claude Code lê este arquivo sozinho ao
- * começar, e ele diz três coisas, nesta ordem:
+ * É para o Claude Code de quem usa o Cortex — o dono ou outra pessoa que o
+ * instalou. Aberto nessa pasta, o Claude Code lê este arquivo ao começar. Não
+ * há botão: ele é regravado toda vez que um vault abre e quando as áreas
+ * mudam, então sempre aponta para o vault em uso e só pergunta das áreas
+ * ligadas. Ele diz onde fica o vault, e depois três coisas, nesta ordem:
  *
  * 1. Apresentar o app antes de qualquer coisa. Quem nunca viu o Cortex não sabe
  *    o que responder a "quais são seus treinos?" sem entender para onde isso vai.
@@ -93,7 +98,15 @@ const TIPOS: { tipo: string; oque: string; pasta: string; campos: string }[] = [
   { tipo: 'projeto', oque: 'Projeto', pasta: 'Dev/Projetos', campos: 'title, project, status, stack' }
 ]
 
-export function instrucoesParaClaude(areasLigadas: string[]): string {
+export function instrucoesParaClaude(
+  areasLigadas: string[],
+  /** O caminho completo do vault, e o relativo à pasta de dados (`null` se fora dela). */
+  vault: { pasta: string; relativo: string | null }
+): string {
+  const cod = (s: string): string => '`' + s + '`'
+  const ondeVault = vault.relativo
+    ? `**${cod(vault.relativo)}** (caminho completo: ${cod(vault.pasta)})`
+    : `**${cod(vault.pasta)}**`
   const ligadas = ENTREVISTA.filter(a => areasLigadas.includes(a.id))
   const nomesLigadas = ligadas.map(a => a.nome).join(', ') || 'nenhuma além do Hoje'
 
@@ -109,10 +122,21 @@ export function instrucoesParaClaude(areasLigadas: string[]): string {
     ...TIPOS.map(t => `| \`${t.tipo}\` | ${t.oque} | \`${t.pasta}/\` | ${t.campos} |`)
   ].join('\n')
 
-  return `# Instruções para o Claude Code — vault do Cortex
+  return `# Instruções para o Claude Code — Cortex
 
-Este arquivo foi gravado pelo Cortex (Configurações → Claude Code) e é lido por
-você, Claude, quando o Claude Code abre nesta pasta. Siga as seções na ordem.
+Este arquivo é gravado sozinho pelo Cortex toda vez que ele abre um vault, e de
+novo quando as áreas ligadas mudam. Não edite: a próxima abertura escreve por
+cima. Você, Claude, lê este arquivo quando o Claude Code abre nesta pasta — a
+pasta de dados do Cortex. Siga as seções na ordem.
+
+## Onde fica o vault
+
+- O vault em uso é ${ondeVault}. Todos os caminhos deste arquivo
+  (${cod('Agenda/')}, ${cod('Diario/')}…) são DENTRO dele.
+- O resto desta pasta é do próprio app: ${cod('Cache')}, ${cod('Local Storage')},
+  ${cod('cortex.json')}, ${cod('prefs.json')} e afins. Não leia, não edite, não apague.
+- Outras pastas dentro de ${cod('vaults/')} são outros vaults, e não o que está
+  em uso. Não mexa nelas.
 
 ## 1. Primeiro: apresente o app
 
@@ -121,7 +145,7 @@ arquivo, explique à pessoa — em linguagem simples, sem jargão — como o Cor
 funciona:
 
 - O **Cortex** é um app de computador que organiza a vida dela em notas. Cada
-  nota é um arquivo de texto (\`.md\`) nesta pasta, que é o "vault". O app lê
+  nota é um arquivo de texto (\`.md\`) dentro da pasta do vault. O app lê
   essas notas e monta as telas: Hoje, Saúde, Estudos, Grana, Vida, Dev, Agenda
   e o Cortex, que mostra tudo como uma rede.
 - As áreas ligadas neste vault são: **${nomesLigadas}**.
@@ -183,4 +207,20 @@ Existe um diário por dia: \`Diario/AAAA-MM-DD.md\`.
 - Não apague notas sem a pessoa pedir.
 - A pasta \`Anexos/\` guarda arquivos (PDF, imagem): não edite, só referencie.
 `
+}
+
+/**
+ * Grava o arquivo só se o texto mudou, e por troca atômica.
+ *
+ * O Cortex chama isto toda vez que abre um vault. Reescrever o mesmo texto a
+ * cada abertura mexeria na data do arquivo à toa; e gravar direto por cima
+ * deixaria um CLAUDE.md pela metade se o app fechasse no meio.
+ */
+export async function gravarSeMudou(arquivo: string, texto: string): Promise<boolean> {
+  const atual = await readFile(arquivo, 'utf8').catch(() => null)
+  if (atual === texto) return false
+  const provisorio = `${arquivo}.tmp`
+  await writeFile(provisorio, texto, 'utf8')
+  await rename(provisorio, arquivo)
+  return true
 }

@@ -140,17 +140,23 @@ export function Agenda(p: {
   }
 
   /**
-   * A data de quando a comemorativa começou, para o formulário de edição.
+   * O formulário de edição da comemorativa, com o que está na nota.
    *
-   * O cardápio traz a PRÓXIMA ocorrência e quantos anos ela completa; o ano
-   * de origem é a diferença. Sem `anos`, a nota não tem ano, e a data da
-   * próxima vez serve — o Cortex não guarda um ano que não seja passado.
+   * O cardápio traz dia, mês e o ano de começo crus. Antes a tela deduzia o
+   * começo por `data − anos`, e sem `anos` abria o namoro de 12/01/2026
+   * dizendo 2027. O cardápio de um Cortex anterior não traz os três: aí dia
+   * e mês saem da próxima ocorrência, e o ano fica em branco.
    */
-  const origemDe = (i: ItemCardapio): string => {
-    const data = dataDe(i)
-    const anos = i.detalhe.anos
-    if (typeof anos !== 'number' || data.length !== 10) return data
-    return `${Number(data.slice(0, 4)) - anos}${data.slice(4)}`
+  const comemorativaParaEditar = (i: ItemCardapio): EdicaoItem => {
+    const base = paraEditar(i)
+    const inteiro = (v: unknown): number | undefined =>
+      typeof v === 'number' && Number.isInteger(v) ? v : undefined
+    return {
+      ...base,
+      dia: inteiro(i.detalhe.dia) ?? Number(base.data.slice(8, 10)),
+      mes: inteiro(i.detalhe.mes) ?? Number(base.data.slice(5, 7)),
+      ano: inteiro(i.detalhe.ano)
+    }
   }
 
   /*
@@ -604,7 +610,7 @@ export function Agenda(p: {
               // A data comemorativa abre o formulário DELA, com a data de
               // quando começou — o de compromisso tem hora e local, e a
               // edição por ele não chegava à nota.
-              ? p.aoEditar('comemorativa', { ...paraEditar(i), data: origemDe(i) })
+              ? p.aoEditar('comemorativa', comemorativaParaEditar(i))
               : p.aoEditar('compromisso', paraEditar(i))}
           >
             editar

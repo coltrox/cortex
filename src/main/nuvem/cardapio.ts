@@ -373,6 +373,17 @@ export function montarCardapio(
         data: quando,
         comemorativa: true,
         oque: txt(n.campos.oque),
+        /*
+         * Dia, mês e o ano de começo, crus, para o formulário de edição.
+         *
+         * A `data` acima é a PRÓXIMA ocorrência, e dela não se tira o começo:
+         * o celular deduzia o ano por `data − anos`, e sem `anos` abria o
+         * namoro de 12/01/2026 dizendo que começou em 2027. Nem o 29/02, que
+         * num ano comum a `data` já traz como 28.
+         */
+        dia: num(n.campos.dia),
+        mes: num(n.campos.mes),
+        ano: anos !== null ? num(n.campos.ano) : undefined,
         // "faz 18 anos" só quando o ano de origem foi informado e faz sentido.
         anos: anos !== null && anos > 0 ? anos : undefined
       })

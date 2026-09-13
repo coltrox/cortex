@@ -1,4 +1,5 @@
 import { validarEvento, type Evento } from '@compartilhado/eventos'
+import { proximaOcorrencia, anoDeOrigem } from '@compartilhado/datas'
 
 /**
  * A tradução da tabela de eventos da spec, campo a campo.
@@ -419,8 +420,10 @@ export function eventoItemEditado(
     dose?: string
     quando?: string
     dias?: string[]
-    /** Data comemorativa: a data é a de quando começou, e vira dia e mês. */
+    /** Data comemorativa: a data dá dia e mês, e `ano` diz o começo. */
     comemorativa?: boolean
+    /** Data comemorativa: o ano de começo, ou `null` para tirá-lo da nota. */
+    ano?: number | null
   },
   dia: string = diaLocal()
 ): Evento {
@@ -439,6 +442,9 @@ export function eventoItemEditado(
     // estavam, e "todo dia" se diz não mandando o campo.
     dias: campos.dias && campos.dias.length > 0 ? campos.dias : undefined
   })
+  // O ano da comemorativa viaja mesmo quando é `null`: `comValor` o tiraria,
+  // e é esse "não sei" que apaga da nota um ano apagado no formulário.
+  if (campos.comemorativa === true && campos.ano !== undefined) dados.ano = campos.ano
   // Só `path` significa "nada a mudar" — e um evento que não muda nada é
   // uma escrita à toa no vault.
   if (Object.keys(dados).length < 2) throw new Error('nada foi alterado')
@@ -550,18 +556,44 @@ function dataIso(data: string, dia: string): string {
  * do banco, e isso obrigaria a rodar o SQL do Supabase de novo para o app
  * fazer uma coisa que o Cortex já sabe fazer.
  *
- * A data vai inteira. O Cortex tira dela o dia e o mês, que é o que se repete;
- * o ano ele só guarda quando for anterior ao corrente, porque aí ele é "quando
- * começou" e serve para contar os anos. Um ano igual ao de hoje é só o padrão
- * do seletor de data, e contá-lo anunciaria "faz 0 anos".
+ * Dia, mês e ano vêm em campos separados — ver `dadosComemorativa`.
  */
 export function eventoDataComemorativa(
-  titulo: string, data: string, dia: string = diaLocal()
+  titulo: string,
+  quando: { dia: number; mes: number; ano?: number },
+  dia: string = diaLocal()
 ): Evento {
-  const quando = data.trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(quando)) throw new Error('data precisa ser AAAA-MM-DD')
+  const nome = texto(titulo, 'de quem')
   return validarEvento({
     tipo: 'compromisso', dia,
-    dados: { titulo: texto(titulo, 'de quem'), data: quando, comemorativa: true }
+    dados: { titulo: nome, ...dadosComemorativa(quando, dia), comemorativa: true }
   })
+}
+
+/**
+ * Dia, mês e o ano de começo de uma data comemorativa, conferidos.
+ *
+ * Viajam como `data` (AAAA-MM-DD) e `ano`. A data mantém o formato que o
+ * Cortex sempre leu, e é dela que ele tira dia e mês; `ano` à parte diz se o
+ * ano é um começo de verdade — `null` é "não sei". Antes só ia a data, o ano
+ * dela nascia com o do seletor, e o Cortex descartava o ano corrente para não
+ * contar esse padrão: o namoro de 12/01/2026 ficava sem "vai fazer 1 ano".
+ *
+ * Sem ano, a data leva o ano corrente, que um Cortex anterior a este também
+ * descarta. As mensagens de erro são as que a tela mostra embaixo dos campos.
+ */
+export function dadosComemorativa(
+  q: { dia: number; mes: number; ano?: number }, hoje: string
+): { data: string; ano: number | null } {
+  if (proximaOcorrencia(q.dia, q.mes, hoje) === null) {
+    throw new Error('esse dia não existe nesse mês')
+  }
+  if (q.ano !== undefined && anoDeOrigem(q.ano, q.mes, q.dia, hoje) === undefined) {
+    throw new Error('o começo precisa ser de 1900 até hoje')
+  }
+  const dois = (n: number): string => String(n).padStart(2, '0')
+  return {
+    data: `${q.ano ?? hoje.slice(0, 4)}-${dois(q.mes)}-${dois(q.dia)}`,
+    ano: q.ano ?? null
+  }
 }

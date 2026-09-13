@@ -1,6 +1,6 @@
 import type { Evento } from '../../shared/eventos'
 import { txt, num, comValor } from './util'
-import { anoDeOrigem } from '../../shared/datas'
+import { anoDeOrigem, proximaOcorrencia } from '../../shared/datas'
 
 /**
  * Traduz um evento vindo do celular nas mudanças que ele causa no vault.
@@ -134,6 +134,20 @@ const nomeArquivo = (s: string): string =>
 // os elementos com vírgula e deixaria um array escapar sem ninguém perceber
 // (ver comentário em `util.ts`). `dados` aqui é `Record<string, unknown>`
 // vindo do banco, tão hostil quanto o frontmatter que `cardapio.ts` lê.
+
+/**
+ * O ano de começo de uma data comemorativa vinda do celular.
+ *
+ * O formulário do celular manda o ano À PARTE — um número, ou `null` quando a
+ * pessoa não sabe. Um evento de antes dele (ainda na fila de um celular
+ * desatualizado) não tem o campo, e aí o ano vem dentro da data.
+ */
+function anoDaComemorativa(
+  dados: Record<string, unknown>, anoDaData: number, mes: number, diaDoMes: number, hoje: string
+): number | undefined {
+  const ano = 'ano' in dados ? (typeof dados.ano === 'number' ? dados.ano : NaN) : anoDaData
+  return anoDeOrigem(ano, mes, diaDoMes, hoje)
+}
 
 export function planejar(evento: Evento): Operacao[] {
   const { tipo, dia, dados } = evento
@@ -454,16 +468,19 @@ export function planejar(evento: Evento): Operacao[] {
        * dia e mês de outra espécie de nota.
        */
       if (dados.comemorativa === true) {
-        const [ano, mes, diaDoMes] = txt(dados.data).split('-').map(Number)
-        const dataValida = Number.isInteger(mes) && mes >= 1 && mes <= 12
-          && Number.isInteger(diaDoMes) && diaDoMes >= 1 && diaDoMes <= 31
+        const [anoDaData, mes, diaDoMes] = txt(dados.data).split('-').map(Number)
+        // Dia e mês andam juntos, e só valem se existem: 31/02 não é data.
+        const dataValida = proximaOcorrencia(diaDoMes, mes, dia) !== null
+        const ano = anoDaComemorativa(dados, anoDaData, mes, diaDoMes, dia)
         const campos = comValor({
           title: txt(dados.titulo).trim(),
-          // Dia e mês andam juntos: um sem o outro seria outra data.
           dia: dataValida ? diaDoMes : undefined,
           mes: dataValida ? mes : undefined,
-          ano: dataValida ? anoDeOrigem(ano, dia) : undefined
+          ano: dataValida ? ano : undefined
         })
+        // O ano apagado no formulário sai da nota: `null` é o que
+        // `patchFrontmatter` lê como "remover a chave".
+        if (dataValida && 'ano' in dados && ano === undefined) campos.ano = null
         if (Object.keys(campos).length === 0) return []
         return [{ acao: 'marcar', path, tiposPermitidos: ['data-comemorativa'], campos }]
       }
@@ -534,19 +551,17 @@ export function planejar(evento: Evento): Operacao[] {
        * sozinho o que a nota É, que é o furo que este arquivo evita.
        */
       if (dados.comemorativa === true) {
-        const data = txt(dados.data)
-        const [ano, mes, diaDoMes] = data.split('-').map(Number)
-        if (!Number.isInteger(mes) || !Number.isInteger(diaDoMes)) return []
+        const [anoDaData, mes, diaDoMes] = txt(dados.data).split('-').map(Number)
+        if (proximaOcorrencia(diaDoMes, mes, dia) === null) return []
         return [{
           acao: 'nota', tipo: 'data-comemorativa', seExistir: 'mesclar',
           path: `Agenda/${nomeArquivo(titulo)}.md`,
           frontmatter: comValor({
             tipo: 'data-comemorativa', title: titulo,
             dia: diaDoMes, mes,
-            // O ano só entra quando é plausível: o campo do celular é uma
-            // data inteira, e quem não sabe o ano de nascimento põe o
-            // corrente — o que faria a tela anunciar "faz 0 anos".
-            ano: anoDeOrigem(ano, dia),
+            // O ano só entra quando pode ser um começo: de 1900 até o dia do
+            // evento. Ver `anoDeOrigem`.
+            ano: anoDaComemorativa(dados, anoDaData, mes, diaDoMes, dia),
             oque: txt(dados.oque).trim() || undefined
           })
         }]

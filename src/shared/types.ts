@@ -120,8 +120,6 @@ declare global {
       limparEncerrados(): Promise<{ processos: ProcessoInfo[] }>
       abrirNoVsCode(raiz: string, sub?: string): Promise<{ ok: boolean; motivo?: string }>
       novoProjeto(modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string): Promise<ProjetoCriado>
-      /** Grava o CLAUDE.md do vault. Ver main/instrucoesClaude.ts. */
-      instrucoesClaude(): Promise<{ criado: boolean; caminho: string }>
 
       /*
        * Preferências de tela, gravadas em disco pelo processo principal.

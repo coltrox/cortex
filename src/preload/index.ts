@@ -103,10 +103,6 @@ const api = {
   ): Promise<import('../shared/types').ProjetoCriado> {
     return ipcRenderer.invoke('dev:novo-projeto', { modelo, linguagem, nome })
   },
-  /** Grava o CLAUDE.md na raiz do vault. O texto é montado no processo principal. */
-  instrucoesClaude(): Promise<{ criado: boolean; caminho: string }> {
-    return ipcRenderer.invoke('vault:instrucoes-claude')
-  },
 
   /*
    * As preferências de tela, gravadas pelo processo principal.

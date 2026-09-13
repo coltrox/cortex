@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import {
-  diaLocal, eventoCompromisso, eventoItemEditado, eventoProvaNova, eventoTarefaNova, eventoDataComemorativa
+  diaLocal, dadosComemorativa, eventoCompromisso, eventoItemEditado, eventoProvaNova,
+  eventoTarefaNova, eventoDataComemorativa
 } from '../montar'
 import { guardadoDoNavegador } from '../guardado'
 import { guardarPendenteAgenda, pendenteComemorativo } from '../agendaLocal'
-import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
+import { dataCurta, faltam } from '../cardapio'
+import { proximaOcorrencia, anosCompletados } from '@compartilhado/datas'
+import { Cabecalho, Botao, Campo, CampoNumero, Selecao, Aviso } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
 
@@ -14,10 +17,10 @@ export type TipoNovo = 'compromisso' | 'prova' | 'tarefa' | 'comemorativa'
 /**
  * O item que a tela abre preenchido, quando é edição e não criação.
  *
- * Vale para os três: compromisso, prova e tarefa. Quais campos aparecem quem
- * decide é a `FORMA` do tipo, abaixo — uma prova mostra matéria e não mostra
- * hora, e o objeto carrega todos porque quem preenche é a lista, que não sabe
- * qual tipo está mandando.
+ * Vale para os quatro: compromisso, prova, tarefa e data comemorativa. Quais
+ * campos aparecem quem decide é a `FORMA` do tipo, abaixo — uma prova mostra
+ * matéria e não mostra hora, e o objeto carrega todos porque quem preenche é a
+ * lista, que não sabe qual tipo está mandando.
  */
 export type EdicaoItem = {
   path: string
@@ -26,14 +29,25 @@ export type EdicaoItem = {
   hora: string
   local: string
   materia: string
+  /** Data comemorativa: dia, mês e o ano de começo, como estão na nota. */
+  dia?: number
+  mes?: number
+  ano?: number
 }
+
+const MESES = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+]
+
+type Quando = { dia: number; mes: number; ano?: number }
 
 /**
  * A forma de cada tipo.
  *
- * Uma tabela, e não três telas: os três são título mais data, e o que muda é
- * o rótulo e um ou dois campos. Três arquivos quase iguais divergiriam na
- * primeira correção feita em só um deles.
+ * Uma tabela, e não quatro telas: todos são título mais data, e o que muda é
+ * o rótulo e um ou dois campos. Telas quase iguais divergiriam na primeira
+ * correção feita em só uma delas.
  */
 const FORMA: Record<TipoNovo, {
   titulo: string
@@ -63,18 +77,47 @@ const FORMA: Record<TipoNovo, {
   /*
    * Aniversário e afins.
    *
-   * O campo continua sendo uma data inteira, e não dia e mês separados como no
-   * formulário do Cortex: no celular o seletor de data é um gesto só, e três
-   * campos numéricos seriam três teclados. O ANO que for digitado vira "quando
-   * começou" — é dele que sai o "faz 18 anos" —, e o Cortex ignora um ano que
-   * seja o corrente, porque aí ele é só o padrão do seletor.
+   * Dia, mês e ano em campos separados, como no formulário do Cortex. Antes
+   * era uma data inteira com o rótulo "use o ano de quando começou": o seletor
+   * nascia com o ano atual, não dava para saber se aquele ano contava, e o
+   * Cortex jogava fora o ano corrente — o namoro de 12/01/2026 ficava sem
+   * "vai fazer 1 ano", e editar mostrava 2027 como começo. Agora o ano é um
+   * campo próprio, em branco quando não se sabe, e a prévia embaixo mostra o
+   * que vai aparecer na lista antes de marcar.
    */
   comemorativa: {
     titulo: 'Nova data comemorativa', tituloEdicao: 'Mudar data comemorativa',
-    rotuloNome: 'De quem, ou de quê', dicaNome: 'Aniversário da minha mãe',
-    rotuloData: 'Dia (use o ano de quando começou)',
+    rotuloNome: 'De quem, ou de quê', dicaNome: 'Aniversário de namoro',
+    rotuloData: 'Dia',
     temHora: false, temLocal: false, temMateria: false
   }
+}
+
+/** O que está errado na data comemorativa, na língua da tela — ou nada. */
+function problemaDa(q: Quando, hoje: string): string | null {
+  try {
+    dadosComemorativa(q, hoje)
+    return null
+  } catch (err) {
+    return err instanceof Error ? err.message : 'data inválida'
+  }
+}
+
+/**
+ * "Próxima: 12 jan 2027 · em 121 dias · vai fazer 1 ano".
+ *
+ * A mesma conta da lista (`proximaOcorrencia` e `anosCompletados`), para a
+ * prévia nunca prometer uma coisa e a lista mostrar outra.
+ */
+function previaDa(q: Quando, hoje: string): string {
+  const proxima = proximaOcorrencia(q.dia, q.mes, hoje)
+  if (!proxima) return ''
+  const partes = [`Próxima: ${dataCurta(proxima, hoje)}`, faltam(proxima, hoje)]
+  const anos = anosCompletados(q.ano, proxima)
+  if (anos !== null && anos > 0) {
+    partes.push(`${proxima === hoje ? 'faz' : 'vai fazer'} ${anos} ${anos === 1 ? 'ano' : 'anos'}`)
+  }
+  return partes.join(' · ')
 }
 
 export function NovoItem(p: {
@@ -85,6 +128,7 @@ export function NovoItem(p: {
 }) {
   const e = p.editando
   const f = FORMA[p.tipo]
+  const comemorativa = p.tipo === 'comemorativa'
 
   const [titulo, setTitulo] = useState(e?.titulo ?? '')
   // Já nasce com hoje: a maioria do que se marca no celular é para hoje ou
@@ -93,18 +137,28 @@ export function NovoItem(p: {
   const [hora, setHora] = useState(e?.hora ?? '')
   const [local, setLocal] = useState(e?.local ?? '')
   const [materia, setMateria] = useState(e?.materia ?? '')
+  // A data comemorativa: dia e mês nascem com os da nota (ou com os de hoje,
+  // numa criação), e o ano só vem se a nota tiver um.
+  const [diaC, setDiaC] = useState(() => String(e?.dia ?? Number((e?.data || diaLocal()).slice(8, 10))))
+  const [mesC, setMesC] = useState(() => e?.mes ?? Number((e?.data || diaLocal()).slice(5, 7)))
+  const [anoC, setAnoC] = useState(e?.ano !== undefined ? String(e.ano) : '')
   const [erro, setErro] = useState<string | null>(null)
+
+  const hoje = diaLocal()
+  const quando: Quando = { dia: Number(diaC), mes: mesC, ano: anoC === '' ? undefined : Number(anoC) }
+  const problema = comemorativa ? problemaDa(quando, hoje) : null
+  // Ano pela metade é digitação, não erro: nada de aviso no "20" de "2026".
+  const digitando = diaC === '' || (anoC !== '' && anoC.length < 4)
 
   const enviar = (): void => {
     try {
-      const hoje = diaLocal()
       if (e) {
         p.envio.registrar(eventoItemEditado(
           e.path,
-          p.tipo === 'comemorativa'
+          comemorativa
             // Só o que o formulário dela tem. A marca faz o Cortex gravar
             // dia, mês e ano, e não uma data que a nota não lê.
-            ? { titulo, data, comemorativa: true }
+            ? { titulo, ...dadosComemorativa(quando, hoje), comemorativa: true }
             : { titulo, data, hora, local, materia },
           hoje
         ))
@@ -112,8 +166,8 @@ export function NovoItem(p: {
         p.envio.registrar(eventoProvaNova(titulo, data, { materia, local }, hoje))
       } else if (p.tipo === 'tarefa') {
         p.envio.registrar(eventoTarefaNova(titulo, data, { materia }, hoje))
-      } else if (p.tipo === 'comemorativa') {
-        p.envio.registrar(eventoDataComemorativa(titulo, data, hoje))
+      } else if (comemorativa) {
+        p.envio.registrar(eventoDataComemorativa(titulo, quando, hoje))
       } else {
         p.envio.registrar(eventoCompromisso(titulo, data, {
           hora: hora || undefined, local: local || undefined
@@ -130,10 +184,11 @@ export function NovoItem(p: {
        * Só na criação: editar já mexe num item que está na tela.
        */
       if (!e) {
+        // `p.tipo`, e não o booleano `comemorativa`: é a comparação que estreita
+        // o tipo, e o ramo de baixo só aceita os três tipos da agenda comum.
         const pendente = p.tipo === 'comemorativa'
-          // A data comemorativa entra na lista na próxima vez que cai, e não
-          // no dia digitado — que é o de quando começou, e já passou.
-          ? pendenteComemorativo(titulo, data, hoje)
+          // A data comemorativa entra na lista na próxima vez que cai.
+          ? pendenteComemorativo(titulo, quando, hoje)
           : {
             tipo: p.tipo,
             titulo: titulo.trim(),
@@ -154,13 +209,29 @@ export function NovoItem(p: {
     <div className="tema-agenda">
       <Cabecalho
         titulo={e ? f.tituloEdicao : f.titulo}
-       
+
       />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="bloco">
         <Campo rotulo={f.rotuloNome} valor={titulo} aoMudar={setTitulo} dica={f.dicaNome} />
 
-        {f.temHora ? (
+        {comemorativa ? (
+          <>
+            <div className="par-campos">
+              <CampoNumero rotulo="Dia" valor={diaC} dica="12"
+                aoMudar={v => setDiaC(v.replace(/\D/g, '').slice(0, 2))} />
+              <Selecao rotulo="Mês" opcoes={MESES} valor={MESES[mesC - 1] ?? MESES[0]}
+                aoMudar={v => setMesC(MESES.indexOf(v) + 1)} />
+            </div>
+            <CampoNumero rotulo="Ano em que começou (se souber)" valor={anoC} dica="2026"
+              aoMudar={v => setAnoC(v.replace(/\D/g, '').slice(0, 4))} />
+            {!digitando && (
+              <p className={`previa-comemorativa ${problema ? 'previa-erro' : ''}`}>
+                {problema ?? previaDa(quando, hoje)}
+              </p>
+            )}
+          </>
+        ) : f.temHora ? (
           <div className="par-campos">
             <Campo rotulo={f.rotuloData} tipo="date" valor={data} aoMudar={setData} />
             <Campo rotulo="Hora" tipo="time" valor={hora} aoMudar={setHora} />
@@ -178,7 +249,11 @@ export function NovoItem(p: {
           <Campo rotulo="Onde" valor={local} aoMudar={setLocal} dica="Centro" />
         )}
 
-        <Botao tipo="principal" aoClicar={enviar} desligado={titulo.trim() === ''}>
+        <Botao
+          tipo="principal"
+          aoClicar={enviar}
+          desligado={titulo.trim() === '' || problema !== null}
+        >
           {e ? 'Salvar mudança' : 'Marcar'}
         </Botao>
       </div>

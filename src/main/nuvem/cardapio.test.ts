@@ -923,6 +923,15 @@ describe('data comemorativa no cardapio', () => {
     })
   })
 
+  it('sobe dia, mes e o ano de comeco para o formulario de edicao', () => {
+    // O celular deduzia o comeco por `data - anos` e abria o namoro de
+    // 12/01/2026 dizendo 2027.
+    const [i] = montarCardapio([aniversario({ dia: 12, mes: 1, ano: 2026 })], HOJE, [])
+    expect(i).toMatchObject({
+      detalhe: { data: '2027-01-12', dia: 12, mes: 1, ano: 2026, anos: 1 }
+    })
+  })
+
   it('sem o ano de origem, nao inventa quantos anos faz', () => {
     const [i] = montarCardapio([aniversario({ dia: 20, mes: 9 })], HOJE, [])
     expect((i as { detalhe: Record<string, unknown> }).detalhe).not.toHaveProperty('anos')
