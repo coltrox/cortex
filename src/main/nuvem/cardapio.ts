@@ -295,6 +295,9 @@ export function montarCardapio(
         // plano de nutricionista quase nunca têm hora escrita.
         ordem,
         hora: txt(r.hora), itens: txt(r.itens), kcal: num(r.kcal), prot: num(r.prot),
+        // Em que dias da semana a refeição entra — o pré-treino só em dia de
+        // treino. Item a item, como nos suplementos: sem lista, é todo dia.
+        dias: listaDeTexto(r.dias).length > 0 ? listaDeTexto(r.dias) : undefined,
         feito: feitosHoje.refeicao.has(nome) ? true : undefined,
         nivel: detalheDoDia?.nivel,
         troca: detalheDoDia?.troca

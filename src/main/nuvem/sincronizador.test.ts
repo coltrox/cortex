@@ -699,3 +699,49 @@ describe('evento de um tipo que esta versao nao conhece', () => {
     expect(md).toContain('120')
   })
 })
+
+/**
+ * Editar e excluir lancamento pelo celular.
+ *
+ * O lancamento nao tem id: e achado pela posicao, e so e tocado se ainda for
+ * o mesmo que o celular viu.
+ */
+describe('lancamento editado ou excluido pelo celular', () => {
+  const DIARIO = [
+    '---', 'tipo: diario', "date: '2026-09-12'", 'transacoes:',
+    '  - item: almoço', '    valor: 20', '    cat: comida', '    dir: saida',
+    '  - item: uber', '    valor: 15', '    dir: saida',
+    '---', ''
+  ].join('\n')
+  const transacoes = async () =>
+    parseFrontmatter(await session.vault.read('Diario/2026-09-12.md')).frontmatter.transacoes
+
+  it('editar troca o valor, e tirar a categoria tira de verdade', async () => {
+    await session.vault.writeAtomic('Diario/2026-09-12.md', DIARIO)
+    await sinc(new ClienteFalso([ev('e1', 'gasto', {
+      alvo: '2026-09-12#transacoes#0', antes: { item: 'almoço', valor: 20 },
+      item: 'almoço', valor: 25, dir: 'saida'
+    })])).sincronizar()
+    expect(await transacoes()).toEqual([
+      { item: 'almoço', valor: 25, dir: 'saida' },
+      { item: 'uber', valor: 15, dir: 'saida' }
+    ])
+  })
+
+  it('excluir tira so aquela linha', async () => {
+    await session.vault.writeAtomic('Diario/2026-09-12.md', DIARIO)
+    await sinc(new ClienteFalso([ev('e1', 'gasto', {
+      alvo: '2026-09-12#transacoes#0', antes: { item: 'almoço', valor: 20 }, apagar: true
+    })])).sincronizar()
+    expect(await transacoes()).toEqual([{ item: 'uber', valor: 15, dir: 'saida' }])
+  })
+
+  it('se a linha naquela posicao mudou, nada e mexido', async () => {
+    // Ex.: o almoço ja tinha sido apagado e o uber andou para a posicao 0.
+    await session.vault.writeAtomic('Diario/2026-09-12.md', DIARIO)
+    await sinc(new ClienteFalso([ev('e1', 'gasto', {
+      alvo: '2026-09-12#transacoes#1', antes: { item: 'almoço', valor: 20 }, apagar: true
+    })])).sincronizar()
+    expect(await transacoes()).toHaveLength(2)
+  })
+})

@@ -254,7 +254,23 @@ export function litros(ml: number): string {
   return (ml / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' L'
 }
 
-export function refeicoesDoPlano(c: Cardapio): ItemCardapio[] {
+/**
+ * Com `dia`, só as refeições que entram naquele dia da semana — o pré-treino
+ * que vale de segunda a sexta some no sábado. A regra é a dos suplementos:
+ * sem lista de dias, a refeição é de todo dia.
+ */
+export function refeicoesDoPlano(c: Cardapio, dia?: string): ItemCardapio[] {
+  const semana = dia ? diaDaSemana(dia) : null
+  const entraHoje = (i: ItemCardapio): boolean => {
+    if (semana === null) return true
+    const dias = i.detalhe.dias
+    if (!Array.isArray(dias) || dias.length === 0) return true
+    return dias.some(d => String(d) === semana)
+  }
+  return refeicoesOrdenadas(c).filter(entraHoje)
+}
+
+function refeicoesOrdenadas(c: Cardapio): ItemCardapio[] {
   // Na ordem do dia, nao na ordem em que o banco devolveu -- que e alfabetica,
   // e poe "1ª refeição" antes de "Ao acordar".
   //
@@ -510,6 +526,11 @@ export function cardios(c: Cardapio): Cardio[] {
 }
 
 export type Transacao = {
+  /**
+   * `data#campo#posição`, a chave que o Cortex publica. É por ela que editar e
+   * excluir acham a linha no diário — lançamento não tem id.
+   */
+  chave: string
   data: string
   item: string
   valor: number
@@ -528,6 +549,7 @@ export function transacoes(c: Cardapio): Transacao[] {
   return c.itens
     .filter(i => i.especie === 'transacao' && texto(i.detalhe.data) !== '')
     .map(i => ({
+      chave: i.nome,
       data: texto(i.detalhe.data),
       item: texto(i.detalhe.item),
       valor: numOu(i.detalhe.valor, 0),

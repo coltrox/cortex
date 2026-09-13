@@ -6,7 +6,7 @@ import {
 } from './base'
 import {
   suplementosDoDia, seriePeso, serieAgua, litros, totaisDoDia,
-  fatorDaRefeicao, trocaDaRefeicao
+  fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia
 } from '../dados'
 
 /**
@@ -440,7 +440,8 @@ function Dieta({
   diarios: NoteComCampos[]
   hoje: string
 } & Pick<PropsLente, 'aoAdicionar' | 'aoEditar' | 'aoExcluir' | 'aoAlterar' | 'aoMarcarDia' | 'aoLancar' | 'aoAbrir'>) {
-  const refeicoes = lista(planoAtivo?.campos.refeicoes)
+  // Só as de hoje: o pré-treino de segunda a sexta some no fim de semana.
+  const refeicoes = refeicoesDoDia(planoAtivo, hoje)
   const feitas = textos(diarioHoje?.campos.dieta_feitas)
   const extras = lista(diarioHoje?.campos.extras)
 

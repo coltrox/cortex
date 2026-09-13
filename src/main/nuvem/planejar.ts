@@ -49,6 +49,18 @@ export type Operacao =
       chave: string; valor: string; item: Record<string, unknown> | null
     }
   /**
+   * Edita ou apaga UM lançamento do diário, achado pela posição na lista.
+   *
+   * Posição porque lançamento não tem id — é a mesma chave que o cardápio
+   * publica (`data#campo#posição`). `antes` é o que o celular via: o executor
+   * só mexe se a linha ainda for aquela, porque um lançamento acrescentado ou
+   * apagado no meio desloca as posições. `item: null` apaga.
+   */
+  | {
+      acao: 'diario-transacao'; dia: string; campo: 'transacoes' | 'gastos'; indice: number
+      antes: { item: string; valor: number }; item: Record<string, unknown> | null
+    }
+  /**
    * Cria uma nota nova. `seExistir` decide o que fazer quando `path` já
    * existe: `'mesclar'` funde o frontmatter novo por cima do que já está lá
    * (dois cardios no mesmo dia devem virar um registro só); `'criarOutro'`
@@ -259,6 +271,38 @@ export function planejar(evento: Evento): Operacao[] {
     }
 
     case 'gasto':
+      /*
+       * Editar ou excluir um lançamento que já existe.
+       *
+       * Chega como `gasto` com um `alvo` (a chave `data#campo#posição` que o
+       * cardápio publica), para não criar tipo de evento novo no banco. Campo a
+       * campo, sem espalhar `dados`: é uma linha de dinheiro no diário.
+       */
+      if (txt(dados.alvo)) {
+        const m = /^(\d{4}-\d{2}-\d{2})#(transacoes|gastos)#(\d+)$/.exec(txt(dados.alvo))
+        const antes = dados.antes && typeof dados.antes === 'object' && !Array.isArray(dados.antes)
+          ? dados.antes as Record<string, unknown>
+          : {}
+        const valorAntes = num(antes.valor)
+        if (!m || valorAntes === undefined) return []
+        const campo: 'transacoes' | 'gastos' = m[2] === 'gastos' ? 'gastos' : 'transacoes'
+        const base = {
+          acao: 'diario-transacao' as const, dia: m[1], campo, indice: Number(m[3]),
+          antes: { item: txt(antes.item), valor: valorAntes }
+        }
+        if (dados.apagar === true) return [{ ...base, item: null }]
+        const item = txt(dados.item).trim()
+        const valor = num(dados.valor)
+        if (!item || valor === undefined || valor <= 0) return []
+        return [{
+          ...base,
+          item: comValor({
+            item, valor,
+            cat: txt(dados.cat).trim() || undefined,
+            dir: txt(dados.dir) === 'entrada' ? 'entrada' : 'saida'
+          })
+        }]
+      }
       // Só a string exata 'entrada' produz entrada; qualquer outra coisa
       // (ausente, com caixa diferente, lixo qualquer) vira saída — entre
       // errar o saldo do mês para mais ou para menos, menos é o lado seguro.

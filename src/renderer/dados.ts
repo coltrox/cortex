@@ -274,6 +274,23 @@ export function rotinasDoDia(notas: NoteComCampos[], dia: string): NoteComCampos
   })
 }
 
+/**
+ * As refeições do plano que entram neste dia da semana.
+ *
+ * Mesma regra de suplementos e tarefas diárias: sem lista de dias, é todo dia.
+ * Existe para o pré-treino de segunda a sexta não aparecer no sábado — e o
+ * celular faz a mesma conta em `refeicoesDoPlano`.
+ */
+export function refeicoesDoDia(
+  plano: NoteComCampos | undefined, dia: string
+): Record<string, unknown>[] {
+  const semana = diaDaSemana(dia)
+  return lista(plano?.campos.refeicoes).filter(r => {
+    const d = textos(r.dias)
+    return d.length === 0 || d.includes(semana)
+  })
+}
+
 /* ---------- datas que voltam todo ano ---------- */
 
 export type DataComemorativa = {

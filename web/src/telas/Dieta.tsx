@@ -56,7 +56,8 @@ export function Dieta(p: {
   const [rascunho, setRascunho] = useState<Record<string, { nivel: NivelRefeicao; troca: string }>>({})
 
   const temSaude = areaLigada(p.cardapio.cardapio, 'saude')
-  const refeicoes = temSaude ? refeicoesDoPlano(p.cardapio.cardapio) : []
+  // Com o dia: o pré-treino de segunda a sexta não aparece no fim de semana.
+  const refeicoes = temSaude ? refeicoesDoPlano(p.cardapio.cardapio, dia) : []
 
   /*
    * A marca local só existe até o Cortex confirmar.

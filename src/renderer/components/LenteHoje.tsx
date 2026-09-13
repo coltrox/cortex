@@ -3,7 +3,7 @@ import {
   moeda, nf, num, txt, lista, textos, porData, type PropsLente
 } from './base'
 import {
-  suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia
+  suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia, refeicoesDoDia
 } from '../dados'
 
 /**
@@ -44,7 +44,8 @@ export function LenteHoje({
     .reduce((s, t) => s + num(t.valor), 0)
 
   const planoAtivo = notas.find(n => n.tipo === 'plano' && n.campos.ativo === true)
-  const refeicoes = lista(planoAtivo?.campos.refeicoes)
+  // Só as de hoje: o pré-treino de segunda a sexta some no fim de semana.
+  const refeicoes = refeicoesDoDia(planoAtivo, hoje)
   const feitas = textos(diario?.campos.dieta_feitas)
   const extras = lista(diario?.campos.extras)
   const { kcal } = totaisDoDia(planoAtivo, diario)

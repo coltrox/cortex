@@ -487,6 +487,21 @@ describe('o que ja foi feito hoje sobe junto', () => {
       ['Ao acordar', 0], ['1ª refeição', 1], ['Almoço', 2]
     ])
   })
+
+  it('publica os dias da refeicao, item a item', () => {
+    // O pre-treino so em dia de treino. Um objeto disfarcado de dia nao passa.
+    const plano = nota({
+      path: 'Saude/Dieta/Plano.md', title: 'Plano', tipo: 'plano',
+      campos: { ativo: true, refeicoes: [
+        { nome: 'Pré-treino', dias: ['seg', 'sex', { dia: 'SEGREDO' }] },
+        { nome: 'Almoço' }
+      ] }
+    })
+    const c = montarCardapio([plano], HOJE, []).filter(i => i.especie === 'refeicao')
+    expect(c[0].detalhe.dias).toEqual(['seg', 'sex'])
+    expect(c[1].detalhe).not.toHaveProperty('dias')
+    expect(JSON.stringify(c)).not.toContain('SEGREDO')
+  })
 })
 
 describe('a anotacao do dia volta para o celular', () => {

@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Tela } from '../App'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import {
   transacoes, totaisDoMes, porquinho, reais, areaLigada, type Transacao
 } from '../cardapio'
-import { diaLocal, eventoGasto, eventoPorquinho } from '../montar'
+import { diaLocal, eventoGasto, eventoPorquinho, eventoLancamentoAlterado } from '../montar'
+import { guardadoDoNavegador } from '../guardado'
+import {
+  comAlteracoes, guardarAlteracao, listaOcupada, type Alteracao
+} from '../lancamentosLocais'
 import { Cabecalho, Aviso, Secao, Selecao } from '../componentes'
 
 /**
@@ -27,18 +31,107 @@ const MESES = [
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
 ]
 
-/** Uma linha da lista do dia. */
-function Linha({ t }: { t: Transacao }) {
+/** Uma linha da lista do dia, com o "⋯" que abre editar e excluir. */
+function Linha({ t, aberta, travada, aoAbrir, aoEditar, aoExcluir }: {
+  t: Transacao
+  aberta: boolean
+  travada: boolean
+  aoAbrir: () => void
+  aoEditar: () => void
+  aoExcluir: () => void
+}) {
   return (
-    <div className="lanc-linha">
-      <span className="lanc-ponto" data-entrada={t.entrada ? 'sim' : undefined} />
-      <span className="lanc-txt">
-        <strong>{t.item || (t.entrada ? 'Entrada' : 'Gasto')}</strong>
-        {t.cat && <span>{t.cat}</span>}
-      </span>
-      <span className="lanc-valor" data-entrada={t.entrada ? 'sim' : undefined}>
-        {t.entrada ? '+' : '−'} {reais(t.valor)}
-      </span>
+    <div className="lanc-bloco">
+      <div className="lanc-linha">
+        <span className="lanc-ponto" data-entrada={t.entrada ? 'sim' : undefined} />
+        <span className="lanc-txt">
+          <strong>{t.item || (t.entrada ? 'Entrada' : 'Gasto')}</strong>
+          {t.cat && <span>{t.cat}</span>}
+        </span>
+        <span className="lanc-valor" data-entrada={t.entrada ? 'sim' : undefined}>
+          {t.entrada ? '+' : '−'} {reais(t.valor)}
+        </span>
+        <button
+          type="button"
+          className="lanc-mais"
+          aria-label={`ações de ${t.item || 'lançamento'}`}
+          aria-expanded={aberta}
+          onClick={aoAbrir}
+        >
+          ⋯
+        </button>
+      </div>
+      {aberta && (
+        <div className="lanc-acoes">
+          <button type="button" className="acao-lado" disabled={travada} onClick={aoEditar}>
+            editar
+          </button>
+          <button type="button" className="acao-lado acao-destrutiva" disabled={travada} onClick={aoExcluir}>
+            excluir
+          </button>
+          {/* Outra linha deste dia mudou e ainda não voltou do Cortex. A
+              posição desta pode andar, e a mudança cairia em vão. */}
+          {travada && (
+            <span className="lanc-espera">Esperando o Cortex confirmar a outra mudança deste dia.</span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** O lançamento aberto para editar, no lugar da própria linha. */
+function EditarLancamento({ t, aoSalvar, aoCancelar }: {
+  t: Transacao
+  aoSalvar: (novo: NonNullable<Alteracao['novo']>) => void
+  aoCancelar: () => void
+}) {
+  const [item, setItem] = useState(t.item)
+  const [valor, setValor] = useState(String(t.valor).replace('.', ','))
+  const [cat, setCat] = useState(t.cat)
+  const [entrada, setEntrada] = useState(t.entrada)
+  const numero = Number(valor.replace(',', '.'))
+  const valido = item.trim() !== '' && Number.isFinite(numero) && numero > 0
+
+  return (
+    <div className="lanc-editar">
+      <div className="lanc-campos">
+        <input
+          className="lanc-desc"
+          value={item}
+          placeholder="Descrição"
+          aria-label="descrição"
+          onChange={e => setItem(e.target.value)}
+        />
+        <input
+          className="lanc-val"
+          value={valor}
+          inputMode="decimal"
+          placeholder="R$ 0,00"
+          aria-label="valor"
+          onChange={e => setValor(e.target.value)}
+        />
+      </div>
+      <Selecao rotulo="Categoria" opcoes={CATEGORIAS} valor={cat} aoMudar={setCat} />
+      <div className="lanc-botoes lanc-direcao">
+        <button type="button" className="btn btn-secundario" aria-pressed={!entrada}
+          onClick={() => setEntrada(false)}>
+          Gasto
+        </button>
+        <button type="button" className="btn btn-secundario" aria-pressed={entrada}
+          onClick={() => setEntrada(true)}>
+          Ganho
+        </button>
+      </div>
+      <div className="lanc-botoes">
+        <button type="button" className="btn btn-principal" disabled={!valido}
+          onClick={() => aoSalvar({ item: item.trim(), valor: numero, cat, entrada })}>
+          Salvar
+        </button>
+        <button type="button" className="btn btn-secundario" onClick={aoCancelar}>
+          Cancelar
+        </button>
+      </div>
     </div>
   )
 }
@@ -59,9 +152,20 @@ export function Dinheiro(p: {
   const [cat, setCat] = useState('')
   const [cofre, setCofre] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+  /** O lançamento com as ações abertas, e o que está sendo editado. */
+  const [aberta, setAberta] = useState<string | null>(null)
+  const [editando, setEditando] = useState<string | null>(null)
+  /** Muda a cada alteração guardada, para a lista recalcular na hora. */
+  const [versao, setVersao] = useState(0)
 
   const temGrana = areaLigada(p.cardapio.cardapio, 'financas')
-  const todas = temGrana ? transacoes(p.cardapio.cardapio) : []
+  // O publicado, com as edições e exclusões feitas aqui por cima até o Cortex
+  // devolvê-las — ver `lancamentosLocais`.
+  const todas = useMemo(
+    () => temGrana ? comAlteracoes(guardadoDoNavegador, transacoes(p.cardapio.cardapio)) : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [p.cardapio.cardapio, temGrana, versao]
+  )
   const doMes = totaisDoMes(todas, mes)
   const doDia = todas.filter(t => t.data === dia)
   const saldoDoDia = doDia.reduce((a, t) => a + (t.entrada ? t.valor : -t.valor), 0)
@@ -90,6 +194,26 @@ export function Dinheiro(p: {
       setErro(null)
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'não deu para registrar')
+    }
+  }
+
+  /**
+   * Edita (`novo`) ou exclui (`null`) um lançamento.
+   *
+   * O `antes` que vai para o Cortex é o que a tela mostra — já com uma edição
+   * anterior ainda pendente, se houver: o Cortex aplica os eventos na ordem,
+   * e é esse o estado da linha quando este chegar.
+   */
+  const alterar = (t: Transacao, novo: Alteracao['novo']): void => {
+    try {
+      p.envio.registrar(eventoLancamentoAlterado(t, novo, dia))
+      guardarAlteracao(guardadoDoNavegador, { chave: t.chave, antes: { item: t.item, valor: t.valor }, novo })
+      setVersao(v => v + 1)
+      setAberta(null)
+      setEditando(null)
+      setErro(null)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'não deu para alterar')
     }
   }
 
@@ -222,7 +346,28 @@ export function Dinheiro(p: {
               nome="Hoje"
               contagem={`${saldoDoDia < 0 ? '−' : '+'} ${reais(Math.abs(saldoDoDia))}`}
             />
-            {doDia.map((t, i) => <Linha key={`${t.data}:${i}:${t.item}`} t={t} />)}
+            {doDia.map(t => editando === t.chave ? (
+              <EditarLancamento
+                key={t.chave}
+                t={t}
+                aoSalvar={novo => alterar(t, novo)}
+                aoCancelar={() => setEditando(null)}
+              />
+            ) : (
+              <Linha
+                key={t.chave}
+                t={t}
+                aberta={aberta === t.chave}
+                travada={listaOcupada(guardadoDoNavegador, t)}
+                aoAbrir={() => setAberta(aberta === t.chave ? null : t.chave)}
+                aoEditar={() => { setEditando(t.chave); setAberta(null) }}
+                aoExcluir={() => {
+                  // Excluir no vault não tem desfazer pelo celular.
+                  if (!window.confirm(`Excluir "${t.item || 'lançamento'}"?`)) return
+                  alterar(t, null)
+                }}
+              />
+            ))}
           </div>
         )}
 

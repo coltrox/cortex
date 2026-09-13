@@ -1470,6 +1470,20 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   color:var(--txt); font-variant-numeric:tabular-nums;
 }
 .lanc-valor[data-entrada]{ color:var(--ok); }
+/* Editar e excluir lançamento: a linha ganhou um "⋯", e o bloco que a
+   envolve herda a borda que antes era dela. */
+.rotulo-secao + .lanc-bloco .lanc-linha,
+.rotulo-secao + .lanc-editar{ border-top:0; }
+.lanc-mais{
+  flex:none; width:32px; height:32px; margin-right:-6px;
+  border:0; border-radius:var(--r1); background:transparent;
+  color:var(--txt-3); font-size:18px; line-height:1; cursor:pointer;
+}
+.lanc-acoes{ display:flex; flex-wrap:wrap; gap:8px; padding:0 0 13px 21px; }
+.lanc-acoes .acao-lado{ flex:1; }
+.lanc-espera{ flex:1 1 100%; font-size:11px; color:var(--txt-3); }
+.lanc-editar{ padding:13px 0; border-top:1px solid var(--borda); }
+.lanc-direcao .btn[aria-pressed="false"]{ opacity:.5; }
 
 /* ═══════════ CORPO ═══════════ */
 

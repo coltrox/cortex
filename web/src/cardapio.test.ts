@@ -204,6 +204,25 @@ describe('ordem das refeicoes', () => {
     ])
   })
 
+  it('com o dia, a refeicao de segunda a sexta some no fim de semana', () => {
+    // O pre-treino so vale em dia de treino. Sem lista de dias, todo dia.
+    const cardapio = {
+      atualizadoEm: null,
+      itens: [
+        { especie: 'refeicao' as const, nome: 'Almoço', detalhe: { ordem: 0 } },
+        {
+          especie: 'refeicao' as const, nome: 'Pré-treino',
+          detalhe: { ordem: 1, dias: ['seg', 'ter', 'qua', 'qui', 'sex'] }
+        }
+      ]
+    }
+    // 2026-09-13 e domingo; 2026-09-14, segunda.
+    expect(refeicoesDoPlano(cardapio, '2026-09-13').map(x => x.nome)).toEqual(['Almoço'])
+    expect(refeicoesDoPlano(cardapio, '2026-09-14').map(x => x.nome)).toEqual(['Almoço', 'Pré-treino'])
+    // Sem dia, a lista inteira -- e o que o Cortex antigo e as contas usam.
+    expect(refeicoesDoPlano(cardapio).map(x => x.nome)).toEqual(['Almoço', 'Pré-treino'])
+  })
+
   it('segue o relogio, nao a ordem do banco', () => {
     // O almoco aparecer antes do cafe faz a pessoa procurar na lista o que
     // deveria estar na frente dela.

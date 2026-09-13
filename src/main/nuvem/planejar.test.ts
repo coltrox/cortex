@@ -53,6 +53,32 @@ describe('planejar', () => {
     expect(op).toMatchObject({ acao: 'diario-lista', item: { dir: 'saida' } })
   })
 
+  it('gasto com alvo edita a linha daquele dia, pela posicao, conferindo o antes', () => {
+    expect(planejar(ev('gasto', {
+      alvo: '2026-09-12#transacoes#1', antes: { item: 'almoço', valor: 20 },
+      item: 'almoço', valor: 25, cat: 'comida', dir: 'saida'
+    }))).toEqual([{
+      acao: 'diario-transacao', dia: '2026-09-12', campo: 'transacoes', indice: 1,
+      antes: { item: 'almoço', valor: 20 },
+      item: { item: 'almoço', valor: 25, cat: 'comida', dir: 'saida' }
+    }])
+  })
+
+  it('gasto com alvo e apagar exclui', () => {
+    const [op] = planejar(ev('gasto', {
+      alvo: '2026-09-12#transacoes#0', antes: { item: 'almoço', valor: 20 }, apagar: true
+    }))
+    expect(op).toMatchObject({ acao: 'diario-transacao', indice: 0, item: null })
+  })
+
+  it('alvo torto, sem antes, ou valor novo invalido nao vira operacao', () => {
+    // O alvo decide QUAL arquivo e QUAL linha: nada fora do formato passa.
+    expect(planejar(ev('gasto', { alvo: '../../Vida/Senhas#transacoes#0', antes: { item: 'x', valor: 1 }, apagar: true }))).toEqual([])
+    expect(planejar(ev('gasto', { alvo: '2026-09-12#senhas#0', antes: { item: 'x', valor: 1 }, apagar: true }))).toEqual([])
+    expect(planejar(ev('gasto', { alvo: '2026-09-12#transacoes#0', apagar: true }))).toEqual([])
+    expect(planejar(ev('gasto', { alvo: '2026-09-12#transacoes#0', antes: { item: 'x', valor: 1 }, item: 'x', valor: -5 }))).toEqual([])
+  })
+
   it('sessao cria uma nota de treino com o titulo previsivel', () => {
     expect(planejar(ev('sessao', {
       modelo: 'Push A', exercicios: [{ nome: 'Supino', carga: '60 kg' }]

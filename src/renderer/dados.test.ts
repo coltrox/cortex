@@ -3,7 +3,7 @@ import type { NoteComCampos } from './tipos'
 import {
   corpoAlinhado, extrairTransacoes, porCategoria, saldoPorquinho,
   suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia,
-  fatorDaRefeicao, trocaDaRefeicao,
+  fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia,
   seriePeso, serieAgua, litros, textos, camposExibiveis, textoDoCampo
 } from './dados'
 import { FORMULARIOS, type Campo } from './formularios'
@@ -573,5 +573,29 @@ describe('textoDoCampo', () => {
   it('devolve vazio para nulo e indefinido', () => {
     expect(textoDoCampo(null)).toBe('')
     expect(textoDoCampo(undefined)).toBe('')
+  })
+})
+
+describe('refeicoesDoDia', () => {
+  // O pre-treino so em dia de treino; sem lista de dias, a refeicao e de todo dia.
+  const plano = {
+    path: 'p.md', title: 'Plano', tipo: 'plano', date: null,
+    campos: {
+      ativo: true,
+      refeicoes: [
+        { nome: 'Almoço' },
+        { nome: 'Pré-treino', dias: ['seg', 'ter', 'qua', 'qui', 'sex'] }
+      ]
+    }
+  } as unknown as NoteComCampos
+
+  it('some no fim de semana e volta na segunda', () => {
+    // 2026-09-13 e domingo; 2026-09-14, segunda.
+    expect(refeicoesDoDia(plano, '2026-09-13').map(r => r.nome)).toEqual(['Almoço'])
+    expect(refeicoesDoDia(plano, '2026-09-14').map(r => r.nome)).toEqual(['Almoço', 'Pré-treino'])
+  })
+
+  it('sem plano, lista vazia', () => {
+    expect(refeicoesDoDia(undefined, '2026-09-14')).toEqual([])
   })
 })

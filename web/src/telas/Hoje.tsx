@@ -256,7 +256,7 @@ export function Hoje(p: {
     : []
 
   const suplementos = temSaude ? suplementosDoDia(p.cardapio.cardapio, dia) : []
-  const refeicoes = temSaude ? refeicoesDoPlano(p.cardapio.cardapio) : []
+  const refeicoes = temSaude ? refeicoesDoPlano(p.cardapio.cardapio, dia) : []
   const rotinas = temVida ? rotinasDoDia(p.cardapio.cardapio, dia) : []
   /*
    * A água do dia.

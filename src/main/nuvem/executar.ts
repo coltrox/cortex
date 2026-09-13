@@ -202,6 +202,46 @@ export async function executar(
         break
       }
 
+      /*
+       * Um lançamento editado ou apagado pelo celular.
+       *
+       * A linha é achada pela posição e só é tocada se ainda for a MESMA — item
+       * e valor iguais aos que o celular via. Sem a conferência, um lançamento
+       * apagado antes desta operação deslocaria a lista e a edição cairia na
+       * linha vizinha: dinheiro trocado de lugar em silêncio.
+       */
+      case 'diario-transacao': {
+        const path = `Diario/${op.dia}.md`
+        if (!(await vault.exists(path))) break
+        const raw = await vault.read(path)
+        const atual = parseFrontmatter(raw).frontmatter[op.campo]
+        if (!Array.isArray(atual)) break
+        const alvo = atual[op.indice] as Record<string, unknown> | undefined
+        const confere = alvo !== null && typeof alvo === 'object'
+          && String(alvo.item ?? '') === op.antes.item
+          && Number(alvo.valor) === op.antes.valor
+        if (!confere) {
+          console.error(
+            `[cortex] lançamento ${op.dia}#${op.campo}#${op.indice} mudou antes da alteração chegar; nada foi mexido`
+          )
+          break
+        }
+        const nova = op.item === null
+          ? atual.filter((_, i) => i !== op.indice)
+          : atual.map((x, i) => {
+            if (i !== op.indice) return x
+            const junto: Record<string, unknown> = { ...(x as Record<string, unknown>), ...op.item }
+            // Tirar a categoria é uma escolha: sem isto, a antiga sobreviveria à edição.
+            if (!op.item?.cat) delete junto.cat
+            return junto
+          })
+        await vault.writeAtomic(path, patchFrontmatter(raw, {
+          [op.campo]: nova.length > 0 ? nova : null
+        }))
+        await indexarSemFalhar(indexer, path)
+        break
+      }
+
       case 'nota': {
         if (op.seExistir === 'mesclar') {
           // Já existir não é erro: dois cardios no mesmo dia (ou duas

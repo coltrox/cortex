@@ -215,6 +215,39 @@ export function eventoGasto(
   })
 }
 
+/**
+ * Edita (`novo`) ou exclui (`null`) um lançamento que já está no Cortex.
+ *
+ * Vai como `gasto` com um `alvo`, e não como tipo novo: tipo novo exigiria
+ * rodar o SQL do Supabase de novo. `antes` é o que esta tela via — o Cortex só
+ * mexe na linha se ela ainda for essa, e assim uma posição que andou nunca
+ * altera o lançamento vizinho.
+ */
+export function eventoLancamentoAlterado(
+  alvo: { chave: string; item: string; valor: number },
+  novo: { item: string; valor: number; cat?: string; entrada: boolean } | null,
+  dia: string = diaLocal()
+): Evento {
+  if (!/^\d{4}-\d{2}-\d{2}#(transacoes|gastos)#\d+$/.test(alvo.chave)) {
+    throw new Error('este lançamento ainda não voltou do Cortex')
+  }
+  const antes = { item: alvo.item, valor: alvo.valor }
+  return validarEvento({
+    tipo: 'gasto',
+    dia,
+    dados: novo === null
+      ? { alvo: alvo.chave, antes, apagar: true }
+      : comValor({
+        alvo: alvo.chave,
+        antes,
+        item: texto(novo.item, 'descrição'),
+        valor: numero(novo.valor, 'valor'),
+        cat: novo.cat?.trim() || undefined,
+        dir: novo.entrada ? 'entrada' : 'saida'
+      })
+  })
+}
+
 export function eventoSessao(
   modelo: string,
   exercicios: ExercicioFeito[],
