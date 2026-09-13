@@ -10,9 +10,11 @@ import {
 import {
   suplementosDoDia, refeicoesDoPlano, rotinasDoDia, hidratacao, litros,
   anotacoesDoDia, momentoDe, areaLigada,
-  provas, compromissos, tarefas, dataDe, dataCurta, faltam
+  provas, compromissos, tarefas, dataDe, dataCurta, faltam, caminhoDe
 } from '../cardapio'
-import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
+import {
+  jaFeitos, marcarFeito, desmarcarFeito, foiApagado, conciliarApagados
+} from '../feitos'
 import { lerAnotacoes, conciliarAnotacoes } from '../anotacoes'
 import { lerPendente, somarPendente, conciliarPendente, totalNaTela } from '../agua'
 import { usePuxarParaAtualizar, progresso, LIMITE } from '../puxar'
@@ -250,7 +252,8 @@ export function Hoje(p: {
         ...compromissos(p.cardapio.cardapio),
         ...tarefas(p.cardapio.cardapio)
       ]
-      .filter(i => dataDe(i) >= dia)
+      // O excluído na Chegando some daqui também, sem esperar o Cortex.
+      .filter(i => dataDe(i) >= dia && !foiApagado(feitos, caminhoDe(i)))
       .sort((a, b) => dataDe(a).localeCompare(dataDe(b)))
       .slice(0, 2)
     : []
@@ -283,7 +286,10 @@ export function Hoje(p: {
    * abaixo. A local aparece marcada "só neste aparelho", que é a verdade
    * enquanto o Cortex não a recebeu.
    */
-  const publicadas = temVida ? anotacoesDoDia(p.cardapio.cardapio, dia) : []
+  const publicadasTodas = temVida ? anotacoesDoDia(p.cardapio.cardapio, dia) : []
+  // A excluída em Notas some daqui na hora. A conciliação da cópia local, no
+  // efeito abaixo, continua olhando todas as publicadas.
+  const publicadas = publicadasTodas.filter(a => !foiApagado(feitos, a.path))
   const [locais, setLocais] = useState(() => lerAnotacoes(guardadoDoNavegador, dia))
 
   /*
@@ -298,8 +304,11 @@ export function Hoje(p: {
    * celular mostrando desmarcado até a virada do dia, contra o que o vault diz.
    */
   useEffect(() => {
+    // A exclusão que o Cortex já confirmou perde a marca — ver `conciliarApagados`.
+    let mexeu = conciliarApagados(
+      guardadoDoNavegador, dia, p.cardapio.cardapio.itens.map(caminhoDe)
+    )
     const atuais = jaFeitos(guardadoDoNavegador, dia)
-    let mexeu = false
     const conferir = (chave: string, doCardapio: boolean): void => {
       const confirmado = doCardapio ? chave : `nao-${chave}`
       if (atuais.includes(confirmado)) {
@@ -315,7 +324,7 @@ export function Hoje(p: {
     // comparar: o que o Cortex absorveu sai do pendente.
     setPendente(conciliarPendente(guardadoDoNavegador, dia, agua?.ml ?? 0))
     // E a anotação que voltou do vault deixa de ser mostrada pela cópia local.
-    setLocais(conciliarAnotacoes(guardadoDoNavegador, dia, publicadas.map(a => a.texto)))
+    setLocais(conciliarAnotacoes(guardadoDoNavegador, dia, publicadasTodas.map(a => a.texto)))
     // `feitos` fora das dependências de propósito: o efeito lê do disco, não
     // do estado, e listá-lo o faria rodar por causa da própria limpeza.
     // eslint-disable-next-line react-hooks/exhaustive-deps

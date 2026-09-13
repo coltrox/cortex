@@ -6,7 +6,9 @@ import { dobra, pontuar } from '@compartilhado/busca'
 import {
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, diasAte, areaLigada
 } from '../cardapio'
-import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
+import {
+  jaFeitos, marcarFeito, desmarcarFeito, chaveApagado, foiApagado, conciliarApagados
+} from '../feitos'
 import { lerPendentesAgenda, conciliarAgenda } from '../agendaLocal'
 import { Cabecalho, Aviso, Secao, Detalhe, Selecao } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
@@ -173,8 +175,11 @@ export function Agenda(p: {
    * uma segunda fonte da verdade concorrendo com o vault.
    */
   useEffect(() => {
+    // A exclusão que o Cortex já confirmou perde a marca — ver `conciliarApagados`.
+    let mexeu = conciliarApagados(
+      guardadoDoNavegador, dia, p.cardapio.cardapio.itens.map(caminhoDe)
+    )
     const atuais = jaFeitos(guardadoDoNavegador, dia)
-    let mexeu = false
     const conferir = (chave: string, doCardapio: boolean): void => {
       const confirmado = doCardapio ? chave : `nao-${chave}`
       if (!atuais.includes(confirmado)) return
@@ -394,6 +399,9 @@ export function Agenda(p: {
    */
   const visiveis = linhas.filter(l => {
     if (jaPassou(l.item)) return false
+    // Excluído aqui some na hora. Antes ficava riscado, escrito "excluído",
+    // até o Cortex republicar — ver `foiApagado` em `feitos.ts`.
+    if (foiApagado(feitos, caminhoDe(l.item))) return false
     if (!temEstudos && (l.tipo === 'prova' || l.tipo === 'tarefa')) return false
     return filtro === 'todos' || tipoDoFiltro(l) === filtro
   })
@@ -453,14 +461,13 @@ export function Agenda(p: {
   /* `soAcoes`: só os botões, para o cartão de destaque — o corpo ele já tem. */
   const cartaoProva = (i: ItemCardapio, soAcoes = false) => {
     const path = caminhoDe(i)
-    const apagada = feitos.includes(`apagar:${path}`)
     const etapa = etapaDe(i, path)
-    const travado = apagada || path === ''
+    const travado = path === ''
     return (
       <div
         className={soAcoes
           ? 'heroi-acoes'
-          : `item item-acao ${etapa.feito || apagada ? 'item-feito' : ''}`}
+          : `item item-acao ${etapa.feito ? 'item-feito' : ''}`}
         key={path || i.nome}
       >
         {!soAcoes && (
@@ -563,10 +570,10 @@ export function Agenda(p: {
               onClick={() => {
                 if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
                 setAberto(null)
-                marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+                marcar(chaveApagado(path), () => eventoItemApagado(path, dia))
               }}
             >
-              {apagada ? 'excluída' : 'excluir'}
+              excluir
             </button>
           </div>
         )}
@@ -576,9 +583,8 @@ export function Agenda(p: {
 
   const cartaoCompromisso = (i: ItemCardapio, soAcoes = false) => {
     const path = caminhoDe(i)
-    const apagado = feitos.includes(`apagar:${path}`)
     return (
-      <div className={soAcoes ? 'heroi-acoes' : `item item-acao ${apagado ? 'item-feito' : ''}`}
+      <div className={soAcoes ? 'heroi-acoes' : 'item item-acao'}
         key={path || i.nome}>
         {!soAcoes && (
           <div className="item-corpo">
@@ -605,7 +611,7 @@ export function Agenda(p: {
           <button
             className="acao-lado"
             type="button"
-            disabled={apagado || path === ''}
+            disabled={path === ''}
             onClick={() => i.detalhe.comemorativa === true
               // A data comemorativa abre o formulário DELA, com a data de
               // quando começou — o de compromisso tem hora e local, e a
@@ -618,15 +624,15 @@ export function Agenda(p: {
           <button
             className="acao-lado acao-destrutiva"
             type="button"
-            disabled={apagado || path === ''}
+            disabled={path === ''}
             onClick={() => {
               // Confirmar aqui e o que substitui o "marcar cancelado" de
               // antes: apagar no vault nao tem desfazer pelo celular.
               if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
-              marcar(`apagar:${path}`, () => eventoItemApagado(path, dia))
+              marcar(chaveApagado(path), () => eventoItemApagado(path, dia))
             }}
           >
-            {apagado ? 'excluído' : 'excluir'}
+            excluir
           </button>
         </div>
       </div>

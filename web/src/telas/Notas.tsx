@@ -3,7 +3,8 @@ import { dobra } from '@compartilhado/busca'
 import { diaLocal, eventoAnotacao, eventoItemEditado, eventoItemApagado } from '../montar'
 import { guardadoDoNavegador } from '../guardado'
 import { guardarAnotacao, lerAnotacoes, conciliarAnotacoes } from '../anotacoes'
-import { todasAnotacoes, type AnotacaoPublicada } from '../cardapio'
+import { jaFeitos, marcarFeito, chaveApagado, foiApagado, conciliarApagados } from '../feitos'
+import { todasAnotacoes, caminhoDe, type AnotacaoPublicada } from '../cardapio'
 import { Cabecalho, Aviso, Secao } from '../componentes'
 import type { UsoDoCardapio, useEnvio } from '../envio'
 import type { Tela } from '../App'
@@ -218,11 +219,23 @@ export function Notas(p: {
   const editarNota = (path: string, texto: string): void => {
     p.envio.registrar(eventoItemEditado(path, { titulo: texto, texto }, hoje))
   }
+  /*
+   * A excluída some na hora.
+   *
+   * Antes ela continuava na lista como se nada tivesse acontecido, até o
+   * Cortex republicar. A marca a esconde nesse intervalo — a mesma da
+   * Chegando, ver `chaveApagado` em `feitos.ts`. O evento sai primeiro: se ele
+   * não puder ser registrado, a nota não some da tela.
+   */
+  const [feitos, setFeitos] = useState(() => jaFeitos(guardadoDoNavegador, hoje))
   const excluirNota = (path: string): void => {
     p.envio.registrar(eventoItemApagado(path, hoje))
+    marcarFeito(guardadoDoNavegador, hoje, chaveApagado(path))
+    setFeitos(jaFeitos(guardadoDoNavegador, hoje))
   }
 
-  const todas = todasAnotacoes(p.cardapio.cardapio)
+  const publicadas = todasAnotacoes(p.cardapio.cardapio)
+  const todas = publicadas.filter(a => !foiApagado(feitos, a.path))
 
   /*
    * As que este aparelho escreveu e o Cortex ainda não devolveu.
@@ -234,9 +247,15 @@ export function Notas(p: {
    */
   const [locais, setLocais] = useState(() => lerAnotacoes(guardadoDoNavegador, hoje))
   useEffect(() => {
+    // A exclusão que o Cortex já confirmou perde a marca — ver `conciliarApagados`.
+    if (conciliarApagados(guardadoDoNavegador, hoje, p.cardapio.cardapio.itens.map(caminhoDe))) {
+      setFeitos(jaFeitos(guardadoDoNavegador, hoje))
+    }
+    // Todas as publicadas, e não só as visíveis: a cópia local de uma nota que
+    // voltou e foi excluída também tem de sair.
     setLocais(conciliarAnotacoes(
       guardadoDoNavegador, hoje,
-      todas.filter(a => a.data === hoje).map(a => a.texto)
+      publicadas.filter(a => a.data === hoje).map(a => a.texto)
     ))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p.cardapio.cardapio, hoje])
