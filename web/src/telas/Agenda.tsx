@@ -473,9 +473,13 @@ export function Agenda(p: {
     const travado = path === ''
     return (
       <div
-        className={soAcoes
-          ? 'heroi-acoes'
-          : `item item-acao ${etapa.feito ? 'item-feito' : ''}`}
+        // Sem `item-feito`: pedido do dono. A prova inscrita e paga (ou já
+        // estudada) ainda não aconteceu — risco é para o que acabou, e o que
+        // passou já sai da lista. O "inscrição paga ✓" verde diz o resto.
+        className={soAcoes ? 'heroi-acoes' : 'item item-acao'}
+        // No destaque, tocar no cartão abre e fecha as ações; um toque num
+        // botão daqui de dentro não pode contar como toque no cartão.
+        onClick={soAcoes ? e => e.stopPropagation() : undefined}
         key={path || i.nome}
       >
         {!soAcoes && (
@@ -538,15 +542,18 @@ export function Agenda(p: {
           {etapa.qual === 'pronto' && (
             <span className="acao-pronta">inscrição paga ✓</span>
           )}
-          <button
-            className="acao-mais"
-            type="button"
-            aria-label={`ações de ${i.nome}`}
-            aria-expanded={aberto === path}
-            onClick={() => setAberto(aberto === path ? null : path)}
-          >
-            ⋯
-          </button>
+          {/* No destaque não há "⋯": tocar no cartão abre as ações. */}
+          {!soAcoes && (
+            <button
+              className="acao-mais"
+              type="button"
+              aria-label={`ações de ${i.nome}`}
+              aria-expanded={aberto === path}
+              onClick={() => setAberto(aberto === path ? null : path)}
+            >
+              ⋯
+            </button>
+          )}
         </div>
 
         {aberto === path && (
@@ -611,15 +618,17 @@ export function Agenda(p: {
         ⋯
       </button>
     )
+    // No destaque as ações só aparecem depois de tocar no cartão — antes, um
+    // "⋯" sozinho numa linha deixava o cartão grande desproporcional.
+    if (soAcoes && aberto !== chave) return null
     return (
       <div className={soAcoes ? 'heroi-acoes' : 'item item-acao'}
+        onClick={soAcoes ? e => e.stopPropagation() : undefined}
         key={chave}>
         {/* Editar e excluir atrás do "⋯". Pedido do dono: o mesmo em TODO
             cartão do Chegando, e o "⋯" à direita do nome — sozinho numa linha
             embaixo, ele era um botão grande sem nada ao lado. */}
-        {soAcoes ? (
-          <div className="item-acoes item-acoes-direita">{botaoMais}</div>
-        ) : (
+        {soAcoes ? null : (
           <div className="item-topo">
             <div className="item-corpo">
               {/* A data comemorativa sobe como compromisso — a espécie é a mesma
@@ -711,7 +720,15 @@ export function Agenda(p: {
             no fim da terceira. O cartao responde de uma olhada a pergunta que
             faz alguem abrir esta aba: o que e a proxima, e quanto falta. */}
         {destaque && (
-          <div className="chegando-heroi">
+          <div
+            className={`chegando-heroi ${destaque.tipo !== 'tarefa' ? 'heroi-tocavel' : ''}`}
+            // Pedido do dono: sem "⋯" no cartão grande — tocar nele abre
+            // editar e excluir, e tocar de novo fecha.
+            onClick={destaque.tipo === 'tarefa' ? undefined : () => {
+              const chave = caminhoDe(destaque.item) || destaque.item.nome
+              setAberto(aberto === chave ? null : chave)
+            }}
+          >
             <span className="heroi-tipo">
               {destaque.item.detalhe.comemorativa === true
                 ? rotuloComemorativa(destaque.item)

@@ -125,6 +125,58 @@ describe('comandos do projeto novo', () => {
     expect(eTs[0].cwd).toBe(join(BASE, 'api'))
   })
 
+  it('Vue e Svelte usam os modelos do create-vite, e instalam', () => {
+    expect(etapasNovoProjeto('vue', 'ts', 'site', BASE)[0].args).toContain('vue-ts')
+    expect(etapasNovoProjeto('svelte', 'js', 'site', BASE)[0].args).toContain('svelte')
+    expect(etapasNovoProjeto('svelte', 'js', 'site', BASE)[1].args).toEqual(['install'])
+  })
+
+  it('Java: console so com arquivos, Maven pelo quickstart oficial', () => {
+    expect(arquivosNovoProjeto('java', 'app').map(a => a.caminho)).toContain('src/Main.java')
+    expect(etapasNovoProjeto('java', 'ts', 'app', BASE)).toEqual([])
+    const [mvn] = etapasNovoProjeto('java-maven', 'ts', 'app', BASE)
+    expect(mvn.comando).toBe('mvn')
+    expect(mvn.args).toContain('-DartifactId=app')
+    expect(mvn.args).toContain('-DinteractiveMode=false')
+  })
+
+  it('Go escreve main.go e cria o modulo dentro da pasta', () => {
+    for (const m of ['go', 'go-api'] as const) {
+      expect(arquivosNovoProjeto(m, 'api').map(a => a.caminho)).toContain('main.go')
+      const [e] = etapasNovoProjeto(m, 'ts', 'api', BASE)
+      expect([e.comando, ...e.args]).toEqual(['go', 'mod', 'init', 'api'])
+      expect(e.cwd).toBe(join(BASE, 'api'))
+    }
+  })
+
+  it('Rust usa cargo new, com --lib na biblioteca', () => {
+    expect(etapasNovoProjeto('rust', 'ts', 'jogo', BASE)[0].args).toEqual(['new', 'jogo'])
+    expect(etapasNovoProjeto('rust-lib', 'ts', 'jogo', BASE)[0].args).toEqual(['new', '--lib', 'jogo'])
+  })
+
+  it('Laravel, Rails e Flutter usam o criador de cada um', () => {
+    expect(etapasNovoProjeto('laravel', 'ts', 'loja', BASE)[0].args).toEqual(['create-project', 'laravel/laravel', 'loja'])
+    expect(etapasNovoProjeto('rails', 'ts', 'loja', BASE)[0].args).toEqual(['new', 'loja'])
+    // O pacote Dart nao aceita hifen; a pasta aceita.
+    expect(etapasNovoProjeto('flutter', 'ts', 'meu-app', BASE)[0].args)
+      .toEqual(['create', '--project-name', 'meu_app', 'meu-app'])
+  })
+
+  it('Kotlin, PHP e Ruby simples sao so arquivos', () => {
+    for (const m of ['kotlin', 'php', 'ruby'] as const) {
+      expect(arquivosNovoProjeto(m, 'app').length).toBeGreaterThan(0)
+      expect(etapasNovoProjeto(m, 'ts', 'app', BASE)).toEqual([])
+    }
+  })
+
+  it('nenhum argumento de comando leva caractere que o cmd.exe interpreta', () => {
+    for (const m of MODELOS_PROJETO) {
+      for (const e of etapasNovoProjeto(m, 'ts', 'app', BASE)) {
+        for (const a of e.args) expect(a).not.toMatch(/["*&|<>^%]/)
+      }
+    }
+  })
+
   it('nenhum arquivo inicial sai da pasta do projeto', () => {
     for (const m of MODELOS_PROJETO) {
       for (const a of arquivosNovoProjeto(m, 'app')) {

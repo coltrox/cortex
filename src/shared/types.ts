@@ -85,10 +85,17 @@ export type ProcessoInfo = {
 
 /** Criar projeto pela lente Dev. Ver main/dev/novoProjeto.ts. */
 export type ModeloProjeto =
-  | 'expo' | 'vite' | 'electron' | 'next' | 'node-api'
+  | 'expo' | 'vite' | 'vue' | 'svelte' | 'electron' | 'next' | 'node-api'
   | 'python' | 'fastapi' | 'flask' | 'tkinter'
+  | 'java' | 'java-maven'
   | 'csharp' | 'csharp-api' | 'csharp-winforms'
   | 'cpp' | 'c'
+  | 'go' | 'go-api'
+  | 'rust' | 'rust-lib'
+  | 'kotlin'
+  | 'php' | 'laravel'
+  | 'ruby' | 'rails'
+  | 'flutter'
 export type LinguagemProjeto = 'ts' | 'js'
 export type ProjetoCriado = {
   /** A criação e a instalação, rodando como um processo só. */

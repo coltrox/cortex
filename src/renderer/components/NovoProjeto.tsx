@@ -8,23 +8,34 @@ import type { LinguagemProjeto, ModeloProjeto } from '../../shared/types'
  * de um lado só, e perguntar "frontend ou backend" antes seria uma decisão que
  * o cartão responde sozinho.
  */
-export type Lado = 'Frontend' | 'Backend' | 'Full-stack' | 'Mobile' | 'Desktop' | 'Terminal'
+export type Lado = 'Frontend' | 'Backend' | 'Full-stack' | 'Mobile' | 'Desktop' | 'Terminal' | 'Biblioteca'
 
 type Modelo = { id: ModeloProjeto; nome: string; lado: Lado; descricao: string }
+
+type Grupo = {
+  id: string
+  nome: string
+  /** Pergunta TypeScript ou JavaScript. */
+  ts: boolean
+  /** Outras palavras que acham o grupo na busca: "golang", "dotnet", "spring". */
+  apelidos: string
+  modelos: Modelo[]
+}
 
 /**
  * As aplicações, agrupadas pela linguagem.
  *
  * Pedido do dono: primeiro "criar uma aplicação em Python", e só então as
- * opções daquela linguagem — em vez de uma lista única misturando app de
- * celular com API em C#. `ts` diz se o grupo ainda pergunta TypeScript ou
- * JavaScript.
+ * opções daquela linguagem. A linguagem se escolhe numa lista em cascata com
+ * busca — com tantas, botões lado a lado não cabem.
  */
-export const GRUPOS: { id: string; nome: string; ts: boolean; modelos: Modelo[] }[] = [
+export const GRUPOS: Grupo[] = [
   {
-    id: 'js', nome: 'JavaScript / TypeScript', ts: true,
+    id: 'js', nome: 'JavaScript / TypeScript', ts: true, apelidos: 'js ts node react web',
     modelos: [
       { id: 'vite', nome: 'React + Vite', lado: 'Frontend', descricao: 'Site ou app web com React. Abre no navegador.' },
+      { id: 'vue', nome: 'Vue', lado: 'Frontend', descricao: 'Site ou app web com Vue e Vite.' },
+      { id: 'svelte', nome: 'Svelte', lado: 'Frontend', descricao: 'Site ou app web com Svelte e Vite.' },
       { id: 'node-api', nome: 'API com Express', lado: 'Backend', descricao: 'Servidor Node com Express, pronto para receber requisições.' },
       { id: 'next', nome: 'Next.js', lado: 'Full-stack', descricao: 'Site com React e servidor junto, pronto para publicar na Vercel.' },
       { id: 'expo', nome: 'Expo', lado: 'Mobile', descricao: 'App de celular com React Native. Abre no Expo Go pelo QR code.' },
@@ -32,7 +43,7 @@ export const GRUPOS: { id: string; nome: string; ts: boolean; modelos: Modelo[] 
     ]
   },
   {
-    id: 'python', nome: 'Python', ts: false,
+    id: 'python', nome: 'Python', ts: false, apelidos: 'py',
     modelos: [
       { id: 'flask', nome: 'Site com Flask', lado: 'Full-stack', descricao: 'Servidor web leve que já devolve as páginas. Bom para começar.' },
       { id: 'fastapi', nome: 'API com FastAPI', lado: 'Backend', descricao: 'API web moderna, com a documentação em /docs.' },
@@ -41,7 +52,14 @@ export const GRUPOS: { id: string; nome: string; ts: boolean; modelos: Modelo[] 
     ]
   },
   {
-    id: 'csharp', nome: 'C#', ts: false,
+    id: 'java', nome: 'Java', ts: false, apelidos: 'jdk maven jvm spring',
+    modelos: [
+      { id: 'java-maven', nome: 'Projeto Maven', lado: 'Terminal', descricao: 'Estrutura padrão do Maven, com testes. Precisa do Maven e do JDK.' },
+      { id: 'java', nome: 'Console', lado: 'Terminal', descricao: 'Main.java simples. Compila com javac (JDK).' }
+    ]
+  },
+  {
+    id: 'csharp', nome: 'C#', ts: false, apelidos: 'csharp c sharp dotnet .net',
     modelos: [
       { id: 'csharp-api', nome: 'API web', lado: 'Backend', descricao: 'API com ASP.NET Core. Precisa do SDK do .NET.' },
       { id: 'csharp-winforms', nome: 'App de janela', lado: 'Desktop', descricao: 'Programa de Windows com WinForms. Precisa do SDK do .NET.' },
@@ -49,22 +67,79 @@ export const GRUPOS: { id: string; nome: string; ts: boolean; modelos: Modelo[] 
     ]
   },
   {
-    id: 'cpp', nome: 'C++', ts: false,
+    id: 'cpp', nome: 'C++', ts: false, apelidos: 'cpp cmake',
     modelos: [
       { id: 'cpp', nome: 'Console', lado: 'Terminal', descricao: 'main.cpp com CMake. Compila com g++ ou Visual Studio.' }
     ]
   },
   {
-    id: 'c', nome: 'C', ts: false,
+    id: 'c', nome: 'C', ts: false, apelidos: 'gcc cmake',
     modelos: [
       { id: 'c', nome: 'Console', lado: 'Terminal', descricao: 'main.c com CMake. Compila com gcc.' }
+    ]
+  },
+  {
+    id: 'go', nome: 'Go', ts: false, apelidos: 'golang',
+    modelos: [
+      { id: 'go-api', nome: 'API web', lado: 'Backend', descricao: 'Servidor HTTP só com a biblioteca padrão. Precisa do Go.' },
+      { id: 'go', nome: 'Console', lado: 'Terminal', descricao: 'Programa de terminal com go mod. Precisa do Go.' }
+    ]
+  },
+  {
+    id: 'rust', nome: 'Rust', ts: false, apelidos: 'cargo',
+    modelos: [
+      { id: 'rust', nome: 'Programa', lado: 'Terminal', descricao: 'cargo new: programa de terminal. Precisa do Rust (rustup).' },
+      { id: 'rust-lib', nome: 'Biblioteca', lado: 'Biblioteca', descricao: 'cargo new --lib: uma crate para usar em outros projetos.' }
+    ]
+  },
+  {
+    id: 'kotlin', nome: 'Kotlin', ts: false, apelidos: 'kt jvm',
+    modelos: [
+      { id: 'kotlin', nome: 'Console', lado: 'Terminal', descricao: 'Main.kt simples. Compila com kotlinc.' }
+    ]
+  },
+  {
+    id: 'php', nome: 'PHP', ts: false, apelidos: 'laravel composer',
+    modelos: [
+      { id: 'laravel', nome: 'Laravel', lado: 'Full-stack', descricao: 'Framework web completo. Precisa do PHP e do Composer.' },
+      { id: 'php', nome: 'Site simples', lado: 'Full-stack', descricao: 'public/index.php. Roda com php -S.' }
+    ]
+  },
+  {
+    id: 'ruby', nome: 'Ruby', ts: false, apelidos: 'rails gem',
+    modelos: [
+      { id: 'rails', nome: 'Ruby on Rails', lado: 'Full-stack', descricao: 'Framework web completo. Precisa do Ruby e do Rails.' },
+      { id: 'ruby', nome: 'Script', lado: 'Terminal', descricao: 'main.rb simples, com Gemfile.' }
+    ]
+  },
+  {
+    id: 'dart', nome: 'Dart', ts: false, apelidos: 'flutter',
+    modelos: [
+      { id: 'flutter', nome: 'Flutter', lado: 'Mobile', descricao: 'App de celular, web e computador. Precisa do Flutter SDK.' }
     ]
   }
 ]
 
 /** O grupo de um modelo — é dele que sai se a tela pergunta TS ou JS. */
-export function grupoDe(modelo: ModeloProjeto): (typeof GRUPOS)[number] {
+export function grupoDe(modelo: ModeloProjeto): Grupo {
   return GRUPOS.find(g => g.modelos.some(m => m.id === modelo)) ?? GRUPOS[0]
+}
+
+const semAcento = (s: string): string => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+/**
+ * As linguagens que casam com o que foi digitado.
+ *
+ * Procura no nome da linguagem, nos apelidos e no nome das aplicações dela:
+ * quem digita "flutter" ou "api" acha o que quer sem saber em que linguagem
+ * aquilo mora. Sem acento e sem caixa. Vazio devolve todas.
+ */
+export function filtrarGrupos(texto: string): Grupo[] {
+  const t = semAcento(texto.trim())
+  if (!t) return GRUPOS
+  return GRUPOS.filter(g =>
+    semAcento([g.nome, g.apelidos, ...g.modelos.map(m => m.nome)].join(' ')).includes(t)
+  )
 }
 
 /** O mesmo formato que o processo principal confere — ver `main/dev/novoProjeto.ts`. */
@@ -93,6 +168,9 @@ export function comandoDe(modelo: ModeloProjeto, linguagem: LinguagemProjeto, no
   switch (modelo) {
     case 'expo':
       return `npx create-expo-app@latest ${nome} --template ${ts ? 'blank-typescript' : 'blank'}`
+    case 'vue':
+    case 'svelte':
+      return `npx create-vite@latest ${nome} --template ${ts ? `${modelo}-ts` : modelo}\nnpm install`
     case 'electron':
       return `npx create-electron-app@latest ${nome} --template=${ts ? 'vite-typescript' : 'vite'}`
     case 'next':
@@ -109,6 +187,10 @@ export function comandoDe(modelo: ModeloProjeto, linguagem: LinguagemProjeto, no
       return `cria main.py com FastAPI e requirements.txt\n${venv}\n${pip}`
     case 'flask':
       return `cria app.py com Flask e requirements.txt\n${venv}\n${pip}`
+    case 'java':
+      return 'cria src/Main.java, README e .gitignore'
+    case 'java-maven':
+      return `mvn archetype:generate -DartifactId=${nome} -DarchetypeArtifactId=maven-archetype-quickstart`
     case 'csharp':
       return `dotnet new console --name ${nome}`
     case 'csharp-api':
@@ -119,6 +201,26 @@ export function comandoDe(modelo: ModeloProjeto, linguagem: LinguagemProjeto, no
       return 'cria main.cpp, CMakeLists.txt, README e .gitignore'
     case 'c':
       return 'cria main.c, CMakeLists.txt, README e .gitignore'
+    case 'go':
+      return `cria main.go\ngo mod init ${nome}`
+    case 'go-api':
+      return `cria main.go com um servidor HTTP\ngo mod init ${nome}`
+    case 'rust':
+      return `cargo new ${nome}`
+    case 'rust-lib':
+      return `cargo new --lib ${nome}`
+    case 'kotlin':
+      return 'cria src/Main.kt, README e .gitignore'
+    case 'php':
+      return 'cria public/index.php, README e .gitignore'
+    case 'laravel':
+      return `composer create-project laravel/laravel ${nome}`
+    case 'ruby':
+      return 'cria main.rb, Gemfile, README e .gitignore'
+    case 'rails':
+      return `rails new ${nome}`
+    case 'flutter':
+      return `flutter create --project-name ${nome.replace(/-/g, '_')} ${nome}`
     case 'vite':
     default:
       return `npx create-vite@latest ${nome} --template ${ts ? 'react-ts' : 'react'}\nnpm install`
@@ -139,14 +241,27 @@ export function NovoProjeto({ aoCriar, aoFechar }: {
   const [linguagem, setLinguagem] = useState<LinguagemProjeto>('ts')
   const [nome, setNome] = useState('')
   const [enviando, setEnviando] = useState(false)
+  /** A lista de linguagens está aberta, e o que foi digitado nela. */
+  const [cascata, setCascata] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [destaque, setDestaque] = useState(0)
   const valido = NOME_VALIDO.test(nome)
   const grupo = grupoDe(modelo)
+  const achados = filtrarGrupos(busca)
 
   useEffect(() => {
     const k = (e: KeyboardEvent): void => { if (e.key === 'Escape') aoFechar() }
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
   }, [aoFechar])
+
+  const escolher = (g: Grupo): void => {
+    // Trocar de linguagem já escolhe a primeira aplicação dela: nenhum cartão
+    // fica aceso de um grupo que saiu da tela.
+    if (g.id !== grupo.id) setModelo(g.modelos[0].id)
+    setCascata(false)
+    setBusca('')
+  }
 
   const criar = async (): Promise<void> => {
     if (!valido || enviando) return
@@ -172,15 +287,56 @@ export function NovoProjeto({ aoCriar, aoFechar }: {
         </div>
 
         <span className="form-rotulo">Criar aplicação em</span>
-        <div className="chips">
-          {GRUPOS.map(g => (
-            <button key={g.id} type="button" className="chip" aria-pressed={grupo.id === g.id}
-              // Trocar de linguagem já escolhe a primeira aplicação dela:
-              // nenhum botão fica aceso de um grupo que saiu da tela.
-              onClick={() => { if (grupo.id !== g.id) setModelo(g.modelos[0].id) }}>
-              {g.nome}
-            </button>
-          ))}
+        <div className="novo-projeto-cascata">
+          <input
+            role="combobox"
+            aria-expanded={cascata}
+            aria-controls="novo-projeto-linguagens"
+            // Fechada, mostra a linguagem escolhida; aberta, o que se digita.
+            value={cascata ? busca : grupo.nome}
+            placeholder="Digite: Java, Go, Flutter, API…"
+            onFocus={() => { setCascata(true); setDestaque(0) }}
+            onClick={() => setCascata(true)}
+            onBlur={() => { setCascata(false); setBusca('') }}
+            onChange={e => { setBusca(e.target.value); setCascata(true); setDestaque(0) }}
+            onKeyDown={e => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault(); setCascata(true)
+                setDestaque(d => Math.min(d + 1, achados.length - 1))
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault(); setDestaque(d => Math.max(d - 1, 0))
+              } else if (e.key === 'Enter' && cascata) {
+                e.preventDefault()
+                const g = achados[destaque]
+                if (g) escolher(g)
+              } else if (e.key === 'Escape' && cascata) {
+                // Fecha a lista, e não a janela inteira.
+                e.stopPropagation(); setCascata(false); setBusca('')
+              }
+            }}
+          />
+          <span className="novo-projeto-cascata-seta" aria-hidden="true">▾</span>
+          {cascata && (
+            <div className="novo-projeto-cascata-lista" id="novo-projeto-linguagens" role="listbox">
+              {achados.length === 0 && <div className="novo-projeto-cascata-vazio">Nenhuma linguagem com esse nome.</div>}
+              {achados.map((g, i) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  role="option"
+                  aria-selected={i === destaque}
+                  className={`novo-projeto-cascata-item ${g.id === grupo.id ? 'escolhido' : ''}`}
+                  // `mouseDown` + preventDefault: o clique chega antes de o
+                  // campo perder o foco e fechar a lista.
+                  onMouseDown={e => { e.preventDefault(); escolher(g) }}
+                  onMouseEnter={() => setDestaque(i)}
+                >
+                  <strong>{g.nome}</strong>
+                  <span>{g.modelos.map(m => m.nome).join(' · ')}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <span className="form-rotulo">Tipo de aplicação</span>
@@ -221,7 +377,6 @@ export function NovoProjeto({ aoCriar, aoFechar }: {
         <label className="novo-projeto-campo">
           <span className="form-rotulo">Nome do projeto</span>
           <input
-            autoFocus
             value={nome}
             placeholder="meu-app"
             onChange={e => setNome(normalizarNome(e.target.value))}

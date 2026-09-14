@@ -18,10 +18,17 @@ import type { ModeloProjeto, LinguagemProjeto } from '../../shared/types'
  */
 
 export const MODELOS_PROJETO: readonly ModeloProjeto[] = [
-  'expo', 'vite', 'electron', 'next', 'node-api',
+  'expo', 'vite', 'vue', 'svelte', 'electron', 'next', 'node-api',
   'python', 'fastapi', 'flask', 'tkinter',
+  'java', 'java-maven',
   'csharp', 'csharp-api', 'csharp-winforms',
-  'cpp', 'c'
+  'cpp', 'c',
+  'go', 'go-api',
+  'rust', 'rust-lib',
+  'kotlin',
+  'php', 'laravel',
+  'ruby', 'rails',
+  'flutter'
 ]
 export const LINGUAGENS_PROJETO: readonly LinguagemProjeto[] = ['ts', 'js']
 
@@ -36,8 +43,8 @@ export function nomeDeProjetoValido(nome: unknown): nome is string {
  * modelo, e a escolha que chega junto é ignorada.
  */
 export function usaLinguagem(modelo: ModeloProjeto): boolean {
-  return modelo === 'expo' || modelo === 'vite' || modelo === 'electron' || modelo === 'next' ||
-    modelo === 'node-api'
+  return modelo === 'expo' || modelo === 'vite' || modelo === 'vue' || modelo === 'svelte' ||
+    modelo === 'electron' || modelo === 'next' || modelo === 'node-api'
 }
 
 /** O nome que aparece no painel de processos: "criar Electron · meu-app". */
@@ -45,7 +52,15 @@ export const NOME_MODELO: Record<ModeloProjeto, string> = {
   expo: 'Expo', vite: 'React + Vite', electron: 'Electron', next: 'Next.js', 'node-api': 'API Node',
   python: 'Python', fastapi: 'FastAPI', flask: 'Flask', tkinter: 'Tkinter',
   csharp: 'C#', 'csharp-api': 'API C#', 'csharp-winforms': 'WinForms',
-  cpp: 'C++', c: 'C'
+  cpp: 'C++', c: 'C',
+  vue: 'Vue', svelte: 'Svelte',
+  java: 'Java', 'java-maven': 'Maven',
+  go: 'Go', 'go-api': 'API Go',
+  rust: 'Rust', 'rust-lib': 'Biblioteca Rust',
+  kotlin: 'Kotlin',
+  php: 'PHP', laravel: 'Laravel',
+  ruby: 'Ruby', rails: 'Rails',
+  flutter: 'Flutter'
 }
 
 /** Um arquivo que o próprio Cortex escreve na pasta do projeto novo. */
@@ -75,6 +90,78 @@ export function arquivosNovoProjeto(
   }
 
   switch (modelo) {
+    case 'java':
+      return [
+        {
+          caminho: 'src/Main.java',
+          conteudo: 'public class Main {\n    public static void main(String[] args) {\n' +
+            `        System.out.println("Olá, ${nome}!");\n    }\n}\n`
+        },
+        { caminho: '.gitignore', conteudo: '*.class\nout/\n' },
+        {
+          caminho: 'README.md',
+          conteudo: `# ${nome}\n\n## Compilar e rodar\n\n` + bloco(['javac -d out src/Main.java', 'java -cp out Main'])
+        }
+      ]
+
+    case 'kotlin':
+      return [
+        { caminho: 'src/Main.kt', conteudo: `fun main() {\n    println("Olá, ${nome}!")\n}\n` },
+        { caminho: '.gitignore', conteudo: '*.jar\nout/\n' },
+        {
+          caminho: 'README.md',
+          conteudo: `# ${nome}\n\n## Compilar e rodar\n\n` +
+            bloco(['kotlinc src/Main.kt -include-runtime -d app.jar', 'java -jar app.jar'])
+        }
+      ]
+
+    case 'go':
+      return [
+        { caminho: 'main.go', conteudo: `package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Olá, ${nome}!")\n}\n` },
+        { caminho: '.gitignore', conteudo: '/bin/\n*.exe\n' },
+        { caminho: 'README.md', conteudo: `# ${nome}\n\n## Rodar\n\n` + bloco(['go run .']) }
+      ]
+
+    case 'go-api':
+      return [
+        {
+          caminho: 'main.go',
+          conteudo:
+            'package main\n\nimport (\n\t"encoding/json"\n\t"log"\n\t"net/http"\n)\n\n' +
+            'func main() {\n' +
+            '\thttp.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {\n' +
+            '\t\tw.Header().Set("Content-Type", "application/json")\n' +
+            `\t\tjson.NewEncoder(w).Encode(map[string]string{"mensagem": "Olá, ${nome}!"})\n` +
+            '\t})\n\n' +
+            '\tlog.Println("API rodando em http://localhost:8080")\n' +
+            '\tlog.Fatal(http.ListenAndServe(":8080", nil))\n' +
+            '}\n'
+        },
+        { caminho: '.gitignore', conteudo: '/bin/\n*.exe\n' },
+        { caminho: 'README.md', conteudo: `# ${nome}\n\n## Rodar\n\n` + bloco(['go run .']) }
+      ]
+
+    case 'php':
+      return [
+        {
+          caminho: 'public/index.php',
+          conteudo:
+            `<?php $nome = '${nome}'; ?>\n<!doctype html>\n<html lang="pt-BR">\n` +
+            '<head><meta charset="utf-8"><title><?= htmlspecialchars($nome) ?></title></head>\n' +
+            '<body>\n  <h1>Olá, <?= htmlspecialchars($nome) ?>!</h1>\n</body>\n</html>\n'
+        },
+        { caminho: '.gitignore', conteudo: 'vendor/\n.env\n' },
+        { caminho: 'README.md', conteudo: `# ${nome}\n\n## Rodar\n\n` + bloco(['php -S localhost:8000 -t public']) }
+      ]
+
+    case 'ruby':
+      return [
+        { caminho: 'main.rb', conteudo: `puts "Olá, ${nome}!"\n` },
+        { caminho: 'Gemfile', conteudo: 'source "https://rubygems.org"\n' },
+        { caminho: '.gitignore', conteudo: '.bundle/\nvendor/\n' },
+        { caminho: 'README.md', conteudo: `# ${nome}\n\n## Rodar\n\n` + bloco(['ruby main.rb']) }
+      ]
+
     case 'node-api': {
       // Sem dependências no package.json: quem as escreve é o `npm install`
       // das etapas, com as versões de agora — uma versão fixa aqui envelhece.
@@ -274,6 +361,69 @@ export function etapasNovoProjeto(
       return [{
         comando: 'npx',
         args: ['--yes', 'create-next-app@latest', nome, ts ? '--ts' : '--js', '--eslint', '--app', '--use-npm', '--yes'],
+        cwd: base,
+        env: semPerguntas
+      }]
+
+    case 'vue':
+    case 'svelte':
+      // Os modelos oficiais do create-vite, como o React.
+      return [
+        {
+          comando: 'npx',
+          args: ['--yes', 'create-vite@latest', nome, '--template', ts ? `${modelo}-ts` : modelo],
+          cwd: base,
+          env: semPerguntas
+        },
+        { comando: 'npm', args: ['install'], cwd: pasta, env: semPerguntas }
+      ]
+
+    case 'java':
+    case 'kotlin':
+    case 'php':
+    case 'ruby':
+      // Só arquivos: compilar ou rodar depende do que a pessoa tem instalado.
+      return []
+
+    case 'java-maven':
+      // O quickstart oficial do Maven. Precisa do Maven (`mvn`) e do JDK.
+      return [{
+        comando: 'mvn',
+        args: [
+          '-B', 'archetype:generate', '-DgroupId=com.exemplo', `-DartifactId=${nome}`,
+          '-DarchetypeArtifactId=maven-archetype-quickstart', '-DarchetypeVersion=1.5',
+          '-DinteractiveMode=false'
+        ],
+        cwd: base,
+        env: semPerguntas
+      }]
+
+    case 'go':
+    case 'go-api':
+      // Os arquivos já foram escritos; o módulo é o que o `go run` precisa.
+      return [{ comando: 'go', args: ['mod', 'init', nome], cwd: pasta, env: semPerguntas }]
+
+    case 'rust':
+    case 'rust-lib':
+      return [{
+        comando: 'cargo',
+        args: modelo === 'rust-lib' ? ['new', '--lib', nome] : ['new', nome],
+        cwd: base,
+        env: semPerguntas
+      }]
+
+    case 'laravel':
+      return [{ comando: 'composer', args: ['create-project', 'laravel/laravel', nome], cwd: base, env: semPerguntas }]
+
+    case 'rails':
+      return [{ comando: 'rails', args: ['new', nome], cwd: base, env: semPerguntas }]
+
+    case 'flutter':
+      // O pacote Dart não aceita hífen no nome; a pasta aceita. Por isso o
+      // nome do pacote vai à parte, com `_` no lugar de `-`.
+      return [{
+        comando: 'flutter',
+        args: ['create', '--project-name', nome.replace(/-/g, '_'), nome],
         cwd: base,
         env: semPerguntas
       }]

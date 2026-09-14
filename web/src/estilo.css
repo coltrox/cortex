@@ -1630,6 +1630,7 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
    Ele responde sozinho a pergunta que faz alguém abrir esta aba — o que vem
    agora e quanto falta — e por isso é o único elemento colorido da tela: se
    dois cartões brigassem pelo azul, nenhum dos dois seria o destaque. */
+.heroi-tocavel{ cursor:pointer; }
 .chegando-heroi{
   display:flex; flex-direction:column; gap:6px;
   background:var(--acento); border-radius:var(--r3);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizarNome, comandoDe, NOME_VALIDO, GRUPOS, grupoDe } from './NovoProjeto'
+import { normalizarNome, comandoDe, NOME_VALIDO, GRUPOS, grupoDe, filtrarGrupos } from './NovoProjeto'
 import { nomeDeProjetoValido, MODELOS_PROJETO, usaLinguagem } from '../../main/dev/novoProjeto'
 
 describe('nome digitado no novo projeto', () => {
@@ -45,5 +45,31 @@ describe('grupos do novo projeto', () => {
     expect(grupoDe('electron').nome).toBe('JavaScript / TypeScript')
     expect(grupoDe('flask').nome).toBe('Python')
     expect(grupoDe('csharp-winforms').nome).toBe('C#')
+    expect(grupoDe('flutter').nome).toBe('Dart')
+  })
+})
+
+describe('busca de linguagem no novo projeto', () => {
+  const nomes = (t: string): string[] => filtrarGrupos(t).map(g => g.nome)
+
+  it('vazio mostra todas', () => {
+    expect(filtrarGrupos('  ')).toHaveLength(GRUPOS.length)
+  })
+
+  it('acha pelo nome, sem caixa e sem acento', () => {
+    expect(nomes('JAVA')).toContain('Java')
+    expect(nomes('pytho')).toEqual(['Python'])
+  })
+
+  it('acha pelo apelido e pelo nome da aplicacao', () => {
+    expect(nomes('golang')).toEqual(['Go'])
+    expect(nomes('flutter')).toEqual(['Dart'])
+    expect(nomes('rails')).toEqual(['Ruby'])
+    // "API" mora em varias linguagens.
+    expect(nomes('api')).toEqual(expect.arrayContaining(['JavaScript / TypeScript', 'Python', 'C#', 'Go']))
+  })
+
+  it('nada casando devolve lista vazia', () => {
+    expect(filtrarGrupos('cobol')).toEqual([])
   })
 })
