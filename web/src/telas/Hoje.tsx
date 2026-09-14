@@ -651,7 +651,7 @@ export function Hoje(p: {
         {rotinas.map(t => {
           const caminho = txtDe(t.detalhe.path)
           return (
-            <div key={t.nome}>
+            <div key={t.nome} className="tarefa-do-dia">
               <Tarefa
                 nome={t.nome}
                 detalhe={<Detalhe partes={[momentoDe(t)]} />}

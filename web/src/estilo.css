@@ -998,6 +998,11 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
    fundo verde que funcionava num cartão solto vira uma tarja no meio da
    lista. A marca fica no símbolo e no texto. */
 .grupo .item-feito{ background:transparent; }
+/* As tarefas do dia moram cada uma num invólucro (a linha e o painel de
+   alterar), e por isso não pegam as regras de `.grupo > .item` acima: ficavam
+   cartões colados. Pedido do dono: um respiro entre elas. */
+.grupo > .tarefa-do-dia + .tarefa-do-dia{ margin-top:var(--e2); }
+.grupo > .rotulo-secao + .tarefa-do-dia{ margin-top:var(--e1); }
 
 /* O atalho no pé de um grupo: leva à aba que tem a versão completa. */
 .grupo-mais{
