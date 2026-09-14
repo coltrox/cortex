@@ -689,7 +689,14 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   background:var(--painel); border:1px solid var(--acento-linha);
   box-shadow:0 12px 32px rgba(0,0,0,.28);
 }
-.faixa-versao .btn{ flex:none; }
+.faixa-versao > span{ flex:1; min-width:0; }
+/* O `.btn` do app ocupa a largura toda e tem a altura de um botão principal:
+   dentro da faixa ele espremia o texto e saía torto — foi o que o dono viu no
+   primeiro teste. Aqui ele é compacto, do tamanho do rótulo. */
+.faixa-versao .btn{
+  flex:none; width:auto; min-height:38px; padding:0 var(--e4);
+  font-size:14px; white-space:nowrap;
+}
 
 /* ─────────────── 9. LISTA / CARTÕES ─────────────── */
 

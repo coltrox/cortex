@@ -159,6 +159,26 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
               </p>
             </div>
           )}
+
+          {/*
+            * A versão do app, para saber se a atualização entrou.
+            *
+            * Pedido do dono ao testar a faixa de versão nova: sem o número na
+            * tela, não havia como conferir que o toque em "Atualizar" trouxe
+            * outra versão. O número é o do Cortex (`package.json`); o código da
+            * publicação muda a cada uma — ver `vite.config.ts`.
+            */}
+          <div className="cartao-ajuste">
+            <div className="cartao-ajuste-nome">Versão do app</div>
+            <div className="ajuste-par">
+              <span>Cortex</span>
+              <b>{__VERSAO_APP__}</b>
+            </div>
+            <div className="ajuste-par">
+              <span>Publicação</span>
+              <b>{__VERSAO_WEB__.slice(0, 7)}</b>
+            </div>
+          </div>
         </div>
       </div>
     )
