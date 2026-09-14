@@ -21,8 +21,27 @@ A tela Hoje, no computador, mostra o check — sem código novo.
 
 ---
 
+## Instalar
+
+**Windows:** baixe o `Cortex-…-instalador.exe` na
+[última versão](https://github.com/coltrox/cortex/releases/latest). O Windows
+avisa que o app não é reconhecido — ele não tem assinatura digital paga. Clique
+em **Mais informações → Executar assim mesmo**. Na primeira abertura você cria o
+seu vault e escolhe as áreas; as atualizações seguintes chegam sozinhas.
+
+**Celular:** no Cortex, **Configurações → Celular → Abrir conexão com o
+celular**. No celular, abra [cortex-wapp.vercel.app](https://cortex-wapp.vercel.app),
+toque em **Ler QR com a câmera** e aponte para o QR. A sincronização passa pelo
+Supabase do projeto, identificada só pelo id do seu vault.
+
+**Com o Claude Code:** o Cortex grava um `CLAUDE.md` em `%APPDATA%\Cortex`. Abra
+o Claude Code nessa pasta e ele apresenta o app e ajuda a preencher o seu vault.
+
+---
+
 ## Índice
 
+- [Instalar](#instalar)
 - [A ideia](#a-ideia)
 - [O que ele faz](#o-que-ele-faz)
 - [Arquitetura](#arquitetura)
@@ -53,9 +72,9 @@ partir daí o app sabe que ela tem data, matéria e um campo `estudado`. É isso
 que permite a tela Hoje existir: ela não é uma lente a mais, é o **corte
 transversal** de todas as outras no dia de hoje.
 
-**3. O celular só escreve; o computador só lê.** O app web não edita, não
-apaga, não lê histórico — ele empilha eventos. Quem interpreta evento e escreve
-Markdown é o Cortex, num lugar só. Assim não existem duas implementações da
+**3. O celular manda eventos; o computador escreve.** O app web não toca em
+arquivo nenhum — marcar, criar, editar e apagar viram eventos numa fila. Quem
+interpreta evento e escreve Markdown é o Cortex, num lugar só. Assim não existem duas implementações da
 mesma regra para divergirem.
 
 ---
@@ -206,8 +225,9 @@ anotações, refeições, com check), e telas de registro rápido — treino, ca
 peso e medidas, gasto, porquinho, anotação. Mais agenda e um leitor de QR para
 parear com o Cortex.
 
-**O que ele não tem, de propósito:** ler histórico, editar, apagar, gráficos,
-notificação, mais de um usuário.
+**O que ele não tem, de propósito:** gráficos, notificação, mais de uma pessoa
+no mesmo vault. Editar e apagar existem, mas viram evento — quem mexe no arquivo
+continua sendo o Cortex.
 
 **Como ele sobrevive ao metrô.** Todo envio entra numa fila no `localStorage`
 antes de sair. A fila esvazia ao abrir, quando a rede volta, e a cada 30
@@ -302,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**41 arquivos, 713 testes**, rodando em ~18 s.
+**57 arquivos, 1069 testes**, rodando em ~18 s.
 
 ```bash
 npm test
@@ -387,9 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
-`v0.1.0`. Funciona, é usado todo dia, e tem as arestas de um projeto de uma
-pessoa só: sem CI, sem instalador para macOS/Linux, sem migrações versionadas
-do schema. Aberto porque não há motivo para não ser.
+`v2.0.0` — a primeira versão para outras pessoas usarem. Funciona, é usado todo
+dia, e ainda tem as arestas de um projeto de uma pessoa só: sem CI, sem
+instalador para macOS/Linux, sem assinatura de código, sem migrações versionadas
+do schema. Os feriados do calendário são os nacionais, os de SP e os de
+Campinas. Aberto porque não há motivo para não ser.
 
 ## Licença
 

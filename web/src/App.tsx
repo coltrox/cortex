@@ -8,6 +8,7 @@ import { areaLigada } from './cardapio'
 import { jaInstalado, viuTutorial, marcarTutorialVisto } from './instalar'
 import { Instalar } from './telas/Instalar'
 import { Aviso } from './componentes'
+import { useVersaoNova } from './versao'
 import { Hoje } from './telas/Hoje'
 import { Treino } from './telas/Treino'
 import { Cardio } from './telas/Cardio'
@@ -164,6 +165,11 @@ export function App() {
     lerVaultId(guardadoDoNavegador) ? 'hoje' : 'ajustes')
   const envio = useEnvio()
   const cardapio = useCardapio()
+  /*
+   * Saiu versão nova do app? A tela oferece atualizar, em vez de exigir que a
+   * pessoa feche o app de verdade — ou pior, desinstale. Ver `versao.ts`.
+   */
+  const versaoNova = useVersaoNova(__VERSAO_WEB__)
   /**
    * O item que a tela de edicao vai abrir preenchido.
    *
@@ -211,6 +217,16 @@ export function App() {
     <>
       {ensinando && (
         <Instalar aoFechar={() => { marcarTutorialVisto(guardadoDoNavegador); setEnsinando(false) }} />
+      )}
+      {/* Recarregar basta: o service worker busca da rede primeiro, e a fila
+          de envio mora no localStorage. */}
+      {versaoNova && (
+        <div className="faixa-versao" role="status">
+          <span>Tem versão nova do Cortex.</span>
+          <button type="button" className="btn btn-principal" onClick={() => location.reload()}>
+            Atualizar
+          </button>
+        </div>
       )}
       {tela === 'hoje' && <Hoje envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'agenda' && (

@@ -676,6 +676,21 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
   animation:gira .7s linear infinite; }
 @keyframes gira{ to{ transform:rotate(360deg) } }
 
+/* A faixa de versão nova — logo acima da barra de baixo, onde o polegar já
+   está, sem cobrir o cabeçalho de nenhuma tela. Ver `versao.ts`. */
+.faixa-versao{
+  position:fixed; z-index:6;
+  left:var(--e4); right:var(--e4);
+  bottom:calc(68px + var(--baixo-seguro) + var(--e3));
+  max-width:calc(var(--largura) - 2 * var(--e4)); margin:0 auto;
+  display:flex; align-items:center; justify-content:space-between; gap:var(--e3);
+  padding:var(--e3) var(--e4); border-radius:var(--r2);
+  font:600 14px/1.3 var(--fonte); color:var(--txt);
+  background:var(--painel); border:1px solid var(--acento-linha);
+  box-shadow:0 12px 32px rgba(0,0,0,.28);
+}
+.faixa-versao .btn{ flex:none; }
+
 /* ─────────────── 9. LISTA / CARTÕES ─────────────── */
 
 .cartao{
