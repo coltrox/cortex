@@ -317,7 +317,7 @@ export function App() {
           * a lista não caberia numa tela de notebook.
           */}
         <aside className="sidebar-app">
-          <div className="sb-marca"><span className="sb-marca-ponto" aria-hidden="true" />Cortex</div>
+          <div className="sb-marca">Cortex</div>
           <nav className="sb-nav" aria-label="Áreas do Cortex">
             {visiveis.map(({ id, nome, Icone }) => {
               const abas = SUBS[id]

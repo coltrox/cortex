@@ -71,12 +71,26 @@ export function LenteVida({
             <Cartao rotulo="Contas guardadas" valor={String(contas.length)} />
           </div>
 
-          <Secao nome="Metas" acao="Meta" aoClicar={() => aoAdicionar('objetivo')} />
-          <ListaNotas notas={objetivos} aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
-            vazio="Nenhuma meta escrita." hoje={hoje} comPrazo />
+          <div className="grade-2">
+            <section className="col">
+              <Secao nome="Metas" acao="Meta" aoClicar={() => aoAdicionar('objetivo')} />
+              <ListaNotas notas={objetivos} aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
+                vazio="Nenhuma meta escrita." hoje={hoje} comPrazo />
 
-          <h3 className="secao">Diário</h3>
-          <ListaNotas notas={diarios.slice(0, 10)} aoAbrir={aoAbrir} vazio="Nenhum dia registrado." />
+              <Secao nome="Para comprar" acao="Item" aoClicar={() => aoAdicionar('compra')} />
+              <ListaNotas notas={abertas.slice(0, 6)} aoAbrir={aoAbrir} aoEditar={aoEditar}
+                vazio="Nada na lista de compras." comTipo={false} />
+            </section>
+
+            <section className="col">
+              <Secao nome="Anotações recentes" acao="Anotação" aoClicar={() => aoAdicionar('anotacao')} />
+              <ListaNotas notas={anotacoes.slice(0, 6)} aoAbrir={aoAbrir} aoEditar={aoEditar}
+                vazio="Nenhuma anotação ainda." comTipo={false} />
+
+              <h3 className="secao">Diário</h3>
+              <ListaNotas notas={diarios.slice(0, 8)} aoAbrir={aoAbrir} vazio="Nenhum dia registrado." comTipo={false} />
+            </section>
+          </div>
         </>
       )}
 
@@ -251,7 +265,7 @@ export function LenteVida({
           {pessoas.length === 0 ? (
             <Vazio>Ninguém cadastrado — nutricionista, médico e fisio entram aqui.</Vazio>
           ) : (
-            <div className="lista-notas">
+            <div className="lista-notas lista-grade">
               {pessoas.map(p => (
                 <Linha key={p.path} aoAbrir={() => aoAbrir(p.path)}
                   aoEditar={() => aoEditar(p)} aoExcluir={() => aoExcluir(p)}>
@@ -275,7 +289,7 @@ export function LenteVida({
           {docs.length === 0 ? (
             <Vazio>Nenhum documento cadastrado.</Vazio>
           ) : (
-            <div className="lista-notas">
+            <div className="lista-notas lista-grade">
               {docs.map(d => (
                 <Linha key={d.path} aoAbrir={() => aoAbrir(d.path)}
                   aoEditar={() => aoEditar(d)} aoExcluir={() => aoExcluir(d)}>

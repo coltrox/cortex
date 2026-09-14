@@ -55,6 +55,9 @@ export function LenteEstudos({
 
   const usadas = new Set(conteudos.map(c => txt(c.campos.materia)).filter(Boolean))
 
+  const comDominio = conteudos.filter(c => num(c.campos.dominio) >= 1 && num(c.campos.dominio) <= 5)
+  const somaDominio = comDominio.reduce((s, c) => s + num(c.campos.dominio), 0)
+
   const contagemRepertorios = (): [string, number][] => {
     const conta = new Map<string, number>()
     for (const r of redacoes) {
@@ -93,19 +96,37 @@ export function LenteEstudos({
             <Cartao rotulo="Tarefas abertas" valor={String(abertas.length)} />
           </div>
 
-          <h3 className="secao">Prazos</h3>
-          <ListaNotas
-            notas={[...futuras, ...abertas].sort(porData)}
-            aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
-            vazio="Nenhum prazo à vista." hoje={hoje} comPrazo
-          />
+          {/* Preparação: a média do domínio (1 a 5) dos conteúdos que têm um.
+              Sai do que está nas notas — sem conteúdo avaliado, não aparece. */}
+          {comDominio.length > 0 && (
+            <>
+              <Secao nome="Preparação" direita={
+                <span className="secao-total">{comDominio.length} conteúdos avaliados</span>
+              } />
+              <Progresso feito={somaDominio} total={comDominio.length * 5}
+                rotulo={`${Math.round((somaDominio / (comDominio.length * 5)) * 100)}%`} />
+            </>
+          )}
 
-          <h3 className="secao">Revisar agora</h3>
-          <ListaConteudos
-            conteudos={ordenados.slice(0, 8)} aoAbrir={aoAbrir}
-            aoEditar={aoEditar} aoExcluir={aoExcluir}
-            vazio="Nenhum conteúdo cadastrado."
-          />
+          <div className="grade-2">
+            <section className="col">
+              <h3 className="secao">Prazos</h3>
+              <ListaNotas
+                notas={[...futuras, ...abertas].sort(porData)}
+                aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
+                vazio="Nenhum prazo à vista." hoje={hoje} comPrazo
+              />
+            </section>
+
+            <section className="col">
+              <h3 className="secao">Revisar agora</h3>
+              <ListaConteudos
+                conteudos={ordenados.slice(0, 8)} aoAbrir={aoAbrir}
+                aoEditar={aoEditar} aoExcluir={aoExcluir}
+                vazio="Nenhum conteúdo cadastrado."
+              />
+            </section>
+          </div>
         </>
       )}
 
@@ -138,7 +159,8 @@ export function LenteEstudos({
       )}
 
       {sub === 'provas' && (
-        <>
+        <div className="grade-2">
+          <section className="col">
           <Secao nome="Marcadas" acao="Prova" aoClicar={() => aoAdicionar('prova')} />
           {futuras.length === 0 ? <Vazio>Nenhuma prova marcada.</Vazio> : (
             <div className="lista-notas">
@@ -167,12 +189,15 @@ export function LenteEstudos({
             </div>
           )}
 
+          </section>
+          <section className="col">
           <h3 className="secao">Passadas</h3>
           <ListaNotas
             notas={provas.filter(p => (p.date ?? '') < hoje).reverse()}
             aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir} vazio="Nenhuma."
           />
-        </>
+          </section>
+        </div>
       )}
 
       {sub === 'simulados' && (
@@ -254,7 +279,8 @@ export function LenteEstudos({
       )}
 
       {sub === 'tarefas' && (
-        <>
+        <div className="grade-2">
+          <section className="col">
           <Secao nome="Abertas" acao="Tarefa" aoClicar={() => aoAdicionar('tarefa')} />
           {abertas.length === 0 ? <Vazio>Nenhuma tarefa aberta.</Vazio> : (
             <div className="lista-notas">
@@ -272,6 +298,8 @@ export function LenteEstudos({
             </div>
           )}
 
+          </section>
+          <section className="col">
           <h3 className="secao">Concluídas</h3>
           {tarefas.filter(t => t.campos.feito === true).length === 0 ? <Vazio>Nenhuma.</Vazio> : (
             <div className="lista-notas">
@@ -285,7 +313,8 @@ export function LenteEstudos({
               ))}
             </div>
           )}
-        </>
+          </section>
+        </div>
       )}
 
       {sub === 'livros' && (

@@ -150,13 +150,6 @@ body {
   text-transform: uppercase;
   color: var(--text);
 }
-.sb-marca-ponto {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--cor-hoje);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-hoje) 18%, transparent);
-}
 
 .sb-nav {
   flex: 1;
@@ -484,6 +477,119 @@ body {
 .chips .chip {
   border-radius: 999px;
   transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+
+/* ==========================================================================
+   Fase 2 — disposição de todas as áreas
+   ========================================================================== */
+
+/* Menos ar vertical: o respiro vinha de margens de 44px entre seções, que
+   empurravam metade da página para fora da tela num notebook. */
+.lente { padding-top: 34px; }
+.secao, .secao-linha { margin-top: 30px; }
+.cartoes { margin-top: 26px; }
+
+/* A grade de duas colunas, reaproveitada por todas as áreas (a Hoje usa a
+   mesma, com o nome dela). */
+.grade-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(28px, 3vw, 56px);
+  align-items: start;
+}
+.grade-2 > .col > .secao-linha:first-child,
+.grade-2 > .col > .secao:first-child,
+.hoje-grade > .hoje-col > .secao-linha:first-child,
+.hoje-grade > .hoje-col > .secao:first-child { margin-top: 30px; }
+@media (max-width: 1180px) {
+  .grade-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Lista longa (pessoas, documentos) em colunas, e não uma fila única com a
+   metade direita da tela vazia. */
+.lista-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  column-gap: 20px;
+}
+.lista-grade .linha + .linha { box-shadow: none; }
+.lista-grade .linha { box-shadow: inset 0 -1px 0 var(--border); border-radius: 0; }
+.lista-grade .linha:hover { border-radius: var(--raio-1); box-shadow: none; }
+
+/* ---------- Cortex (grafo) ---------- */
+
+:root[data-tema="escuro"] .cerebro-tela { background: #101010; }
+.cerebro-tela { border-radius: 14px; border-color: var(--border); }
+.cerebro { padding: 28px clamp(28px, 3.2vw, 56px) 28px; }
+
+/* ---------- Cartões de conteúdo ---------- */
+
+.cards { gap: 14px; }
+.card {
+  border-radius: var(--raio-2);
+  padding: 18px 20px;
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.card:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.card-topo strong { font-weight: 600; }
+.card-lista li span { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+
+.meta-caixa { border-radius: var(--raio-2); padding: 18px 22px; }
+
+.pastas-grade { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.pasta-card {
+  padding: 14px 16px;
+  border-radius: 10px;
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.pasta-card:hover { background: var(--surface-hover); }
+.pasta-conta { font-variant-numeric: tabular-nums; }
+
+.md-tabela th { font-family: var(--sans); }
+.md-tabela tbody tr:hover { background: var(--surface-hover); }
+
+/* ---------- Agenda ---------- */
+
+.cal { padding: 34px clamp(28px, 3.6vw, 64px) 36px; }
+.cal-mes { font-size: clamp(36px, 3.2vw, 46px); letter-spacing: -.01em; }
+.cal-seta { border-radius: var(--raio-1); transition: background var(--dur) var(--curva); }
+.cal-semana { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--text-3); }
+.cal-grade { gap: 6px; background: transparent; border: 0; }
+.cal-dia {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.cal-dia:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
+.cal-dia[data-fora="true"] { background: transparent; border-color: transparent; }
+.cal-num { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+.cal-dia[data-hoje="true"] { border-color: color-mix(in srgb, var(--cor-calendario) 50%, transparent); }
+.cal-dia[data-hoje="true"] .cal-num { background: var(--cor-calendario); color: #181818; font-weight: 600; }
+.cal-dia[data-sel="true"] { border-color: var(--cor-calendario); }
+.cal-chip { border-radius: 6px; }
+.cal-mais { font-family: var(--sans); }
+
+/* ---------- Modais, paleta e Configurações ---------- */
+
+.form, .popup-dia, .paleta {
+  border-radius: 14px;
+  border-color: var(--border-strong);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, .35);
+  animation: surgir 170ms var(--curva) both;
+}
+@keyframes surgir {
+  from { opacity: 0; transform: scale(.985) translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.form-topo { font-size: 24px; padding: 18px 24px; }
+.config-bloco h3 {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-3);
 }
 
 /* ---------- Menos movimento, quando o sistema pede ---------- */

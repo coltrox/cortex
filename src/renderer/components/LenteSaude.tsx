@@ -78,15 +78,36 @@ export function LenteSaude({
             />
           </div>
 
-          <h3 className="secao">Peso ao longo do tempo</h3>
-          <Serie pontos={pesos} rotulo="kg" />
+          <div className="grade-2">
+            <section className="col">
+              <h3 className="secao">Peso ao longo do tempo</h3>
+              <Serie pontos={pesos} rotulo="kg" />
+            </section>
 
-          <Secao nome="Consultas" acao="Consulta" aoClicar={() => aoAdicionar('consulta')} />
-          <ListaNotas
-            notas={consultas.filter(c => (c.date ?? '') >= hoje)}
-            aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
-            vazio="Nenhuma consulta marcada." hoje={hoje} comPrazo
-          />
+            <section className="col">
+              <Secao nome="Consultas" acao="Consulta" aoClicar={() => aoAdicionar('consulta')} />
+              <ListaNotas
+                notas={consultas.filter(c => (c.date ?? '') >= hoje)}
+                aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
+                vazio="Nenhuma consulta marcada." hoje={hoje} comPrazo
+              />
+
+              <Secao nome="Treinos recentes" direita={
+                <button className="btn-add" onClick={() => aoModal('registro-treino')}>+ Registrar</button>
+              } />
+              {sessoes.length === 0 ? <Vazio>Nenhum treino registrado ainda.</Vazio> : (
+                <div className="lista-notas">
+                  {[...sessoes].reverse().slice(0, 5).map(s => (
+                    <Linha key={s.path} aoAbrir={() => aoAbrir(s.path)}>
+                      <span className="linha-data">{s.date}</span>
+                      <span className="linha-titulo">{txt(s.campos.modelo) || s.title}</span>
+                      <span className="linha-valor">{lista(s.campos.exercicios).length} exercícios</span>
+                    </Linha>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
         </>
       )}
 
@@ -251,7 +272,8 @@ export function LenteSaude({
       )}
 
       {sub === 'suplementos' && (
-        <>
+        <div className="grade-2">
+          <section className="col">
           <Secao nome="Hoje" acao="Suplemento" aoClicar={() => aoAdicionar('suplemento')} />
           {suplementosHoje.length === 0 ? <Vazio>Nenhum suplemento para hoje.</Vazio> : (
             <div className="lista-notas">
@@ -278,6 +300,8 @@ export function LenteSaude({
             </div>
           )}
 
+          </section>
+          <section className="col">
           <h3 className="secao">Todos</h3>
           {suplementos.length === 0 ? <Vazio>Nenhum suplemento cadastrado.</Vazio> : (
             <div className="lista-notas">
@@ -303,7 +327,8 @@ export function LenteSaude({
               })}
             </div>
           )}
-        </>
+          </section>
+        </div>
       )}
 
       {sub === 'hidratacao' && (
