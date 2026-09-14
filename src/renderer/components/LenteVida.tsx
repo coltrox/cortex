@@ -48,12 +48,14 @@ export function LenteVida({
       txt(c.campos.usuario).toLowerCase().includes(q)
   })
 
-  /** Só uma prioridade por vez: duas não são prioridade, e o Hoje só cabe uma. */
+  /**
+   * Marca ou desmarca a prioridade de uma meta.
+   *
+   * Era uma por vez — marcar uma desmarcava as outras, porque o Hoje só tinha
+   * lugar para um destaque. O dono pediu mais de uma, e o Hoje agora lista
+   * todas na lateral; então cada meta decide só por si.
+   */
   const priorizar = (path: string, jaEra: boolean): void => {
-    for (const outro of objetivos) {
-      if (outro.path === path) continue
-      if (outro.campos.prioridade === true) aoAlterar(outro.path, { prioridade: null })
-    }
     aoAlterar(path, { prioridade: jaEra ? null : true })
   }
 

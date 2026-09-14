@@ -432,32 +432,6 @@ body {
 
 .hoje-resumo { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
-.hoje-prioridade {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  margin-top: 12px;
-  padding: 18px 22px;
-  border: 1px solid var(--border);
-  border-radius: var(--raio-2);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--acento) 7%, var(--surface)) 0%, var(--surface) 55%);
-  color: var(--text);
-  text-align: left;
-  transition: border-color var(--dur) var(--curva), background var(--dur) var(--curva);
-}
-.hoje-prioridade:hover { border-color: var(--border-strong); }
-.hoje-prioridade-estrela { color: var(--acento); font-size: 18px; }
-.hoje-prioridade-rotulo {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .09em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.hoje-prioridade-titulo { display: block; margin-top: 2px; font-size: 17px; font-weight: 500; }
-.hoje-prioridade .prazo { margin-left: auto; }
 
 /* Duas colunas a partir de uma janela de notebook; uma só abaixo disso. */
 .hoje-grade {
@@ -591,6 +565,113 @@ body {
   text-transform: uppercase;
   color: var(--text-3);
 }
+
+/* ==========================================================================
+   Fase 3 — respiro e trilhas (principal + lateral)
+   ========================================================================== */
+
+/* Mais ar entre o título de uma seção e o conteúdo dela: com 10px o rótulo
+   parecia grudado na primeira linha. */
+.secao, .secao-linha { margin-top: 40px; margin-bottom: 14px; }
+.cartoes, .hoje-resumo { margin-top: 30px; }
+.lente-saudacao { margin-top: 12px; }
+.chips { gap: 8px; }
+.progresso { margin: 6px 0 14px; }
+
+/* O botão de uma seção não é o botão principal da tela: fundo sutil, e não o
+   bloco claro que gritava mais alto que o título da seção. */
+.secao-linha .btn {
+  padding: 5px 12px;
+  font-size: 12.5px;
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+.secao-linha .btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--acento) 16%, var(--surface-hover));
+}
+
+/* A Hoje em duas trilhas: o que se faz, uma seção embaixo da outra, e ao lado
+   o que se consulta. A lateral tem largura própria, e não metade da tela. */
+.hoje-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 30%, 380px);
+  column-gap: clamp(36px, 3.6vw, 72px);
+  align-items: start;
+}
+.hoje-principal > .secao-linha:first-child,
+.hoje-lado > .secao-linha:first-child,
+.hoje-lado > .secao:first-child { margin-top: 40px; }
+
+.hoje-lado .secao-linha,
+.hoje-lado .secao { margin-top: 36px; }
+/* Na lateral estreita a coluna fixa de data (92px) comia metade da linha. */
+.hoje-lado .linha-data { width: auto; min-width: 58px; }
+.hoje-lado .linha { gap: 10px; }
+.hoje-lado .linha-titulo { font-size: 13px; }
+
+@media (max-width: 1100px) {
+  .hoje-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Os panoramas seguem a mesma ideia: coluna principal larga, apoio ao lado. */
+.grade-2 { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
+@media (max-width: 1180px) {
+  .grade-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- Blocos: cada seção no seu espaço ---------- */
+
+.bloco {
+  margin-top: 16px;
+  padding: 4px 20px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.bloco > .secao-linha:first-child,
+.bloco > .secao:first-child { margin-top: 14px; }
+.bloco .vazio { border-style: dashed; background: transparent; }
+.hoje-principal > .bloco:first-child,
+.hoje-lado > .bloco:first-child { margin-top: 30px; }
+/* Dentro do bloco a linha ganha o fundo do hover um tom acima do bloco. */
+.bloco .linha:hover { background: var(--surface-hover); }
+
+/* Nos panoramas, cada coluna é um painel. */
+.grade-2 { margin-top: 16px; row-gap: 16px; }
+.grade-2 > .col {
+  padding: 4px 20px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.grade-2 > .col > .secao-linha:first-child,
+.grade-2 > .col > .secao:first-child { margin-top: 14px; }
+
+/* A seta da área na sidebar gira quando o grupo está aberto, e não quando a
+   tela é daquela área: abrir e navegar agora são coisas separadas. */
+.sb-item[data-ativa="true"] .sb-seta { transform: none; }
+.sb-item[aria-expanded="true"] .sb-seta { transform: rotate(90deg); }
+.sb-grupo[data-com-abas="true"] > .sb-item[data-ativa="true"] { color: var(--text); }
+
+/* ---------- Nota aberta ---------- */
+
+.titulo-nota {
+  font-family: var(--serif);
+  font-size: clamp(34px, 3vw, 44px);
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+.meta-nota { font-family: var(--sans); font-size: 12.5px; margin-bottom: 30px; }
+.campos-nota { border-radius: var(--raio-2); margin-bottom: 34px; }
+.campo-nota { padding: 13px 18px; background: var(--surface); gap: 18px; }
+.campo-rotulo {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+.campo-texto { line-height: 1.6; }
 
 /* ---------- Menos movimento, quando o sistema pede ---------- */
 

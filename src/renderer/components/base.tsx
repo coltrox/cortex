@@ -201,6 +201,16 @@ export function Check({ feito, aoAlternar, rotulo }: {
   )
 }
 
+/**
+ * Um bloco de conteúdo: uma seção com o que é dela, separada das outras.
+ *
+ * Pedido do dono no redesign — com as seções soltas uma embaixo da outra, não
+ * dava para ver onde uma terminava e a outra começava.
+ */
+export function Bloco({ children }: { children: ReactNode }) {
+  return <section className="bloco">{children}</section>
+}
+
 export function Titulo({ nome, sub, saudacao }: { nome: string; sub?: string; saudacao?: string }) {
   return (
     <>

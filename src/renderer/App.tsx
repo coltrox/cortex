@@ -51,7 +51,9 @@ const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactE
   // O `id` continua `cerebro` mesmo com o rótulo virando Cortex: ele é chave
   // de `paineisTrancados` na config, e renomeá-lo destrancaria o painel de
   // quem já tivesse escolhido trancar esta lente.
-  { id: 'cerebro',      nome: 'Cortex',  Icone: IconeCerebro },
+  // Na sidebar ele se chama "Rede neural", a pedido do dono: "Cortex" já é o
+  // nome do app, e repetido logo abaixo da marca confundia.
+  { id: 'cerebro',      nome: 'Rede neural', Icone: IconeCerebro },
   { id: 'hoje',         nome: 'Hoje',    Icone: IconeHoje },
   { id: 'conhecimento', nome: 'Estudos', Icone: IconeConhecimento },
   { id: 'saude',        nome: 'Saúde',   Icone: IconeSaude },
@@ -64,6 +66,17 @@ const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactE
 export function App() {
   const v = useVault()
   const hoje = hojeISO()
+
+  /*
+   * Quais áreas estão abertas na sidebar.
+   *
+   * Abrir uma área só mostra as abas dela — não troca a tela. Pedido do dono:
+   * poder abrir e fechar grupos continuando onde está, e ter mais de um aberto.
+   * A tela só muda ao clicar numa aba.
+   */
+  const [abertas, setAbertas] = useState<string[]>(() => [v.lente])
+  const alternarArea = (id: string): void =>
+    setAbertas(a => (a.includes(id) ? a.filter(x => x !== id) : [...a, id]))
 
   const [paleta, setPaleta] = useState(false)
   const [criando, setCriando] = useState<{ tipo: string; inicial?: Record<string, unknown> } | null>(null)
@@ -322,27 +335,35 @@ export function App() {
             {visiveis.map(({ id, nome, Icone }) => {
               const abas = SUBS[id]
               const ativa = v.lente === id
+              const aberta = abertas.includes(id)
               return (
                 <div key={id} className="sb-grupo" data-area={id} data-com-abas={abas ? 'true' : undefined}>
                   <button
                     className="sb-item"
                     data-ativa={ativa}
                     aria-current={ativa && !abas ? 'page' : undefined}
-                    aria-expanded={abas ? ativa : undefined}
-                    onClick={() => { if (!ativa) v.setLente(id) }}
+                    aria-expanded={abas ? aberta : undefined}
+                    // Área com abas só abre e fecha; sem abas, é a própria tela.
+                    onClick={() => (abas ? alternarArea(id) : v.setLente(id))}
                   >
                     <Icone size={17} />
                     <span>{nome}</span>
                     {abas && <span className="sb-seta" aria-hidden="true">▸</span>}
                   </button>
-                  {abas && ativa && (
+                  {abas && aberta && (
                     <div className="sb-subs">
                       {abas.map(s => (
                         <button
                           key={s.id}
                           className="sb-sub"
-                          aria-current={v.sub === s.id ? 'page' : undefined}
-                          onClick={() => { v.setSub(s.id); v.fechar() }}
+                          aria-current={ativa && v.sub === s.id ? 'page' : undefined}
+                          onClick={() => {
+                            // `setLente` volta a aba para o panorama; a aba
+                            // escolhida vem logo depois e é a que fica.
+                            if (!ativa) v.setLente(id)
+                            v.setSub(s.id)
+                            v.fechar()
+                          }}
                         >
                           {s.nome}
                           {/* O cadeado diz qual aba pede senha antes de a pessoa
