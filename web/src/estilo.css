@@ -790,6 +790,11 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 }
 .acao-mais[aria-expanded='true']{ background:var(--painel-alto); color:var(--txt); }
 
+/* Cartão com o "⋯" na mesma linha do conteúdo, no canto direito. */
+.item-topo{ display:flex; align-items:flex-start; gap:var(--e2); }
+.item-topo .item-corpo{ flex:1; min-width:0; }
+.item-acoes-direita{ justify-content:flex-end; }
+
 /* A gaveta aberta desce por baixo da linha da etapa, e não ao lado dela:
    lado a lado, os quatro botões voltariam a espremer o que importa. */
 .item-acoes-abertas{ margin-top:var(--e2); }

@@ -600,43 +600,47 @@ export function Agenda(p: {
      */
     const daPessoa = i.detalhe.pessoa === true
     const chave = path || i.nome
+    const botaoMais = (
+      <button
+        className="acao-mais"
+        type="button"
+        aria-label={`ações de ${i.nome}`}
+        aria-expanded={aberto === chave}
+        onClick={() => setAberto(aberto === chave ? null : chave)}
+      >
+        ⋯
+      </button>
+    )
     return (
       <div className={soAcoes ? 'heroi-acoes' : 'item item-acao'}
         key={chave}>
-        {!soAcoes && (
-          <div className="item-corpo">
-            {/* A data comemorativa sobe como compromisso — a espécie é a mesma
-                para não precisar mexer no banco —, e é a marca no detalhe que
-                faz a etiqueta dizer o que aquilo é de verdade. */}
-            <span className="item-tipo">
-              {i.detalhe.comemorativa === true
-                ? rotuloComemorativa(i)
-                : ROTULO.compromisso}
-            </span>
-            <div className="item-nome">{i.nome}</div>
-            <Quando
-              data={dataCurta(dataDe(i), dia)}
-              falta={faltaDe(i)}
-              hora={txt(i.detalhe.hora)}
-            />
-            <Sobre partes={[i.detalhe.local]} />
+        {/* Editar e excluir atrás do "⋯". Pedido do dono: o mesmo em TODO
+            cartão do Chegando, e o "⋯" à direita do nome — sozinho numa linha
+            embaixo, ele era um botão grande sem nada ao lado. */}
+        {soAcoes ? (
+          <div className="item-acoes item-acoes-direita">{botaoMais}</div>
+        ) : (
+          <div className="item-topo">
+            <div className="item-corpo">
+              {/* A data comemorativa sobe como compromisso — a espécie é a mesma
+                  para não precisar mexer no banco —, e é a marca no detalhe que
+                  faz a etiqueta dizer o que aquilo é de verdade. */}
+              <span className="item-tipo">
+                {i.detalhe.comemorativa === true
+                  ? rotuloComemorativa(i)
+                  : ROTULO.compromisso}
+              </span>
+              <div className="item-nome">{i.nome}</div>
+              <Quando
+                data={dataCurta(dataDe(i), dia)}
+                falta={faltaDe(i)}
+                hora={txt(i.detalhe.hora)}
+              />
+              <Sobre partes={[i.detalhe.local]} />
+            </div>
+            {botaoMais}
           </div>
         )}
-        {/* Editar e excluir atrás do "⋯", como no cartão de prova. Pedido do
-            dono: o mesmo em TODO cartão do Chegando — antes só a data
-            comemorativa criada no celular tinha os botões, e aniversário de
-            pessoa não tinha nenhum. */}
-        <div className="item-acoes">
-          <button
-            className="acao-mais"
-            type="button"
-            aria-label={`ações de ${i.nome}`}
-            aria-expanded={aberto === chave}
-            onClick={() => setAberto(aberto === chave ? null : chave)}
-          >
-            ⋯
-          </button>
-        </div>
 
         {aberto === chave && (
           <div className="item-acoes item-acoes-abertas">
