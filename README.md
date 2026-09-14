@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**58 arquivos, 1101 testes**, rodando em ~23 s.
+**58 arquivos, 1102 testes**, rodando em ~23 s.
 
 ```bash
 npm test

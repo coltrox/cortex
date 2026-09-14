@@ -130,15 +130,29 @@ const semAcento = (s: string): string => s.toLowerCase().normalize('NFD').replac
 /**
  * As linguagens que casam com o que foi digitado.
  *
- * Procura no nome da linguagem, nos apelidos e no nome das aplicações dela:
- * quem digita "flutter" ou "api" acha o que quer sem saber em que linguagem
- * aquilo mora. Sem acento e sem caixa. Vazio devolve todas.
+ * Pedido do dono: só o que COMEÇA com o que foi digitado. Antes era "contém",
+ * e um "c" trazia JavaScript, Python e Java junto com C.
+ *
+ * Primeiro vale o nome da linguagem, com o nome exato na frente ("c" põe C
+ * antes de C# e C++). Só quando nenhum nome começa assim a busca olha os
+ * apelidos e as aplicações, também pelo começo de cada palavra — é assim que
+ * "flutter" acha Dart e "api" acha as linguagens que têm API. Sem acento e
+ * sem caixa. Vazio devolve todas.
  */
 export function filtrarGrupos(texto: string): Grupo[] {
   const t = semAcento(texto.trim())
   if (!t) return GRUPOS
+
+  const porNome = GRUPOS.filter(g => semAcento(g.nome).startsWith(t))
+  if (porNome.length > 0) {
+    const exato = (g: Grupo): number => (semAcento(g.nome) === t ? 0 : 1)
+    return [...porNome].sort((a, b) => exato(a) - exato(b))
+  }
+
   return GRUPOS.filter(g =>
-    semAcento([g.nome, g.apelidos, ...g.modelos.map(m => m.nome)].join(' ')).includes(t)
+    semAcento([g.apelidos, ...g.modelos.map(m => m.nome)].join(' '))
+      .split(/[\s·/+.-]+/)
+      .some(palavra => palavra.startsWith(t))
   )
 }
 

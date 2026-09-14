@@ -61,6 +61,14 @@ describe('busca de linguagem no novo projeto', () => {
     expect(nomes('pytho')).toEqual(['Python'])
   })
 
+  it('so o que COMECA com a letra, e o nome exato primeiro', () => {
+    // Era "contem": um "c" trazia JavaScript, Python e Java junto.
+    expect(nomes('c')).toEqual(['C', 'C#', 'C++'])
+    expect(nomes('r')).toEqual(['Rust', 'Ruby'])
+    expect(nomes('p')).toEqual(['Python', 'PHP'])
+    expect(nomes('k')).toEqual(['Kotlin'])
+  })
+
   it('acha pelo apelido e pelo nome da aplicacao', () => {
     expect(nomes('golang')).toEqual(['Go'])
     expect(nomes('flutter')).toEqual(['Dart'])
