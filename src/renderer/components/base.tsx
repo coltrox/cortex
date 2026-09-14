@@ -69,8 +69,27 @@ export type PropsLente = {
 
 /* ---------- blocos ---------- */
 
-export function Vazio({ children }: { children: ReactNode }) {
-  return <div className="vazio">{children}</div>
+/**
+ * O estado vazio.
+ *
+ * Só com `children` continua sendo a frase curta de antes — todas as lentes
+ * usam assim. Com `titulo`, vira o vazio do redesign: um título, a frase como
+ * explicação, e a ação que resolve o vazio quando existe uma.
+ */
+export function Vazio({ children, titulo, acao, aoClicar }: {
+  children?: ReactNode
+  titulo?: string
+  acao?: string
+  aoClicar?: () => void
+}) {
+  if (!titulo) return <div className="vazio">{children}</div>
+  return (
+    <div className="vazio">
+      <span className="vazio-titulo">{titulo}</span>
+      {children && <span className="vazio-texto">{children}</span>}
+      {acao && aoClicar && <button className="btn-add" onClick={aoClicar}>+ {acao}</button>}
+    </div>
+  )
 }
 
 export function Cartao({ rotulo, valor, nota, tom }: {
@@ -182,11 +201,12 @@ export function Check({ feito, aoAlternar, rotulo }: {
   )
 }
 
-export function Titulo({ nome, sub }: { nome: string; sub?: string }) {
+export function Titulo({ nome, sub, saudacao }: { nome: string; sub?: string; saudacao?: string }) {
   return (
     <>
       <h2 className="lente-titulo">{nome}</h2>
       {sub && <div className="lente-data">{sub}</div>}
+      {saudacao && <p className="lente-saudacao">{saudacao}</p>}
     </>
   )
 }

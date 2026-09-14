@@ -1,0 +1,494 @@
+/* ==========================================================================
+   Cortex — redesign (fase 1, branch `redesign`)
+
+   Carregado DEPOIS de `styles.css`, e só por cima dele: tokens, layout global,
+   sidebar e a página Hoje. Nada de lógica depende disto — tirar o import em
+   `main.tsx` devolve o visual anterior inteiro.
+
+   Regras da linguagem:
+   - separação por espaço, contraste e tipografia, não por borda;
+   - cor da área só em indicador, ícone, progresso e estado ativo;
+   - serifa só em título de página; interface em Inter;
+   - movimento de 150–200 ms, e nenhum quando o sistema pede menos movimento.
+   ========================================================================== */
+
+:root {
+  --sans:  "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --serif: "DM Serif Display", Georgia, "Times New Roman", serif;
+
+  --sidebar-app: 244px;
+  --raio-1: 8px;
+  --raio-2: 12px;
+  --dur: 170ms;
+  --curva: cubic-bezier(.2, .7, .2, 1);
+
+  /* A cor de identidade de cada área, independente de qual está aberta: a
+     sidebar mostra todas ao mesmo tempo. */
+  --cor-cerebro:      #9A9A9A;
+  --cor-hoje:         #6FA3E0;
+  --cor-conhecimento: #8F8CF0;
+  --cor-saude:        #6CC08E;
+  --cor-financas:     #D9B45A;
+  --cor-vida:         #E39A7C;
+  --cor-dev:          #B08CE8;
+  --cor-calendario:   #E487AC;
+}
+
+/* Tema escuro: a paleta do redesign. O claro continua com os tokens de antes. */
+:root[data-tema="escuro"] {
+  --canvas:        #181818;
+  --surface:       #1D1D1D;
+  --surface-hover: #232323;
+  --surface-sunk:  #161616;
+  --border:        rgba(255, 255, 255, .06);
+  --border-strong: rgba(255, 255, 255, .10);
+
+  --text:   #F1F1F1;
+  --text-2: #999999;
+  --text-3: #666666;
+
+  --realce: rgba(255, 255, 255, .04);
+  --vidro:  rgba(24, 24, 24, .82);
+  --scrim:  rgba(0, 0, 0, .6);
+}
+:root:not([data-tema="escuro"]) { --surface-hover: #F4F3F0; }
+
+body {
+  font-family: var(--sans);
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -.005em;
+}
+
+/* Foco visível para quem navega pelo teclado — e só para ele. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--acento, var(--accent)) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------- Layout global ---------- */
+
+.shell,
+.shell.com-subnav,
+.shell.so-lente {
+  grid-template-columns: var(--sidebar-app) minmax(0, 1fr);
+  background: var(--canvas);
+}
+
+.main { background: var(--canvas); }
+
+.topo {
+  padding: 12px clamp(28px, 3.2vw, 56px);
+  border-bottom: 1px solid var(--border);
+  background: var(--vidro);
+}
+
+.caminho {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.caminho strong { color: var(--text-2); font-weight: 500; }
+.caminho-sep { margin: 0 8px; color: var(--text-3); opacity: .6; }
+
+.topo .btn-fantasma {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
+  border-radius: var(--raio-1);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12.5px;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva);
+}
+.topo .btn-fantasma:hover { background: var(--surface-hover); color: var(--text); }
+.topo .btn-fantasma kbd {
+  font-family: var(--sans);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+}
+
+/* O conteúdo usa a largura: sem o `max-width: 1080px` de antes, e com margens
+   que crescem com a janela em vez de um bloco preso à esquerda. */
+.lente {
+  max-width: 1360px;
+  padding: 44px clamp(28px, 3.6vw, 64px) 88px;
+  animation: entrar-pagina 220ms var(--curva) both;
+}
+
+@keyframes entrar-pagina {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- Sidebar ---------- */
+
+.sidebar-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px 12px 12px;
+  background: var(--surface-sunk);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.sb-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 10px 18px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.sb-marca-ponto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cor-hoje);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-hoje) 18%, transparent);
+}
+
+.sb-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  scrollbar-width: thin;
+}
+
+.sb-grupo { --cor: var(--cor-cerebro); }
+.sb-grupo[data-area="hoje"]         { --cor: var(--cor-hoje); }
+.sb-grupo[data-area="conhecimento"] { --cor: var(--cor-conhecimento); }
+.sb-grupo[data-area="saude"]        { --cor: var(--cor-saude); }
+.sb-grupo[data-area="financas"]     { --cor: var(--cor-financas); }
+.sb-grupo[data-area="vida"]         { --cor: var(--cor-vida); }
+.sb-grupo[data-area="dev"]          { --cor: var(--cor-dev); }
+.sb-grupo[data-area="calendario"]   { --cor: var(--cor-calendario); }
+
+/* Um grupo com abas ganha respiro acima: é o começo de uma seção. */
+.sb-grupo[data-com-abas="true"] { margin-top: 10px; }
+
+.sb-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--raio-1);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13.5px;
+  text-align: left;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva);
+}
+.sb-item svg { flex: none; width: 17px; height: 17px; color: var(--text-3); transition: color var(--dur) var(--curva); }
+.sb-item:hover { background: var(--realce); color: var(--text); }
+.sb-item:hover svg { color: var(--cor); }
+
+/* O grupo com abas vira rótulo de seção: caixa-alta pequena, como um índice. */
+.sb-grupo[data-com-abas="true"] > .sb-item {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.sb-grupo[data-com-abas="true"] > .sb-item:hover { color: var(--text); }
+
+.sb-item[data-ativa="true"] { color: var(--text); }
+.sb-item[data-ativa="true"] svg { color: var(--cor); }
+/* A área sem abas (Hoje, Agenda, Cortex) acende inteira quando está aberta. */
+.sb-grupo:not([data-com-abas="true"]) > .sb-item[data-ativa="true"] { background: var(--surface-hover); }
+.sb-grupo:not([data-com-abas="true"]) > .sb-item[data-ativa="true"]::before,
+.sb-sub[aria-current="page"]::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 7px; bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--cor);
+}
+
+.sb-seta {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--text-3);
+  transition: transform var(--dur) var(--curva);
+}
+.sb-item[data-ativa="true"] .sb-seta { transform: rotate(90deg); }
+
+.sb-subs {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 4px;
+  animation: abrir-abas 180ms var(--curva) both;
+}
+@keyframes abrir-abas {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.sb-sub {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 10px 6px 37px;
+  border: 0;
+  border-radius: var(--raio-1);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  text-align: left;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva);
+}
+.sb-sub:hover { background: var(--realce); color: var(--text); }
+.sb-sub[aria-current="page"] { background: var(--surface-hover); color: var(--text); font-weight: 500; }
+.sb-sub .subnav-cadeado { margin-left: auto; font-size: 11px; opacity: .7; }
+
+.sb-rodape {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--raio-1) var(--raio-1);
+}
+.sb-rodape .rail-alerta { position: static; margin-left: auto; }
+
+/* ---------- Título da página ---------- */
+
+.lente-titulo {
+  font-family: var(--serif);
+  font-size: clamp(38px, 3.4vw, 48px);
+  font-weight: 400;
+  letter-spacing: -.01em;
+  line-height: 1.02;
+  color: var(--text);
+}
+.lente-titulo::after { display: none; }
+
+.lente-data {
+  margin-top: 8px;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--text-2);
+}
+.lente-saudacao {
+  margin: 14px 0 0;
+  max-width: 68ch;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+/* ---------- Seções ---------- */
+
+.secao,
+.secao-linha {
+  margin: 44px 0 10px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.secao {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  color: var(--text-3);
+}
+.secao::before { width: 6px; height: 6px; border-radius: 50%; }
+.secao-linha { align-items: center; }
+.secao-linha .secao { margin: 0; }
+
+.btn-add {
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva);
+}
+.btn-add:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border); }
+
+.btn {
+  border-radius: var(--raio-1);
+  padding: 6px 14px;
+  font-weight: 500;
+  transition: background var(--dur) var(--curva), transform 120ms var(--curva);
+}
+
+/* ---------- Cartões ---------- */
+
+.cartoes {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 32px;
+}
+.cartao {
+  padding: 20px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--raio-2);
+  background: var(--surface);
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.cartao::before { display: none; }
+.cartao:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+
+.cartao-rotulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  color: var(--text-3);
+}
+.cartao-rotulo::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--acento);
+}
+.cartao-valor {
+  margin-top: 12px;
+  font-family: var(--sans);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.cartao-nota { margin-top: 4px; font-size: 12.5px; color: var(--text-3); }
+.cartao[data-tom="saida"] .cartao-valor { color: var(--text); }
+
+/* ---------- Linhas ---------- */
+
+.lista-notas { gap: 1px; }
+.linha {
+  align-items: center;
+  padding: 9px 12px;
+  border-bottom: 0;
+  border-radius: var(--raio-1);
+  transition: background var(--dur) var(--curva);
+}
+.linha:hover { background: var(--surface-hover); }
+.linha + .linha { box-shadow: inset 0 1px 0 var(--border); }
+.linha:hover, .linha:hover + .linha { box-shadow: none; }
+.linha-titulo { font-size: 13.5px; }
+.linha-data, .linha-valor { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+.linha-data { font-size: 12px; }
+.linha-valor { font-size: 12.5px; }
+.linha-titulo[data-feito="true"] { color: var(--text-3); }
+
+/* ---------- Caixa de marcar ---------- */
+
+.check {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-strong);
+  background: transparent;
+}
+.check:hover { border-color: var(--text-3); }
+/* O estado muda inteiro na hora (ver o comentário em styles.css); o que anima
+   é só a escala, que não carrega significado. */
+.check[aria-checked="true"] { animation: marcar 220ms var(--curva); }
+@keyframes marcar {
+  0%   { transform: scale(.82); }
+  60%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- Estado vazio ---------- */
+
+.vazio {
+  padding: 16px 18px;
+  border-left: 0;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--raio-2);
+  color: var(--text-3);
+  font-size: 13px;
+}
+.vazio-titulo { display: block; color: var(--text-2); font-weight: 500; font-size: 13.5px; }
+.vazio-texto { display: block; margin-top: 2px; }
+.vazio .btn-add { margin: 10px 0 0 -10px; color: var(--acento); }
+
+/* ---------- Progresso ---------- */
+
+.progresso-trilho { background: var(--surface-hover); border-radius: 999px; }
+.progresso-trilho > span { background: var(--acento); border-radius: 999px; transition: width 400ms var(--curva); }
+
+/* ==========================================================================
+   Página Hoje
+   ========================================================================== */
+
+.hoje-resumo { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.hoje-prioridade {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 18px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--raio-2);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--acento) 7%, var(--surface)) 0%, var(--surface) 55%);
+  color: var(--text);
+  text-align: left;
+  transition: border-color var(--dur) var(--curva), background var(--dur) var(--curva);
+}
+.hoje-prioridade:hover { border-color: var(--border-strong); }
+.hoje-prioridade-estrela { color: var(--acento); font-size: 18px; }
+.hoje-prioridade-rotulo {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.hoje-prioridade-titulo { display: block; margin-top: 2px; font-size: 17px; font-weight: 500; }
+.hoje-prioridade .prazo { margin-left: auto; }
+
+/* Duas colunas a partir de uma janela de notebook; uma só abaixo disso. */
+.hoje-grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(28px, 3vw, 56px);
+  align-items: start;
+}
+.hoje-grade > .hoje-col > .secao-linha:first-child,
+.hoje-grade > .hoje-col > .secao:first-child { margin-top: 44px; }
+
+@media (max-width: 1180px) {
+  .hoje-resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hoje-grade { grid-template-columns: minmax(0, 1fr); }
+}
+
+.chips .chip {
+  border-radius: 999px;
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+
+/* ---------- Menos movimento, quando o sistema pede ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .lente, .sb-subs, .check[aria-checked="true"] { animation: none; }
+  * { transition-duration: 0ms !important; }
+}

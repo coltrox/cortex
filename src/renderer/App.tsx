@@ -307,22 +307,63 @@ export function App() {
 
   return (
     <>
-      <div className={subs ? 'shell com-subnav' : 'shell so-lente'} data-lente={v.lente}>
-        <nav className="rail">
-          {visiveis.map(({ id, nome, Icone }) => (
-            <button
-              key={id}
-              className="rail-item"
-              aria-current={v.lente === id}
-              title={nome}
-              onClick={() => v.setLente(id)}
-            >
-              <Icone />
-              <span>{nome}</span>
-            </button>
-          ))}
+      <div className="shell" data-lente={v.lente}>
+        {/*
+          * A sidebar única do redesign.
+          *
+          * Era um trilho de ícones mais uma coluna de abas da área aberta. Agora
+          * é uma coluna só: cada área é um item, e a área aberta desdobra as
+          * abas dela logo abaixo. As outras ficam recolhidas — abertas todas,
+          * a lista não caberia numa tela de notebook.
+          */}
+        <aside className="sidebar-app">
+          <div className="sb-marca"><span className="sb-marca-ponto" aria-hidden="true" />Cortex</div>
+          <nav className="sb-nav" aria-label="Áreas do Cortex">
+            {visiveis.map(({ id, nome, Icone }) => {
+              const abas = SUBS[id]
+              const ativa = v.lente === id
+              return (
+                <div key={id} className="sb-grupo" data-area={id} data-com-abas={abas ? 'true' : undefined}>
+                  <button
+                    className="sb-item"
+                    data-ativa={ativa}
+                    aria-current={ativa && !abas ? 'page' : undefined}
+                    aria-expanded={abas ? ativa : undefined}
+                    onClick={() => { if (!ativa) v.setLente(id) }}
+                  >
+                    <Icone size={17} />
+                    <span>{nome}</span>
+                    {abas && <span className="sb-seta" aria-hidden="true">▸</span>}
+                  </button>
+                  {abas && ativa && (
+                    <div className="sb-subs">
+                      {abas.map(s => (
+                        <button
+                          key={s.id}
+                          className="sb-sub"
+                          aria-current={v.sub === s.id ? 'page' : undefined}
+                          onClick={() => { v.setSub(s.id); v.fechar() }}
+                        >
+                          {s.nome}
+                          {/* O cadeado diz qual aba pede senha antes de a pessoa
+                              clicar — depois que a tranca aparece já é tarde
+                              para escolher outra aba. */}
+                          {(() => {
+                            const sa = subAreaDaAba(id, s.id)
+                            return sa && v.config.paineisTrancados.includes(sa.pasta)
+                              ? <span className="subnav-cadeado" aria-label="trancada">🔒</span>
+                              : null
+                          })()}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </nav>
           <button
-            className="rail-item rail-rodape"
+            className="sb-item sb-rodape"
             title={
               falhasSincSeguidas >= LIMIAR_ALERTA_SYNC
                 ? 'Configurações — a sincronização com o celular está falhando'
@@ -330,42 +371,25 @@ export function App() {
             }
             onClick={() => setConfigurando(true)}
           >
-            <IconeConfig />
+            <IconeConfig size={17} />
+            <span>Configurações</span>
             {falhasSincSeguidas >= LIMIAR_ALERTA_SYNC && (
               <span className="rail-alerta" aria-hidden="true" />
             )}
-            <span>Configurações</span>
           </button>
-        </nav>
-
-        {subs && (
-          <aside className="subnav">
-            <div className="lente-nome">{lenteAtual?.nome}</div>
-            {subs.map(s => (
-              <button
-                key={s.id}
-                className="subnav-item"
-                aria-current={v.sub === s.id}
-                onClick={() => { v.setSub(s.id); v.fechar() }}
-              >
-                {s.nome}
-                {/* O cadeado diz qual aba pede senha antes de a pessoa clicar.
-                    Sem ele, a única pista seria a tranca aparecendo — e aí já
-                    é tarde para escolher outra aba. */}
-                {(() => {
-                  const sa = subAreaDaAba(v.lente, s.id)
-                  return sa && v.config.paineisTrancados.includes(sa.pasta)
-                    ? <span className="subnav-cadeado" aria-label="trancada">🔒</span>
-                    : null
-                })()}
-              </button>
-            ))}
-          </aside>
-        )}
+        </aside>
 
         <main className="main">
           <div className="topo">
-            <span className="caminho">{lenteAtual?.nome}</span>
+            <span className="caminho">
+              <strong>{lenteAtual?.nome}</strong>
+              {subs && (
+                <>
+                  <span className="caminho-sep" aria-hidden="true">/</span>
+                  {subs.find(s => s.id === v.sub)?.nome}
+                </>
+              )}
+            </span>
             <div className="topo-dir">
               <button className="btn-fantasma" onClick={() => setPaleta(true)}>
                 Buscar <kbd>Ctrl K</kbd>
