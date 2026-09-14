@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useState, type MouseEvent } from 'react'
 import { guardadoDoNavegador } from '../guardado'
 import { diaLocal, eventoProvaEstudada, eventoProvaEtapa, eventoItemApagado } from '../montar'
 import type { Evento } from '@compartilhado/eventos'
@@ -467,6 +467,17 @@ export function Agenda(p: {
    * estas funções só desenham, cada uma com as ações do seu tipo.
    */
   /* `soAcoes`: só os botões, para o cartão de destaque — o corpo ele já tem. */
+  /**
+   * Um toque num botão de dentro do cartão não conta como toque no cartão.
+   *
+   * O cartão inteiro abre e fecha as ações; sem isto, apertar "editar" ou
+   * "fazer inscrição" também fecharia a gaveta por baixo. Só botão para: o
+   * espaço vazio da linha continua sendo parte do cartão.
+   */
+  const pararSeBotao = (e: MouseEvent<HTMLDivElement>): void => {
+    if ((e.target as HTMLElement).closest('button')) e.stopPropagation()
+  }
+
   const cartaoProva = (i: ItemCardapio, soAcoes = false) => {
     const path = caminhoDe(i)
     const etapa = etapaDe(i, path)
@@ -476,10 +487,13 @@ export function Agenda(p: {
         // Sem `item-feito`: pedido do dono. A prova inscrita e paga (ou já
         // estudada) ainda não aconteceu — risco é para o que acabou, e o que
         // passou já sai da lista. O "inscrição paga ✓" verde diz o resto.
-        className={soAcoes ? 'heroi-acoes' : 'item item-acao'}
-        // No destaque, tocar no cartão abre e fecha as ações; um toque num
-        // botão daqui de dentro não pode contar como toque no cartão.
-        onClick={soAcoes ? e => e.stopPropagation() : undefined}
+        className={soAcoes ? 'heroi-acoes' : 'item item-acao item-tocavel'}
+        // Pedido do dono: sem "⋯" — tocar no cartão abre editar e excluir, e
+        // tocar de novo fecha. No destaque quem abre é o cartão grande, e um
+        // toque aqui dentro não pode contar como toque nele.
+        onClick={soAcoes
+          ? e => e.stopPropagation()
+          : () => setAberto(aberto === path ? null : path)}
         key={path || i.nome}
       >
         {!soAcoes && (
@@ -492,10 +506,10 @@ export function Agenda(p: {
         )}
 
         {/* A etapa da vez ocupa a linha inteira, e o resto se recolhe
-            atrás do "⋯". Antes eram três botões competindo pelo mesmo
-            espaço em cada card, e o que a pessoa realmente vai fazer
+            atrás do toque no cartão. Antes eram três botões competindo pelo
+            mesmo espaço em cada card, e o que a pessoa realmente vai fazer
             agora — se inscrever — ficava do tamanho de "excluir". */}
-        <div className="item-acoes">
+        <div className="item-acoes" onClick={pararSeBotao}>
           {etapa.qual === 'estudo' && (
             <button
               className={`acao-lado ${etapa.feito ? 'acao-feita' : ''}`}
@@ -542,22 +556,10 @@ export function Agenda(p: {
           {etapa.qual === 'pronto' && (
             <span className="acao-pronta">inscrição paga ✓</span>
           )}
-          {/* No destaque não há "⋯": tocar no cartão abre as ações. */}
-          {!soAcoes && (
-            <button
-              className="acao-mais"
-              type="button"
-              aria-label={`ações de ${i.nome}`}
-              aria-expanded={aberto === path}
-              onClick={() => setAberto(aberto === path ? null : path)}
-            >
-              ⋯
-            </button>
-          )}
         </div>
 
         {aberto === path && (
-          <div className="item-acoes item-acoes-abertas">
+          <div className="item-acoes item-acoes-abertas" onClick={pararSeBotao}>
             <button className="acao-lado" type="button" disabled={travado}
               onClick={() => { setAberto(null); p.aoEditar('prova', paraEditar(i)) }}>
               editar
@@ -607,27 +609,16 @@ export function Agenda(p: {
      */
     const daPessoa = i.detalhe.pessoa === true
     const chave = path || i.nome
-    const botaoMais = (
-      <button
-        className="acao-mais"
-        type="button"
-        aria-label={`ações de ${i.nome}`}
-        aria-expanded={aberto === chave}
-        onClick={() => setAberto(aberto === chave ? null : chave)}
-      >
-        ⋯
-      </button>
-    )
-    // No destaque as ações só aparecem depois de tocar no cartão — antes, um
-    // "⋯" sozinho numa linha deixava o cartão grande desproporcional.
+    // No destaque as ações só aparecem depois de tocar no cartão grande.
     if (soAcoes && aberto !== chave) return null
     return (
-      <div className={soAcoes ? 'heroi-acoes' : 'item item-acao'}
-        onClick={soAcoes ? e => e.stopPropagation() : undefined}
+      <div className={soAcoes ? 'heroi-acoes' : 'item item-acao item-tocavel'}
+        // Pedido do dono: sem "⋯" em cartão nenhum. Tocar abre editar e
+        // excluir, tocar de novo fecha.
+        onClick={soAcoes
+          ? e => e.stopPropagation()
+          : () => setAberto(aberto === chave ? null : chave)}
         key={chave}>
-        {/* Editar e excluir atrás do "⋯". Pedido do dono: o mesmo em TODO
-            cartão do Chegando, e o "⋯" à direita do nome — sozinho numa linha
-            embaixo, ele era um botão grande sem nada ao lado. */}
         {soAcoes ? null : (
           <div className="item-topo">
             <div className="item-corpo">
@@ -647,12 +638,11 @@ export function Agenda(p: {
               />
               <Sobre partes={[i.detalhe.local]} />
             </div>
-            {botaoMais}
           </div>
         )}
 
         {aberto === chave && (
-          <div className="item-acoes item-acoes-abertas">
+          <div className="item-acoes item-acoes-abertas" onClick={pararSeBotao}>
             {/* Editar antes de excluir: mudar de data é o que mais acontece. */}
             <button
               className="acao-lado"
