@@ -395,9 +395,18 @@ export function eventoProvaEtapa(
  * confirmação na tela — e a lista de tipos que o Cortex confere no disco, que
  * impede este evento de alcançar um documento ou uma senha.
  */
-export function eventoItemApagado(path: string, dia: string = diaLocal()): Evento {
+/**
+ * Apaga um item da agenda, dos estudos ou uma anotação.
+ *
+ * `aniversario`: o cartão é o aniversário de uma pessoa cadastrada. Aí o
+ * Cortex tira só as datas da ficha, e a pessoa continua lá.
+ */
+export function eventoItemApagado(
+  path: string, dia: string = diaLocal(), opcoes: { aniversario?: boolean } = {}
+): Evento {
   return validarEvento({
-    tipo: 'item_apagado', dia, dados: { path: texto(path, 'item') }
+    tipo: 'item_apagado', dia,
+    dados: comValor({ path: texto(path, 'item'), aniversario: opcoes.aniversario === true ? true : undefined })
   })
 }
 
@@ -426,12 +435,16 @@ export function eventoItemEditado(
     ano?: number | null
     /** Data comemorativa: o que ela é, ou `null` para voltar a "Data comemorativa". */
     oque?: string | null
+    /** O aniversário de uma pessoa cadastrada: grava o nascimento na ficha dela. */
+    pessoa?: boolean
   },
   dia: string = diaLocal()
 ): Evento {
   const dados = comValor({
     path: texto(path, 'item'),
     comemorativa: campos.comemorativa === true ? true : undefined,
+    // Só junto da marca de comemorativa: sozinha ela não quer dizer nada.
+    pessoa: campos.comemorativa === true && campos.pessoa === true ? true : undefined,
     titulo: campos.titulo?.trim(),
     data: campos.data?.trim(),
     hora: campos.hora?.trim(),

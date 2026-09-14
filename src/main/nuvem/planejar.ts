@@ -434,6 +434,20 @@ export function planejar(evento: Evento): Operacao[] {
     case 'item_apagado': {
       const path = txt(dados.path)
       if (!path) return []
+      /*
+       * Excluir o aniversário de uma pessoa tira SÓ as datas.
+       *
+       * A pessoa continua no Cortex, com telefone, papel e links. Apagar a
+       * ficha inteira por um toque no cartão de aniversário seria perder
+       * muito mais do que se pediu — e `pessoa` fica fora da lista de
+       * `apagar` abaixo de propósito.
+       */
+      if (dados.aniversario === true) {
+        return [{
+          acao: 'marcar', path, tiposPermitidos: ['pessoa'],
+          campos: { nascimento_dia: null, nascimento_mes: null, nascimento_ano: null }
+        }]
+      }
       // Apaga de verdade, e não marca: foi o que o dono pediu. O que segura
       // um toque errado é a confirmação na tela do celular, não uma marca
       // aqui — e a lista de tipos abaixo é o que impede este evento de
@@ -483,6 +497,28 @@ export function planejar(evento: Evento): Operacao[] {
         // Dia e mês andam juntos, e só valem se existem: 31/02 não é data.
         const dataValida = proximaOcorrencia(diaDoMes, mes, dia) !== null
         const ano = anoDaComemorativa(dados, anoDaData, mes, diaDoMes, dia)
+
+        /*
+         * O aniversário de uma pessoa cadastrada.
+         *
+         * Ele mora na ficha da PESSOA, com os nomes de campo dela
+         * (`nascimento_*`), e não numa nota de data comemorativa. Só alcança
+         * nota de tipo `pessoa`, e só nome e datas: telefone e papel ficam
+         * fora do alcance do celular. Sem data válida não há o que gravar —
+         * e "o que é" não se aplica, porque aniversário é aniversário.
+         */
+        if (dados.pessoa === true) {
+          if (!dataValida) return []
+          const daPessoa = comValor({
+            titulo: txt(dados.titulo).trim(),
+            nascimento_dia: diaDoMes,
+            nascimento_mes: mes,
+            nascimento_ano: ano
+          })
+          if ('ano' in dados && ano === undefined) daPessoa.nascimento_ano = null
+          return [{ acao: 'marcar', path, tiposPermitidos: ['pessoa'], campos: daPessoa }]
+        }
+
         const campos = comValor({
           title: txt(dados.titulo).trim(),
           dia: dataValida ? diaDoMes : undefined,

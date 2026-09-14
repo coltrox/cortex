@@ -187,6 +187,20 @@ describe('agenda e estudos', () => {
       .toEqual({ path: 'Agenda/Dentista.md' })
   })
 
+  it('apagar aniversario de pessoa leva a marca, que tira so as datas', () => {
+    expect(eventoItemApagado('Vida/Clara.md', DIA2, { aniversario: true }).dados)
+      .toEqual({ path: 'Vida/Clara.md', aniversario: true })
+  })
+
+  it('editar aniversario de pessoa leva a marca junto da comemorativa', () => {
+    expect(eventoItemEditado(
+      'Vida/Clara.md', { titulo: 'Clara', data: '2009-03-27', ano: 2009, comemorativa: true, pessoa: true }, DIA2
+    ).dados).toMatchObject({ comemorativa: true, pessoa: true, ano: 2009 })
+    // Sem a comemorativa, a marca de pessoa nao viaja.
+    expect(eventoItemEditado('Agenda/x.md', { titulo: 'X', pessoa: true }, DIA2).dados)
+      .not.toHaveProperty('pessoa')
+  })
+
   it('editar leva so o que foi preenchido', () => {
     // Campo vazio nao viaja: mandar `local: ''` apagaria o local que estava
     // na nota, e quem so mudou a data nao pediu isso.

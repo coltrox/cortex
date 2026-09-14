@@ -592,17 +592,17 @@ export function Agenda(p: {
   const cartaoCompromisso = (i: ItemCardapio, soAcoes = false) => {
     const path = caminhoDe(i)
     /*
-     * O aniversário de uma pessoa cadastrada vem sem editar nem excluir.
+     * O aniversário de uma pessoa cadastrada mora na ficha DELA.
      *
-     * Ele mora na nota da PESSOA: o formulário de data comemorativa não
-     * alcança essa nota, e excluir por aqui apagaria a pessoa inteira, e não
-     * o aniversário. Muda-se no Cortex, na ficha dela.
+     * Editar muda a data de nascimento na ficha, e excluir tira só o
+     * aniversário — a pessoa continua no Cortex. Por isso os dois eventos
+     * levam uma marca: sem ela, o excluir apagaria a pessoa inteira.
      */
     const daPessoa = i.detalhe.pessoa === true
-    if (soAcoes && daPessoa) return null
+    const chave = path || i.nome
     return (
       <div className={soAcoes ? 'heroi-acoes' : 'item item-acao'}
-        key={path || i.nome}>
+        key={chave}>
         {!soAcoes && (
           <div className="item-corpo">
             {/* A data comemorativa sobe como compromisso — a espécie é a mesma
@@ -622,36 +622,62 @@ export function Agenda(p: {
             <Sobre partes={[i.detalhe.local]} />
           </div>
         )}
-        {/* Editar antes de excluir: mudar de horário é o que mais
-            acontece, e cancelar é a saída. */}
-        {!daPessoa && <div className="item-acoes">
+        {/* Editar e excluir atrás do "⋯", como no cartão de prova. Pedido do
+            dono: o mesmo em TODO cartão do Chegando — antes só a data
+            comemorativa criada no celular tinha os botões, e aniversário de
+            pessoa não tinha nenhum. */}
+        <div className="item-acoes">
           <button
-            className="acao-lado"
+            className="acao-mais"
             type="button"
-            disabled={path === ''}
-            onClick={() => i.detalhe.comemorativa === true
-              // A data comemorativa abre o formulário DELA, com a data de
-              // quando começou — o de compromisso tem hora e local, e a
-              // edição por ele não chegava à nota.
-              ? p.aoEditar('comemorativa', comemorativaParaEditar(i))
-              : p.aoEditar('compromisso', paraEditar(i))}
+            aria-label={`ações de ${i.nome}`}
+            aria-expanded={aberto === chave}
+            onClick={() => setAberto(aberto === chave ? null : chave)}
           >
-            editar
+            ⋯
           </button>
-          <button
-            className="acao-lado acao-destrutiva"
-            type="button"
-            disabled={path === ''}
-            onClick={() => {
-              // Confirmar aqui e o que substitui o "marcar cancelado" de
-              // antes: apagar no vault nao tem desfazer pelo celular.
-              if (!window.confirm(`Apagar "${i.nome}" do seu Cortex?`)) return
-              marcar(chaveApagado(path), () => eventoItemApagado(path, dia))
-            }}
-          >
-            excluir
-          </button>
-        </div>}
+        </div>
+
+        {aberto === chave && (
+          <div className="item-acoes item-acoes-abertas">
+            {/* Editar antes de excluir: mudar de data é o que mais acontece. */}
+            <button
+              className="acao-lado"
+              type="button"
+              disabled={path === ''}
+              onClick={() => {
+                setAberto(null)
+                if (daPessoa) {
+                  p.aoEditar('comemorativa', { ...comemorativaParaEditar(i), pessoa: true })
+                } else if (i.detalhe.comemorativa === true) {
+                  // A data comemorativa abre o formulário DELA, com a data de
+                  // quando começou — o de compromisso tem hora e local.
+                  p.aoEditar('comemorativa', comemorativaParaEditar(i))
+                } else {
+                  p.aoEditar('compromisso', paraEditar(i))
+                }
+              }}
+            >
+              editar
+            </button>
+            <button
+              className="acao-lado acao-destrutiva"
+              type="button"
+              disabled={path === ''}
+              onClick={() => {
+                // Confirmar aqui: apagar no vault não tem desfazer pelo celular.
+                const pergunta = daPessoa
+                  ? `Tirar o aniversário de "${i.nome}" do seu Cortex? A pessoa continua cadastrada.`
+                  : `Apagar "${i.nome}" do seu Cortex?`
+                if (!window.confirm(pergunta)) return
+                setAberto(null)
+                marcar(chaveApagado(path), () => eventoItemApagado(path, dia, { aniversario: daPessoa }))
+              }}
+            >
+              excluir
+            </button>
+          </div>
+        )}
       </div>
     )
   }

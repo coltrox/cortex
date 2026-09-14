@@ -7,7 +7,8 @@ import { registerIpc, sincronizadorDe } from './ipc/handlers'
 import { ligarCampainha, desligarCampainha } from './nuvem/campainha'
 import { Processos, scriptsDoProjeto } from './dev/processos'
 import {
-  etapasNovoProjeto, nomeDeProjetoValido, MODELOS_PROJETO, LINGUAGENS_PROJETO
+  etapasNovoProjeto, arquivosNovoProjeto, nomeDeProjetoValido, MODELOS_PROJETO, LINGUAGENS_PROJETO,
+  NOME_MODELO
 } from './dev/novoProjeto'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 import { ehOuContem } from './caminhos'
@@ -457,8 +458,22 @@ ipcMain.handle('dev:novo-projeto', async (_e, payload: unknown) => {
     raiz = base
   }
 
+  // Python, C e C++ não têm criador oficial: o esqueleto sai da tabela de
+  // `novoProjeto.ts`, com conteúdo fixo, e cada caminho é conferido para não
+  // sair da pasta do projeto antes de ser escrito.
+  const arquivos = arquivosNovoProjeto(modelo, nome, linguagem)
+  if (arquivos.length > 0) {
+    const pasta = join(base, nome)
+    await mkdir(pasta, { recursive: true })
+    for (const a of arquivos) {
+      const destino = resolve(pasta, a.caminho)
+      if (!ehOuContem(pasta, destino)) throw new Error('arquivo fora da pasta do projeto')
+      await writeFile(destino, a.conteudo, 'utf8')
+    }
+  }
+
   const etapas = etapasNovoProjeto(modelo, linguagem, nome, base)
-  const rotulo = `criar ${modelo === 'expo' ? 'Expo' : 'Vite'} · ${nome}`
+  const rotulo = `criar ${NOME_MODELO[modelo]} · ${nome}`
   const processo = processos.iniciarEtapas(raiz, rotulo, etapas)
   return { processo, raiz, pasta: nome, pastasDev }
 })

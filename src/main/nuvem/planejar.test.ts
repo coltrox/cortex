@@ -877,6 +877,42 @@ describe('planejar — data comemorativa', () => {
       path: 'Agenda/x.md', data: '1990-13-40', comemorativa: true
     }))).toEqual([])
   })
+
+  it('editar aniversario de pessoa muda o nascimento na ficha, e so nela', () => {
+    const ops = planejar(ev('compromisso_editado', {
+      path: 'Vida/Clara.md', titulo: 'Clara', data: '2009-03-27', ano: 2009,
+      comemorativa: true, pessoa: true, oque: 'casamento'
+    }))
+    expect(ops).toEqual([{
+      acao: 'marcar', path: 'Vida/Clara.md', tiposPermitidos: ['pessoa'],
+      // Sem `oque`, sem `dia`/`mes` soltos: os nomes de campo sao os da ficha.
+      campos: { titulo: 'Clara', nascimento_dia: 27, nascimento_mes: 3, nascimento_ano: 2009 }
+    }])
+  })
+
+  it('aniversario de pessoa com o ano apagado tira so o ano', () => {
+    const [op] = planejar(ev('compromisso_editado', {
+      path: 'Vida/Gerson.md', data: '2026-08-02', ano: null, comemorativa: true, pessoa: true
+    })) as { campos: Record<string, unknown> }[]
+    expect(op.campos).toEqual({ nascimento_dia: 2, nascimento_mes: 8, nascimento_ano: null })
+  })
+
+  it('aniversario de pessoa com data torta nao grava nada', () => {
+    expect(planejar(ev('compromisso_editado', {
+      path: 'Vida/X.md', data: '2000-02-31', comemorativa: true, pessoa: true
+    }))).toEqual([])
+  })
+
+  it('excluir aniversario de pessoa tira as datas e nunca apaga a ficha', () => {
+    const ops = planejar(ev('item_apagado', { path: 'Vida/Clara.md', aniversario: true }))
+    expect(ops).toEqual([{
+      acao: 'marcar', path: 'Vida/Clara.md', tiposPermitidos: ['pessoa'],
+      campos: { nascimento_dia: null, nascimento_mes: null, nascimento_ano: null }
+    }])
+    // Sem a marca, `pessoa` nao esta na lista de apagar.
+    const [sem] = planejar(ev('item_apagado', { path: 'Vida/Clara.md' })) as { tiposPermitidos: string[] }[]
+    expect(sem.tiposPermitidos).not.toContain('pessoa')
+  })
 })
 
 /**

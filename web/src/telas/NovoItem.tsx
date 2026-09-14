@@ -35,6 +35,8 @@ export type EdicaoItem = {
   ano?: number
   /** Data comemorativa: o que ela é ("aniversário"…). */
   oque?: string
+  /** O aniversário de uma pessoa cadastrada: a data vai para a ficha dela. */
+  pessoa?: boolean
 }
 
 const MESES = [
@@ -176,7 +178,12 @@ export function NovoItem(p: {
           comemorativa
             // Só o que o formulário dela tem. A marca faz o Cortex gravar
             // dia, mês e ano, e não uma data que a nota não lê.
-            ? { titulo, ...dadosComemorativa(quando, hoje), comemorativa: true }
+            ? {
+              titulo, ...dadosComemorativa(quando, hoje), comemorativa: true,
+              // Aniversário de pessoa: a marca leva a data para a ficha dela,
+              // e "o que é" não viaja — aniversário é aniversário.
+              ...(e.pessoa ? { pessoa: true, oque: undefined } : {})
+            }
             : { titulo, data, hora, local, materia },
           hoje
         ))
@@ -226,7 +233,7 @@ export function NovoItem(p: {
   return (
     <div className="tema-agenda">
       <Cabecalho
-        titulo={e ? f.tituloEdicao : f.titulo}
+        titulo={e ? (e.pessoa ? 'Mudar aniversário' : f.tituloEdicao) : f.titulo}
 
       />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
@@ -237,16 +244,21 @@ export function NovoItem(p: {
           <>
             {/* Pedido do dono: escolher "Aniversário" faz o cartão dizer
                 aniversário em vez de "data comemorativa". */}
-            <Selecao rotulo="O que é" opcoes={OQUE_OPCOES.map(o => o[1])}
-              valor={(OQUE_OPCOES.find(o => o[0] === oqueC) ?? OQUE_OPCOES[0])[1]}
-              aoMudar={nome => setOqueC(OQUE_OPCOES.find(o => o[1] === nome)?.[0] ?? '')} />
+            {/* Aniversário de pessoa cadastrada não pergunta o que é. */}
+            {!e?.pessoa && (
+              <Selecao rotulo="O que é" opcoes={OQUE_OPCOES.map(o => o[1])}
+                valor={(OQUE_OPCOES.find(o => o[0] === oqueC) ?? OQUE_OPCOES[0])[1]}
+                aoMudar={nome => setOqueC(OQUE_OPCOES.find(o => o[1] === nome)?.[0] ?? '')} />
+            )}
             <div className="par-campos">
               <CampoNumero rotulo="Dia" valor={diaC} dica="12"
                 aoMudar={v => setDiaC(v.replace(/\D/g, '').slice(0, 2))} />
               <Selecao rotulo="Mês" opcoes={MESES} valor={MESES[mesC - 1] ?? MESES[0]}
                 aoMudar={v => setMesC(MESES.indexOf(v) + 1)} />
             </div>
-            <CampoNumero rotulo="Ano em que começou (se souber)" valor={anoC} dica="2026"
+            <CampoNumero
+              rotulo={e?.pessoa ? 'Ano de nascimento (se souber)' : 'Ano em que começou (se souber)'}
+              valor={anoC} dica="2026"
               aoMudar={v => setAnoC(v.replace(/\D/g, '').slice(0, 4))} />
             {!digitando && (
               <p className={`previa-comemorativa ${problema ? 'previa-erro' : ''}`}>
