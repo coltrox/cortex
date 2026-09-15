@@ -20,6 +20,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@fontsource/dm-serif-display": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
     "better-sqlite3": "^13.0.3",
     "chokidar": "^5.0.0",
     "electron-updater": "^6.8.9",

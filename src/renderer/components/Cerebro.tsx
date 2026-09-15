@@ -330,6 +330,9 @@ const GIRO_MAX = 0.009
 /** Quantos pixels o dedo pode escorregar e ainda ser um clique. */
 const FOLGA_CLIQUE = 4
 
+/** Quantos pixels além da borda desenhada de um nó o cursor ainda o pega. */
+const MARGEM_TOQUE = 3
+
 /** Quanto tempo a animação de construção leva para revelar tudo, em ms. */
 const DURACAO_ANIMACAO = 9000
 
@@ -897,11 +900,26 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     let l = 0
     let a = 0
 
+    /*
+     * Nitidez sem custo: o canvas em pixels INTEIROS.
+     *
+     * A área do grafo mede frações de pixel (a coluna é flexível), e o canvas
+     * com `width: 100%` herdava a fração: o navegador esticava o desenho por
+     * 0,4 px e borrava tudo — o "desfocado" que o dono viu. Arredondar a caixa
+     * e fixar o tamanho CSS nela faz cada pixel do desenho cair num pixel da
+     * tela.
+     *
+     * Um teste com o dobro de pixels (supersampling) deixou nítido, mas lento:
+     * quatro vezes mais área a cada quadro. Voltou para o dpr da tela.
+     */
+    const tela = canvas.parentElement ?? canvas
     const dimensionar = (): void => {
-      const r = canvas.getBoundingClientRect()
+      const r = tela.getBoundingClientRect()
       const dpr = window.devicePixelRatio || 1
-      l = Math.max(1, r.width)
-      a = Math.max(1, r.height)
+      l = Math.max(1, Math.floor(r.width))
+      a = Math.max(1, Math.floor(r.height))
+      canvas.style.width = `${l}px`
+      canvas.style.height = `${a}px`
       canvas.width = Math.round(l * dpr)
       canvas.height = Math.round(a * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -910,6 +928,25 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
     dimensionar()
     const aoRedimensionar = (): void => { dimensionar(); precisaEnquadrar.current = true }
     window.addEventListener('resize', aoRedimensionar)
+
+    /*
+     * A área do grafo pode mudar de tamanho sem a janela mudar (a sidebar, o
+     * painel de ajustes), e a escala muda quando a janela vai para outro
+     * monitor ou o Windows troca de 100% para 150%. Nos dois casos o canvas
+     * ficava com a resolução velha — esticado, e borrado.
+     */
+    // A caixa, e não o canvas: o tamanho do canvas agora é escrito aqui, e
+    // observá-lo faria cada ajuste disparar o próximo.
+    const observador = new ResizeObserver(() => dimensionar())
+    observador.observe(tela)
+    let consultaEscala = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`)
+    const aoMudarEscala = (): void => {
+      dimensionar()
+      consultaEscala.removeEventListener('change', aoMudarEscala)
+      consultaEscala = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`)
+      consultaEscala.addEventListener('change', aoMudarEscala)
+    }
+    consultaEscala.addEventListener('change', aoMudarEscala)
 
     /** Passa pelo filtro da legenda? */
     const noFoco = (i: number): boolean =>
@@ -1743,17 +1780,18 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
         RAIO_CENTRO * escalaPonto,
         margemCentro * camera.current.escala * 0.5
       ))
-      if (Math.hypot(cx - ccx, cy - ccy) < Math.max(14, rc + 8)) return -2
+      if (Math.hypot(cx - ccx, cy - ccy) < Math.max(8, rc + MARGEM_TOQUE)) return -2
       for (let i = 0; i < n; i++) {
         // O que o filtro escondeu não é clicável: pegar um nó invisível é
         // pior do que não pegar nada.
         if (!noFoco(i)) continue
         const [nx, ny] = paraTela(px[i], py[i])
         const d = Math.hypot(cx - nx, cy - ny)
-        // Alvo mínimo de 14 px: um nó pequeno tem 2 px de raio, e acertar
-        // isso com o mouse seria sorte. Não muito mais do que isso: alvo
-        // grande demais faz o cursor pegar o vizinho em vez do de baixo.
-        const alcance = Math.max(14, raioDe(nos[i].grau) * escalaPonto + 8)
+        // O alvo acompanha o TAMANHO desenhado do nó, com uma margem curta.
+        // Era no mínimo 14 px para todo mundo: o cursor ao lado de um ponto
+        // de 2 px já o selecionava — pedido do dono para arrumar. O piso de
+        // 5 px continua deixando o ponto minúsculo acertável.
+        const alcance = Math.max(5, raioDe(nos[i].grau) * escalaPonto + MARGEM_TOQUE)
         if (d < alcance && d < menor) { menor = d; achado = i }
       }
       return achado
@@ -1979,6 +2017,8 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
       }
       document.removeEventListener('visibilitychange', aoTrocarVisibilidade)
       window.removeEventListener('resize', aoRedimensionar)
+      observador.disconnect()
+      consultaEscala.removeEventListener('change', aoMudarEscala)
       canvas.removeEventListener('pointerdown', aoDescer)
       canvas.removeEventListener('pointermove', aoMover)
       canvas.removeEventListener('pointerup', aoSubir)
@@ -2071,7 +2111,10 @@ export function Cerebro({ aoAbrir }: { aoAbrir: (path: string) => void }) {
             sete cores; com ela, sete pastas em que se pode entrar. */}
         {grupos.length > 0 && (
           <div className="cerebro-legenda">
-            {grupos.map(g => (
+            {/* "(inexistente)" não entra na legenda: pedido do dono. Não é
+                pasta de ninguém, e filtrar por ela não responde pergunta
+                nenhuma — quem quer escondê-las usa os Ajustes. */}
+            {grupos.filter(g => g.nome !== '(inexistente)').map(g => (
               <button
                 key={g.nome}
                 type="button"

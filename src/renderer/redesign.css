@@ -1,0 +1,766 @@
+/* ==========================================================================
+   Cortex — redesign (fase 1, branch `redesign`)
+
+   Carregado DEPOIS de `styles.css`, e só por cima dele: tokens, layout global,
+   sidebar e a página Hoje. Nada de lógica depende disto — tirar o import em
+   `main.tsx` devolve o visual anterior inteiro.
+
+   Regras da linguagem:
+   - separação por espaço, contraste e tipografia, não por borda;
+   - cor da área só em indicador, ícone, progresso e estado ativo;
+   - serifa só em título de página; interface em Inter;
+   - movimento de 150–200 ms, e nenhum quando o sistema pede menos movimento.
+   ========================================================================== */
+
+:root {
+  --sans:  "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --serif: "DM Serif Display", Georgia, "Times New Roman", serif;
+
+  --sidebar-app: 244px;
+  --raio-1: 8px;
+  --raio-2: 12px;
+  --dur: 170ms;
+  --curva: cubic-bezier(.2, .7, .2, 1);
+
+  /* A cor de identidade de cada área, independente de qual está aberta: a
+     sidebar mostra todas ao mesmo tempo. */
+  --cor-cerebro:      #9A9A9A;
+  --cor-hoje:         #6FA3E0;
+  --cor-conhecimento: #8F8CF0;
+  --cor-saude:        #6CC08E;
+  --cor-financas:     #D9B45A;
+  --cor-vida:         #E39A7C;
+  --cor-dev:          #B08CE8;
+  --cor-calendario:   #E487AC;
+}
+
+/* Tema escuro: a paleta do redesign. O claro continua com os tokens de antes. */
+:root[data-tema="escuro"] {
+  --canvas:        #181818;
+  --surface:       #1D1D1D;
+  --surface-hover: #232323;
+  --surface-sunk:  #161616;
+  --border:        rgba(255, 255, 255, .06);
+  --border-strong: rgba(255, 255, 255, .10);
+
+  --text:   #F1F1F1;
+  --text-2: #999999;
+  --text-3: #666666;
+
+  --realce: rgba(255, 255, 255, .04);
+  --vidro:  rgba(24, 24, 24, .82);
+  --scrim:  rgba(0, 0, 0, .6);
+}
+:root:not([data-tema="escuro"]) { --surface-hover: #F4F3F0; }
+
+body {
+  font-family: var(--sans);
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -.005em;
+}
+
+/* Foco visível para quem navega pelo teclado — e só para ele. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--acento, var(--accent)) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------- Layout global ---------- */
+
+.shell,
+.shell.com-subnav,
+.shell.so-lente {
+  grid-template-columns: var(--sidebar-app) minmax(0, 1fr);
+  background: var(--canvas);
+}
+
+.main { background: var(--canvas); }
+
+.topo {
+  padding: 12px clamp(28px, 3.2vw, 56px);
+  border-bottom: 1px solid var(--border);
+  background: var(--vidro);
+}
+
+.caminho {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.caminho strong { color: var(--text-2); font-weight: 500; }
+.caminho-sep { margin: 0 8px; color: var(--text-3); opacity: .6; }
+
+.topo .btn-fantasma {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
+  border-radius: var(--raio-1);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12.5px;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva);
+}
+.topo .btn-fantasma:hover { background: var(--surface-hover); color: var(--text); }
+.topo .btn-fantasma kbd {
+  font-family: var(--sans);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+}
+
+/* O conteúdo usa a largura: sem o `max-width: 1080px` de antes, e com margens
+   que crescem com a janela em vez de um bloco preso à esquerda. */
+.lente {
+  max-width: 1360px;
+  padding: 44px clamp(28px, 3.6vw, 64px) 88px;
+  animation: entrar-pagina 220ms var(--curva) both;
+}
+
+@keyframes entrar-pagina {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- Sidebar ---------- */
+
+.sidebar-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px 12px 12px;
+  background: var(--surface-sunk);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.sb-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 10px 18px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.sb-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  scrollbar-width: thin;
+}
+
+.sb-grupo { --cor: var(--cor-cerebro); }
+.sb-grupo[data-area="hoje"]         { --cor: var(--cor-hoje); }
+.sb-grupo[data-area="conhecimento"] { --cor: var(--cor-conhecimento); }
+.sb-grupo[data-area="saude"]        { --cor: var(--cor-saude); }
+.sb-grupo[data-area="financas"]     { --cor: var(--cor-financas); }
+.sb-grupo[data-area="vida"]         { --cor: var(--cor-vida); }
+.sb-grupo[data-area="dev"]          { --cor: var(--cor-dev); }
+.sb-grupo[data-area="calendario"]   { --cor: var(--cor-calendario); }
+
+/* Um grupo com abas ganha respiro acima: é o começo de uma seção. */
+.sb-grupo[data-com-abas="true"] { margin-top: 10px; }
+
+.sb-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--raio-1);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13.5px;
+  text-align: left;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva);
+}
+.sb-item svg { flex: none; width: 17px; height: 17px; color: var(--text-3); transition: color var(--dur) var(--curva); }
+.sb-item:hover { background: var(--realce); color: var(--text); }
+.sb-item:hover svg { color: var(--cor); }
+
+/* O grupo com abas vira rótulo de seção: caixa-alta pequena, como um índice. */
+.sb-grupo[data-com-abas="true"] > .sb-item {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.sb-grupo[data-com-abas="true"] > .sb-item:hover { color: var(--text); }
+
+.sb-item[data-ativa="true"] { color: var(--text); }
+.sb-item[data-ativa="true"] svg { color: var(--cor); }
+/* A área sem abas (Hoje, Agenda, Cortex) acende inteira quando está aberta. */
+.sb-grupo:not([data-com-abas="true"]) > .sb-item[data-ativa="true"] { background: var(--surface-hover); }
+.sb-grupo:not([data-com-abas="true"]) > .sb-item[data-ativa="true"]::before,
+.sb-sub[aria-current="page"]::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 7px; bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--cor);
+}
+
+.sb-seta {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--text-3);
+  transition: transform var(--dur) var(--curva);
+}
+.sb-item[data-ativa="true"] .sb-seta { transform: rotate(90deg); }
+
+.sb-subs {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 4px;
+  animation: abrir-abas 180ms var(--curva) both;
+}
+@keyframes abrir-abas {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.sb-sub {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 10px 6px 37px;
+  border: 0;
+  border-radius: var(--raio-1);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  text-align: left;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva);
+}
+.sb-sub:hover { background: var(--realce); color: var(--text); }
+.sb-sub[aria-current="page"] { background: var(--surface-hover); color: var(--text); font-weight: 500; }
+.sb-sub .subnav-cadeado { margin-left: auto; font-size: 11px; opacity: .7; }
+
+.sb-rodape {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--raio-1) var(--raio-1);
+}
+.sb-rodape .rail-alerta { position: static; margin-left: auto; }
+
+/* ---------- Título da página ---------- */
+
+.lente-titulo {
+  font-family: var(--serif);
+  font-size: clamp(38px, 3.4vw, 48px);
+  font-weight: 400;
+  letter-spacing: -.01em;
+  line-height: 1.02;
+  color: var(--text);
+}
+.lente-titulo::after { display: none; }
+
+.lente-data {
+  margin-top: 8px;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--text-2);
+}
+.lente-saudacao {
+  margin: 14px 0 0;
+  max-width: 68ch;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+/* ---------- Seções ---------- */
+
+.secao,
+.secao-linha {
+  margin: 44px 0 10px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.secao {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  color: var(--text-3);
+}
+.secao::before { width: 6px; height: 6px; border-radius: 50%; }
+.secao-linha { align-items: center; }
+.secao-linha .secao { margin: 0; }
+
+.btn-add {
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva);
+}
+.btn-add:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border); }
+
+.btn {
+  border-radius: var(--raio-1);
+  padding: 6px 14px;
+  font-weight: 500;
+  transition: background var(--dur) var(--curva), transform 120ms var(--curva);
+}
+
+/* ---------- Cartões ---------- */
+
+.cartoes {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 32px;
+}
+.cartao {
+  padding: 20px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--raio-2);
+  background: var(--surface);
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.cartao::before { display: none; }
+.cartao:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+
+.cartao-rotulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  color: var(--text-3);
+}
+.cartao-rotulo::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--acento);
+}
+.cartao-valor {
+  margin-top: 12px;
+  font-family: var(--sans);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.cartao-nota { margin-top: 4px; font-size: 12.5px; color: var(--text-3); }
+.cartao[data-tom="saida"] .cartao-valor { color: var(--text); }
+
+/* ---------- Linhas ---------- */
+
+.lista-notas { gap: 1px; }
+.linha {
+  align-items: center;
+  padding: 9px 12px;
+  border-bottom: 0;
+  border-radius: var(--raio-1);
+  transition: background var(--dur) var(--curva);
+}
+.linha:hover { background: var(--surface-hover); }
+.linha + .linha { box-shadow: inset 0 1px 0 var(--border); }
+.linha:hover, .linha:hover + .linha { box-shadow: none; }
+.linha-titulo { font-size: 13.5px; }
+.linha-data, .linha-valor { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+.linha-data { font-size: 12px; }
+.linha-valor { font-size: 12.5px; }
+.linha-titulo[data-feito="true"] { color: var(--text-3); }
+
+/* ---------- Caixa de marcar ---------- */
+
+.check {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-strong);
+  background: transparent;
+}
+.check:hover { border-color: var(--text-3); }
+/* O estado muda inteiro na hora (ver o comentário em styles.css); o que anima
+   é só a escala, que não carrega significado. */
+.check[aria-checked="true"] { animation: marcar 220ms var(--curva); }
+@keyframes marcar {
+  0%   { transform: scale(.82); }
+  60%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- Estado vazio ---------- */
+
+.vazio {
+  padding: 16px 18px;
+  border-left: 0;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--raio-2);
+  color: var(--text-3);
+  font-size: 13px;
+}
+.vazio-titulo { display: block; color: var(--text-2); font-weight: 500; font-size: 13.5px; }
+.vazio-texto { display: block; margin-top: 2px; }
+.vazio .btn-add { margin: 10px 0 0 -10px; color: var(--acento); }
+
+/* ---------- Progresso ---------- */
+
+.progresso-trilho { background: var(--surface-hover); border-radius: 999px; }
+.progresso-trilho > span { background: var(--acento); border-radius: 999px; transition: width 400ms var(--curva); }
+
+/* ==========================================================================
+   Página Hoje
+   ========================================================================== */
+
+.hoje-resumo { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+
+/* Duas colunas a partir de uma janela de notebook; uma só abaixo disso. */
+.hoje-grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(28px, 3vw, 56px);
+  align-items: start;
+}
+.hoje-grade > .hoje-col > .secao-linha:first-child,
+.hoje-grade > .hoje-col > .secao:first-child { margin-top: 44px; }
+
+@media (max-width: 1180px) {
+  .hoje-resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hoje-grade { grid-template-columns: minmax(0, 1fr); }
+}
+
+.chips .chip {
+  border-radius: 999px;
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+
+/* ==========================================================================
+   Fase 2 — disposição de todas as áreas
+   ========================================================================== */
+
+/* Menos ar vertical: o respiro vinha de margens de 44px entre seções, que
+   empurravam metade da página para fora da tela num notebook. */
+.lente { padding-top: 34px; }
+.secao, .secao-linha { margin-top: 30px; }
+.cartoes { margin-top: 26px; }
+
+/* A grade de duas colunas, reaproveitada por todas as áreas (a Hoje usa a
+   mesma, com o nome dela). */
+.grade-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(28px, 3vw, 56px);
+  align-items: start;
+}
+.grade-2 > .col > .secao-linha:first-child,
+.grade-2 > .col > .secao:first-child,
+.hoje-grade > .hoje-col > .secao-linha:first-child,
+.hoje-grade > .hoje-col > .secao:first-child { margin-top: 30px; }
+@media (max-width: 1180px) {
+  .grade-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Lista longa (pessoas, documentos) em colunas, e não uma fila única com a
+   metade direita da tela vazia. */
+.lista-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  column-gap: 20px;
+}
+.lista-grade .linha + .linha { box-shadow: none; }
+.lista-grade .linha { box-shadow: inset 0 -1px 0 var(--border); border-radius: 0; }
+.lista-grade .linha:hover { border-radius: var(--raio-1); box-shadow: none; }
+
+/* ---------- Cortex (grafo) ---------- */
+
+:root[data-tema="escuro"] .cerebro-tela { background: #101010; }
+.cerebro-tela { border-radius: 14px; border-color: var(--border); }
+.cerebro { padding: 28px clamp(28px, 3.2vw, 56px) 28px; }
+
+/* ---------- Cartões de conteúdo ---------- */
+
+.cards { gap: 14px; }
+.card {
+  border-radius: var(--raio-2);
+  padding: 18px 20px;
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.card:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.card-topo strong { font-weight: 600; }
+.card-lista li span { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+
+.meta-caixa { border-radius: var(--raio-2); padding: 18px 22px; }
+
+.pastas-grade { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.pasta-card {
+  padding: 14px 16px;
+  border-radius: 10px;
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.pasta-card:hover { background: var(--surface-hover); }
+.pasta-conta { font-variant-numeric: tabular-nums; }
+
+.md-tabela th { font-family: var(--sans); }
+.md-tabela tbody tr:hover { background: var(--surface-hover); }
+
+/* ---------- Agenda ---------- */
+
+.cal { padding: 34px clamp(28px, 3.6vw, 64px) 36px; }
+.cal-mes { font-size: clamp(36px, 3.2vw, 46px); letter-spacing: -.01em; }
+.cal-seta { border-radius: var(--raio-1); transition: background var(--dur) var(--curva); }
+.cal-semana { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--text-3); }
+.cal-grade { gap: 6px; background: transparent; border: 0; }
+.cal-dia {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.cal-dia:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
+.cal-dia[data-fora="true"] { background: transparent; border-color: transparent; }
+.cal-num { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+.cal-dia[data-hoje="true"] { border-color: color-mix(in srgb, var(--cor-calendario) 50%, transparent); }
+.cal-dia[data-hoje="true"] .cal-num { background: var(--cor-calendario); color: #181818; font-weight: 600; }
+.cal-dia[data-sel="true"] { border-color: var(--cor-calendario); }
+.cal-chip { border-radius: 6px; }
+.cal-mais { font-family: var(--sans); }
+
+/* ---------- Modais, paleta e Configurações ---------- */
+
+.form, .popup-dia, .paleta {
+  border-radius: 14px;
+  border-color: var(--border-strong);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, .35);
+  animation: surgir 170ms var(--curva) both;
+}
+@keyframes surgir {
+  from { opacity: 0; transform: scale(.985) translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.form-topo { font-size: 24px; padding: 18px 24px; }
+.config-bloco h3 {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* ==========================================================================
+   Fase 3 — respiro e trilhas (principal + lateral)
+   ========================================================================== */
+
+/* Mais ar entre o título de uma seção e o conteúdo dela: com 10px o rótulo
+   parecia grudado na primeira linha. */
+.secao, .secao-linha { margin-top: 40px; margin-bottom: 14px; }
+.cartoes, .hoje-resumo { margin-top: 30px; }
+.lente-saudacao { margin-top: 12px; }
+.chips { gap: 8px; }
+.progresso { margin: 6px 0 14px; }
+
+/* O botão de uma seção não é o botão principal da tela: fundo sutil, e não o
+   bloco claro que gritava mais alto que o título da seção. */
+.secao-linha .btn {
+  padding: 5px 12px;
+  font-size: 12.5px;
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+.secao-linha .btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--acento) 16%, var(--surface-hover));
+}
+
+/* A Hoje em duas trilhas: o que se faz, uma seção embaixo da outra, e ao lado
+   o que se consulta. A lateral tem largura própria, e não metade da tela. */
+.hoje-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 30%, 380px);
+  column-gap: clamp(36px, 3.6vw, 72px);
+  align-items: start;
+}
+.hoje-principal > .secao-linha:first-child,
+.hoje-lado > .secao-linha:first-child,
+.hoje-lado > .secao:first-child { margin-top: 40px; }
+
+.hoje-lado > .bloco { margin-top: 14px; }
+/* Na lateral estreita a coluna fixa de data (92px) comia metade da linha. */
+.hoje-lado .linha-data { width: auto; min-width: 58px; }
+.hoje-lado .linha { gap: 10px; }
+.hoje-lado .linha-titulo { font-size: 13px; }
+
+@media (max-width: 1100px) {
+  .hoje-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Os panoramas seguem a mesma ideia: coluna principal larga, apoio ao lado. */
+.grade-2 { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
+@media (max-width: 1180px) {
+  .grade-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- Blocos: cada seção no seu espaço ---------- */
+
+.bloco {
+  margin-top: 16px;
+  padding: 4px 20px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.bloco > .secao-linha:first-child,
+.bloco > .secao:first-child { margin-top: 14px; }
+.bloco .vazio { border-style: dashed; background: transparent; }
+.hoje-principal > .bloco:first-child,
+.hoje-lado > .bloco:first-child { margin-top: 30px; }
+/* Dentro do bloco a linha ganha o fundo do hover um tom acima do bloco. */
+.bloco .linha:hover { background: var(--surface-hover); }
+
+/* Nos panoramas, cada coluna é um painel. */
+.grade-2 { margin-top: 16px; row-gap: 16px; }
+.grade-2 > .col {
+  padding: 4px 20px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.grade-2 > .col > .secao-linha:first-child,
+.grade-2 > .col > .secao:first-child { margin-top: 14px; }
+
+/* A seta da área na sidebar gira quando o grupo está aberto, e não quando a
+   tela é daquela área: abrir e navegar agora são coisas separadas. */
+.sb-item[data-ativa="true"] .sb-seta { transform: none; }
+.sb-item[aria-expanded="true"] .sb-seta { transform: rotate(90deg); }
+.sb-grupo[data-com-abas="true"] > .sb-item[data-ativa="true"] { color: var(--text); }
+
+/* ---------- Correções da revisão do dono ---------- */
+
+/* O título DENTRO da fileira de seção nunca tem margem própria. Uma regra da
+   lateral dava 36px ao título e não ao botão, e o "+ Data" ficava lá em cima
+   com "Datas comemorativas" bem abaixo dele. */
+.secao-linha > .secao.secao { margin: 0; padding: 0; }
+
+/* Menos ar no topo de cada bloco. */
+.bloco { padding: 2px 18px 14px; }
+.bloco > .secao-linha:first-child,
+.bloco > .secao:first-child { margin-top: 12px; }
+
+/* Na lateral o prazo ("em 24 dias") já diz quando é; a data ISO só cortava o
+   nome do evento. */
+.hoje-lado .linha-data { display: none; }
+
+/* O filtro escolhido: tom da área, e não um bloco branco. */
+.chip[aria-pressed="true"] {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--acento) 55%, transparent);
+}
+
+/* A lateral da Hoje um tico mais larga, e o nome quebra linha em vez de virar
+   "Aniversári…" — pedido do dono para enxergar de quem é cada data. */
+.hoje-layout { grid-template-columns: minmax(0, 1fr) clamp(340px, 33%, 430px); }
+.hoje-lado .linha-titulo { white-space: normal; overflow: visible; line-height: 1.35; }
+
+/* ---------- Barra de título integrada ---------- */
+
+/* A barra nativa saiu (ver `titleBarStyle` no processo principal). O topo do
+   app e a marca da sidebar passam a arrastar a janela, e os botões da janela
+   ficam por cima do canto direito do topo — o padding abre lugar para eles. */
+.topo, .sb-marca { -webkit-app-region: drag; }
+.topo button, .topo input, .topo a { -webkit-app-region: no-drag; }
+.topo {
+  min-height: 52px;
+  padding-right: max(clamp(28px, 3.2vw, 56px),
+    calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 16px));
+}
+
+/* ---------- Pessoas em cartões ---------- */
+
+.pessoas-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+.pessoa-card {
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio-2);
+  cursor: pointer;
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.pessoa-card:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.pessoa-topo { display: flex; align-items: center; gap: 10px; }
+.pessoa-avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--acento);
+  background: color-mix(in srgb, var(--acento) 14%, transparent);
+}
+.pessoa-nome {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pessoa-card .linha-acoes { opacity: 0; transition: opacity var(--dur) var(--curva); }
+.pessoa-card:hover .linha-acoes,
+.pessoa-card:focus-within .linha-acoes { opacity: 1; }
+.pessoa-papel { margin-top: 10px; font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
+.pessoa-tel { margin-top: 6px; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* ---------- Nota aberta ---------- */
+
+.titulo-nota {
+  font-family: var(--serif);
+  font-size: clamp(34px, 3vw, 44px);
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+.meta-nota { font-family: var(--sans); font-size: 12.5px; margin-bottom: 30px; }
+.campos-nota { border-radius: var(--raio-2); margin-bottom: 34px; }
+.campo-nota { padding: 13px 18px; background: var(--surface); gap: 18px; }
+.campo-rotulo {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+.campo-texto { line-height: 1.6; }
+
+/* ---------- Menos movimento, quando o sistema pede ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .lente, .sb-subs, .check[aria-checked="true"] { animation: none; }
+  * { transition-duration: 0ms !important; }
+}

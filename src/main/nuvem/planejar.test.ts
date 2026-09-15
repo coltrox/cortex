@@ -913,6 +913,25 @@ describe('planejar — data comemorativa', () => {
     const [sem] = planejar(ev('item_apagado', { path: 'Vida/Clara.md' })) as { tiposPermitidos: string[] }[]
     expect(sem.tiposPermitidos).not.toContain('pessoa')
   })
+
+  it('de quem e a data vira o campo pessoa da nota, limpo', () => {
+    const [nova] = planejar(ev('compromisso', {
+      titulo: 'Meu niver', data: '2008-12-10', comemorativa: true, oque: 'aniversário',
+      quem: '  [[Pedro]]\nColtro  '
+    })) as { frontmatter: Record<string, unknown> }[]
+    expect(nova.frontmatter).toMatchObject({ pessoa: 'Pedro Coltro' })
+
+    const [editada] = planejar(ev('compromisso_editado', {
+      path: 'Agenda/x.md', data: '2008-12-10', comemorativa: true, quem: 'Clara'
+    })) as { campos: Record<string, unknown> }[]
+    expect(editada.campos).toMatchObject({ pessoa: 'Clara' })
+
+    // Apagar no formulário manda null, que tira o campo.
+    const [apagada] = planejar(ev('compromisso_editado', {
+      path: 'Agenda/x.md', data: '2008-12-10', comemorativa: true, quem: null
+    })) as { campos: Record<string, unknown> }[]
+    expect(apagada.campos).toMatchObject({ pessoa: null })
+  })
 })
 
 /**

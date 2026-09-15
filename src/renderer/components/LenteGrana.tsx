@@ -88,23 +88,45 @@ export function LenteGrana({
             <Cartao rotulo="Porquinho" valor={moeda(saldo)} nota={`${mov.length} movimentos`} />
           </div>
 
-          <Secao
-            nome="Gastos por categoria"
-            acao="Transação"
-            aoClicar={() => aoLancar('transacao', hoje)}
-          />
-          <Barras
-            itens={[...categorias.entries()]}
-            formato={moeda}
-            ativo={cat ?? undefined}
-            aoClicar={c => setCat(cat === c ? null : c)}
-          />
-          {cat && (
-            <>
-              <h3 className="secao">{cat}</h3>
-              <ListaTx txs={todas.filter(t => t.cat === cat).slice(0, 40)} aoAbrir={aoAbrir} comData />
-            </>
-          )}
+          <div className="grade-2">
+            <section className="col">
+              <Secao
+                nome="Gastos por categoria"
+                acao="Transação"
+                aoClicar={() => aoLancar('transacao', hoje)}
+              />
+              {categorias.size === 0 ? (
+                <Vazio titulo="Nenhuma transação ainda" acao="Registrar transação"
+                  aoClicar={() => aoLancar('transacao', hoje)}>
+                  Registre sua primeira movimentação para começar a acompanhar suas finanças.
+                </Vazio>
+              ) : (
+                <Barras
+                  itens={[...categorias.entries()]}
+                  formato={moeda}
+                  ativo={cat ?? undefined}
+                  aoClicar={c => setCat(cat === c ? null : c)}
+                />
+              )}
+            </section>
+
+            {/* A coluna da direita responde à categoria escolhida; sem escolha,
+                mostra o que entrou por último. */}
+            <section className="col">
+              <h3 className="secao">{cat ?? 'Últimas transações'}</h3>
+              {todas.length === 0
+                ? <Vazio>Nada lançado ainda.</Vazio>
+                : (
+                  <ListaTx
+                    txs={cat
+                      ? todas.filter(t => t.cat === cat).slice(0, 40)
+                      : [...todas].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 10)}
+                    aoAbrir={aoAbrir}
+                    comData
+                  />
+                )}
+            </section>
+          </div>
         </>
       )}
 

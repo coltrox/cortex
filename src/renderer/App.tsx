@@ -51,7 +51,9 @@ const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactE
   // O `id` continua `cerebro` mesmo com o rótulo virando Cortex: ele é chave
   // de `paineisTrancados` na config, e renomeá-lo destrancaria o painel de
   // quem já tivesse escolhido trancar esta lente.
-  { id: 'cerebro',      nome: 'Cortex',  Icone: IconeCerebro },
+  // Na sidebar ele se chama "Rede neural", a pedido do dono: "Cortex" já é o
+  // nome do app, e repetido logo abaixo da marca confundia.
+  { id: 'cerebro',      nome: 'Rede neural', Icone: IconeCerebro },
   { id: 'hoje',         nome: 'Hoje',    Icone: IconeHoje },
   { id: 'conhecimento', nome: 'Estudos', Icone: IconeConhecimento },
   { id: 'saude',        nome: 'Saúde',   Icone: IconeSaude },
@@ -64,6 +66,17 @@ const LENTES: { id: Lente; nome: string; Icone: (p: { size?: number }) => ReactE
 export function App() {
   const v = useVault()
   const hoje = hojeISO()
+
+  /*
+   * Quais áreas estão abertas na sidebar.
+   *
+   * Abrir uma área só mostra as abas dela — não troca a tela. Pedido do dono:
+   * poder abrir e fechar grupos continuando onde está, e ter mais de um aberto.
+   * A tela só muda ao clicar numa aba.
+   */
+  const [abertas, setAbertas] = useState<string[]>(() => [v.lente])
+  const alternarArea = (id: string): void =>
+    setAbertas(a => (a.includes(id) ? a.filter(x => x !== id) : [...a, id]))
 
   const [paleta, setPaleta] = useState(false)
   const [criando, setCriando] = useState<{ tipo: string; inicial?: Record<string, unknown> } | null>(null)
@@ -307,22 +320,71 @@ export function App() {
 
   return (
     <>
-      <div className={subs ? 'shell com-subnav' : 'shell so-lente'} data-lente={v.lente}>
-        <nav className="rail">
-          {visiveis.map(({ id, nome, Icone }) => (
-            <button
-              key={id}
-              className="rail-item"
-              aria-current={v.lente === id}
-              title={nome}
-              onClick={() => v.setLente(id)}
-            >
-              <Icone />
-              <span>{nome}</span>
-            </button>
-          ))}
+      <div className="shell" data-lente={v.lente}>
+        {/*
+          * A sidebar única do redesign.
+          *
+          * Era um trilho de ícones mais uma coluna de abas da área aberta. Agora
+          * é uma coluna só: cada área é um item, e a área aberta desdobra as
+          * abas dela logo abaixo. As outras ficam recolhidas — abertas todas,
+          * a lista não caberia numa tela de notebook.
+          */}
+        <aside className="sidebar-app">
+          <div className="sb-marca">Cortex</div>
+          <nav className="sb-nav" aria-label="Áreas do Cortex">
+            {visiveis.map(({ id, nome, Icone }) => {
+              const abas = SUBS[id]
+              const ativa = v.lente === id
+              const aberta = abertas.includes(id)
+              return (
+                <div key={id} className="sb-grupo" data-area={id} data-com-abas={abas ? 'true' : undefined}>
+                  <button
+                    className="sb-item"
+                    data-ativa={ativa}
+                    aria-current={ativa && !abas ? 'page' : undefined}
+                    aria-expanded={abas ? aberta : undefined}
+                    // Área com abas só abre e fecha; sem abas, é a própria tela.
+                    onClick={() => (abas ? alternarArea(id) : v.setLente(id))}
+                  >
+                    <Icone size={17} />
+                    <span>{nome}</span>
+                    {abas && <span className="sb-seta" aria-hidden="true">▸</span>}
+                  </button>
+                  {abas && aberta && (
+                    <div className="sb-subs">
+                      {abas.map(s => (
+                        <button
+                          key={s.id}
+                          className="sb-sub"
+                          aria-current={ativa && v.sub === s.id ? 'page' : undefined}
+                          onClick={() => {
+                            // `setLente` volta a aba para o panorama; a aba
+                            // escolhida vem logo depois e é a que fica.
+                            if (!ativa) v.setLente(id)
+                            v.setSub(s.id)
+                            v.fechar()
+                          }}
+                        >
+                          {s.nome}
+                          {/* O cadeado diz qual aba pede senha antes de a pessoa
+                              clicar — depois que a tranca aparece já é tarde
+                              para escolher outra aba. */}
+                          {(() => {
+                            const sa = subAreaDaAba(id, s.id)
+                            return sa && v.config.paineisTrancados.includes(sa.pasta)
+                              ? <span className="subnav-cadeado" aria-label="trancada">🔒</span>
+                              : null
+                          })()}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </nav>
           <button
-            className="rail-item rail-rodape"
+            className="sb-item sb-rodape"
             title={
               falhasSincSeguidas >= LIMIAR_ALERTA_SYNC
                 ? 'Configurações — a sincronização com o celular está falhando'
@@ -330,42 +392,25 @@ export function App() {
             }
             onClick={() => setConfigurando(true)}
           >
-            <IconeConfig />
+            <IconeConfig size={17} />
+            <span>Configurações</span>
             {falhasSincSeguidas >= LIMIAR_ALERTA_SYNC && (
               <span className="rail-alerta" aria-hidden="true" />
             )}
-            <span>Configurações</span>
           </button>
-        </nav>
-
-        {subs && (
-          <aside className="subnav">
-            <div className="lente-nome">{lenteAtual?.nome}</div>
-            {subs.map(s => (
-              <button
-                key={s.id}
-                className="subnav-item"
-                aria-current={v.sub === s.id}
-                onClick={() => { v.setSub(s.id); v.fechar() }}
-              >
-                {s.nome}
-                {/* O cadeado diz qual aba pede senha antes de a pessoa clicar.
-                    Sem ele, a única pista seria a tranca aparecendo — e aí já
-                    é tarde para escolher outra aba. */}
-                {(() => {
-                  const sa = subAreaDaAba(v.lente, s.id)
-                  return sa && v.config.paineisTrancados.includes(sa.pasta)
-                    ? <span className="subnav-cadeado" aria-label="trancada">🔒</span>
-                    : null
-                })()}
-              </button>
-            ))}
-          </aside>
-        )}
+        </aside>
 
         <main className="main">
           <div className="topo">
-            <span className="caminho">{lenteAtual?.nome}</span>
+            <span className="caminho">
+              <strong>{lenteAtual?.nome}</strong>
+              {subs && (
+                <>
+                  <span className="caminho-sep" aria-hidden="true">/</span>
+                  {subs.find(s => s.id === v.sub)?.nome}
+                </>
+              )}
+            </span>
             <div className="topo-dir">
               <button className="btn-fantasma" onClick={() => setPaleta(true)}>
                 Buscar <kbd>Ctrl K</kbd>

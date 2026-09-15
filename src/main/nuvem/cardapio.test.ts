@@ -1016,4 +1016,15 @@ describe('data comemorativa no cardapio', () => {
     expect(json).not.toContain('SEGREDO-OBSERVACAO')
     expect(json).not.toContain('SEGREDO-PESSOA')
   })
+
+  it('no aniversario sobe so o nome de quem e, e nada mais da nota', () => {
+    // Excecao aprovada pelo dono em 15/09/2026: o celular mostra de quem e o
+    // aniversario. Continua valendo a lista branca para o resto.
+    const c = montarCardapio([aniversario({
+      dia: 20, mes: 9, ano: 1970, oque: 'aniversário',
+      observacao: 'SEGREDO-OBSERVACAO', pessoa: 'Juliana'
+    })], HOJE, [])
+    expect(c[0].detalhe).toMatchObject({ quem: 'Juliana' })
+    expect(JSON.stringify(c)).not.toContain('SEGREDO-OBSERVACAO')
+  })
 })

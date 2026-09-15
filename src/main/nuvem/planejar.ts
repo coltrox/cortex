@@ -160,6 +160,17 @@ function oqueDaComemorativa(v: unknown): string | undefined {
   return (OQUE_COMEMORATIVA as readonly string[]).includes(o) ? o : undefined
 }
 
+/**
+ * De quem é a data comemorativa — o nome escrito no celular.
+ *
+ * Texto livre vindo de fora: só escalar, sem quebra de linha nem colchetes
+ * (que virariam um `[[link]]` torto na nota), e no máximo 80 caracteres.
+ */
+function quemDaComemorativa(v: unknown): string | undefined {
+  const quem = txt(v).replace(/[\r\n[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
+  return quem || undefined
+}
+
 export function planejar(evento: Evento): Operacao[] {
   const { tipo, dia, dados } = evento
 
@@ -535,6 +546,12 @@ export function planejar(evento: Evento): Operacao[] {
           if (oque) campos.oque = oque
           else if (dados.oque === null) campos.oque = null
         }
+        // De quem é a data: vira o campo `pessoa` da nota, e `null` o tira.
+        if ('quem' in dados) {
+          const quem = quemDaComemorativa(dados.quem)
+          if (quem) campos.pessoa = quem
+          else if (dados.quem === null) campos.pessoa = null
+        }
         if (Object.keys(campos).length === 0) return []
         return [{ acao: 'marcar', path, tiposPermitidos: ['data-comemorativa'], campos }]
       }
@@ -616,7 +633,8 @@ export function planejar(evento: Evento): Operacao[] {
             // O ano só entra quando pode ser um começo: de 1900 até o dia do
             // evento. Ver `anoDeOrigem`.
             ano: anoDaComemorativa(dados, anoDaData, mes, diaDoMes, dia),
-            oque: oqueDaComemorativa(dados.oque)
+            oque: oqueDaComemorativa(dados.oque),
+            pessoa: quemDaComemorativa(dados.quem)
           })
         }]
       }

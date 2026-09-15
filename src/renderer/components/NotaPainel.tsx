@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { NoteComCampos } from '../tipos'
 import type { Link, Backlink } from '../useVault'
 import { Markdown } from './Markdown'
-import { corpoAlinhado, camposExibiveis, textoDoCampo, type CampoExibido } from '../dados'
+import { corpoAlinhado, semDependenciasDaRede, camposExibiveis, textoDoCampo, type CampoExibido } from '../dados'
 
 /**
  * A nota aberta.
@@ -192,7 +192,10 @@ export function NotaPainel({
             />
           ) : (
             <Markdown
-              texto={corpoAlinhado(conteudo)}
+              // Sem a seção "Dependências da Rede": ela já aparece na lateral
+              // (a pedido do dono). As linhas viram vazias, e não somem, para
+              // o número de cada linha continuar batendo com o arquivo.
+              texto={semDependenciasDaRede(corpoAlinhado(conteudo))}
               aoAbrirLink={aoAbrirNome}
               aoMarcarTarefa={marcarTarefa}
               // A pasta da nota vai junto porque o caminho escrito nela é

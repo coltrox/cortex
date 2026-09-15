@@ -19,6 +19,16 @@ export function LenteVida({
 }: PropsLente) {
   const [catCompra, setCatCompra] = useState<string | null>(null)
   const [verSenha, setVerSenha] = useState<string | null>(null)
+  /** A conta cuja senha acabou de ser copiada — o botão diz "copiada" por um instante. */
+  const [copiada, setCopiada] = useState<string | null>(null)
+
+  /** Copia a senha sem abrir a nota nem mostrar a senha na tela. */
+  const copiarSenha = (path: string, senha: string): void => {
+    void navigator.clipboard.writeText(senha).then(() => {
+      setCopiada(path)
+      setTimeout(() => setCopiada(c => (c === path ? null : c)), 1500)
+    }).catch(() => window.alert('não consegui copiar a senha'))
+  }
   const [buscaConta, setBuscaConta] = useState('')
 
   const objetivos = notas.filter(n => n.tipo === 'objetivo')
@@ -48,12 +58,14 @@ export function LenteVida({
       txt(c.campos.usuario).toLowerCase().includes(q)
   })
 
-  /** Só uma prioridade por vez: duas não são prioridade, e o Hoje só cabe uma. */
+  /**
+   * Marca ou desmarca a prioridade de uma meta.
+   *
+   * Era uma por vez — marcar uma desmarcava as outras, porque o Hoje só tinha
+   * lugar para um destaque. O dono pediu mais de uma, e o Hoje agora lista
+   * todas na lateral; então cada meta decide só por si.
+   */
   const priorizar = (path: string, jaEra: boolean): void => {
-    for (const outro of objetivos) {
-      if (outro.path === path) continue
-      if (outro.campos.prioridade === true) aoAlterar(outro.path, { prioridade: null })
-    }
     aoAlterar(path, { prioridade: jaEra ? null : true })
   }
 
@@ -71,12 +83,26 @@ export function LenteVida({
             <Cartao rotulo="Contas guardadas" valor={String(contas.length)} />
           </div>
 
-          <Secao nome="Metas" acao="Meta" aoClicar={() => aoAdicionar('objetivo')} />
-          <ListaNotas notas={objetivos} aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
-            vazio="Nenhuma meta escrita." hoje={hoje} comPrazo />
+          <div className="grade-2">
+            <section className="col">
+              <Secao nome="Metas" acao="Meta" aoClicar={() => aoAdicionar('objetivo')} />
+              <ListaNotas notas={objetivos} aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
+                vazio="Nenhuma meta escrita." hoje={hoje} comPrazo />
 
-          <h3 className="secao">Diário</h3>
-          <ListaNotas notas={diarios.slice(0, 10)} aoAbrir={aoAbrir} vazio="Nenhum dia registrado." />
+              <Secao nome="Para comprar" acao="Item" aoClicar={() => aoAdicionar('compra')} />
+              <ListaNotas notas={abertas.slice(0, 6)} aoAbrir={aoAbrir} aoEditar={aoEditar}
+                vazio="Nada na lista de compras." comTipo={false} />
+            </section>
+
+            <section className="col">
+              <Secao nome="Anotações recentes" acao="Anotação" aoClicar={() => aoAdicionar('anotacao')} />
+              <ListaNotas notas={anotacoes.slice(0, 6)} aoAbrir={aoAbrir} aoEditar={aoEditar}
+                vazio="Nenhuma anotação ainda." comTipo={false} />
+
+              <h3 className="secao">Diário</h3>
+              <ListaNotas notas={diarios.slice(0, 8)} aoAbrir={aoAbrir} vazio="Nenhum dia registrado." comTipo={false} />
+            </section>
+          </div>
         </>
       )}
 
@@ -236,6 +262,17 @@ export function LenteVida({
                           {revelada ? 'esconder' : 'ver'}
                         </button>
                       )}
+                      {/* Copiar direto da lista, sem abrir a nota e sem precisar
+                          revelar a senha na tela — pedido do dono. */}
+                      {senha && (
+                        <button
+                          className={copiada === c.path ? 'btn-mini ativo' : 'btn-mini'}
+                          title="Copiar a senha"
+                          onClick={e => { e.stopPropagation(); copiarSenha(c.path, senha) }}
+                        >
+                          {copiada === c.path ? 'copiada ✓' : 'copiar'}
+                        </button>
+                      )}
                     </span>
                   </Linha>
                 )
@@ -251,14 +288,31 @@ export function LenteVida({
           {pessoas.length === 0 ? (
             <Vazio>Ninguém cadastrado — nutricionista, médico e fisio entram aqui.</Vazio>
           ) : (
-            <div className="lista-notas">
-              {pessoas.map(p => (
-                <Linha key={p.path} aoAbrir={() => aoAbrir(p.path)}
-                  aoEditar={() => aoEditar(p)} aoExcluir={() => aoExcluir(p)}>
-                  <span className="linha-titulo">{p.title}</span>
-                  <span className="tipo">{txt(p.campos.papel)}</span>
-                  <span className="linha-valor">{txt(p.campos.telefone)}</span>
-                </Linha>
+            // Cartões, e não linhas: nome, papel e telefone numa linha só não
+            // cabiam — o nome virava "Adri…" e o telefone quebrava em três.
+            <div className="pessoas-grade">
+              {[...pessoas].sort((a, b) => a.title.localeCompare(b.title, 'pt-BR')).map(p => (
+                <div
+                  key={p.path}
+                  className="pessoa-card"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => aoAbrir(p.path)}
+                  onKeyDown={e => { if (e.key === 'Enter') aoAbrir(p.path) }}
+                >
+                  <div className="pessoa-topo">
+                    <span className="pessoa-avatar" aria-hidden="true">{p.title.slice(0, 1).toUpperCase()}</span>
+                    <strong className="pessoa-nome">{p.title}</strong>
+                    <span className="linha-acoes">
+                      <button className="btn-icone" title="Editar"
+                        onClick={e => { e.stopPropagation(); aoEditar(p) }}>✎</button>
+                      <button className="btn-icone perigo" title="Excluir"
+                        onClick={e => { e.stopPropagation(); aoExcluir(p) }}>×</button>
+                    </span>
+                  </div>
+                  {txt(p.campos.papel) && <div className="pessoa-papel">{txt(p.campos.papel)}</div>}
+                  {txt(p.campos.telefone) && <div className="pessoa-tel">{txt(p.campos.telefone)}</div>}
+                </div>
               ))}
             </div>
           )}

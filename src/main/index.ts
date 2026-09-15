@@ -164,7 +164,18 @@ function createWindow(): void {
     minWidth: 940,
     minHeight: 600,
     title: 'Cortex',
-    backgroundColor: '#FBFBFA',
+    backgroundColor: '#181818',
+    /*
+     * A barra de título é do app, e não do Windows.
+     *
+     * A barra nativa tinha a cor do sistema, um tom diferente do fundo do
+     * Cortex logo abaixo dela — o dono pediu que não houvesse essa emenda. Com
+     * `hidden` a barra some e os três botões (minimizar, maximizar, fechar)
+     * ficam desenhados por cima do topo do app, na cor que o tema mandar
+     * (ver o canal `janela:tema`). O CSS marca o topo como área de arrastar.
+     */
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#181818', symbolColor: '#999999', height: 40 },
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -195,6 +206,15 @@ function createWindow(): void {
     })
   }
 
+  // F11 alterna a tela cheia — em desenvolvimento e no app instalado. Sem a
+  // barra de menu do Electron o atalho não existia mais.
+  win.webContents.on('before-input-event', (evento, entrada) => {
+    if (entrada.type === 'keyDown' && entrada.key === 'F11') {
+      evento.preventDefault()
+      win?.setFullScreen(!win.isFullScreen())
+    }
+  })
+
   // Nada nesta janela pode navegar para fora nem abrir janela nova: o app é
   // local, e um link clicado dentro de uma nota abre no navegador do sistema.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -224,6 +244,25 @@ function createWindow(): void {
  * esquecesse de trocá-lo nos dois lugares.
  */
 ipcMain.handle('app:versao', async () => app.getVersion())
+
+/*
+ * A cor dos botões da janela acompanha o tema do app.
+ *
+ * O renderer é entrada hostil: ele não manda uma COR, manda um de dois nomes,
+ * e a cor sai desta tabela. Qualquer outro valor é ignorado.
+ */
+const CORES_BARRA = {
+  escuro: { color: '#181818', symbolColor: '#999999' },
+  claro:  { color: '#FBFBFA', symbolColor: '#555555' }
+} as const
+ipcMain.handle('janela:tema', async (_e, tema: unknown) => {
+  if (tema !== 'escuro' && tema !== 'claro') return
+  try {
+    win?.setTitleBarOverlay({ ...CORES_BARRA[tema], height: 40 })
+  } catch {
+    // Sem a sobreposição (outro sistema, janela fechando) não há o que pintar.
+  }
+})
 
 ipcMain.handle('vault:state', async () => {
   if (session.isOpen) return { root: session.vault.root, config: projetarConfigParaRenderer(session.config) }

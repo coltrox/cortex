@@ -157,6 +157,15 @@ body{
   -webkit-tap-highlight-color:transparent;
   -webkit-text-size-adjust:100%;
   overscroll-behavior-y:none;
+  /* Segurar o dedo num texto não seleciona nada: é app, e não página. O menu
+     de copiar do iPhone aparecia por cima dos botões. */
+  -webkit-user-select:none; user-select:none;
+  -webkit-touch-callout:none;
+}
+/* Onde se escreve, selecionar continua funcionando. */
+input, textarea, [contenteditable="true"]{
+  -webkit-user-select:text; user-select:text;
+  -webkit-touch-callout:default;
 }
 
 #raiz{

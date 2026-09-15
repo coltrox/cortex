@@ -158,6 +158,37 @@ export function textoDoCampo(valor: unknown): string {
  * Trocar as linhas do cabeçalho por vazio mantém o alinhamento sem mostrar o
  * YAML, e o split por `/\r\n|\n/` cobre CRLF, que já mordeu este projeto.
  */
+/**
+ * Tira da LEITURA a seção "Dependências da Rede" de uma nota.
+ *
+ * Os links dela continuam no arquivo — são eles que ligam a nota na Rede
+ * neural e na lateral "Dependências da rede" —, mas repetidos no corpo eram a
+ * mesma lista duas vezes na tela. O título e os itens da lista abaixo dele
+ * (e um `---` logo em seguida) viram linhas vazias, em vez de sumir: marcar
+ * uma tarefa usa o número da linha, e ele tem de continuar batendo com o
+ * arquivo.
+ */
+export function semDependenciasDaRede(texto: string): string {
+  const linhas = texto.split(/\r\n|\n/)
+  const titulo = /^#{1,6}\s*(?:\S+\s+)?depend[eê]ncias da rede\s*$/i
+  for (let i = 0; i < linhas.length; i++) {
+    if (!titulo.test(linhas[i].trim())) continue
+    linhas[i] = ''
+    let j = i + 1
+    while (j < linhas.length) {
+      const l = linhas[j].trim()
+      if (l === '' || /^[-*+]\s+/.test(l) || /^-{3,}$/.test(l)) {
+        const regua = /^-{3,}$/.test(l)
+        linhas[j] = ''
+        j++
+        if (regua) break
+      } else break
+    }
+    i = j - 1
+  }
+  return linhas.join('\n')
+}
+
 export function corpoAlinhado(raw: string): string {
   const linhas = raw.split(/\r\n|\n/)
   if (linhas[0]?.trim() !== '---') return raw
@@ -302,6 +333,11 @@ export type DataComemorativa = {
   oque: string
   /** Quantos anos faz nessa ocorrência — `null` sem o ano de origem. */
   anos: number | null
+  /**
+   * De quem é a data: o campo `pessoa` da data comemorativa, ou o nome da
+   * ficha no aniversário de uma pessoa cadastrada. Vazio quando não se disse.
+   */
+  pessoa: string
 }
 
 /**
@@ -323,15 +359,15 @@ export function datasComemorativas(
   const out: DataComemorativa[] = []
 
   const juntar = (
-    n: NoteComCampos, titulo: string, d: unknown, m: unknown, ano: unknown, oque: string
+    n: NoteComCampos, titulo: string, d: unknown, m: unknown, ano: unknown, oque: string, pessoa: string
   ): void => {
     const quando = proximaOcorrencia(num(d), num(m), hoje)
     if (!quando || quando > limite) return
-    out.push({ path: n.path, titulo, quando, oque, anos: anosCompletados(ano, quando) })
+    out.push({ path: n.path, titulo, quando, oque, anos: anosCompletados(ano, quando), pessoa })
   }
 
   for (const n of notas.filter(x => x.tipo === 'data-comemorativa')) {
-    juntar(n, n.title, n.campos.dia, n.campos.mes, n.campos.ano, txt(n.campos.oque))
+    juntar(n, n.title, n.campos.dia, n.campos.mes, n.campos.ano, txt(n.campos.oque), txt(n.campos.pessoa))
   }
   for (const n of notas.filter(x => x.tipo === 'pessoa')) {
     // Sem dia e mês a pessoa simplesmente não tem aniversário cadastrado —
@@ -340,7 +376,7 @@ export function datasComemorativas(
     juntar(
       n, `Aniversário — ${n.title}`,
       n.campos.nascimento_dia, n.campos.nascimento_mes, n.campos.nascimento_ano,
-      'aniversário'
+      'aniversário', n.title
     )
   }
 

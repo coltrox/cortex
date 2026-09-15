@@ -37,6 +37,8 @@ export type EdicaoItem = {
   oque?: string
   /** O aniversário de uma pessoa cadastrada: a data vai para a ficha dela. */
   pessoa?: boolean
+  /** Data comemorativa: de quem é (o campo `pessoa` da nota). */
+  quem?: string
 }
 
 const MESES = [
@@ -160,6 +162,9 @@ export function NovoItem(p: {
   const [mesC, setMesC] = useState(() => e?.mes ?? Number((e?.data || diaLocal()).slice(5, 7)))
   const [anoC, setAnoC] = useState(e?.ano !== undefined ? String(e.ano) : '')
   const [oqueC, setOqueC] = useState(e?.oque && e.oque !== 'outro' ? e.oque : '')
+  /** De quem é o aniversário — só pedido quando a data é um aniversário. */
+  const [quemC, setQuemC] = useState(e?.quem ?? '')
+  const ehAniversario = oqueC === 'aniversário'
   const [erro, setErro] = useState<string | null>(null)
 
   const hoje = diaLocal()
@@ -180,6 +185,8 @@ export function NovoItem(p: {
             // dia, mês e ano, e não uma data que a nota não lê.
             ? {
               titulo, ...dadosComemorativa(quando, hoje), comemorativa: true,
+              // De quem é: vale só no aniversário; trocar para outro tipo tira.
+              quem: ehAniversario ? (quemC.trim() || null) : (e.quem ? null : undefined),
               // Aniversário de pessoa: a marca leva a data para a ficha dela,
               // e "o que é" não viaja — aniversário é aniversário.
               ...(e.pessoa ? { pessoa: true, oque: undefined } : {})
@@ -192,7 +199,9 @@ export function NovoItem(p: {
       } else if (p.tipo === 'tarefa') {
         p.envio.registrar(eventoTarefaNova(titulo, data, { materia }, hoje))
       } else if (comemorativa) {
-        p.envio.registrar(eventoDataComemorativa(titulo, quando, hoje))
+        p.envio.registrar(eventoDataComemorativa(
+          titulo, { ...quando, quem: ehAniversario ? quemC : undefined }, hoje
+        ))
       } else {
         p.envio.registrar(eventoCompromisso(titulo, data, {
           hora: hora || undefined, local: local || undefined
@@ -249,6 +258,10 @@ export function NovoItem(p: {
               <Selecao rotulo="O que é" opcoes={OQUE_OPCOES.map(o => o[1])}
                 valor={(OQUE_OPCOES.find(o => o[0] === oqueC) ?? OQUE_OPCOES[0])[1]}
                 aoMudar={nome => setOqueC(OQUE_OPCOES.find(o => o[1] === nome)?.[0] ?? '')} />
+            )}
+            {/* Aniversário pergunta de quem é: é esse nome que o cartão mostra. */}
+            {!e?.pessoa && ehAniversario && (
+              <Campo rotulo="De quem é o aniversário" valor={quemC} aoMudar={setQuemC} dica="Clara" />
             )}
             <div className="par-campos">
               <CampoNumero rotulo="Dia" valor={diaC} dica="12"
