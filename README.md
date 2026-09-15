@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**58 arquivos, 1102 testes**, rodando em ~23 s.
+**59 arquivos, 1109 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -407,9 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
-`v2.2.0` — o Novo projeto da lente Dev escolhe a linguagem numa lista com busca
-(JavaScript/TypeScript, Python, Java, C#, C++, C, Go, Rust, Kotlin, PHP, Ruby e
-Dart) e cria frontend, backend, desktop ou mobile. A 2.0.0 foi a
+`v2.3.0` — redesign do app de computador: tema escuro próprio, fontes Inter e
+DM Serif Display embutidas, sidebar única, página Hoje em duas trilhas e barra
+de título integrada (F11 para tela cheia). O Novo projeto da lente Dev escolhe a
+linguagem numa lista com busca. A 2.0.0 foi a
 primeira versão para outras pessoas usarem. Funciona, é usado todo
 dia, e ainda tem as arestas de um projeto de uma pessoa só: sem CI, sem
 instalador para macOS/Linux, sem assinatura de código, sem migrações versionadas
