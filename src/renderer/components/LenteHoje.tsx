@@ -396,7 +396,12 @@ export function LenteHoje({
                 {comemorativas.map(d => (
                   <Linha key={`${d.path}:${d.quando}`} aoAbrir={() => aoAbrir(d.path)}>
                     <span className="pin">🎂</span>
-                    <span className="linha-titulo">{d.titulo}</span>
+                    {/* O nome da pessoa, e não "Aniversário — …": na lateral
+                        estreita o prefixo comia o nome e só sobrava "Aniversári…".
+                        O bolo já diz que é aniversário. */}
+                    <span className="linha-titulo" title={d.titulo}>
+                      {d.titulo.replace(/^Aniversário\s+—\s+/, '')}
+                    </span>
                     <span className="linha-valor">
                       {d.anos === null ? '' : d.oque === 'falecimento'
                         ? `há ${d.anos} anos`

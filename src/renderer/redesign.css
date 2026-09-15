@@ -676,6 +676,11 @@ body {
   border-color: color-mix(in srgb, var(--acento) 55%, transparent);
 }
 
+/* A lateral da Hoje um tico mais larga, e o nome quebra linha em vez de virar
+   "Aniversári…" — pedido do dono para enxergar de quem é cada data. */
+.hoje-layout { grid-template-columns: minmax(0, 1fr) clamp(340px, 33%, 430px); }
+.hoje-lado .linha-titulo { white-space: normal; overflow: visible; line-height: 1.35; }
+
 /* ---------- Barra de título integrada ---------- */
 
 /* A barra nativa saiu (ver `titleBarStyle` no processo principal). O topo do
