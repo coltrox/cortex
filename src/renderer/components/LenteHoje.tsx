@@ -81,14 +81,20 @@ export function LenteHoje({
   const rotinasDeHojeFeitas = rotinas.filter(r => rotinasFeitas.includes(r.title)).length
   const pctTarefas = rotinas.length ? Math.round((rotinasDeHojeFeitas / rotinas.length) * 100) : 0
   const anotacoes = anotacoesDoDia(notas, hoje)
-  const comemorativas = datasComemorativas(notas, hoje)
+  // As dos próximos dois meses — e pelo menos as quatro próximas, mesmo que
+  // caiam mais longe: pedido do dono, uma só na lista parecia vazio.
+  const datasDoAno = datasComemorativas(notas, hoje, 366)
+  const noPeriodo = datasDoAno.filter(d => diasAte(d.quando, hoje) <= 60)
+  const comemorativas = noPeriodo.length >= 4 ? noPeriodo : datasDoAno.slice(0, 4)
 
   const compromissosHoje = doDia.filter(n =>
     n.tipo === 'evento' || n.tipo === 'consulta' || n.tipo === 'prova')
   const proximos = notas
     .filter(n => n.date && n.date > hoje &&
       (n.tipo === 'evento' || n.tipo === 'consulta' || n.tipo === 'tarefa'))
-    .sort(porData).slice(0, 6)
+    // Os quatro próximos: a lateral é para bater o olho, não para a agenda
+    // inteira — essa mora na Agenda.
+    .sort(porData).slice(0, 4)
   const provas = notas.filter(n => n.tipo === 'prova' && n.date && n.date >= hoje).sort(porData)
 
   const lendo = notas.filter(n => n.tipo === 'livro' && txt(n.campos.status) === 'lendo')
@@ -222,7 +228,8 @@ export function LenteHoje({
                             : [...rotinasFeitas, r.title]
                         })} />
                       <span className="linha-titulo" data-feito={feito}>{r.title}</span>
-                      <span className="tipo">{txt(r.campos.quando)}</span>
+                      {/* Sem período, sem etiqueta: vazia ela virava um traço cinza. */}
+                      {txt(r.campos.quando) && <span className="tipo">{txt(r.campos.quando)}</span>}
                     </Linha>
                   )
                 })}
@@ -251,7 +258,7 @@ export function LenteHoje({
                         })} />
                       <span className="linha-titulo" data-feito={feito}>{s.title}</span>
                       <span className="linha-valor">{txt(s.campos.dose)}</span>
-                      <span className="tipo">{txt(s.campos.quando)}</span>
+                      {txt(s.campos.quando) && <span className="tipo">{txt(s.campos.quando)}</span>}
                     </Linha>
                   )
                 })}
@@ -383,7 +390,7 @@ export function LenteHoje({
             <Secao nome="Datas comemorativas" acao="Data"
               aoClicar={() => aoAdicionar('data-comemorativa')} />
             {comemorativas.length === 0 ? (
-              <Vazio>Nenhuma nos próximos dois meses.</Vazio>
+              <Vazio>Nenhuma data comemorativa cadastrada.</Vazio>
             ) : (
               <div className="lista-notas">
                 {comemorativas.map(d => (

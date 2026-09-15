@@ -158,6 +158,37 @@ export function textoDoCampo(valor: unknown): string {
  * Trocar as linhas do cabeçalho por vazio mantém o alinhamento sem mostrar o
  * YAML, e o split por `/\r\n|\n/` cobre CRLF, que já mordeu este projeto.
  */
+/**
+ * Tira da LEITURA a seção "Dependências da Rede" de uma nota.
+ *
+ * Os links dela continuam no arquivo — são eles que ligam a nota na Rede
+ * neural e na lateral "Dependências da rede" —, mas repetidos no corpo eram a
+ * mesma lista duas vezes na tela. O título e os itens da lista abaixo dele
+ * (e um `---` logo em seguida) viram linhas vazias, em vez de sumir: marcar
+ * uma tarefa usa o número da linha, e ele tem de continuar batendo com o
+ * arquivo.
+ */
+export function semDependenciasDaRede(texto: string): string {
+  const linhas = texto.split(/\r\n|\n/)
+  const titulo = /^#{1,6}\s*(?:\S+\s+)?depend[eê]ncias da rede\s*$/i
+  for (let i = 0; i < linhas.length; i++) {
+    if (!titulo.test(linhas[i].trim())) continue
+    linhas[i] = ''
+    let j = i + 1
+    while (j < linhas.length) {
+      const l = linhas[j].trim()
+      if (l === '' || /^[-*+]\s+/.test(l) || /^-{3,}$/.test(l)) {
+        const regua = /^-{3,}$/.test(l)
+        linhas[j] = ''
+        j++
+        if (regua) break
+      } else break
+    }
+    i = j - 1
+  }
+  return linhas.join('\n')
+}
+
 export function corpoAlinhado(raw: string): string {
   const linhas = raw.split(/\r\n|\n/)
   if (linhas[0]?.trim() !== '---') return raw

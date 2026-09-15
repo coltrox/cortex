@@ -603,8 +603,7 @@ body {
 .hoje-lado > .secao-linha:first-child,
 .hoje-lado > .secao:first-child { margin-top: 40px; }
 
-.hoje-lado .secao-linha,
-.hoje-lado .secao { margin-top: 36px; }
+.hoje-lado > .bloco { margin-top: 14px; }
 /* Na lateral estreita a coluna fixa de data (92px) comia metade da linha. */
 .hoje-lado .linha-data { width: auto; min-width: 58px; }
 .hoje-lado .linha { gap: 10px; }
@@ -653,6 +652,87 @@ body {
 .sb-item[data-ativa="true"] .sb-seta { transform: none; }
 .sb-item[aria-expanded="true"] .sb-seta { transform: rotate(90deg); }
 .sb-grupo[data-com-abas="true"] > .sb-item[data-ativa="true"] { color: var(--text); }
+
+/* ---------- Correções da revisão do dono ---------- */
+
+/* O título DENTRO da fileira de seção nunca tem margem própria. Uma regra da
+   lateral dava 36px ao título e não ao botão, e o "+ Data" ficava lá em cima
+   com "Datas comemorativas" bem abaixo dele. */
+.secao-linha > .secao.secao { margin: 0; padding: 0; }
+
+/* Menos ar no topo de cada bloco. */
+.bloco { padding: 2px 18px 14px; }
+.bloco > .secao-linha:first-child,
+.bloco > .secao:first-child { margin-top: 12px; }
+
+/* Na lateral o prazo ("em 24 dias") já diz quando é; a data ISO só cortava o
+   nome do evento. */
+.hoje-lado .linha-data { display: none; }
+
+/* O filtro escolhido: tom da área, e não um bloco branco. */
+.chip[aria-pressed="true"] {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--acento) 55%, transparent);
+}
+
+/* ---------- Barra de título integrada ---------- */
+
+/* A barra nativa saiu (ver `titleBarStyle` no processo principal). O topo do
+   app e a marca da sidebar passam a arrastar a janela, e os botões da janela
+   ficam por cima do canto direito do topo — o padding abre lugar para eles. */
+.topo, .sb-marca { -webkit-app-region: drag; }
+.topo button, .topo input, .topo a { -webkit-app-region: no-drag; }
+.topo {
+  min-height: 52px;
+  padding-right: max(clamp(28px, 3.2vw, 56px),
+    calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 16px));
+}
+
+/* ---------- Pessoas em cartões ---------- */
+
+.pessoas-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+.pessoa-card {
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio-2);
+  cursor: pointer;
+  transition: background var(--dur) var(--curva), border-color var(--dur) var(--curva);
+}
+.pessoa-card:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.pessoa-topo { display: flex; align-items: center; gap: 10px; }
+.pessoa-avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--acento);
+  background: color-mix(in srgb, var(--acento) 14%, transparent);
+}
+.pessoa-nome {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pessoa-card .linha-acoes { opacity: 0; transition: opacity var(--dur) var(--curva); }
+.pessoa-card:hover .linha-acoes,
+.pessoa-card:focus-within .linha-acoes { opacity: 1; }
+.pessoa-papel { margin-top: 10px; font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
+.pessoa-tel { margin-top: 6px; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 
 /* ---------- Nota aberta ---------- */
 

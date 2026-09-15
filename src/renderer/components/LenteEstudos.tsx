@@ -134,9 +134,11 @@ export function LenteEstudos({
         <>
           <Secao nome="Conteúdos" acao="Conteúdo" aoClicar={() => aoAdicionar('materia')} />
           <p className="lente-sub">
-            Clique para abrir o resumo aqui mesmo — com fórmulas, tabelas e tudo
-            que você escrever em markdown. A ordem é a da revisão: reta final no
-            topo, depois o que você domina menos.
+            Os conteúdos e os resumos podem ser montados pelo agente de IA que
+            tem acesso ao seu Cortex, como o Claude Code, se você usar um — ou por
+            você mesmo, em <strong>+ Conteúdo</strong>. Clique num conteúdo para
+            abrir o resumo aqui. A ordem é a da revisão: reta final no topo,
+            depois o que você domina menos.
           </p>
 
           <div className="chips">

@@ -113,6 +113,8 @@ declare global {
       invoke(canal: string, payload: unknown): Promise<unknown>
       /** A versão do app, lida do `package.json` empacotado pelo main. */
       versaoDoApp(): Promise<string>
+      /** Pinta a barra de título (os botões da janela) no tema do app. */
+      temaDaJanela(tema: 'claro' | 'escuro'): Promise<void>
       estadoVault(): Promise<EstadoVault>
       pickVault(): Promise<EstadoVault | null>
       criarVault(): Promise<EstadoVault | null>

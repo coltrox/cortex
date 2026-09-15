@@ -27,6 +27,11 @@ const api = {
     return ipcRenderer.invoke('app:versao')
   },
 
+  /** Pinta os botões da janela no tema do app. Só aceita os dois nomes. */
+  temaDaJanela(tema: 'claro' | 'escuro'): Promise<void> {
+    return ipcRenderer.invoke('janela:tema', tema)
+  },
+
   /** Estado atual — usado na abertura, quando o app reabre o último vault sozinho. */
   estadoVault(): Promise<EstadoVault> {
     return ipcRenderer.invoke('vault:state')

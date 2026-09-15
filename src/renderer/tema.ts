@@ -58,6 +58,10 @@ export function aplicarTema(t: Tema): void {
   const escuro = t === 'escuro' || (t === 'sistema' && sistemaEscuro())
   if (escuro) document.documentElement.dataset.tema = 'escuro'
   else delete document.documentElement.dataset.tema
+  // Os botões da janela (minimizar, maximizar, fechar) ficam por cima do topo
+  // do app e precisam da mesma cor dele. Falha em silêncio: sem a ponte, só a
+  // cor dos botões fica para trás.
+  void window.vaultApi?.temaDaJanela?.(escuro ? 'escuro' : 'claro').catch(() => {})
 }
 
 /**
