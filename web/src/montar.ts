@@ -437,6 +437,8 @@ export function eventoItemEditado(
     oque?: string | null
     /** O aniversário de uma pessoa cadastrada: grava o nascimento na ficha dela. */
     pessoa?: boolean
+    /** Data comemorativa: de quem é, ou `null` para tirar o nome da nota. */
+    quem?: string | null
   },
   dia: string = diaLocal()
 ): Evento {
@@ -461,6 +463,9 @@ export function eventoItemEditado(
   // e é esse "não sei" que apaga da nota um ano apagado no formulário.
   if (campos.comemorativa === true && campos.ano !== undefined) dados.ano = campos.ano
   if (campos.comemorativa === true && campos.oque !== undefined) dados.oque = campos.oque
+  if (campos.comemorativa === true && campos.quem !== undefined) {
+    dados.quem = campos.quem === null ? null : campos.quem.trim() || null
+  }
   // Só `path` significa "nada a mudar" — e um evento que não muda nada é
   // uma escrita à toa no vault.
   if (Object.keys(dados).length < 2) throw new Error('nada foi alterado')
@@ -576,13 +581,18 @@ function dataIso(data: string, dia: string): string {
  */
 export function eventoDataComemorativa(
   titulo: string,
-  quando: { dia: number; mes: number; ano?: number; oque?: string },
+  quando: { dia: number; mes: number; ano?: number; oque?: string; quem?: string },
   dia: string = diaLocal()
 ): Evento {
   const nome = texto(titulo, 'de quem')
+  const quem = quando.quem?.trim()
   return validarEvento({
     tipo: 'compromisso', dia,
-    dados: { titulo: nome, ...dadosComemorativa(quando, dia), comemorativa: true }
+    dados: {
+      titulo: nome, ...dadosComemorativa(quando, dia), comemorativa: true,
+      // De quem é o aniversário — só viaja quando foi escrito.
+      ...(quem ? { quem } : {})
+    }
   })
 }
 

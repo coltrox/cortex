@@ -333,6 +333,11 @@ export type DataComemorativa = {
   oque: string
   /** Quantos anos faz nessa ocorrência — `null` sem o ano de origem. */
   anos: number | null
+  /**
+   * De quem é a data: o campo `pessoa` da data comemorativa, ou o nome da
+   * ficha no aniversário de uma pessoa cadastrada. Vazio quando não se disse.
+   */
+  pessoa: string
 }
 
 /**
@@ -354,15 +359,15 @@ export function datasComemorativas(
   const out: DataComemorativa[] = []
 
   const juntar = (
-    n: NoteComCampos, titulo: string, d: unknown, m: unknown, ano: unknown, oque: string
+    n: NoteComCampos, titulo: string, d: unknown, m: unknown, ano: unknown, oque: string, pessoa: string
   ): void => {
     const quando = proximaOcorrencia(num(d), num(m), hoje)
     if (!quando || quando > limite) return
-    out.push({ path: n.path, titulo, quando, oque, anos: anosCompletados(ano, quando) })
+    out.push({ path: n.path, titulo, quando, oque, anos: anosCompletados(ano, quando), pessoa })
   }
 
   for (const n of notas.filter(x => x.tipo === 'data-comemorativa')) {
-    juntar(n, n.title, n.campos.dia, n.campos.mes, n.campos.ano, txt(n.campos.oque))
+    juntar(n, n.title, n.campos.dia, n.campos.mes, n.campos.ano, txt(n.campos.oque), txt(n.campos.pessoa))
   }
   for (const n of notas.filter(x => x.tipo === 'pessoa')) {
     // Sem dia e mês a pessoa simplesmente não tem aniversário cadastrado —
@@ -371,7 +376,7 @@ export function datasComemorativas(
     juntar(
       n, `Aniversário — ${n.title}`,
       n.campos.nascimento_dia, n.campos.nascimento_mes, n.campos.nascimento_ano,
-      'aniversário'
+      'aniversário', n.title
     )
   }
 

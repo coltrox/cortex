@@ -187,6 +187,14 @@ describe('agenda e estudos', () => {
       .toEqual({ path: 'Agenda/Dentista.md' })
   })
 
+  it('data comemorativa leva de quem e, e editar pode tirar', () => {
+    expect(eventoDataComemorativa('Meu niver', { dia: 10, mes: 12, oque: 'aniversário', quem: ' Pedro ' }, DIA2).dados)
+      .toMatchObject({ quem: 'Pedro' })
+    expect(eventoDataComemorativa('Namoro', { dia: 12, mes: 1 }, DIA2).dados).not.toHaveProperty('quem')
+    expect(eventoItemEditado('Agenda/x.md', { titulo: 'X', data: '2026-01-12', comemorativa: true, quem: '' }, DIA2).dados)
+      .toMatchObject({ quem: null })
+  })
+
   it('apagar aniversario de pessoa leva a marca, que tira so as datas', () => {
     expect(eventoItemApagado('Vida/Clara.md', DIA2, { aniversario: true }).dados)
       .toEqual({ path: 'Vida/Clara.md', aniversario: true })

@@ -37,6 +37,14 @@ function porExtenso(iso: string): string {
   return `${DIA_EXTENSO[new Date(a, m - 1, d).getDay()]}, ${d} de ${MESES[m - 1]}`
 }
 
+/** O ícone de cada tipo de data comemorativa. O que não está aqui usa 📅. */
+const ICONE_DATA: Record<string, string> = {
+  'aniversário': '🎂',
+  casamento: '💍',
+  formatura: '🎓',
+  falecimento: '🕯️'
+}
+
 /** "Bom dia", "Boa tarde" ou "Boa noite", pela hora do computador. */
 function cumprimento(): string {
   const h = new Date().getHours()
@@ -395,17 +403,22 @@ export function LenteHoje({
               <div className="lista-notas">
                 {comemorativas.map(d => (
                   <Linha key={`${d.path}:${d.quando}`} aoAbrir={() => aoAbrir(d.path)}>
-                    <span className="pin">🎂</span>
-                    {/* O nome da pessoa, e não "Aniversário — …": na lateral
-                        estreita o prefixo comia o nome e só sobrava "Aniversári…".
-                        O bolo já diz que é aniversário. */}
+                    {/* O ícone diz o que a data é: bolo para aniversário (da
+                        pessoa cadastrada ou da data marcada como aniversário), e
+                        um próprio para cada outro tipo. */}
+                    <span className="pin" aria-hidden="true">{ICONE_DATA[d.oque] ?? '📅'}</span>
+                    {/* O nome, e não "Aniversário — …": na lateral estreita o
+                        prefixo comia o nome e só sobrava "Aniversári…". */}
                     <span className="linha-titulo" title={d.titulo}>
-                      {d.titulo.replace(/^Aniversário\s+—\s+/, '')}
+                      {/* Aniversário com pessoa dita: o nome dela, por padrão. */}
+                      {d.oque === 'aniversário' && d.pessoa
+                        ? d.pessoa
+                        : d.titulo.replace(/^Aniversário\s+—\s+/, '')}
                     </span>
                     <span className="linha-valor">
                       {d.anos === null ? '' : d.oque === 'falecimento'
-                        ? `há ${d.anos} anos`
-                        : `faz ${d.anos}`}
+                        ? `há ${d.anos} ${d.anos === 1 ? 'ano' : 'anos'}`
+                        : `faz ${d.anos} ${d.anos === 1 ? 'ano' : 'anos'}`}
                     </span>
                     <Prazo data={d.quando} hoje={hoje} feito={false} />
                   </Linha>

@@ -374,6 +374,16 @@ export function montarCardapio(
         comemorativa: true,
         oque: txt(n.campos.oque),
         /*
+         * De quem é o aniversário (o campo `pessoa` da nota).
+         *
+         * SÓ no aniversário, e só o nome — exceção à "Vida fica local"
+         * aprovada pelo dono em 15/09/2026, a mesma das pessoas cadastradas.
+         * Casamento, formatura e o resto guardam o campo só no computador.
+         */
+        quem: txt(n.campos.oque) === 'aniversário'
+          ? txt(n.campos.pessoa).trim() || undefined
+          : undefined,
+        /*
          * Dia, mês e o ano de começo, crus, para o formulário de edição.
          *
          * A `data` acima é a PRÓXIMA ocorrência, e dela não se tira o começo:

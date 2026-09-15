@@ -139,6 +139,15 @@ export function Agenda(p: {
     return oque && oque !== 'outro' ? oque : 'Data comemorativa'
   }
 
+  /**
+   * O nome que o cartão mostra: no aniversário com "de quem" preenchido, o
+   * nome da pessoa — é por ele que se reconhece a data de relance.
+   */
+  const nomeDe = (i: ItemCardapio): string =>
+    i.detalhe.comemorativa === true && txt(i.detalhe.oque) === 'aniversário' && txt(i.detalhe.quem)
+      ? txt(i.detalhe.quem)
+      : i.nome
+
   const faltaDe = (i: ItemCardapio): string => {
     const quando = faltam(dataDe(i), dia)
     const anos = i.detalhe.anos
@@ -164,7 +173,8 @@ export function Agenda(p: {
       dia: inteiro(i.detalhe.dia) ?? Number(base.data.slice(8, 10)),
       mes: inteiro(i.detalhe.mes) ?? Number(base.data.slice(5, 7)),
       ano: inteiro(i.detalhe.ano),
-      oque: txt(i.detalhe.oque) || undefined
+      oque: txt(i.detalhe.oque) || undefined,
+      quem: txt(i.detalhe.quem) || undefined
     }
   }
 
@@ -630,7 +640,7 @@ export function Agenda(p: {
                   ? rotuloComemorativa(i)
                   : ROTULO.compromisso}
               </span>
-              <div className="item-nome">{i.nome}</div>
+              <div className="item-nome">{nomeDe(i)}</div>
               <Quando
                 data={dataCurta(dataDe(i), dia)}
                 falta={faltaDe(i)}
@@ -724,7 +734,7 @@ export function Agenda(p: {
                 ? rotuloComemorativa(destaque.item)
                 : ROTULO[destaque.tipo]}
             </span>
-            <strong className="heroi-nome">{destaque.item.nome}</strong>
+            <strong className="heroi-nome">{nomeDe(destaque.item)}</strong>
             <span className="heroi-quando">
               {[dataCurta(dataDe(destaque.item), dia), txt(destaque.item.detalhe.hora)]
                 .filter(x => x !== '').join(' · ')}
