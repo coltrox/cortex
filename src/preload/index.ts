@@ -27,6 +27,13 @@ const api = {
     return ipcRenderer.invoke('app:versao')
   },
 
+  /** A atualização do app: em que pé está, procurar agora, reiniciar para instalar. */
+  atualizacao: {
+    estado: (): Promise<import('../shared/types').EstadoAtualizacao> => ipcRenderer.invoke('app:atualizacao'),
+    procurar: (): Promise<import('../shared/types').EstadoAtualizacao> => ipcRenderer.invoke('app:procurar-atualizacao'),
+    reiniciar: (): Promise<import('../shared/types').EstadoAtualizacao> => ipcRenderer.invoke('app:reiniciar-atualizacao')
+  },
+
   /** Google Agenda: só ordens sem parâmetro; o main escolhe arquivo e abre o login. */
   google: {
     estado: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:estado'),

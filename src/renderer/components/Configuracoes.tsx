@@ -114,6 +114,8 @@ export function Configuracoes({
           </section>
           )}
 
+          {aba === 'geral' && <BlocoAtualizacao versaoAtual={versao} />}
+
           {aba === 'areas' && (
           <section className="config-bloco">
             <h3>Áreas do app</h3>
@@ -221,6 +223,62 @@ function BlocoTema() {
         ))}
       </div>
       <p className="form-dica">{opcoes.find(o => o.id === tema)?.dica}</p>
+    </section>
+  )
+}
+
+/**
+ * A atualização do app, à vista.
+ *
+ * Ela sempre aconteceu sozinha, mas calada: quem esperava uma versão nova não
+ * tinha como saber se o Cortex já tinha procurado, se estava baixando ou se
+ * havia algum problema. Relido a cada 2 s enquanto a aba está aberta.
+ */
+function BlocoAtualizacao({ versaoAtual }: { versaoAtual: string }) {
+  const [e, setE] = useState<import('../../shared/types').EstadoAtualizacao | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    const ler = (): void => {
+      void window.vaultApi.atualizacao.estado().then(x => { if (vivo) setE(x) }).catch(() => {})
+    }
+    ler()
+    const t = setInterval(ler, 2000)
+    return () => { vivo = false; clearInterval(t) }
+  }, [])
+
+  if (!e || e.fase === 'desligada') return null
+
+  const quando = e.ultimaVerificacao
+    ? new Date(e.ultimaVerificacao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : null
+  const frase =
+    e.fase === 'procurando' ? 'Procurando versão nova…'
+      : e.fase === 'baixando' ? `Baixando a versão ${e.versao ?? 'nova'}${e.progresso !== null ? ` — ${e.progresso}%` : ''}…`
+        : e.fase === 'pronta' ? `A versão ${e.versao} está pronta para instalar.`
+          : e.fase === 'em-dia' ? `Você está na versão mais nova (${versaoAtual}).`
+            : e.fase === 'erro' ? 'Não deu para procurar agora (sem internet?). Tenta de novo sozinho daqui a pouco.'
+              : 'A primeira procura acontece logo depois de abrir o app.'
+
+  return (
+    <section className="config-bloco">
+      <h3>Atualização</h3>
+      <p className="form-dica">
+        {frase}
+        {quando && e.fase !== 'baixando' && e.fase !== 'pronta' ? ` Última procura às ${quando}.` : ''}
+      </p>
+      <div className="google-botoes">
+        {e.fase === 'pronta' ? (
+          <button className="btn" onClick={() => void window.vaultApi.atualizacao.reiniciar()}>
+            Reiniciar e atualizar
+          </button>
+        ) : (
+          <button className="btn-fantasma" disabled={e.fase === 'procurando' || e.fase === 'baixando'}
+            onClick={() => void window.vaultApi.atualizacao.procurar().then(setE)}>
+            Procurar agora
+          </button>
+        )}
+      </div>
     </section>
   )
 }

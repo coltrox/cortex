@@ -12,7 +12,9 @@ import {
 } from './dev/novoProjeto'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 import { ehOuContem } from './caminhos'
-import { ligarAtualizacaoAutomatica } from './atualizador'
+import {
+  ligarAtualizacaoAutomatica, estadoDaAtualizacao, procurarAtualizacaoAgora, reiniciarParaAtualizar
+} from './atualizador'
 import { instrucoesParaClaude, gravarSeMudou } from './instrucoesClaude'
 import { ServicoAgenda } from './google/servico'
 import { GuardaCifrada } from './google/guarda'
@@ -277,6 +279,11 @@ function createWindow(): void {
  * esquecesse de trocá-lo nos dois lugares.
  */
 ipcMain.handle('app:versao', async () => app.getVersion())
+
+/* A atualização do app: só ordens sem parâmetro e o estado de volta. */
+ipcMain.handle('app:atualizacao', async () => estadoDaAtualizacao())
+ipcMain.handle('app:procurar-atualizacao', async () => procurarAtualizacaoAgora())
+ipcMain.handle('app:reiniciar-atualizacao', async () => { reiniciarParaAtualizar(); return estadoDaAtualizacao() })
 
 /*
  * Google Agenda. Nenhum destes canais recebe caminho nem dado do renderer:

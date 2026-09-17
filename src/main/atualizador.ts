@@ -11,9 +11,15 @@ import electronUpdater from 'electron-updater'
  *
  * ## Como se comporta
  *
- * **Procura sozinho, e de novo com o app aberto.** 30 s depois de abrir e a
- * cada seis horas. Só ao abrir não bastava: quem deixa o Cortex aberto por
- * dias nunca descobria que havia versão nova.
+ * **Procura sozinho, e de novo com o app aberto.** 30 s depois de abrir, a
+ * cada 30 minutos, e quando a janela volta ao foco (no máximo a cada 10
+ * minutos). Eram seis horas — e quem estava com o app aberto quando saía uma
+ * versão ficava a tarde inteira sem saber dela. A consulta é um arquivo
+ * pequeno do GitHub; o download só acontece quando há versão nova.
+ *
+ * **Diz em que pé está.** Configurações › Geral mostra "procurando",
+ * "baixando 40%", "pronta para instalar" ou "em dia", com um botão para
+ * procurar agora e outro para reiniciar quando a versão já baixou.
  *
  * **Baixa sozinho e PERGUNTA.** Com a versão nova baixada, uma janela oferece
  * "Reiniciar e atualizar" ou "Depois". Antes ela entrava calada ao fechar o
@@ -37,10 +43,32 @@ import electronUpdater from 'electron-updater'
  * continua abrindo numa nova, porque campo que falta no frontmatter é campo
  * ausente, não erro.
  */
-const SEIS_HORAS = 6 * 60 * 60 * 1000
+const MEIA_HORA = 30 * 60 * 1000
+const DEZ_MINUTOS = 10 * 60 * 1000
+
+export type EstadoAtualizacao = {
+  fase: 'desligada' | 'parada' | 'procurando' | 'baixando' | 'pronta' | 'em-dia' | 'erro'
+  /** A versão nova, quando há uma. */
+  versao: string | null
+  /** 0 a 100, enquanto baixa. */
+  progresso: number | null
+  /** ISO da última vez que procurou. */
+  ultimaVerificacao: string | null
+}
+
+let estado: EstadoAtualizacao = { fase: 'desligada', versao: null, progresso: null, ultimaVerificacao: null }
+let procurarAgora: () => void = () => {}
+let instalar: () => void = () => {}
+
+export const estadoDaAtualizacao = (): EstadoAtualizacao => estado
+export const procurarAtualizacaoAgora = (): EstadoAtualizacao => { procurarAgora(); return estado }
+export const reiniciarParaAtualizar = (): void => {
+  if (estado.fase === 'pronta') instalar()
+}
 
 export function ligarAtualizacaoAutomatica(): void {
   if (!app.isPackaged) return
+  estado = { ...estado, fase: 'parada' }
 
   // `electron-updater` é CommonJS e não expõe export nomeado no ESM:
   // importar `{ autoUpdater }` direto quebra no build. O default é o módulo.
@@ -54,19 +82,38 @@ export function ligarAtualizacaoAutomatica(): void {
   // para quem trabalha offline.
   autoUpdater.on('error', err => {
     console.warn('[cortex] atualizacao nao verificada:', err?.message ?? err)
+    // Uma versão já baixada continua pronta mesmo que a próxima consulta falhe.
+    if (estado.fase !== 'pronta') estado = { ...estado, fase: 'erro', progresso: null }
   })
+  autoUpdater.on('checking-for-update', () => {
+    if (estado.fase !== 'pronta' && estado.fase !== 'baixando') estado = { ...estado, fase: 'procurando' }
+  })
+  autoUpdater.on('update-not-available', () => {
+    estado = { ...estado, fase: 'em-dia', versao: null, progresso: null }
+  })
+  autoUpdater.on('update-available', info => {
+    if (estado.fase !== 'pronta') estado = { ...estado, fase: 'baixando', versao: info.version, progresso: 0 }
+  })
+  autoUpdater.on('download-progress', p => {
+    estado = { ...estado, fase: 'baixando', progresso: Math.round(p.percent) }
+  })
+  instalar = () => autoUpdater.quitAndInstall(true, true)
 
   // Uma pergunta por versão: com a verificação a cada seis horas, a mesma
   // versão já baixada seria anunciada de novo a cada volta do relógio.
   let avisada: string | null = null
   autoUpdater.on('update-downloaded', info => {
     console.log(`[cortex] versao ${info.version} baixada`)
+    estado = { ...estado, fase: 'pronta', versao: info.version, progresso: 100 }
     if (avisada === info.version) return
     avisada = info.version
     void perguntarSeReinicia(info.version, () => autoUpdater.quitAndInstall(true, true))
   })
 
   const procurar = (): void => {
+    // Já baixada, ou baixando: não há o que procurar até instalar.
+    if (estado.fase === 'pronta' || estado.fase === 'baixando') return
+    estado = { ...estado, ultimaVerificacao: new Date().toISOString() }
     void autoUpdater.checkForUpdates().catch(() => {
       // Já tratado no `on('error')`. O catch existe só para a promessa
       // rejeitada não virar um `unhandledRejection`.
@@ -75,8 +122,15 @@ export function ligarAtualizacaoAutomatica(): void {
 
   // Espera o app assentar antes de gastar rede: abrir o vault, indexar e
   // desenhar a primeira tela importam mais do que descobrir se há versão nova.
+  procurarAgora = procurar
   setTimeout(procurar, 30_000)
-  setInterval(procurar, SEIS_HORAS)
+  setInterval(procurar, MEIA_HORA)
+  // Voltar para a janela é a hora em que uma novidade faz sentido — com um
+  // intervalo mínimo, para alternar de janela não virar uma consulta por clique.
+  app.on('browser-window-focus', () => {
+    const ultima = estado.ultimaVerificacao ? Date.parse(estado.ultimaVerificacao) : 0
+    if (Date.now() - ultima > DEZ_MINUTOS) procurar()
+  })
 }
 
 /**
