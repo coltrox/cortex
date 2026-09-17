@@ -852,3 +852,38 @@ body {
   .lente, .sb-subs, .check[aria-checked="true"] { animation: none; }
   * { transition-duration: 0ms !important; }
 }
+
+/* ---------- Novo projeto e Clonar: cabem em tela baixa ---------- */
+
+/*
+ * Em notebook (tela baixa, escala do Windows em 125–150%) a janela ficava mais
+ * alta que a tela: centralizada, o topo saía para cima — sumiam o título e o
+ * "Criar aplicação em" —, e como coluna flexível os cartões encolhiam até se
+ * sobreporem. Agora ela nunca passa da altura disponível, nada encolhe, e só o
+ * miolo rola: título em cima e botões embaixo ficam sempre à vista.
+ */
+.paleta-fundo > .novo-projeto {
+  max-height: 100%;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.novo-projeto > * { flex-shrink: 0; }
+.novo-projeto-topo {
+  position: sticky; top: 0; z-index: 2;
+  padding: 16px 0 8px;
+  background: var(--surface);
+}
+.novo-projeto-rodape {
+  position: sticky; bottom: 0; z-index: 2;
+  margin-top: 4px; padding: 10px 0 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+/* Cartões em duas colunas só quando cabem; em janela estreita, uma. */
+.novo-projeto-modelos { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.novo-projeto-modelo { min-height: 0; }
+@media (max-height: 720px) {
+  .novo-projeto { gap: 8px; }
+  .novo-projeto-modelo { padding: 9px 11px; }
+  .novo-projeto-cascata-lista { max-height: 200px; }
+}
