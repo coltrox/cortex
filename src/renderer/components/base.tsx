@@ -65,6 +65,8 @@ export type PropsLente = {
   notas: NoteComCampos[]
   sub: string
   hoje: string
+  /** As áreas que o dono escolheu acompanhar (Configurações › Áreas). */
+  areas?: string[]
 } & Acoes
 
 /* ---------- blocos ---------- */
@@ -207,7 +209,9 @@ export function Check({ feito, aoAlternar, rotulo }: {
  * Pedido do dono no redesign — com as seções soltas uma embaixo da outra, não
  * dava para ver onde uma terminava e a outra começava.
  */
-export function Bloco({ children }: { children: ReactNode }) {
+/** `mostrar={false}` some com o bloco inteiro — é como o Hoje esconde área desligada. */
+export function Bloco({ children, mostrar = true }: { children: ReactNode; mostrar?: boolean }) {
+  if (!mostrar) return null
   return <section className="bloco">{children}</section>
 }
 

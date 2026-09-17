@@ -270,7 +270,7 @@ export function App() {
       )
     }
 
-    const comuns = { notas: v.notas, sub: v.sub, hoje, ...acoes }
+    const comuns = { notas: v.notas, sub: v.sub, hoje, areas: v.config.areas, ...acoes }
     switch (v.lente) {
       // Fora de `comuns` de propósito: o cérebro não lê `v.notas`, porque
       // precisa das LIGAÇÕES, e essas não estão ali — vêm do índice pelo

@@ -53,8 +53,14 @@ function cumprimento(): string {
 
 export function LenteHoje({
   notas, hoje, aoAbrir, aoAdicionar, aoEditar, aoExcluir, aoLancar, aoAlterar,
-  aoMarcarDia, aoModal
+  aoMarcarDia, aoModal, areas
 }: PropsLente) {
+  /*
+   * Só o que o dono escolheu acompanhar. Quem não usa Grana não precisa de
+   * "Gasto do dia" vazio no topo, nem quem não usa Saúde de um bloco de dieta
+   * pedindo plano ativo. Sem lista (lente usada fora do App), mostra tudo.
+   */
+  const ve = (area: string): boolean => !areas || areas.includes(area)
   const doDia = notas.filter(n => n.date === hoje)
   const diario = doDia.find(n => n.tipo === 'diario')
   const sessao = doDia.find(n => n.tipo === 'sessao')
@@ -135,37 +141,37 @@ export function LenteHoje({
 
       {/* Resumo: os quatro números do dia. */}
       <div className="cartoes hoje-resumo">
-        <Cartao
+        {ve('saude') && <Cartao
           rotulo="Treino"
           valor={sessao ? txt(sessao.campos.modelo) || 'feito' : (cardio ? txt(cardio.campos.aparelho) : '—')}
           nota={sessao
             ? `${lista(sessao.campos.exercicios).length} exercícios`
             : (cardio ? `${num(cardio.campos.minutos)} min` : 'nada registrado ainda')}
-        />
-        <Cartao
+        />}
+        {ve('saude') && <Cartao
           rotulo="Calorias"
           valor={kcal ? `${nf.format(kcal).replace(/,00$/, '')} kcal` : '—'}
           nota={metaKcal ? `meta diária ${metaKcal} kcal` : `${feitas.length} refeições`}
-        />
-        <Cartao
+        />}
+        {ve('financas') && <Cartao
           rotulo="Gasto do dia"
           valor={saiu ? moeda(saiu) : '—'}
           tom={saiu ? 'saida' : undefined}
           nota={transacoes.length === 1 ? '1 lançamento' : `${transacoes.length} lançamentos`}
-        />
-        <Cartao
+        />}
+        {ve('vida') && <Cartao
           rotulo="Tarefas"
           valor={rotinas.length ? `${rotinasDeHojeFeitas} / ${rotinas.length}` : '—'}
           nota={rotinas.length === 0
             ? 'nenhuma para hoje'
             : rotinasDeHojeFeitas === rotinas.length ? 'tudo feito' : `${pctTarefas}%`}
-        />
+        />}
       </div>
 
       <div className="hoje-layout">
         {/* ---------- O que se faz hoje ---------- */}
         <div className="hoje-principal">
-          <Bloco>
+          <Bloco mostrar={ve('saude')}>
             <Secao
               nome="Treino de hoje"
               acao="Cardio"
@@ -214,7 +220,7 @@ export function LenteHoje({
             )}
           </Bloco>
 
-          <Bloco>
+          <Bloco mostrar={ve('vida')}>
             <Secao nome="Tarefas do dia" acao="Tarefa diária" aoClicar={() => aoAdicionar('rotina')}
               direita={rotinas.length > 0
                 ? <span className="secao-total">{rotinasDeHojeFeitas}/{rotinas.length}</span>
@@ -245,7 +251,7 @@ export function LenteHoje({
             )}
           </Bloco>
 
-          <Bloco>
+          <Bloco mostrar={ve('saude')}>
             <Secao
               nome="Suplementos"
               acao="Suplemento"
@@ -274,7 +280,7 @@ export function LenteHoje({
             )}
           </Bloco>
 
-          <Bloco>
+          <Bloco mostrar={ve('saude')}>
             <Secao nome="Dieta" acao="Comi algo a mais" aoClicar={() => aoLancar('refeicao', hoje)} />
             {!planoAtivo ? (
               <Vazio titulo="Nenhum plano ativo">Ative um plano em Saúde › Dieta para acompanhar as refeições.</Vazio>
@@ -311,7 +317,7 @@ export function LenteHoje({
             )}
           </Bloco>
 
-          <Bloco>
+          <Bloco mostrar={ve('vida')}>
             <Secao nome="Anotações de hoje" acao="Anotação" aoClicar={() => aoAdicionar('anotacao', { date: hoje })} />
             {anotacoes.length === 0 ? (
               <Vazio titulo="Nada anotado hoje" acao="Nova anotação" aoClicar={() => aoAdicionar('anotacao', { date: hoje })}>
@@ -335,7 +341,7 @@ export function LenteHoje({
             )}
           </Bloco>
 
-          <Bloco>
+          <Bloco mostrar={ve('financas')}>
             <Secao nome="Gastos de hoje" acao="Transação" aoClicar={() => aoLancar('transacao', hoje)} />
             {transacoes.length === 0 ? (
               <Vazio titulo="Nenhuma transação hoje" acao="Registrar transação" aoClicar={() => aoLancar('transacao', hoje)}>
@@ -363,7 +369,7 @@ export function LenteHoje({
 
         {/* ---------- O que se consulta ---------- */}
         <aside className="hoje-lado" aria-label="Agenda e prioridades">
-          {prioridades.length > 0 && (
+          {ve('vida') && prioridades.length > 0 && (
             <Bloco>
               <Secao nome={prioridades.length === 1 ? 'Prioridade' : 'Prioridades'} />
               <div className="lista-notas">
@@ -378,14 +384,14 @@ export function LenteHoje({
             </Bloco>
           )}
 
-          <Bloco>
+          <Bloco mostrar={ve('calendario')}>
             <Secao nome="Compromissos de hoje" acao="Compromisso"
               aoClicar={() => aoAdicionar('evento', { date: hoje })} />
             <ListaNotas notas={compromissosHoje} aoAbrir={aoAbrir} aoEditar={aoEditar} aoExcluir={aoExcluir}
               vazio="Nada marcado para hoje." comTipo={false} />
           </Bloco>
 
-          <Bloco>
+          <Bloco mostrar={ve('calendario')}>
             <Secao nome="Próximos eventos" />
             <ListaNotas notas={proximos} aoAbrir={aoAbrir} aoEditar={aoEditar}
               vazio="Nenhuma data futura marcada." hoje={hoje} comPrazo comTipo={false} />
@@ -394,7 +400,7 @@ export function LenteHoje({
           {/* Datas comemorativas ficam em lista própria, e não misturadas com
               consulta médica e reunião: são a única coisa da agenda que volta
               todo ano, e a única em que "faz 18 anos" quer dizer alguma coisa. */}
-          <Bloco>
+          <Bloco mostrar={ve('calendario')}>
             <Secao nome="Datas comemorativas" acao="Data"
               aoClicar={() => aoAdicionar('data-comemorativa')} />
             {comemorativas.length === 0 ? (
@@ -427,14 +433,14 @@ export function LenteHoje({
             )}
           </Bloco>
 
-          {provas.length > 0 && (
+          {ve('conhecimento') && provas.length > 0 && (
             <Bloco>
               <Secao nome="Provas" />
               <ListaNotas notas={provas} aoAbrir={aoAbrir} vazio="" hoje={hoje} comPrazo comTipo={false} />
             </Bloco>
           )}
 
-          {lendo.length > 0 && (
+          {ve('conhecimento') && lendo.length > 0 && (
             <Bloco>
               <Secao nome="Lendo" />
               <div className="lista-notas">

@@ -101,6 +101,7 @@ export type LinguagemProjeto = 'ts' | 'js'
 export type EstadoGoogle = {
   temCliente: boolean
   conectado: boolean
+  podeLer: boolean
   sincronizando: boolean
   ultima: string | null
   erro: string | null

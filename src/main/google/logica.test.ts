@@ -213,3 +213,37 @@ describe('planejarSincronia — eventos repetidos criados no Google', () => {
     expect(p.paraCortex).toEqual([{ acao: 'cancelar', path: futura.path }])
   })
 })
+
+describe('planejarImportacao — a agenda do Google puxada para o Cortex', () => {
+  const de = '2026-09-10'
+  const ate = '2026-12-16'
+  const fora = (p: Partial<EventoGoogle> & { id: string }) => ({ ...evento(p), calendario: 'pedro@gmail.com' })
+
+  it('evento novo vira compromisso; igual não repete; mudado atualiza', async () => {
+    const { planejarImportacao } = await import('./logica')
+    const novo = planejarImportacao({ eventos: [fora({ id: 'a', summary: 'Consulta', start: { dateTime: '2026-09-22T15:00:00-03:00' } })], importados: {}, de, ate })
+    expect(novo.ops).toEqual([{
+      acao: 'criar', chave: 'pedro@gmail.com|a', atualizado: '2026-09-10T12:00:00.000Z',
+      campos: { titulo: 'Consulta', date: '2026-09-22', hora: '15:00', local: null }
+    }])
+    const imp = { 'pedro@gmail.com|a': { path: 'Agenda/Consulta.md', atualizado: '2026-09-10T12:00:00.000Z', date: '2026-09-22' } }
+    expect(planejarImportacao({ eventos: [fora({ id: 'a', summary: 'Consulta' })], importados: imp, de, ate }).ops).toEqual([])
+    const mudou = planejarImportacao({ eventos: [fora({ id: 'a', summary: 'Consulta (remarcada)', updated: '2026-09-11T00:00:00.000Z' })], importados: imp, de, ate })
+    expect(mudou.ops.map(o => o.acao)).toEqual(['atualizar'])
+  })
+
+  it('apagado cancela a nota; sumido dentro da janela cancela; o que passou só se desliga', async () => {
+    const { planejarImportacao } = await import('./logica')
+    const imp = {
+      'pedro@gmail.com|a': { path: 'Agenda/A.md', atualizado: 'x', date: '2026-09-22' },
+      'pedro@gmail.com|b': { path: 'Agenda/B.md', atualizado: 'x', date: '2026-09-25' },
+      'pedro@gmail.com|c': { path: 'Agenda/C.md', atualizado: 'x', date: '2026-09-01' }
+    }
+    const r = planejarImportacao({ eventos: [fora({ id: 'a', status: 'cancelled' })], importados: imp, de, ate })
+    expect(r.ops).toEqual([
+      { acao: 'cancelar', chave: 'pedro@gmail.com|a', path: 'Agenda/A.md' },
+      { acao: 'cancelar', chave: 'pedro@gmail.com|b', path: 'Agenda/B.md' }
+    ])
+    expect(r.desligar.sort()).toEqual(['pedro@gmail.com|a', 'pedro@gmail.com|b', 'pedro@gmail.com|c'])
+  })
+})

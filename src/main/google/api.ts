@@ -16,10 +16,19 @@ import type { CorpoEvento, EventoGoogle } from './logica'
  */
 
 /**
- * Só o calendário que o próprio Cortex cria. Com este escopo o app não
- * enxerga nem mexe em nenhum outro calendário da conta.
+ * O que o login pede:
+ *  - escrever SÓ no calendário que o próprio Cortex cria;
+ *  - LER a lista de calendários e os eventos deles, para puxar a agenda do
+ *    Google para dentro do Cortex. Leitura: o Cortex nunca mexe nos outros
+ *    calendários da conta.
  */
-export const ESCOPO = 'https://www.googleapis.com/auth/calendar.app.created'
+export const ESCOPO_ESCRITA = 'https://www.googleapis.com/auth/calendar.app.created'
+export const ESCOPO_LEITURA = 'https://www.googleapis.com/auth/calendar.events.readonly'
+export const ESCOPOS = [
+  ESCOPO_ESCRITA,
+  'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+  ESCOPO_LEITURA
+]
 
 const AUTH = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN = 'https://oauth2.googleapis.com/token'
@@ -78,7 +87,7 @@ export async function autorizar(
   cliente: Cliente,
   abrir: (url: string) => Promise<void>,
   fetchFn: typeof fetch = fetch
-): Promise<string> {
+): Promise<{ refreshToken: string; escopos: string }> {
   const verificador = base64url(randomBytes(48))
   const desafio = base64url(createHash('sha256').update(verificador).digest())
   const state = base64url(randomBytes(24))
@@ -129,7 +138,7 @@ export async function autorizar(
         client_id: cliente.clientId,
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: ESCOPO,
+        scope: ESCOPOS.join(' '),
         access_type: 'offline',
         // `consent` garante um refresh token mesmo em quem já autorizou antes.
         prompt: 'consent',
@@ -157,11 +166,12 @@ export async function autorizar(
       code_verifier: verificador
     })
   })
-  const j = await r.json().catch(() => ({})) as { refresh_token?: unknown; error?: unknown }
+  const j = await r.json().catch(() => ({})) as { refresh_token?: unknown; scope?: unknown; error?: unknown }
   if (!r.ok || typeof j.refresh_token !== 'string') {
     throw new Error(`o Google não entregou o acesso (${typeof j.error === 'string' ? j.error : r.status})`)
   }
-  return j.refresh_token
+  // O Google devolve o que a pessoa de fato autorizou — ela pode desmarcar a leitura.
+  return { refreshToken: j.refresh_token, escopos: typeof j.scope === 'string' ? j.scope : '' }
 }
 
 /** O Google Agenda de uma conta já autorizada. */
@@ -267,6 +277,45 @@ export class ApiAgenda {
           const ev = e as EventoGoogle
           if (ev && typeof ev.id === 'string' && typeof ev.recurringEventId === 'string') out.push(ev)
         }
+      }
+      proxima = typeof r.nextPageToken === 'string' ? r.nextPageToken : undefined
+      if (!proxima) break
+    }
+    return out
+  }
+
+  /**
+   * Os calendários da conta que o Cortex deve puxar: os que estão marcados
+   * (ou o principal), menos os que são ruído para uma agenda — feriados e
+   * aniversários dos contatos, que o Cortex já tem do jeito dele.
+   */
+  async listarCalendarios(): Promise<{ id: string; nome: string }[]> {
+    const r = await this.chamar<{ items?: unknown }>('GET', '/users/me/calendarList?minAccessRole=reader&maxResults=250')
+    const out: { id: string; nome: string }[] = []
+    for (const c of Array.isArray(r.items) ? r.items as Record<string, unknown>[] : []) {
+      if (!c || typeof c.id !== 'string') continue
+      if (c.selected !== true && c.primary !== true) continue
+      if (c.id.includes('#holiday@') || c.id.includes('#contacts@')) continue
+      out.push({ id: c.id, nome: typeof c.summary === 'string' ? c.summary.slice(0, 80) : '' })
+    }
+    return out
+  }
+
+  /** Os eventos de um calendário numa janela de datas, ocorrências de repetição abertas. */
+  async listarDoCalendario(calendario: string, de: string, ate: string): Promise<EventoGoogle[]> {
+    const out: EventoGoogle[] = []
+    let proxima: string | undefined
+    for (let voltas = 0; voltas < 20; voltas++) {
+      const q = new URLSearchParams({
+        singleEvents: 'true', showDeleted: 'true', maxResults: '2500',
+        timeMin: `${de}T00:00:00-03:00`, timeMax: `${ate}T23:59:59-03:00`
+      })
+      if (proxima) q.set('pageToken', proxima)
+      const r = await this.chamar<{ items?: unknown; nextPageToken?: unknown }>(
+        'GET', `/calendars/${encodeURIComponent(calendario)}/events?${q}`
+      )
+      if (Array.isArray(r.items)) {
+        for (const e of r.items) if (e && typeof (e as EventoGoogle).id === 'string') out.push(e as EventoGoogle)
       }
       proxima = typeof r.nextPageToken === 'string' ? r.nextPageToken : undefined
       if (!proxima) break

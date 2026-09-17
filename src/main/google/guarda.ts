@@ -1,7 +1,7 @@
 import { safeStorage } from 'electron'
 import { readFile, writeFile, rename } from 'node:fs/promises'
 import type { Cliente } from './api'
-import type { Mapa } from './logica'
+import type { Mapa, Importados } from './logica'
 
 /**
  * Onde a conexão com o Google fica guardada: `userData/google-agenda.dat`.
@@ -15,8 +15,10 @@ import type { Mapa } from './logica'
 export type DadosGoogle = {
   cliente?: Cliente
   refreshToken?: string
+  /** O que o login autorizou (separado por espaço), como o Google devolveu. */
+  escopos?: string
   /** Por vault: cada vault tem o seu calendário e as suas ligações. */
-  vaults: Record<string, { calendarioId?: string; mapa: Mapa }>
+  vaults: Record<string, { calendarioId?: string; mapa: Mapa; importados?: Importados }>
   ultima?: string
   erro?: string
 }

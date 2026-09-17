@@ -272,7 +272,9 @@ function BlocoGoogle() {
         Compromissos, provas e datas comemorativas vão para um calendário
         chamado “Cortex” na sua conta Google — e aparecem no iPhone e no
         Android com a mesma conta. O que você criar ou editar nesse calendário
-        volta para cá. Os seus outros calendários não são tocados.
+        volta para cá. Os compromissos dos seus outros calendários (de 7 dias
+        atrás a 90 dias à frente) também entram no Cortex, só para leitura —
+        o Cortex nunca mexe neles.
       </p>
 
       {!estado ? (
@@ -323,6 +325,16 @@ function BlocoGoogle() {
               Desconectar
             </button>
           </div>
+          {!estado.podeLer && (
+            <p className="config-alerta google-erro">
+              Para puxar os compromissos da sua agenda do Google, conecte de novo
+              e autorize a leitura dos calendários.{' '}
+              <button className="btn-fantasma" disabled={ocupado !== null}
+                onClick={() => void fazer('conectar', () => window.vaultApi.google.conectar())}>
+                {ocupado === 'conectar' ? 'Esperando o login…' : 'Conectar de novo'}
+              </button>
+            </p>
+          )}
           <p className="form-dica">Confere sozinho a cada 3 minutos, e logo depois de você mexer na agenda.</p>
         </>
       )}

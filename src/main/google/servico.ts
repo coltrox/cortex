@@ -2,11 +2,12 @@ import type { Session } from '../session'
 import { listNotesWithFields, type NoteComCampos } from '../index/queries'
 import { patchFrontmatter } from '../vault/patch'
 import { pastasProtegidas } from '../config'
-import { ApiAgenda, autorizar, lerArquivoCliente, clienteDoBuild, ErroDeLogin, CalendarioSumiu, type Cliente } from './api'
+import { ApiAgenda, autorizar, ESCOPO_LEITURA, lerArquivoCliente, clienteDoBuild, ErroDeLogin, CalendarioSumiu, type Cliente } from './api'
 import type { Guarda, DadosGoogle } from './guarda'
 import {
   planejarSincronia, corpoDoCortex, hashDoCorpo, itemDepoisDoGoogle, somarDias,
-  type ItemCortex, type Mapa, type CamposDoGoogle, type EventoGoogle
+  planejarImportacao,
+  type ItemCortex, type Mapa, type CamposDoGoogle, type EventoGoogle, type Importados, type EventoDeFora
 } from './logica'
 
 /**
@@ -22,6 +23,8 @@ export type EstadoGoogle = {
   /** O arquivo do cliente OAuth já foi escolhido. */
   temCliente: boolean
   conectado: boolean
+  /** O login autorizou ler a agenda do Google (logins antigos só escreviam no calendário "Cortex"). */
+  podeLer: boolean
   sincronizando: boolean
   /** ISO da última rodada que terminou sem erro. */
   ultima: string | null
@@ -74,6 +77,7 @@ export class ServicoAgenda {
     return {
       temCliente: Boolean(this.clienteDe(d)),
       conectado: Boolean(this.clienteDe(d) && d.refreshToken),
+      podeLer: Boolean(d.refreshToken && (d.escopos ?? '').split(' ').includes(ESCOPO_LEITURA)),
       sincronizando: this.rodando !== null,
       ultima: d.ultima ?? null,
       erro: d.erro ?? null,
@@ -99,8 +103,8 @@ export class ServicoAgenda {
     const cliente = this.clienteDe(d)
     if (!cliente) throw new Error('este Cortex foi compilado sem o cliente do Google — escolha o arquivo JSON')
     this.vaultId()
-    const refreshToken = await autorizar(cliente, this.abrirNavegador)
-    await this.guarda.gravar({ ...(await this.guarda.ler()), refreshToken, erro: undefined })
+    const { refreshToken, escopos } = await autorizar(cliente, this.abrirNavegador)
+    await this.guarda.gravar({ ...(await this.guarda.ler()), refreshToken, escopos, erro: undefined })
     return this.sincronizar()
   }
 
@@ -127,13 +131,14 @@ export class ServicoAgenda {
     const api = new ApiAgenda(cliente, d.refreshToken)
     const doVault = d.vaults[id] ?? { mapa: {} }
     const mapa: Mapa = { ...doVault.mapa }
+    const importados: Importados = { ...(doVault.importados ?? {}) }
     let calendarioId = doVault.calendarioId
 
     const salvar = async (extra: Partial<DadosGoogle>): Promise<void> => {
       const atual = await this.guarda.ler()
       await this.guarda.gravar({
         ...atual,
-        vaults: { ...atual.vaults, [id]: { calendarioId, mapa } },
+        vaults: { ...atual.vaults, [id]: { calendarioId, mapa, importados } },
         ...extra
       })
     }
@@ -215,6 +220,11 @@ export class ServicoAgenda {
         }
       }
 
+      // A agenda do Google para dentro do Cortex — só quando o login autorizou ler.
+      if ((d.escopos ?? '').split(' ').includes(ESCOPO_LEITURA)) {
+        await this.puxarAgenda(api, cal, importados, hoje)
+      }
+
       await salvar({ ultima: new Date().toISOString(), erro: undefined })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -222,6 +232,45 @@ export class ServicoAgenda {
       await salvar(err instanceof ErroDeLogin ? { refreshToken: undefined, erro: msg } : { erro: msg })
     }
     return this.estado()
+  }
+
+  /**
+   * Puxa os outros calendários da conta: de 7 dias atrás a 90 dias à frente.
+   *
+   * O que vem vira compromisso com `origem: google` — e é essa marca que
+   * impede a nota de voltar para o Google pelo calendário "Cortex", o que a
+   * duplicaria na agenda de quem usa.
+   */
+  private async puxarAgenda(api: ApiAgenda, calendarioDoCortex: string, importados: Importados, hoje: string): Promise<void> {
+    const de = somarDias(hoje, -7)
+    const ate = somarDias(hoje, 90)
+    const eventos: EventoDeFora[] = []
+    for (const c of await api.listarCalendarios()) {
+      if (c.id === calendarioDoCortex) continue
+      for (const ev of await api.listarDoCalendario(c.id, de, ate)) {
+        // Evento que o próprio Cortex pôs lá (calendário compartilhado etc.): não volta.
+        if (ev.extendedProperties?.private?.cortex === '1') continue
+        eventos.push({ ...ev, calendario: c.id })
+      }
+    }
+    const { ops, desligar } = planejarImportacao({ eventos, importados, de, ate })
+    for (const op of ops) {
+      if (op.acao === 'criar') {
+        const path = await this.criarNota(op.campos, { origem: 'google' })
+        importados[op.chave] = { path, atualizado: op.atualizado, date: op.campos.date }
+      } else if (op.acao === 'atualizar') {
+        if (await this.session.vault.exists(op.path)) {
+          await this.atualizarNota(op.path, op.campos)
+          importados[op.chave] = { path: op.path, atualizado: op.atualizado, date: op.campos.date }
+        } else {
+          const path = await this.criarNota(op.campos, { origem: 'google' })
+          importados[op.chave] = { path, atualizado: op.atualizado, date: op.campos.date }
+        }
+      } else if (await this.session.vault.exists(op.path)) {
+        await this.patch(op.path, { cancelado: true })
+      }
+    }
+    for (const chave of desligar) delete importados[chave]
   }
 
   /**
@@ -237,6 +286,8 @@ export class ServicoAgenda {
       for (const n of listNotesWithFields(this.session.db, { tipo })) {
         if (!livre(n)) continue
         if (tipo === 'evento' && n.campos.cancelado === true) continue
+        // Veio da agenda do Google: já está lá, não sobe de novo pelo "Cortex".
+        if (n.campos.origem === 'google') continue
         out.push({
           path: n.path,
           tipo,
@@ -274,7 +325,7 @@ export class ServicoAgenda {
   }
 
   /** Compromisso novo, criado no calendário pelo celular. */
-  private async criarNota(campos: CamposDoGoogle): Promise<string> {
+  private async criarNota(campos: CamposDoGoogle, extra: Record<string, unknown> = {}): Promise<string> {
     const base = `Agenda/${nomeArquivo(campos.titulo)}`
     let path = `${base}.md`
     for (let n = 2; await this.session.vault.exists(path); n++) path = `${base} (${n}).md`
@@ -283,7 +334,8 @@ export class ServicoAgenda {
       titulo: campos.titulo,
       date: campos.date,
       hora: campos.hora,
-      local: campos.local
+      local: campos.local,
+      ...extra
     }))
     await this.session.indexer.indexFile(path)
     return path
