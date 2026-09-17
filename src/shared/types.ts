@@ -97,6 +97,16 @@ export type ModeloProjeto =
   | 'ruby' | 'rails'
   | 'flutter'
 export type LinguagemProjeto = 'ts' | 'js'
+/** O que a tela sabe da conexão com o Google Agenda. Nunca o token nem o segredo. */
+export type EstadoGoogle = {
+  temCliente: boolean
+  conectado: boolean
+  sincronizando: boolean
+  ultima: string | null
+  erro: string | null
+  ligados: number
+}
+
 export type ProjetoCriado = {
   /** A criação e a instalação, rodando como um processo só. */
   processo: ProcessoInfo
@@ -115,6 +125,13 @@ declare global {
       versaoDoApp(): Promise<string>
       /** O comando `claude mcp add` que liga o conector do Cortex. */
       conectorClaude(): Promise<{ comando: string }>
+      google: {
+        estado(): Promise<EstadoGoogle>
+        importarCliente(): Promise<EstadoGoogle>
+        conectar(): Promise<EstadoGoogle>
+        sincronizar(): Promise<EstadoGoogle>
+        desconectar(): Promise<EstadoGoogle>
+      }
       /** Pinta a barra de título (os botões da janela) no tema do app. */
       temaDaJanela(tema: 'claro' | 'escuro'): Promise<void>
       estadoVault(): Promise<EstadoVault>

@@ -9,7 +9,7 @@ import type { Config } from '../useVault'
  * configurações quase sempre sabe o que veio mudar. Cada aba monta só o seu
  * bloco — os componentes são os mesmos de antes, só mudaram de endereço.
  */
-type Aba = 'geral' | 'aparencia' | 'areas' | 'seguranca' | 'celular' | 'claude'
+type Aba = 'geral' | 'aparencia' | 'areas' | 'seguranca' | 'celular' | 'google' | 'claude'
 
 const ABAS: { id: Aba; nome: string }[] = [
   { id: 'geral', nome: 'Geral' },
@@ -17,6 +17,7 @@ const ABAS: { id: Aba; nome: string }[] = [
   { id: 'areas', nome: 'Áreas' },
   { id: 'seguranca', nome: 'Segurança' },
   { id: 'celular', nome: 'Celular' },
+  { id: 'google', nome: 'Google Agenda' },
   { id: 'claude', nome: 'Claude' }
 ]
 
@@ -149,6 +150,8 @@ export function Configuracoes({
           </section>
           )}
 
+          {aba === 'google' && <BlocoGoogle />}
+
           {aba === 'claude' && <BlocoClaude />}
 
         </div>
@@ -218,6 +221,115 @@ function BlocoTema() {
         ))}
       </div>
       <p className="form-dica">{opcoes.find(o => o.id === tema)?.dica}</p>
+    </section>
+  )
+}
+
+/**
+ * Google Agenda, de duas vias.
+ *
+ * Três passos na ordem em que acontecem: escolher o JSON do cliente (uma vez),
+ * entrar com a conta Google (abre o navegador), e depois só acompanhar. O
+ * estado é relido a cada poucos segundos enquanto a aba está aberta — a
+ * sincronia roda sozinha no processo principal.
+ */
+function BlocoGoogle() {
+  const [estado, setEstado] = useState<import('../../shared/types').EstadoGoogle | null>(null)
+  const [ocupado, setOcupado] = useState<string | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    const ler = (): void => {
+      void window.vaultApi.google.estado().then(e => { if (vivo) setEstado(e) }).catch(() => {})
+    }
+    ler()
+    const t = setInterval(ler, 4000)
+    return () => { vivo = false; clearInterval(t) }
+  }, [])
+
+  const fazer = async (rotulo: string, acao: () => Promise<import('../../shared/types').EstadoGoogle>): Promise<void> => {
+    setOcupado(rotulo)
+    setErro(null)
+    try {
+      setEstado(await acao())
+    } catch (e) {
+      // O Electron embrulha o erro do main: fica só a frase que importa.
+      setErro(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e))
+    } finally {
+      setOcupado(null)
+    }
+  }
+
+  const quando = estado?.ultima
+    ? new Date(estado.ultima).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : null
+
+  return (
+    <section className="config-bloco">
+      <h3>Google Agenda</h3>
+      <p className="form-dica">
+        Compromissos, provas e datas comemorativas vão para um calendário
+        chamado “Cortex” na sua conta Google — e aparecem no iPhone e no
+        Android com a mesma conta. O que você criar ou editar nesse calendário
+        volta para cá. Os seus outros calendários não são tocados.
+      </p>
+
+      {!estado ? (
+        <p className="form-dica">Carregando…</p>
+      ) : !estado.temCliente ? (
+        <>
+          <p className="form-dica">
+            Passo 1: escolha o arquivo JSON do cliente “App para computador”
+            baixado do Google Cloud. Ele fica guardado cifrado neste PC.
+          </p>
+          <button className="btn" disabled={ocupado !== null}
+            onClick={() => void fazer('arquivo', () => window.vaultApi.google.importarCliente())}>
+            Escolher arquivo do cliente
+          </button>
+        </>
+      ) : !estado.conectado ? (
+        <>
+          <p className="form-dica">
+            Entre com a conta Google do seu calendário. O login abre no
+            navegador; depois é só voltar para cá.
+          </p>
+          <div className="google-botoes">
+            <button className="btn" disabled={ocupado !== null}
+              onClick={() => void fazer('conectar', () => window.vaultApi.google.conectar())}>
+              {ocupado === 'conectar' ? 'Esperando o login no navegador…' : 'Conectar com o Google'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="config-contagem">
+            <span className="google-ponto" aria-hidden="true" /> Conectado
+            {estado.sincronizando || ocupado === 'sincronizar'
+              ? ' · sincronizando…'
+              : quando ? ` · última sincronia ${quando}` : ''}
+            {estado.ligados > 0 && ` · ${estado.ligados} itens no calendário`}
+          </p>
+          <div className="google-botoes">
+            <button className="btn" disabled={ocupado !== null || estado.sincronizando}
+              onClick={() => void fazer('sincronizar', () => window.vaultApi.google.sincronizar())}>
+              Sincronizar agora
+            </button>
+            <button className="btn-fantasma" disabled={ocupado !== null}
+              onClick={() => {
+                if (!window.confirm('Desconectar o Google Agenda? O calendário “Cortex” continua na sua conta, mas para de atualizar.')) return
+                void fazer('desconectar', () => window.vaultApi.google.desconectar())
+              }}>
+              Desconectar
+            </button>
+          </div>
+          <p className="form-dica">Confere sozinho a cada 3 minutos, e logo depois de você mexer na agenda.</p>
+        </>
+      )}
+
+      {(erro || estado?.erro) && (
+        <p className="config-alerta google-erro">{erro ?? estado?.erro}</p>
+      )}
     </section>
   )
 }

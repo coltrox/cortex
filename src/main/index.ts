@@ -14,8 +14,34 @@ import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 import { ehOuContem } from './caminhos'
 import { ligarAtualizacaoAutomatica } from './atualizador'
 import { instrucoesParaClaude, gravarSeMudou } from './instrucoesClaude'
+import { ServicoAgenda } from './google/servico'
+import { GuardaCifrada } from './google/guarda'
 
 const session = new Session()
+
+/**
+ * O Google Agenda. O acesso fica em `userData`, cifrado pelo Windows — fora
+ * do vault, que viaja entre máquinas. O login abre no navegador do sistema,
+ * e só endereço https do Google passa por `shell.openExternal`.
+ */
+const agenda = new ServicoAgenda(
+  session,
+  new GuardaCifrada(join(app.getPath('userData'), 'google-agenda.dat')),
+  async url => {
+    if (!url.startsWith('https://accounts.google.com/')) throw new Error('endereço de login inesperado')
+    await shell.openExternal(url)
+  }
+)
+
+/**
+ * Uma rodada com o Google sem derrubar nada: o erro fica gravado e aparece na
+ * aba Google Agenda das Configurações.
+ */
+function sincronizarAgenda(): void {
+  if (!session.isOpen) return
+  agenda.sincronizar().catch(err => console.error('[cortex] google agenda:', err))
+}
+let agendaAdiada: ReturnType<typeof setTimeout> | null = null
 
 /**
  * Os `npm run` que o Cortex esta rodando.
@@ -54,6 +80,12 @@ async function vaultLembrado(): Promise<string | null> {
 
 function avisarMudanca(rel: string): void {
   win?.webContents.send('vault:changed', rel)
+  // Mexeu na agenda ou numa prova: o Google fica sabendo em alguns segundos,
+  // sem esperar o relógio. Várias gravações seguidas viram uma rodada só.
+  if (rel.startsWith('Agenda/') || rel.startsWith('Estudos/')) {
+    if (agendaAdiada) clearTimeout(agendaAdiada)
+    agendaAdiada = setTimeout(() => { agendaAdiada = null; sincronizarAgenda() }, 20_000)
+  }
 }
 
 /**
@@ -97,6 +129,7 @@ async function abrirVault(root: string): Promise<{ root: string; config: ConfigP
   await lembrarVault(session.vault.root)
   void atualizarInstrucoesClaude()
   ligarCampainha(session.config, aoTocarCampainha)
+  setTimeout(sincronizarAgenda, 5_000)
   return { root: session.vault.root, config: projetarConfigParaRenderer(session.config) }
 }
 
@@ -244,6 +277,28 @@ function createWindow(): void {
  * esquecesse de trocá-lo nos dois lugares.
  */
 ipcMain.handle('app:versao', async () => app.getVersion())
+
+/*
+ * Google Agenda. Nenhum destes canais recebe caminho nem dado do renderer:
+ * o arquivo do cliente é escolhido num diálogo nativo aberto AQUI, e o resto
+ * são ordens sem parâmetro. O segredo do cliente e o token nunca voltam para
+ * a tela — só o estado.
+ */
+ipcMain.handle('google:estado', async () => agenda.estado())
+ipcMain.handle('google:importar-cliente', async () => {
+  const r = await dialog.showOpenDialog({
+    title: 'Escolher o arquivo do cliente do Google (JSON)',
+    properties: ['openFile'],
+    filters: [{ name: 'JSON', extensions: ['json'] }]
+  })
+  if (r.canceled || !r.filePaths[0]) return agenda.estado()
+  const s = await stat(r.filePaths[0])
+  if (s.size > 20_000) throw new Error('esse arquivo é grande demais para ser o JSON do cliente')
+  return agenda.importarCliente(await readFile(r.filePaths[0], 'utf8'))
+})
+ipcMain.handle('google:conectar', async () => agenda.conectar())
+ipcMain.handle('google:sincronizar', async () => agenda.sincronizar())
+ipcMain.handle('google:desconectar', async () => agenda.desconectar())
 
 /*
  * O conector do Claude (MCP) é um script que o próprio executável do Cortex
@@ -668,6 +723,9 @@ app.whenReady().then(async () => {
   }
 
   registerIpc(session, { aoMudarAreas: () => void atualizarInstrucoesClaude() })
+  // A cada três minutos o Cortex confere o Google Agenda (o que foi criado ou
+  // editado no celular). Sem conexão feita, a rodada volta na hora sem rede.
+  setInterval(sincronizarAgenda, 3 * 60_000)
   createWindow()
 
   // Reabre o último vault sozinho. A tela de abertura só aparece de verdade

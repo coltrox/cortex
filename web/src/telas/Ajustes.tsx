@@ -1,9 +1,9 @@
 import { useState } from 'react'
+import { qualSistema } from '../instalar'
 import { guardadoDoNavegador } from '../guardado'
 import { lerVaultId, gravarVaultId } from '../ajustes'
 import { haQuantoTempo, hidratacao } from '../cardapio'
 import { lerTema, gravarTema, aplicarTema, type Tema } from '../tema'
-import { qualSistema } from '../instalar'
 import { Cabecalho, Botao, Campo, Aviso } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -236,57 +236,39 @@ export function Ajustes(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void 
  * saem os dois, porque ali quem lê está montando o celular.
  */
 function CartaoCalendario({ vault }: { vault: string | null }) {
-  if (!vault) return null
+  // Só no iPhone: no Android e no computador o Google Agenda se conecta pelo
+  // Cortex, de duas vias, e este link de mão única só atrapalharia.
+  if (!vault || qualSistema(navigator.userAgent, navigator.maxTouchPoints) !== 'iphone') return null
 
   const endereco = `${window.location.origin}/agenda.ics?vault=${vault}`
   const webcal = endereco.replace(/^https?:/, 'webcal:')
-  const sistema = qualSistema(navigator.userAgent, navigator.maxTouchPoints)
 
   return (
     <div className="cartao-ajuste">
-      <div className="cartao-ajuste-nome">Calendário</div>
+      <div className="cartao-ajuste-nome">Calendário do iPhone</div>
       <p className="cartao-ajuste-txt">
         Provas, compromissos e datas comemorativas do Cortex, dentro do
-        calendário do seu celular.
+        calendário do iPhone.
       </p>
 
       <div className="cal-botoes">
-        {(sistema === 'iphone' || sistema === 'outro') && (
-          <a className="btn btn-principal" href={webcal}>Conectar ao iPhone</a>
-        )}
-        {(sistema === 'android' || sistema === 'outro') && (
-          <a
-            className="btn btn-principal"
-            href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Conectar ao Google
-          </a>
-        )}
+        <a className="btn btn-principal" href={webcal}>Conectar ao iPhone</a>
       </div>
 
       {/*
-        * No Android, só pelo computador.
-        *
-        * O app do Google Agenda não assina calendário por link — isso só se
-        * faz no Google Agenda aberto no navegador do computador. Depois de
-        * assinado lá, a agenda aparece sozinha no celular, na mesma conta.
+        * O Google Agenda saiu daqui: ele agora se conecta pelo Cortex do
+        * computador, de duas vias (Configurações › Google Agenda). A
+        * assinatura por link ficou só para o iPhone, que é de mão única.
         */}
-      {(sistema === 'android' || sistema === 'outro') && (
-        <p className="cartao-ajuste-txt cal-ressalva">
-          <strong>No Android, só funciona pelo computador.</strong> O app do
-          Google Agenda não assina calendário por link. Abra este app no
-          navegador do PC, entre na mesma conta Google do celular e clique em
-          “Conectar ao Google”. Depois disso a agenda aparece sozinha no
-          celular — se não aparecer, no Google Agenda vá em Configurações ›
-          Cortex e ligue “Sincronizar”.
-        </p>
-      )}
-
       <p className="cartao-ajuste-txt cal-ressalva">
-        É de mão única: o que está no Cortex aparece no calendário, e o que
-        você criar no calendário não volta para cá.
+        É de mão única: o que está no Cortex aparece no iPhone, e o que você
+        criar lá não volta para cá.
+      </p>
+      <p className="cartao-ajuste-txt cal-ressalva">
+        <strong>Usa Google Agenda?</strong> Conecte pelo Cortex no computador,
+        em Configurações › Google Agenda — aí funciona dos dois lados. Se fizer
+        isso e a conta Google também estiver no iPhone, não assine aqui, senão
+        cada evento aparece duas vezes.
       </p>
     </div>
   )

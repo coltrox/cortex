@@ -27,6 +27,15 @@ const api = {
     return ipcRenderer.invoke('app:versao')
   },
 
+  /** Google Agenda: só ordens sem parâmetro; o main escolhe arquivo e abre o login. */
+  google: {
+    estado: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:estado'),
+    importarCliente: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:importar-cliente'),
+    conectar: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:conectar'),
+    sincronizar: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:sincronizar'),
+    desconectar: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:desconectar')
+  },
+
   /** O comando que registra o conector do Cortex no Claude Code. */
   conectorClaude(): Promise<{ comando: string }> {
     return ipcRenderer.invoke('app:conectorClaude')

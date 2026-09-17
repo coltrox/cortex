@@ -790,6 +790,10 @@ body {
   .config-nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); }
 }
 
+.google-botoes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.google-ponto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; margin-right: 4px; }
+.google-erro { display: block; margin-top: 10px; font-size: 13px; line-height: 1.5; }
+
 /* ---------- Paleta de comandos ---------- */
 
 .paleta-secao {
