@@ -39,6 +39,8 @@ type PropsDev = PropsLente & {
   aoNovoProjeto: (
     modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
   ) => Promise<{ raiz: string } | null>
+  /** Clona um repositório do GitHub em Área de Trabalho\projetos. */
+  aoClonarRepo: (url: string) => Promise<{ raiz: string } | null>
 }
 
 const nomeBase = (p: string): string => p.slice(p.lastIndexOf('/') + 1).replace(/\.md$/i, '')
@@ -206,11 +208,74 @@ function NavegadorVault({
   )
 }
 
+/* ---------- clonar do GitHub ---------- */
+
+/** Aceita o link da página, o de clone, o SSH ou só `dono/repositório`. */
+const PARECE_REPO =
+  /^(?:(?:https?:\/\/)?(?:www\.)?github\.com\/|git@github\.com:)?[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}?(?:\.git)?\/?$/
+
+function ClonarRepo({ aoClonar, aoFechar }: {
+  aoClonar: (url: string) => Promise<boolean>
+  aoFechar: () => void
+}) {
+  const [url, setUrl] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const valido = PARECE_REPO.test(url.trim())
+  const nome = valido ? url.trim().replace(/\/$/, '').replace(/\.git$/, '').split(/[/:]/).pop() : ''
+
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent): void => { if (e.key === 'Escape') aoFechar() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [aoFechar])
+
+  const clonar = async (): Promise<void> => {
+    if (!valido || enviando) return
+    setEnviando(true)
+    try {
+      if (await aoClonar(url.trim())) aoFechar()
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <div className="paleta-fundo" onClick={aoFechar}>
+      <div className="novo-projeto" role="dialog" aria-label="Clonar do GitHub" onClick={e => e.stopPropagation()}>
+        <div className="novo-projeto-topo">
+          <strong>Clonar do GitHub</strong>
+          <button className="btn-icone" title="Fechar" onClick={aoFechar}>×</button>
+        </div>
+        <span className="form-rotulo">Repositório</span>
+        <input
+          className="busca"
+          autoFocus
+          value={url}
+          placeholder="https://github.com/dono/repositorio"
+          onChange={e => setUrl(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') void clonar() }}
+        />
+        <p className="form-dica">
+          {valido
+            ? `Vai para Área de Trabalho\\projetos\\${nome}. Repositório privado usa o login do Git deste computador.`
+            : 'Cole o link do repositório, ou escreva dono/repositório.'}
+        </p>
+        <div className="novo-projeto-rodape">
+          <button className="btn-fantasma" onClick={aoFechar}>Cancelar</button>
+          <button className="btn" onClick={() => void clonar()} disabled={!valido || enviando}>
+            {enviando ? 'Clonando…' : 'Clonar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ---------- metade do disco ---------- */
 
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
-  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto
+  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo
 }: PropsDev) {
   const [sobrevoando, setSobrevoando] = useState(false)
   const [raiz, setRaiz] = useState<string | null>(pastasDev[0] ?? null)
@@ -224,6 +289,7 @@ function Codigo({
   const [salvando, setSalvando] = useState(false)
 
   const [criandoProjeto, setCriandoProjeto] = useState(false)
+  const [clonando, setClonando] = useState(false)
   /**
    * A pasta `projetos` de um projeto recém-criado, esperando a lista de
    * pastas autorizadas chegar com ela. Selecionar antes faria o efeito abaixo
@@ -305,8 +371,18 @@ function Codigo({
     }
   }
 
-  const janelaNovoProjeto = criandoProjeto && (
-    <NovoProjeto aoCriar={criarProjeto} aoFechar={() => setCriandoProjeto(false)} />
+  const clonarRepo = async (url: string): Promise<boolean> => {
+    const r = await aoClonarRepo(url)
+    if (!r) return false
+    setQuerRaiz(r.raiz)
+    return true
+  }
+
+  const janelaNovoProjeto = (
+    <>
+      {criandoProjeto && <NovoProjeto aoCriar={criarProjeto} aoFechar={() => setCriandoProjeto(false)} />}
+      {clonando && <ClonarRepo aoClonar={clonarRepo} aoFechar={() => setClonando(false)} />}
+    </>
   )
 
   if (pastasDev.length === 0) {
@@ -322,6 +398,7 @@ function Codigo({
           </p>
           <div className="dev-vazio-botoes">
             <button className="btn grande" onClick={() => setCriandoProjeto(true)}>Novo projeto</button>
+            <button className="btn-fantasma" onClick={() => setClonando(true)}>Clonar do GitHub</button>
             <button className="btn-fantasma" onClick={aoAutorizar}>Escolher uma pasta</button>
           </div>
         </div>
@@ -337,6 +414,7 @@ function Codigo({
         direita={
           <span className="dev-secao-botoes">
             <button className="btn-fantasma" onClick={() => setCriandoProjeto(true)}>+ Novo projeto</button>
+            <button className="btn-fantasma" onClick={() => setClonando(true)}>+ Clonar do GitHub</button>
             <button className="btn-fantasma" onClick={aoAutorizar}>+ Autorizar pasta</button>
           </span>
         }

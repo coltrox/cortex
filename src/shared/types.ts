@@ -113,6 +113,8 @@ declare global {
       invoke(canal: string, payload: unknown): Promise<unknown>
       /** A versão do app, lida do `package.json` empacotado pelo main. */
       versaoDoApp(): Promise<string>
+      /** O comando `claude mcp add` que liga o conector do Cortex. */
+      conectorClaude(): Promise<{ comando: string }>
       /** Pinta a barra de título (os botões da janela) no tema do app. */
       temaDaJanela(tema: 'claro' | 'escuro'): Promise<void>
       estadoVault(): Promise<EstadoVault>
@@ -133,6 +135,7 @@ declare global {
       limparEncerrados(): Promise<{ processos: ProcessoInfo[] }>
       abrirNoVsCode(raiz: string, sub?: string): Promise<{ ok: boolean; motivo?: string }>
       novoProjeto(modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string): Promise<ProjetoCriado>
+      clonarRepo(url: string): Promise<ProjetoCriado>
 
       /*
        * Preferências de tela, gravadas em disco pelo processo principal.

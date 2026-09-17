@@ -383,6 +383,20 @@ export const FORMULARIOS: Record<string, Formulario> = {
       { k: 'nota', rotulo: 'Detalhes', tipo: 'longo' }
     ]
   },
+  /*
+   * O que aconteceu num dia que já passou (ou hoje) — um diário de fatos
+   * soltos, feito para ser achado depois pelo Ctrl+K: "quando foi que eu…?".
+   * O arquivo leva a data no nome (ver `criar` em useVault).
+   */
+  acontecimento: {
+    tipo: 'acontecimento', nome: 'Acontecimento', pasta: 'Agenda/Acontecimentos', nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'O que aconteceu', tipo: 'texto', obrigatorio: true,
+        placeholder: 'Troquei o óleo do carro' },
+      { k: 'date', rotulo: 'Quando', tipo: 'data', obrigatorio: true },
+      { k: 'texto', rotulo: 'Detalhes', tipo: 'longo' }
+    ]
+  },
   'data-comemorativa': {
     tipo: 'data-comemorativa', nome: 'Data comemorativa', pasta: 'Agenda',
     nomearPor: 'titulo',

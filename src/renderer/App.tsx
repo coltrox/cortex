@@ -306,6 +306,7 @@ export function App() {
             gravarArquivo={v.gravarArquivo}
             aoTerminal={(raiz, sub) => void v.abrirTerminal(raiz, sub)}
             aoNovoProjeto={(modelo, linguagem, nome) => v.novoProjeto(modelo, linguagem, nome)}
+            aoClonarRepo={url => v.clonarRepo(url)}
             aoRevelar={(raiz, sub) => void v.revelar(raiz, sub)}
             aoCriarPasta={p => void v.criarPasta(p)}
             aoMoverNota={(de, para) => void v.mover(de, para)}
@@ -454,6 +455,16 @@ export function App() {
           aoEscolher={p => void v.abrir(p)}
           aoIrParaLente={id => v.setLente(id as Lente)}
           aoCriar={titulo => setCriando({ tipo: 'anotacao', inicial: { titulo } })}
+          aoComando={id => {
+            // Cada comando reusa o mesmo caminho que o botão da lente usa —
+            // a paleta é um atalho, não uma segunda forma de gravar.
+            if (id === 'treino') setModal({ id: 'registro-treino' })
+            else if (id === 'gasto') setLancando({ item: 'transacao', dia: hoje })
+            else if (id === 'pomodoro') { v.setLente('conhecimento'); v.setSub('pomodoro') }
+            else if (id === 'configuracoes') setConfigurando(true)
+            else if (id === 'acontecimento') setCriando({ tipo: id, inicial: { date: hoje } })
+            else if (FORMULARIOS[id]) setCriando({ tipo: id })
+          }}
           aoFechar={() => setPaleta(false)}
         />
       )}

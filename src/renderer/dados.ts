@@ -177,7 +177,8 @@ export function semDependenciasDaRede(texto: string): string {
     let j = i + 1
     while (j < linhas.length) {
       const l = linhas[j].trim()
-      if (l === '' || /^[-*+]\s+/.test(l) || /^-{3,}$/.test(l)) {
+      // `-` sozinho é o item vazio que as notas novas traziam: some junto.
+      if (l === '' || /^[-*+](\s+|$)/.test(l) || /^-{3,}$/.test(l)) {
         const regua = /^-{3,}$/.test(l)
         linhas[j] = ''
         j++

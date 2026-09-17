@@ -35,3 +35,12 @@ describe('leitura da nota sem a secao Dependencias da Rede', () => {
     expect(semDependenciasDaRede(texto)).toBe(texto)
   })
 })
+
+describe('item vazio da secao', () => {
+  it('o "-" solto das notas novas some da leitura', () => {
+    const texto = '### Dependências da Rede\n-\n\nEstudar logaritmo.'
+    const saida = semDependenciasDaRede(texto)
+    expect(saida.split('\n')).toHaveLength(4)
+    expect(saida.trim()).toBe('Estudar logaritmo.')
+  })
+})

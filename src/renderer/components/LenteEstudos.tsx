@@ -5,6 +5,7 @@ import {
   num, txt, porData, dataCurta, type PropsLente
 } from './base'
 import { diasAte, rotuloPrazo } from '../subnav'
+import { Pomodoro } from './Pomodoro'
 
 /**
  * Estudos.
@@ -28,7 +29,7 @@ const repertoriosDe = (v: unknown): string[] =>
   txt(v).split(/[\n;]/).map(s => s.trim()).filter(Boolean)
 
 export function LenteEstudos({
-  notas, sub, hoje, aoAbrir, aoAdicionar, aoEditar, aoExcluir, aoAlterar
+  notas, sub, hoje, aoAbrir, aoAdicionar, aoEditar, aoExcluir, aoAlterar, aoMarcarDia
 }: PropsLente) {
   const [materiaFiltro, setMateriaFiltro] = useState<string | null>(null)
 
@@ -352,6 +353,10 @@ export function LenteEstudos({
             </div>
           )}
         </>
+      )}
+
+      {sub === 'pomodoro' && (
+        <Pomodoro notas={notas} hoje={hoje} aoMarcarDia={aoMarcarDia} />
       )}
     </div>
   )

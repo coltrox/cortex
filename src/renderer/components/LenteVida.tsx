@@ -223,13 +223,6 @@ export function LenteVida({
       {sub === 'contas' && (
         <>
           <Secao nome="Contas e senhas" acao="Conta" aoClicar={() => aoAdicionar('conta')} />
-          <div className="aviso">
-            As senhas ficam em texto puro no arquivo <code>.md</code>, como todo o
-            resto do vault. Esconder na tela protege de quem olha por cima do
-            ombro — não de quem tem a pasta. Para banco, use um gerenciador de
-            senhas de verdade.
-          </div>
-
           {contas.length > 4 && (
             <input
               className="busca"

@@ -8,7 +8,7 @@ import { ligarCampainha, desligarCampainha } from './nuvem/campainha'
 import { Processos, scriptsDoProjeto } from './dev/processos'
 import {
   etapasNovoProjeto, arquivosNovoProjeto, nomeDeProjetoValido, MODELOS_PROJETO, LINGUAGENS_PROJETO,
-  NOME_MODELO
+  NOME_MODELO, repoDoGithub
 } from './dev/novoProjeto'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
 import { ehOuContem } from './caminhos'
@@ -244,6 +244,29 @@ function createWindow(): void {
  * esquecesse de trocá-lo nos dois lugares.
  */
 ipcMain.handle('app:versao', async () => app.getVersion())
+
+/*
+ * O conector do Claude (MCP) é um script que o próprio executável do Cortex
+ * roda em modo Node — quem usa não precisa ter Node instalado. Empacotado ele
+ * mora em `resources/`; em desenvolvimento, na pasta do projeto.
+ *
+ * `CORTEX_DADOS` diz onde está o `cortex.json` com o último vault, e
+ * `CORTEX_APP` de onde carregar o gray-matter que o app já usa.
+ */
+ipcMain.handle('app:conectorClaude', async () => {
+  const script = app.isPackaged
+    ? join(process.resourcesPath, 'cortex-mcp.mjs')
+    : join(app.getAppPath(), 'resources', 'mcp', 'cortex-mcp.mjs')
+  const aspas = (s: string): string => `"${s}"`
+  const comando = [
+    'claude mcp add cortex --scope user',
+    '-e ELECTRON_RUN_AS_NODE=1',
+    `-e CORTEX_DADOS=${aspas(app.getPath('userData'))}`,
+    `-e CORTEX_APP=${aspas(app.getAppPath())}`,
+    '--', aspas(process.execPath), aspas(script)
+  ].join(' ')
+  return { comando }
+})
 
 /*
  * A cor dos botões da janela acompanha o tema do app.
@@ -515,6 +538,42 @@ ipcMain.handle('dev:novo-projeto', async (_e, payload: unknown) => {
   const rotulo = `criar ${NOME_MODELO[modelo]} · ${nome}`
   const processo = processos.iniciarEtapas(raiz, rotulo, etapas)
   return { processo, raiz, pasta: nome, pastasDev }
+})
+
+/**
+ * Clona um repositório do GitHub em `Área de Trabalho\projetos`.
+ *
+ * Mesma exceção consciente do novo projeto: a pasta `projetos` entra na
+ * autorização sem diálogo, porque o lugar é fixo e escolhido aqui. O que vem
+ * da tela é só o texto do repositório, que `repoDoGithub` reduz a uma URL
+ * https do GitHub — nada além disso vira argumento do `git`.
+ */
+ipcMain.handle('dev:clonar-repo', async (_e, payload: unknown) => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const repo = repoDoGithub((payload as { url?: unknown } | null)?.url)
+  if (!repo) throw new Error('repositório inválido: use o link do GitHub ou dono/repositório')
+
+  const base = join(app.getPath('desktop'), 'projetos')
+  await mkdir(base, { recursive: true })
+  if (await stat(join(base, repo.nome)).catch(() => null)) {
+    throw new Error(`já existe uma pasta "${repo.nome}" em projetos`)
+  }
+
+  let pastasDev = session.config.pastasDev
+  let raiz = pastasDev.find(x => resolve(x) === resolve(base))
+  if (!raiz) {
+    pastasDev = (await session.salvarConfig({ pastasDev: [...pastasDev, base] })).pastasDev
+    raiz = base
+  }
+
+  // `--` antes da URL: nada depois dele é lido como opção do git.
+  // GIT_TERMINAL_PROMPT=0: repositório privado sem login falha na hora, em vez
+  // de esperar uma senha num terminal que não existe.
+  const processo = processos.iniciarEtapas(raiz, `clonar ${repo.nome}`, [{
+    comando: 'git', args: ['clone', '--', repo.url, repo.nome], cwd: base,
+    env: { GIT_TERMINAL_PROMPT: '0' }
+  }])
+  return { processo, raiz, pasta: repo.nome, pastasDev }
 })
 
 /**

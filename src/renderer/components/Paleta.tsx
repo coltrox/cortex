@@ -1,22 +1,46 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { NoteComCampos } from '../tipos'
 import { txt } from './base'
 
 /**
- * Busca rápida.
+ * Paleta de comandos (Ctrl+K).
  *
- * Procura no título, no caminho, no tipo e em alguns campos que são a razão
- * de a pessoa estar buscando: o `arquivo` de um documento (digitar "rg" tem
- * que achar o RG) e o `usuario` de uma conta.
+ * Duas coisas no mesmo campo: FAZER (nova tarefa, registrar gasto…) e ACHAR
+ * (notas, lentes). Sem digitar nada aparecem as ações e as notas mexidas por
+ * último; digitando, as ações que casam vêm primeiro, porque são poucas e é
+ * o que se quer quando o termo é um verbo.
  *
- * Também navega: digitar "saúde" oferece ir para a lente, e um termo que não
- * acha nada vira o atalho para criar uma nota com aquele nome.
+ * A busca procura no título, no caminho, no tipo e em alguns campos que são a
+ * razão de a pessoa estar buscando: o `arquivo` de um documento (digitar "rg"
+ * tem que achar o RG) e o `usuario` de uma conta. Um termo que não acha nada
+ * vira o atalho para criar uma anotação com aquele nome.
  */
 
 type Destino =
+  | { kind: 'comando'; id: string; nome: string; dica: string }
   | { kind: 'nota'; nota: NoteComCampos }
   | { kind: 'lente'; id: string; nome: string }
   | { kind: 'criar'; termo: string }
+
+/**
+ * Os ids são os que o App entende em `aoComando`: tipo de formulário, ou um
+ * dos especiais (treino, gasto, pomodoro, configuracoes). `palavras` são os
+ * outros jeitos de pedir a mesma coisa.
+ */
+export const COMANDOS: { id: string; nome: string; dica: string; palavras: string }[] = [
+  { id: 'tarefa', nome: 'Nova tarefa', dica: 'Estudos', palavras: 'todo afazer prazo' },
+  { id: 'anotacao', nome: 'Nova anotação', dica: 'Vida', palavras: 'nota lembrete ideia' },
+  { id: 'gasto', nome: 'Registrar gasto', dica: 'Grana', palavras: 'transação dinheiro despesa receita' },
+  { id: 'treino', nome: 'Registrar treino', dica: 'Saúde', palavras: 'academia sessão musculação' },
+  { id: 'medida', nome: 'Registrar peso', dica: 'Saúde', palavras: 'medida balança corpo' },
+  { id: 'evento', nome: 'Criar compromisso', dica: 'Agenda', palavras: 'evento reunião consulta agenda' },
+  { id: 'rotina', nome: 'Nova tarefa diária', dica: 'Hoje', palavras: 'rotina hábito diário' },
+  { id: 'objetivo', nome: 'Nova meta', dica: 'Vida', palavras: 'objetivo' },
+  { id: 'acontecimento', nome: 'Registrar acontecimento', dica: 'Agenda', palavras: 'aconteceu fato lembrar registro dia' },
+  { id: 'compra', nome: 'Adicionar à lista de compras', dica: 'Vida', palavras: 'comprar mercado' },
+  { id: 'pomodoro', nome: 'Abrir Pomodoro', dica: 'Estudos', palavras: 'temporizador foco timer estudar' },
+  { id: 'configuracoes', nome: 'Abrir configurações', dica: 'App', palavras: 'ajustes tema senha celular claude' }
+]
 
 const LENTES = [
   { id: 'hoje', nome: 'Hoje' },
@@ -31,6 +55,19 @@ const LENTES = [
 /** Tira acento para que "redacao" ache "Redação". */
 const dobra = (s: string): string =>
   s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+
+/**
+ * Os comandos que casam com o termo. Cada palavra digitada precisa aparecer
+ * no nome, na área ou nas palavras-chave: "reg gas" acha "Registrar gasto".
+ */
+export function filtrarComandos(q: string): typeof COMANDOS {
+  const partes = dobra(q.trim()).split(/\s+/).filter(Boolean)
+  if (partes.length === 0) return COMANDOS
+  return COMANDOS.filter(c => {
+    const alvo = dobra(`${c.nome} ${c.palavras} ${c.dica}`)
+    return partes.every(p => alvo.includes(p))
+  })
+}
 
 /**
  * Pontua um acerto. Quanto menor, melhor.
@@ -49,7 +86,7 @@ function pontuar(n: NoteComCampos, q: string): number | null {
   if (dobra(n.path).includes(q)) return 4
   if (dobra(n.tipo).includes(q)) return 5
 
-  for (const k of ['usuario', 'categoria', 'materia', 'project', 'autor', 'papel']) {
+  for (const k of ['usuario', 'categoria', 'materia', 'project', 'autor', 'papel', 'texto']) {
     if (dobra(txt(n.campos[k])).includes(q)) return 6
   }
   return null
@@ -61,12 +98,13 @@ const ROTULO: Record<string, string> = {
 }
 
 export function Paleta({
-  notas, aoEscolher, aoIrParaLente, aoCriar, aoFechar
+  notas, aoEscolher, aoIrParaLente, aoCriar, aoComando, aoFechar
 }: {
   notas: NoteComCampos[]
   aoEscolher: (path: string) => void
   aoIrParaLente: (id: string) => void
   aoCriar: (titulo: string) => void
+  aoComando: (id: string) => void
   aoFechar: () => void
 }) {
   const [q, setQ] = useState('')
@@ -76,14 +114,19 @@ export function Paleta({
 
   useEffect(() => { campo.current?.focus() }, [])
 
+  const termo = dobra(q.trim())
+
   const resultados = useMemo<Destino[]>(() => {
-    const termo = dobra(q.trim())
+    const comandos: Destino[] = filtrarComandos(q)
+      .map(c => ({ kind: 'comando' as const, id: c.id, nome: c.nome, dica: c.dica }))
+
     if (!termo) {
-      // Sem busca: as notas mexidas por último. É o que se quer quase sempre.
-      return [...notas]
+      // Sem busca: as ações, e depois as notas mexidas por último.
+      const recentes = [...notas]
         .sort((a, b) => b.mtime - a.mtime)
-        .slice(0, 12)
+        .slice(0, 8)
         .map(nota => ({ kind: 'nota' as const, nota }))
+      return [...comandos, ...recentes]
     }
 
     const lentes: Destino[] = LENTES
@@ -97,8 +140,8 @@ export function Paleta({
       .slice(0, 40)
       .map(r => ({ kind: 'nota' as const, nota: r.nota }))
 
-    return [...lentes, ...achadas, { kind: 'criar' as const, termo: q.trim() }]
-  }, [notas, q])
+    return [...comandos, ...lentes, ...achadas, { kind: 'criar' as const, termo: q.trim() }]
+  }, [notas, q, termo])
 
   useEffect(() => { setI(0) }, [q])
 
@@ -109,10 +152,13 @@ export function Paleta({
   }, [i])
 
   const escolher = (d: Destino): void => {
-    if (d.kind === 'nota') aoEscolher(d.nota.path)
+    // Fecha antes: o comando abre outro modal, e dois por cima um do outro
+    // brigariam pelo Esc.
+    aoFechar()
+    if (d.kind === 'comando') aoComando(d.id)
+    else if (d.kind === 'nota') aoEscolher(d.nota.path)
     else if (d.kind === 'lente') aoIrParaLente(d.id)
     else aoCriar(d.termo)
-    aoFechar()
   }
 
   const onKey = (e: KeyboardEvent<HTMLInputElement>): void => {
@@ -122,63 +168,88 @@ export function Paleta({
     if (e.key === 'Escape') { e.preventDefault(); aoFechar() }
   }
 
+  const secaoDe = (d: Destino): string => {
+    if (d.kind === 'comando') return 'Ações'
+    if (d.kind === 'lente') return 'Ir para'
+    if (d.kind === 'criar') return 'Criar'
+    return termo ? 'Notas' : 'Recentes'
+  }
+
+  const itens: ReactNode[] = []
+  resultados.forEach((d, j) => {
+    const sel = j === i
+    const secao = secaoDe(d)
+    if (j === 0 || secaoDe(resultados[j - 1]) !== secao) {
+      itens.push(<div className="paleta-secao" key={`s-${secao}`}>{secao}</div>)
+    }
+    const props = {
+      className: `paleta-item ${d.kind === 'criar' ? 'criar' : ''} ${d.kind === 'comando' ? 'comando' : ''}`,
+      'aria-selected': sel,
+      onMouseEnter: () => setI(j),
+      onClick: () => escolher(d)
+    }
+    if (d.kind === 'comando') {
+      itens.push(
+        <button key={`c-${d.id}`} {...props}>
+          <span className="paleta-linha">
+            <span className="paleta-sinal" aria-hidden="true">›</span>
+            <span className="paleta-titulo">{d.nome}</span>
+            <span className="tipo">{d.dica}</span>
+          </span>
+        </button>
+      )
+    } else if (d.kind === 'lente') {
+      itens.push(
+        <button key={`l-${d.id}`} {...props}>
+          <span className="paleta-linha">
+            <span className="paleta-titulo">Ir para {d.nome}</span>
+            <span className="tipo">lente</span>
+          </span>
+        </button>
+      )
+    } else if (d.kind === 'criar') {
+      itens.push(
+        <button key="criar" {...props}>
+          <span className="paleta-linha">
+            <span className="paleta-titulo">Criar anotação &ldquo;{d.termo}&rdquo;</span>
+            <span className="tipo">novo</span>
+          </span>
+        </button>
+      )
+    } else {
+      const n = d.nota
+      itens.push(
+        <button key={n.path} {...props}>
+          <span className="paleta-linha">
+            <span className="paleta-titulo">{n.title}</span>
+            <span className="tipo" data-t={n.tipo}>{ROTULO[n.tipo] ?? n.tipo}</span>
+          </span>
+          <span className="paleta-caminho">
+            {n.path}
+            {txt(n.campos.arquivo) && ` · ${txt(n.campos.arquivo)}`}
+          </span>
+        </button>
+      )
+    }
+  })
+
   return (
     <div className="paleta-fundo" onClick={aoFechar}>
       <div className="paleta" onClick={e => e.stopPropagation()}>
         <input
           ref={campo}
           className="paleta-campo"
-          placeholder="Buscar nota, documento, conta, lente…"
+          placeholder="O que você quer fazer? Buscar nota, nova tarefa, registrar gasto…"
           value={q}
           onChange={e => setQ(e.target.value)}
           onKeyDown={onKey}
         />
 
-        <div className="paleta-lista" ref={listaRef}>
-          {resultados.map((d, j) => {
-            const sel = j === i
-            if (d.kind === 'lente') {
-              return (
-                <button key={`l-${d.id}`} className="paleta-item" aria-selected={sel}
-                  onMouseEnter={() => setI(j)} onClick={() => escolher(d)}>
-                  <span className="paleta-linha">
-                    <span className="paleta-titulo">Ir para {d.nome}</span>
-                    <span className="tipo">lente</span>
-                  </span>
-                </button>
-              )
-            }
-            if (d.kind === 'criar') {
-              return (
-                <button key="criar" className="paleta-item criar" aria-selected={sel}
-                  onMouseEnter={() => setI(j)} onClick={() => escolher(d)}>
-                  <span className="paleta-linha">
-                    <span className="paleta-titulo">Criar anotação &ldquo;{d.termo}&rdquo;</span>
-                    <span className="tipo">novo</span>
-                  </span>
-                </button>
-              )
-            }
-            const n = d.nota
-            return (
-              <button key={n.path} className="paleta-item" aria-selected={sel}
-                onMouseEnter={() => setI(j)} onClick={() => escolher(d)}>
-                <span className="paleta-linha">
-                  <span className="paleta-titulo">{n.title}</span>
-                  <span className="tipo" data-t={n.tipo}>{ROTULO[n.tipo] ?? n.tipo}</span>
-                </span>
-                <span className="paleta-caminho">
-                  {n.path}
-                  {txt(n.campos.arquivo) && ` · ${txt(n.campos.arquivo)}`}
-                </span>
-              </button>
-            )
-          })}
-        </div>
+        <div className="paleta-lista" ref={listaRef}>{itens}</div>
 
         <div className="paleta-rodape">
           <span><kbd>↑</kbd><kbd>↓</kbd> navegar</span>
-          <span><kbd>Enter</kbd> abrir</span>
+          <span><kbd>Enter</kbd> executar</span>
           <span><kbd>Esc</kbd> fechar</span>
           <span className="paleta-conta">{notas.length} notas no vault</span>
         </div>

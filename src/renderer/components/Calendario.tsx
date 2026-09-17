@@ -25,7 +25,7 @@ const CRIAVEIS = [
 ]
 
 /** Os tipos com data marcada que o calendário mostra. A data comemorativa vem à parte. */
-const TIPOS_DO_CALENDARIO = new Set(['evento', 'prova', 'simulado', 'tarefa'])
+const TIPOS_DO_CALENDARIO = new Set(['evento', 'prova', 'simulado', 'tarefa', 'acontecimento'])
 
 /** Constrói ISO sem passar por Date — evita a viagem de fuso do toISOString. */
 function iso(ano: number, mes: number, dia: number): string {
@@ -290,6 +290,16 @@ export function Calendario({
                     + {c.nome}
                   </button>
                 ))}
+                {/* Só no que já aconteceu: registrar um fato num dia que ainda
+                    não chegou seria um compromisso com outro nome. */}
+                {dia <= hoje && (
+                  <button
+                    className="chip"
+                    onClick={() => { aoAdicionar('acontecimento', { date: dia }); setDia(null) }}
+                  >
+                    + Acontecimento
+                  </button>
+                )}
               </div>
             </div>
           </div>

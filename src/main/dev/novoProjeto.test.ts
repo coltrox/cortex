@@ -185,3 +185,23 @@ describe('comandos do projeto novo', () => {
     }
   })
 })
+
+describe('repoDoGithub', () => {
+  it('aceita link da página, de clone, SSH e dono/repo', async () => {
+    const { repoDoGithub } = await import('./novoProjeto')
+    const esperado = { url: 'https://github.com/coltrox/cortex.git', nome: 'cortex' }
+    expect(repoDoGithub('https://github.com/coltrox/cortex')).toEqual(esperado)
+    expect(repoDoGithub('https://github.com/coltrox/cortex.git')).toEqual(esperado)
+    expect(repoDoGithub('github.com/coltrox/cortex/')).toEqual(esperado)
+    expect(repoDoGithub('git@github.com:coltrox/cortex.git')).toEqual(esperado)
+    expect(repoDoGithub('  coltrox/cortex ')).toEqual(esperado)
+  })
+
+  it('recusa o que não é repositório do GitHub', async () => {
+    const { repoDoGithub } = await import('./novoProjeto')
+    for (const ruim of [
+      'https://gitlab.com/a/b', 'file:///C:/x', 'ext::sh -c calc', '--upload-pack=calc/x',
+      'a/-b', 'a/..', 'a/b/c', 'https://github.com/a/b?x=1', 'a/b; rm -rf', '', 42
+    ]) expect(repoDoGithub(ruim)).toBeNull()
+  })
+})

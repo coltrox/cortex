@@ -31,6 +31,13 @@ asarUnpack:
   - '**/*.node'
   - '**/better-sqlite3/**'
 
+# O conector do Claude é um script solto, rodado pelo próprio Cortex.exe em
+# modo Node (ELECTRON_RUN_AS_NODE). Fica fora do asar para ter um caminho de
+# verdade que o `claude mcp add` possa apontar.
+extraResources:
+  - from: resources/mcp/cortex-mcp.mjs
+    to: cortex-mcp.mjs
+
 # Não recompilar dependências nativas.
 #
 # O better-sqlite3 13 distribui binários N-API em `prebuilds/<plataforma>.node`

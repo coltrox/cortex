@@ -2,7 +2,6 @@ import type { Vault } from '../vault/vault'
 import type { Indexer } from '../index/indexer'
 import { patchFrontmatter, appendToFrontmatterList } from '../vault/patch'
 import { parseFrontmatter } from '../parser/frontmatter'
-import { DEPENDENCIAS } from '../templates'
 import type { Operacao } from './planejar'
 
 /**
@@ -24,8 +23,8 @@ import type { Operacao } from './planejar'
 const cabecalhoDiario = (dia: string): string =>
   `---\ntipo: diario\ndate: ${dia}\n---\n\n## Como foi o dia\n`
 
-/** Esqueleto de nota nova: YAML vazio válido + o mesmo rodapé de sempre. */
-const ESQUELETO_VAZIO = `---\n---\n\n${DEPENDENCIAS}\n\n`
+/** Esqueleto de nota nova: YAML vazio válido, sem seção de dependências vazia. */
+const ESQUELETO_VAZIO = `---\n---\n\n`
 
 async function garantir(vault: Vault, path: string, inicial: string): Promise<void> {
   if (!(await vault.exists(path))) await vault.writeAtomic(path, inicial)

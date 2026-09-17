@@ -27,6 +27,11 @@ const api = {
     return ipcRenderer.invoke('app:versao')
   },
 
+  /** O comando que registra o conector do Cortex no Claude Code. */
+  conectorClaude(): Promise<{ comando: string }> {
+    return ipcRenderer.invoke('app:conectorClaude')
+  },
+
   /** Pinta os botões da janela no tema do app. Só aceita os dois nomes. */
   temaDaJanela(tema: 'claro' | 'escuro'): Promise<void> {
     return ipcRenderer.invoke('janela:tema', tema)
@@ -107,6 +112,10 @@ const api = {
     nome: string
   ): Promise<import('../shared/types').ProjetoCriado> {
     return ipcRenderer.invoke('dev:novo-projeto', { modelo, linguagem, nome })
+  },
+  /** Clona um repositório do GitHub em Área de Trabalho\projetos. */
+  clonarRepo(url: string): Promise<import('../shared/types').ProjetoCriado> {
+    return ipcRenderer.invoke('dev:clonar-repo', { url })
   },
 
   /*

@@ -37,6 +37,28 @@ export function nomeDeProjetoValido(nome: unknown): nome is string {
 }
 
 /**
+ * Um repositório do GitHub, do jeito que a pessoa colar: o link da página,
+ * o link de clone (`.git`), o SSH (`git@github.com:dono/repo.git`) ou só
+ * `dono/repo`. Sai sempre como URL https — e com o nome da pasta.
+ *
+ * Só GitHub e só esse formato estreito: o texto vira argumento do `git`, e
+ * uma URL qualquer (`file://`, `ext::`, opção começando com `-`) é exatamente
+ * o que não pode chegar lá.
+ */
+export function repoDoGithub(entrada: unknown): { url: string; nome: string } | null {
+  if (typeof entrada !== 'string') return null
+  const t = entrada.trim()
+  const m =
+    /^(?:https?:\/\/)?(?:www\.)?github\.com\/([A-Za-z0-9-]{1,39})\/([A-Za-z0-9_.-]{1,100}?)(?:\.git)?\/?$/.exec(t) ??
+    /^git@github\.com:([A-Za-z0-9-]{1,39})\/([A-Za-z0-9_.-]{1,100}?)(?:\.git)?$/.exec(t) ??
+    /^([A-Za-z0-9-]{1,39})\/([A-Za-z0-9_.-]{1,100}?)(?:\.git)?$/.exec(t)
+  if (!m) return null
+  const [, dono, repo] = m
+  if (dono.startsWith('-') || repo.startsWith('.') || repo.startsWith('-')) return null
+  return { url: `https://github.com/${dono}/${repo}.git`, nome: repo }
+}
+
+/**
  * O modelo deixa escolher entre TypeScript e JavaScript?
  *
  * Só os do mundo JavaScript. Em Python, C#, C++ e C a linguagem já é a do

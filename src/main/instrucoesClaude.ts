@@ -177,7 +177,7 @@ Cada nota é um arquivo \`.md\` com um cabeçalho YAML entre \`---\`. O campo
 
 - Datas em \`AAAA-MM-DD\`, horas em \`HH:MM\`, dias da semana como \`seg, ter, qua, qui, sex, sab, dom\`.
 - O nome do arquivo é o título: \`Agenda/Dentista.md\`, com \`title: Dentista\`.
-- Termine a nota com a seção \`### Dependências da Rede\` e links \`[[Outra nota]]\` para as notas relacionadas — é isso que liga a rede do Cortex.
+- Ligue as notas relacionadas com links \`[[Outra nota]]\` no próprio texto — é isso que liga a rede do Cortex. Não escreva uma seção \`### Dependências da Rede\`: o app já mostra as ligações na lateral.
 
 ${tabela}
 

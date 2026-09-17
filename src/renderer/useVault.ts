@@ -198,9 +198,13 @@ export function useVault() {
   ): Promise<string | null> => {
     const form = FORMULARIOS[tipo]
     if (!form) { setErro(`Tipo desconhecido: ${tipo}`); return null }
+    // Acontecimento leva a data na frente: "fui ao dentista" pode acontecer
+    // muitas vezes, e cada vez é um arquivo.
     const base = form.nomearPor === 'data'
       ? `${tipo}-${String(campos.date ?? '')}`
-      : nomeArquivo(String(campos.titulo ?? ''))
+      : tipo === 'acontecimento' && campos.titulo
+        ? nomeArquivo(`${String(campos.date ?? '')} - ${String(campos.titulo)}`)
+        : nomeArquivo(String(campos.titulo ?? ''))
     if (!base || base === `${tipo}-`) { setErro('Faltou o nome da nota.'); return null }
 
     const fm: Record<string, unknown> = { tipo, ...campos }
@@ -208,7 +212,9 @@ export function useVault() {
       .filter(([, val]) => val !== null && val !== undefined)
       .map(([k, val]) => `${k}: ${yaml(val)}`)
     const corpo = form.corpo ?? ''
-    const texto = `---\n${linhas.join('\n')}\n---\n\n### Dependências da Rede\n-\n\n${corpo}`
+    // Sem a seção "Dependências da Rede": a lateral da nota já mostra as
+    // ligações, e a seção vazia só deixava um `-` solto na tela.
+    const texto = `---\n${linhas.join('\n')}\n---\n\n${corpo}`
     const path = `${pastaAlvo ?? form.pasta}/${base}.md`
 
     try {
@@ -377,6 +383,17 @@ export function useVault() {
     } catch (e) { falhou(e); return null }
   }, [])
 
+  const clonarRepo = useCallback(async (
+    url: string
+  ): Promise<import('../shared/types').ProjetoCriado | null> => {
+    try {
+      const r = await window.vaultApi.clonarRepo(url)
+      setConfig(c => ({ ...c, pastasDev: r.pastasDev }))
+      setErro(null)
+      return r
+    } catch (e) { falhou(e); return null }
+  }, [])
+
   const revelar = useCallback(async (raiz: string, subPasta = ''): Promise<void> => {
     try { await window.vaultApi.abrirNoExplorador(raiz, subPasta); setErro(null) } catch (e) { falhou(e) }
   }, [])
@@ -416,7 +433,7 @@ export function useVault() {
     abrir, abrirPorNome, abrirLink, fechar, salvar,
     criar, alterar, excluir, mover, criarPasta, lancar, marcarNoDia,
     autorizarPasta, autorizarArrastadas, removerPasta,
-    arvoreDev, lerArquivo, gravarArquivo, abrirTerminal, revelar, novoProjeto,
+    arvoreDev, lerArquivo, gravarArquivo, abrirTerminal, revelar, novoProjeto, clonarRepo,
     erro, limparErro: () => setErro(null)
   }
 }

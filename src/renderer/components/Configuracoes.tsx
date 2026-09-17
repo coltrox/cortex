@@ -4,6 +4,22 @@ import { ProtecaoSenha } from './ProtecaoSenha'
 import { lerTema, salvarTema, aplicarTema, type Tema } from '../tema'
 import type { Config } from '../useVault'
 
+/*
+ * Abas na lateral: o painel cresceu a ponto de virar rolagem, e quem abre as
+ * configurações quase sempre sabe o que veio mudar. Cada aba monta só o seu
+ * bloco — os componentes são os mesmos de antes, só mudaram de endereço.
+ */
+type Aba = 'geral' | 'aparencia' | 'areas' | 'seguranca' | 'celular' | 'claude'
+
+const ABAS: { id: Aba; nome: string }[] = [
+  { id: 'geral', nome: 'Geral' },
+  { id: 'aparencia', nome: 'Aparência' },
+  { id: 'areas', nome: 'Áreas' },
+  { id: 'seguranca', nome: 'Segurança' },
+  { id: 'celular', nome: 'Celular' },
+  { id: 'claude', nome: 'Claude' }
+]
+
 /**
  * O painel de Configurações — o único item do rodapé do rail.
  *
@@ -28,6 +44,7 @@ export function Configuracoes({
   sincronizacaoFalhando: boolean
 }) {
   const [marcadas, setMarcadas] = useState<string[]>(config.areas)
+  const [aba, setAba] = useState<Aba>('geral')
   /*
    * A versão vem do processo principal, e não de uma constante aqui.
    *
@@ -61,8 +78,23 @@ export function Configuracoes({
               quando você conta que algo não funcionou. */}
           {versao && <span className="config-versao">Cortex {versao}</span>}
         </div>
+        <div className="config-abas">
+          <nav className="config-nav" aria-label="Seções das configurações">
+            {ABAS.map(a => (
+              <button
+                key={a.id}
+                className={`config-aba ${aba === a.id ? 'config-aba-ativa' : ''}`}
+                aria-current={aba === a.id ? 'page' : undefined}
+                onClick={() => setAba(a.id)}
+              >
+                {a.nome}
+                {a.id === 'celular' && sincronizacaoFalhando && <span className="config-alerta"> ·</span>}
+              </button>
+            ))}
+          </nav>
         <div className="form-corpo config-corpo">
 
+          {aba === 'geral' && (
           <section className="config-bloco">
             <h3>Vault</h3>
             <p className="form-dica">Onde estas notas vivem no disco.</p>
@@ -79,7 +111,9 @@ export function Configuracoes({
               Trocar de vault
             </button>
           </section>
+          )}
 
+          {aba === 'areas' && (
           <section className="config-bloco">
             <h3>Áreas do app</h3>
             <p className="form-dica">
@@ -95,11 +129,13 @@ export function Configuracoes({
               Salvar áreas
             </button>
           </section>
+          )}
 
-          <ProtecaoSenha config={config} aoTrocarConfig={aoTrocarConfig} />
+          {aba === 'seguranca' && <ProtecaoSenha config={config} aoTrocarConfig={aoTrocarConfig} />}
 
-          <BlocoTema />
+          {aba === 'aparencia' && <BlocoTema />}
 
+          {aba === 'celular' && (
           <section className="config-bloco">
             <h3>Celular</h3>
             <p className="form-dica">
@@ -111,7 +147,11 @@ export function Configuracoes({
               {sincronizacaoFalhando && <span className="config-alerta"> · falhando</span>}
             </button>
           </section>
+          )}
 
+          {aba === 'claude' && <BlocoClaude />}
+
+        </div>
         </div>
         <div className="form-rodape">
           <button className="btn" onClick={aoFechar}>Fechar</button>
@@ -178,6 +218,45 @@ function BlocoTema() {
         ))}
       </div>
       <p className="form-dica">{opcoes.find(o => o.id === tema)?.dica}</p>
+    </section>
+  )
+}
+
+/**
+ * O conector do Cortex para o Claude (MCP).
+ *
+ * Mostra o comando pronto, com os caminhos desta instalação, em vez de
+ * registrar sozinho: mexer na configuração do Claude Code é decisão de quem
+ * usa, e um comando visível dá para conferir antes de rodar.
+ */
+function BlocoClaude() {
+  const [comando, setComando] = useState('')
+  const [copiado, setCopiado] = useState(false)
+
+  useEffect(() => {
+    void window.vaultApi.conectorClaude().then(r => setComando(r.comando)).catch(() => {})
+  }, [])
+
+  const copiar = (): void => {
+    void navigator.clipboard.writeText(comando).then(() => {
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 1800)
+    })
+  }
+
+  return (
+    <section className="config-bloco">
+      <h3>Conector do Claude</h3>
+      <p className="form-dica">
+        Deixa o Claude Code consultar o vault aberto por último: buscar e ler
+        notas, ver o que tem para hoje, criar anotação e marcar tarefa do dia.
+        Contas, senhas, documentos e painéis trancados ficam de fora.
+      </p>
+      <p className="form-dica">Rode uma vez no terminal:</p>
+      <pre className="config-comando"><code>{comando || '…'}</code></pre>
+      <button className="btn" onClick={copiar} disabled={!comando}>
+        {copiado ? 'Copiado' : 'Copiar comando'}
+      </button>
     </section>
   )
 }
