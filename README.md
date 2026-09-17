@@ -407,10 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
-`v2.3.0` — redesign do app de computador: tema escuro próprio, fontes Inter e
-DM Serif Display embutidas, sidebar única, página Hoje em duas trilhas e barra
-de título integrada (F11 para tela cheia). O Novo projeto da lente Dev escolhe a
-linguagem numa lista com busca. A 2.0.0 foi a
+`v2.4.0` — paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
+Estudos, acontecimentos na Agenda, clonar repositório do GitHub na lente Dev e
+um conector MCP para o Claude Code consultar o vault. A 2.3.0 trouxe o redesign
+do app de computador: tema escuro próprio, sidebar única, página Hoje em duas
+trilhas e barra de título integrada (F11 para tela cheia). A 2.0.0 foi a
 primeira versão para outras pessoas usarem. Funciona, é usado todo
 dia, e ainda tem as arestas de um projeto de uma pessoa só: sem CI, sem
 instalador para macOS/Linux, sem assinatura de código, sem migrações versionadas
