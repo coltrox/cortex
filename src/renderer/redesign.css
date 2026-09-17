@@ -122,9 +122,13 @@ body {
   animation: entrar-pagina 220ms var(--curva) both;
 }
 
+/* Só opacidade: um `transform` animado (mesmo parado em `none`) faz a lente virar
+   o bloco de referência dos filhos `position: fixed` — e aí os modais abertos de
+   dentro dela (Novo projeto, o dia do calendário) ficavam presos à lente, com o
+   fundo escuro sem cobrir a barra lateral e a janela cortada em tela baixa. */
 @keyframes entrar-pagina {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ---------- Sidebar ---------- */
@@ -887,3 +891,59 @@ body {
   .novo-projeto-modelo { padding: 9px 11px; }
   .novo-projeto-cascata-lista { max-height: 200px; }
 }
+
+/* ==========================================================================
+   Responsivo — por último de propósito, para vencer as regras de cima.
+
+   O Cortex roda em monitor e em notebook com escala do Windows em 125–150%,
+   onde a janela útil fica perto de 1000×600. Antes: a lateral do Hoje nunca
+   empilhava (uma regra solta mais acima anulava a media query), os cartões
+   deixavam um sozinho na segunda linha, e os modais passavam da altura da tela.
+   Tamanhos conferidos com prints em 1024×600, 1280×640 e 1366×768.
+   ========================================================================== */
+
+/* Cartões de resumo: cabem quatro numa linha até bem estreito. */
+.cartoes { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.cartao { min-width: 0; }
+.hoje-resumo { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Hoje: a lateral fica ao lado só quando sobra espaço para as duas colunas. */
+@media (max-width: 1320px) {
+  .hoje-layout { grid-template-columns: minmax(0, 1fr) minmax(280px, 36%); }
+}
+@media (max-width: 1180px) {
+  .hoje-layout { grid-template-columns: minmax(0, 1fr); }
+  .hoje-lado > .bloco:first-child { margin-top: 14px; }
+  .grade-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Janela estreita: barra lateral mais fina e margens menores. */
+@media (max-width: 1100px) {
+  :root { --sidebar-app: 208px; }
+  .lente { padding: 32px 24px 64px; }
+  .topo { padding: 10px 24px; }
+  .lente-titulo { font-size: clamp(30px, 4vw, 40px); }
+}
+@media (max-width: 860px) {
+  .hoje-resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Tela baixa: menos respiro vertical, e a sidebar cabe sem rolar à toa. */
+@media (max-height: 720px) {
+  .lente { padding-top: 26px; }
+  .cartoes, .hoje-resumo { margin-top: 20px; }
+  .cartao { padding: 14px 16px; }
+  .sb-marca { padding-bottom: 12px; }
+  .sb-item { padding-top: 6px; padding-bottom: 6px; }
+  .sb-sub { padding-top: 5px; padding-bottom: 5px; }
+}
+
+/* Modais: nunca mais altos que a tela; o conteúdo rola por dentro. */
+.paleta-fundo { padding: 16px; }
+.form { max-height: calc(100vh - 32px); max-width: calc(100vw - 32px); }
+.popup-dia { max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.popup-dia .popup-corpo { flex: 1; min-height: 0; max-height: none; }
+.paleta { max-height: calc(100vh - 32px); max-width: calc(100vw - 32px); }
+.paleta-fundo > .paleta { margin-top: min(6vh, 40px); }
+/* O botão do aviso vermelho vai para a linha de baixo, e não no meio da frase. */
+.google-erro .btn-fantasma { display: flex; margin-top: 10px; }
