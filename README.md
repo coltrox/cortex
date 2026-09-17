@@ -407,7 +407,7 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
-`v2.6.2` — Google Agenda de duas vias, que também puxa os seus outros calendários (um calendário "Cortex" na conta Google), paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
+`v2.6.3` — Google Agenda de duas vias, que também puxa os seus outros calendários (um calendário "Cortex" na conta Google), paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
 Estudos, acontecimentos na Agenda, clonar repositório do GitHub na lente Dev e
 um conector MCP para o Claude Code consultar o vault. A 2.3.0 trouxe o redesign
 do app de computador: tema escuro próprio, sidebar única, página Hoje em duas
