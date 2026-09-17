@@ -1892,3 +1892,64 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 
 /* O filtro por tipo da aba Chegando, logo acima da lista. */
 .filtro-agenda{ margin-bottom:var(--e4); }
+
+/* ─────────────── Sessão de treino (v2) ─────────────── */
+
+/* A barra de progresso da sessão corre no fluxo, abaixo das abas: fixa no
+   topo ela cortava o nome do treino ao meio. */
+.progresso.progresso-fluxo{
+  position:relative; top:auto; left:auto; right:auto; z-index:auto;
+  max-width:none; margin:var(--e3) 0 var(--e4); border-radius:3px; overflow:hidden;
+}
+.lista-treino{ gap:var(--e3); padding-bottom:calc(var(--e6) * 3); }
+.lista-treino .cartao-exercicio{ padding:var(--e4); }
+
+.exercicio-cabeca{ display:flex; align-items:center; gap:var(--e3); }
+.exercicio-titulo{ flex:1; min-width:0; }
+.exercicio-nome-botao{
+  display:inline-flex; align-items:center; gap:6px; max-width:100%;
+  background:none; border:0; padding:2px 0; color:var(--txt); text-align:left; cursor:pointer;
+}
+.exercicio-nome-botao .exercicio-nome{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.exercicio-nome-botao .lapis{ flex:none; color:var(--txt-3); }
+.exercicio-renomear{
+  width:100%; min-height:40px; padding:0 var(--e3);
+  background:var(--painel-alto); color:var(--txt);
+  border:1px solid var(--acento); border-radius:var(--r1);
+  font:600 16px/1.2 var(--fonte); outline:none;
+}
+
+/* Série: número · kg × reps · remover, em grade — os dois campos sempre do
+   mesmo tamanho e alinhados de uma série para a outra. */
+.lista-treino .series{ gap:var(--e2); margin-top:var(--e4); }
+.lista-treino .serie{
+  display:grid; grid-template-columns:26px minmax(0,1fr) 14px minmax(0,1fr) 34px;
+  align-items:center; gap:var(--e2);
+  padding:0; background:none; border:0;
+}
+.serie-rotulos{ min-height:0; }
+.serie-rotulos span{
+  font:600 10.5px/1 var(--fonte); letter-spacing:.08em; text-transform:uppercase;
+  color:var(--txt-3); text-align:center;
+}
+.lista-treino .serie-n{ width:auto; font:700 13px/1 var(--fonte-num); color:var(--txt-3); }
+.serie-input{
+  width:100%; min-width:0; min-height:50px; padding:0 var(--e2);
+  background:var(--painel-alto); color:var(--txt);
+  border:1px solid var(--borda); border-radius:var(--r1);
+  font:700 19px/1 var(--fonte-num); text-align:center;
+  -webkit-appearance:none; appearance:none; outline:none;
+  transition:border-color .15s ease, background .15s ease;
+}
+.serie-input::placeholder{ color:var(--txt-3); font-weight:500; opacity:.55; }
+.serie-input:focus{ border-color:var(--acento); background:var(--painel-topo); }
+.lista-treino .serie-x{ text-align:center; font-size:15px; }
+.serie[data-cheia="true"] .serie-input{ border-color:rgba(74,222,128,.35); }
+.serie[data-cheia="true"] .serie-n{ color:var(--ok); }
+.sumir-serie{ width:34px; min-height:34px; font-size:18px; }
+.lista-treino .linha-acoes{ margin-top:var(--e3); }
+
+.adicionar-exercicio{ width:100%; min-height:52px; flex:none; }
+.novo-exercicio{ display:flex; flex-direction:column; gap:var(--e2); }
+.novo-exercicio .linha-acoes{ margin-top:0; }
+.btn-mini:disabled{ opacity:.45; }

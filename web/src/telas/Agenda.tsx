@@ -106,7 +106,6 @@ export function Agenda(p: {
   const dia = diaLocal()
   const [feitos, setFeitos] = useState<string[]>(() => jaFeitos(guardadoDoNavegador, dia))
   /** A lista de tipos do botão Marcar está aberta? */
-  const [escolhendo, setEscolhendo] = useState(false)
   /** O caminho da nota cujas ações estão abertas — uma de cada vez. */
   const [aberto, setAberto] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
@@ -752,23 +751,18 @@ export function Agenda(p: {
             dono: um seletor ao lado do botão era uma decisão a mais na tela
             para algo que se faz de vez em quando. */}
         <Secao nome="Marcar" />
+        {/* Um campo só: tocar abre a lista, escolher já leva ao formulário. */}
         <div className="marcar">
-          <button className="btn btn-principal marcar-botao" type="button"
-            aria-expanded={escolhendo}
-            onClick={() => setEscolhendo(!escolhendo)}>
-            Marcar
-          </button>
+          <Selecao
+            rotulo="O que marcar"
+            opcoes={tiposMarcar.map(t => t[1])}
+            valor="Escolha o que marcar…"
+            aoMudar={nome => {
+              const achado = tiposMarcar.find(t => t[1] === nome)
+              if (achado) p.aoMarcar(achado[0])
+            }}
+          />
         </div>
-        {escolhendo && (
-          <div className="chips marcar-tipos">
-            {tiposMarcar.map(([t, nome]) => (
-              <button key={t} className="chip" type="button"
-                onClick={() => { setEscolhendo(false); p.aoMarcar(t) }}>
-                {nome}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Separar por tipo. Um seletor, como as outras escolhas do app. */}
         <div className="filtro-agenda">

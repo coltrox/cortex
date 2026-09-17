@@ -10,7 +10,7 @@ import { Instalar } from './telas/Instalar'
 import { Aviso } from './componentes'
 import { useVersaoNova } from './versao'
 import { Hoje } from './telas/Hoje'
-import { Treino } from './telas/Treino'
+import { Treino, haTreinoEmAndamento } from './telas/Treino'
 import { Cardio } from './telas/Cardio'
 import { Medidas } from './telas/Medidas'
 import { Gasto } from './telas/Gasto'
@@ -283,7 +283,9 @@ export function App() {
             <button
               key={a.id}
               className={`aba ${ativa ? 'aba-ativa' : ''}`}
-              onClick={() => setTela(a.id)}
+              // Treino começado e não registrado: a aba Saúde volta direto
+              // para a sessão, e não para o painel do dia.
+              onClick={() => setTela(a.id === 'saude' && haTreinoEmAndamento() ? 'treino' : a.id)}
               aria-current={ativa}
             >
               <span className="aba-forma" style={{ borderRadius: a.forma }} aria-hidden="true" />

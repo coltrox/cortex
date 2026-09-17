@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { diaLocal, eventoSessao, type ExercicioFeito, type SerieFeita } from '../montar'
 import { treinos, exerciciosDoTreino } from '../cardapio'
 import { guardadoDoNavegador } from '../guardado'
@@ -46,10 +46,47 @@ function lerSessao(): Sessao | null {
 const gravarSessao = (s: Sessao | null): void =>
   s ? guardadoDoNavegador.gravar(CHAVE, JSON.stringify(s)) : guardadoDoNavegador.apagar(CHAVE)
 
+/**
+ * Tem treino começado e não registrado?
+ *
+ * A aba Saúde usa isto para abrir direto na sessão: quem saiu no meio do
+ * treino para olhar outra coisa volta para onde estava, e não para a lista.
+ */
+export const haTreinoEmAndamento = (): boolean => lerSessao() !== null
+
 /** Quantas séries o modelo pede, para a tela já nascer com as linhas certas. */
 function seriesIniciais(series: number | undefined): SerieFeita[] {
   const n = typeof series === 'number' && series > 0 && series < 20 ? series : 3
   return Array.from({ length: n }, () => ({}))
+}
+
+/**
+ * As repetições que o modelo pede para a série `j`, para mostrar de dica.
+ *
+ * "4 × 15-12-10-8" dá 15, 12, 10, 8; "3 × 10" dá 10 em todas. Série a mais
+ * que a prescrição repete o último número.
+ */
+export function repsAlvo(presc: string, j: number): string {
+  const reps = presc.includes('×') ? presc.split('×').pop() ?? '' : ''
+  const partes = reps.split(/[-/,]/).map(s => s.trim()).filter(Boolean)
+  if (partes.length === 0) return ''
+  return partes[Math.min(j, partes.length - 1)]
+}
+
+/**
+ * Enter pula para o próximo campo: kg → reps → kg da série seguinte → …
+ * No último, fecha o teclado.
+ */
+function irParaProximo(atual: HTMLInputElement): void {
+  const todos = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-campo-treino]'))
+  const prox = todos[todos.indexOf(atual) + 1]
+  if (prox) { prox.focus(); prox.select() } else atual.blur()
+}
+
+const aoEnter = (ev: KeyboardEvent<HTMLInputElement>): void => {
+  if (ev.key !== 'Enter') return
+  ev.preventDefault()
+  irParaProximo(ev.currentTarget)
 }
 
 export function Treino(p: {
@@ -60,10 +97,24 @@ export function Treino(p: {
   const modelos = treinos(p.cardapio.cardapio)
   const [sessao, setSessao] = useState<Sessao | null>(() => lerSessao())
   const [erro, setErro] = useState<string | null>(null)
+  /** Qual exercício está com o nome aberto para editar. */
+  const [renomeando, setRenomeando] = useState<number | null>(null)
+  const [nomeNovo, setNomeNovo] = useState('')
+  const [adicionando, setAdicionando] = useState(false)
+  const [nomeExercicio, setNomeExercicio] = useState('')
+  /** Depois de adicionar um exercício, o foco vai para o kg da primeira série dele. */
+  const focarExercicio = useRef<number | null>(null)
 
   // Toda mudança vai para o disco na hora. É barato, e é o que faz o treino
   // sobreviver a fechar o app no meio.
   useEffect(() => { gravarSessao(sessao) }, [sessao])
+
+  useEffect(() => {
+    const i = focarExercicio.current
+    if (i === null) return
+    focarExercicio.current = null
+    document.querySelector<HTMLInputElement>(`input[data-campo-treino="${i}-0-carga"]`)?.focus()
+  })
 
   const comecar = (nome: string): void => {
     const m = modelos.find(x => x.nome === nome)
@@ -137,6 +188,25 @@ export function Treino(p: {
       })
     }))
 
+  const salvarNome = (i: number): void => {
+    const nome = nomeNovo.trim()
+    // Só nesta sessão: o modelo no Cortex não muda.
+    if (nome) mexer(i, e => ({ ...e, nome }))
+    setRenomeando(null)
+  }
+
+  const adicionarExercicio = (): void => {
+    const nome = nomeExercicio.trim()
+    if (!nome) return
+    // Só nesta sessão: um exercício a mais hoje não redefine o treino de amanhã.
+    focarExercicio.current = sessao.itens.length
+    setSessao(s => (s ? {
+      ...s, itens: [...s.itens, { nome, presc: '', feitas: seriesIniciais(3) }]
+    } : s))
+    setNomeExercicio('')
+    setAdicionando(false)
+  }
+
   const concluidos = sessao.itens.filter(e => e.feito === true)
   // Ter o que registrar é outra pergunta: alguém pode anotar as séries todas e
   // sair sem apertar concluir em nenhum exercício, e esse treino não pode ser
@@ -161,9 +231,7 @@ export function Treino(p: {
    * O efeito que grava `sessao` roda em quem continua montado. Aqui a tela
    * muda no mesmo instante, o `Treino` desmonta, e o efeito do valor novo
    * (`null`) nunca chega a rodar: a sessão ficava no `localStorage` e voltava
-   * inteira na próxima vez que alguém abrisse o treino. Valia tanto para
-   * cancelar quanto para registrar — um treino já registrado reaparecia como
-   * se estivesse em andamento.
+   * inteira na próxima vez que alguém abrisse o treino.
    */
   const encerrar = (): void => {
     gravarSessao(null)
@@ -189,30 +257,50 @@ export function Treino(p: {
     <div className="tema-treino">
       <Cabecalho
         titulo={sessao.modelo}
-        // Voltar não descarta o treino: ele fica no disco e a tela reabre onde
-        // parou. Sair de vez é registrar, ou descartar lá embaixo.
-       
         direita={<span className="contador-serie">{concluidos.length}/{sessao.itens.length}</span>}
       />
-
-      <div className="progresso"><i style={{ width: `${porcento}%` }} /></div>
 
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
 
       <div className="bloco">
-        <div className="lista">
+        <SubNavSaude atual="treino" irPara={p.irPara} />
+        <div className="progresso progresso-fluxo"><i style={{ width: `${porcento}%` }} /></div>
+
+        <div className="lista lista-treino">
           {sessao.itens.map((e, i) => {
             const feito = e.feito === true
             return (
               <div className={`cartao-exercicio ${feito ? 'exercicio-feito' : ''}`}
-                key={`${e.nome}-${i}`}>
+                key={`${i}-${e.nome}`}>
                 <div className="exercicio-cabeca">
-                  <div className="exercicio-topo">
-                    <span className="marcador">{feito ? '✓' : i + 1}</span>
-                    <span>
-                      <span className="exercicio-nome">{e.nome}</span>
-                      {e.presc && <span className="exercicio-presc">{e.presc}</span>}
-                    </span>
+                  <span className="marcador">{feito ? '✓' : i + 1}</span>
+                  <div className="exercicio-titulo">
+                    {renomeando === i ? (
+                      <input
+                        className="exercicio-renomear"
+                        autoFocus
+                        enterKeyHint="done"
+                        value={nomeNovo}
+                        aria-label="nome do exercício"
+                        onChange={ev => setNomeNovo(ev.target.value)}
+                        onBlur={() => salvarNome(i)}
+                        onKeyDown={ev => {
+                          if (ev.key === 'Enter') salvarNome(i)
+                          if (ev.key === 'Escape') setRenomeando(null)
+                        }}
+                      />
+                    ) : (
+                      <button type="button" className="exercicio-nome-botao"
+                        aria-label={`renomear ${e.nome}`}
+                        onClick={() => { setRenomeando(i); setNomeNovo(e.nome) }}>
+                        <span className="exercicio-nome">{e.nome}</span>
+                        <svg className="lapis" width="13" height="13" viewBox="0 0 16 16" fill="none"
+                          stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 2.5l2.5 2.5L5.5 13H3v-2.5z" />
+                        </svg>
+                      </button>
+                    )}
+                    {e.presc && <span className="exercicio-presc">{e.presc}</span>}
                   </div>
                   <button
                     className="sumir" type="button"
@@ -228,48 +316,61 @@ export function Treino(p: {
                 </div>
 
                 <div className="series">
-                  {e.feitas.map((s, j) => (
-                    <div className="serie" key={j}>
-                      <span className="serie-n">S{j + 1}</span>
-                      <label className="serie-campo">
-                        <input type="text" inputMode="numeric" placeholder="—"
-                          aria-label={`repetições da série ${j + 1} de ${e.nome}`}
-                          value={s.reps ?? ''}
-                          onChange={ev => mexerSerie(i, j, 'reps', ev.target.value)} />
-                        <span>reps</span>
-                      </label>
-                      <span className="serie-x">×</span>
-                      <label className="serie-campo">
-                        <input type="text" inputMode="decimal" placeholder="—"
+                  <div className="serie serie-rotulos" aria-hidden="true">
+                    <span />
+                    <span>kg</span>
+                    <span />
+                    <span>reps</span>
+                    <span />
+                  </div>
+                  {e.feitas.map((s, j) => {
+                    const cheia = s.carga != null && s.reps != null
+                    return (
+                      <div className="serie" key={j} data-cheia={cheia}>
+                        <span className="serie-n">{j + 1}</span>
+                        <input
+                          className="serie-input"
+                          type="text" inputMode="decimal" enterKeyHint="next"
+                          data-campo-treino={`${i}-${j}-carga`}
+                          placeholder={e.feitas[j - 1]?.carga != null ? String(e.feitas[j - 1].carga) : '0'}
                           aria-label={`peso da série ${j + 1} de ${e.nome}`}
                           value={s.carga ?? ''}
-                          onChange={ev => mexerSerie(i, j, 'carga', ev.target.value)} />
-                        <span>kg</span>
-                      </label>
-                      <button className="sumir" type="button"
-                        aria-label={`tirar a série ${j + 1}`}
-                        onClick={() => mexer(i, x => ({
-                          ...x, feitas: x.feitas.filter((_, k) => k !== j)
-                        }))}>−</button>
-                    </div>
-                  ))}
+                          onChange={ev => mexerSerie(i, j, 'carga', ev.target.value)}
+                          onKeyDown={aoEnter}
+                        />
+                        <span className="serie-x">×</span>
+                        <input
+                          className="serie-input"
+                          type="text" inputMode="numeric" enterKeyHint="next"
+                          data-campo-treino={`${i}-${j}-reps`}
+                          placeholder={repsAlvo(e.presc, j) || '0'}
+                          aria-label={`repetições da série ${j + 1} de ${e.nome}`}
+                          value={s.reps ?? ''}
+                          onChange={ev => mexerSerie(i, j, 'reps', ev.target.value)}
+                          onKeyDown={aoEnter}
+                        />
+                        <button className="sumir sumir-serie" type="button"
+                          aria-label={`tirar a série ${j + 1}`}
+                          onClick={() => mexer(i, x => ({
+                            ...x, feitas: x.feitas.filter((_, k) => k !== j)
+                          }))}>−</button>
+                      </div>
+                    )
+                  })}
                 </div>
 
                 <div className="linha-acoes">
                   <button className="btn-mini" type="button"
                     onClick={() => mexer(i, x => ({
                       // A série nova nasce com o peso da anterior: numa série a
-                      // mais o peso quase sempre é o mesmo, e redigitar o
-                      // número é o tipo de trabalho que o app deve poupar.
+                      // mais o peso quase sempre é o mesmo.
                       ...x,
                       feitas: [...x.feitas, { carga: x.feitas[x.feitas.length - 1]?.carga }]
                     }))}>
                     + série
                   </button>
                   {/* Concluir é um interruptor: apertou por engano, aperta de
-                      novo. Nada é enviado aqui — isto é o andamento do treino
-                      na tela, e o que vai para o vault é o que foi digitado
-                      nas séries, no botão de registrar lá embaixo. */}
+                      novo. Nada é enviado aqui. */}
                   <button
                     className={`btn-mini ${feito ? 'btn-mini-ligado' : ''}`}
                     type="button"
@@ -282,29 +383,44 @@ export function Treino(p: {
               </div>
             )
           })}
-        </div>
 
-        <div className="linha-acoes">
-          <button className="btn-mini" type="button"
-            onClick={() => {
-              const nome = window.prompt('Qual exercício?')?.trim()
-              if (!nome) return
-              // Só nesta sessão: o modelo no Cortex não muda. Um exercício a
-              // mais hoje não redefine o treino de amanhã.
-              setSessao(s => (s ? {
-                ...s, itens: [...s.itens, { nome, presc: '', feitas: seriesIniciais(3) }]
-              } : s))
-            }}>
-            + exercício
-          </button>
+          {adicionando ? (
+            <div className="cartao-exercicio novo-exercicio">
+              <input
+                className="exercicio-renomear"
+                autoFocus
+                enterKeyHint="done"
+                placeholder="Nome do exercício"
+                value={nomeExercicio}
+                onChange={ev => setNomeExercicio(ev.target.value)}
+                onKeyDown={ev => {
+                  if (ev.key === 'Enter') adicionarExercicio()
+                  if (ev.key === 'Escape') setAdicionando(false)
+                }}
+              />
+              <div className="linha-acoes">
+                <button className="btn-mini" type="button"
+                  onClick={() => { setAdicionando(false); setNomeExercicio('') }}>
+                  cancelar
+                </button>
+                <button className="btn-mini btn-mini-ligado" type="button"
+                  disabled={!nomeExercicio.trim()} onClick={adicionarExercicio}>
+                  adicionar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button className="btn-mini adicionar-exercicio" type="button"
+              onClick={() => setAdicionando(true)}>
+              + adicionar exercício
+            </button>
+          )}
         </div>
       </div>
 
       <div className="acao-fixa acao-fixa-par">
-        {/* Cancelar mora aqui, ao lado de registrar, porque quem abriu o
-            treino errado quer sair agora — e no fim da lista de exercícios
-            este botão estaria a uma tela inteira de rolagem. As duas saídas
-            da sessão ficam juntas, que é onde a pessoa olha ao terminar. */}
+        {/* Cancelar mora aqui, ao lado de registrar: as duas saídas da sessão
+            ficam juntas, que é onde a pessoa olha ao terminar. */}
         <Botao tipo="perigo" aoClicar={cancelar}>Cancelar</Botao>
         <Botao tipo="principal" aoClicar={enviar} desligado={!temDado}>
           Registrar treino
