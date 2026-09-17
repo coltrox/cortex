@@ -4,7 +4,7 @@ import { diaLocal, eventoProvaEstudada, eventoProvaEtapa, eventoItemApagado } fr
 import type { Evento } from '@compartilhado/eventos'
 import { dobra, pontuar } from '@compartilhado/busca'
 import {
-  provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, diasAte, areaLigada
+  provas, compromissos, acontecimentos, tarefas, caminhoDe, dataDe, faltam, dataCurta, diasAte, areaLigada
 } from '../cardapio'
 import {
   jaFeitos, marcarFeito, desmarcarFeito, chaveApagado, foiApagado, conciliarApagados
@@ -42,6 +42,12 @@ const MESES_BUSCA = [
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
 ]
 
+/** "setembro de 2026": como os acontecimentos se agrupam na lista. */
+function mesDoAcontecimento(iso: string): string {
+  const mes = MESES_BUSCA[Number(iso.slice(5, 7)) - 1]
+  return mes ? `${mes[0].toUpperCase()}${mes.slice(1)} de ${iso.slice(0, 4)}` : 'Sem data'
+}
+
 export function formasDaData(iso: string, hoje: string): string[] {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return []
   const ano = iso.slice(0, 4)
@@ -78,14 +84,15 @@ const TIPOS_MARCAR: [TipoNovo, string][] = [
  * com uma marca: para quem procura o aniversário da tia, "compromisso" não
  * é a palavra.
  */
-type Filtro = 'todos' | 'compromisso' | 'prova' | 'tarefa' | 'comemorativa'
+type Filtro = 'todos' | 'compromisso' | 'prova' | 'tarefa' | 'comemorativa' | 'acontecimento'
 
 const FILTROS: [Filtro, string][] = [
   ['todos', 'Tudo'],
   ['compromisso', 'Compromissos'],
   ['prova', 'Provas'],
   ['tarefa', 'Tarefas'],
-  ['comemorativa', 'Datas comemorativas']
+  ['comemorativa', 'Datas comemorativas'],
+  ['acontecimento', 'Acontecimentos']
 ]
 
 /**
@@ -145,7 +152,9 @@ export function Agenda(p: {
   const nomeDe = (i: ItemCardapio): string =>
     i.detalhe.comemorativa === true && txt(i.detalhe.oque) === 'aniversário' && txt(i.detalhe.quem)
       ? txt(i.detalhe.quem)
-      : i.nome
+      : i.detalhe.acontecimento === true && txt(i.detalhe.titulo)
+        ? txt(i.detalhe.titulo)
+        : i.nome
 
   const faltaDe = (i: ItemCardapio): string => {
     const quando = faltam(dataDe(i), dia)
@@ -336,6 +345,7 @@ export function Agenda(p: {
   const ps = filtrar(provas(p.cardapio.cardapio))
   const cs = filtrar(compromissos(p.cardapio.cardapio))
   const ts = filtrar(tarefas(p.cardapio.cardapio))
+  const acs = filtrar(acontecimentos(p.cardapio.cardapio))
 
   /*
    * O que foi marcado agora entra na lista no mesmo toque.
@@ -380,6 +390,7 @@ export function Agenda(p: {
     ...ps.map((item): Linha => ({ tipo: 'prova', item })),
     ...cs.map((item): Linha => ({ tipo: 'compromisso', item })),
     ...ts.map((item): Linha => ({ tipo: 'tarefa', item })),
+    ...acs.map((item): Linha => ({ tipo: 'compromisso', item })),
     // Os marcados agora entram na mesma fila; a ordem por data cuida do resto.
     ...pendentes.map((item): Linha => ({
       tipo: item.especie === 'prova' || item.especie === 'tarefa'
@@ -394,6 +405,9 @@ export function Agenda(p: {
     // do que tem dia marcado.
     const chave = (l: Linha): string => dataDe(l.item) || '9999-99-99'
     linhas.sort((a, b) => chave(a).localeCompare(chave(b)))
+    // Acontecimentos só aparecem sozinhos no filtro deles: do mais recente
+    // para o mais antigo, que é a ordem de quem procura "quando foi".
+    if (filtro === 'acontecimento') linhas.reverse()
   }
 
   /*
@@ -406,7 +420,8 @@ export function Agenda(p: {
 
   /** O tipo que o filtro enxerga: a data comemorativa separada do compromisso. */
   const tipoDoFiltro = (l: Linha): Filtro =>
-    l.item.detalhe.comemorativa === true ? 'comemorativa' : l.tipo
+    l.item.detalhe.acontecimento === true ? 'acontecimento'
+      : l.item.detalhe.comemorativa === true ? 'comemorativa' : l.tipo
 
   /*
    * O que a lista mostra de fato.
@@ -415,6 +430,11 @@ export function Agenda(p: {
    * topo da lista com o que não pede mais nada de ninguém.
    */
   const visiveis = linhas.filter(l => {
+    // Acontecimento é passado por definição: aparece no filtro dele, ou em
+    // qualquer busca escrita — nunca na fila do que está chegando.
+    if (l.item.detalhe.acontecimento === true) {
+      return filtro === 'acontecimento' || (filtro === 'todos' && termo !== '')
+    }
     if (jaPassou(l.item)) return false
     // Excluído aqui some na hora. Antes ficava riscado, escrito "excluído",
     // até o Cortex republicar — ver `foiApagado` em `feitos.ts`.
@@ -453,7 +473,7 @@ export function Agenda(p: {
     ? undefined
     : visiveis.find(l => {
       const d = diasAte(dataDe(l.item), dia)
-      return d !== null && d >= 0
+      return d !== null && d >= 0 && l.item.detalhe.acontecimento !== true
     })
 
   /* Os grupos saem da lista já ordenada, então cada faixa aparece uma vez só.
@@ -462,7 +482,8 @@ export function Agenda(p: {
   const grupos: { nome: string; linhas: Linha[] }[] = []
   for (const l of visiveis) {
     if (l === destaque) continue
-    const nome = termo ? 'Resultados' : faixaDe(l)
+    const nome = termo ? 'Resultados'
+      : filtro === 'acontecimento' ? mesDoAcontecimento(dataDe(l.item)) : faixaDe(l)
     const ultimo = grupos[grupos.length - 1]
     if (ultimo && ultimo.nome === nome) ultimo.linhas.push(l)
     else grupos.push({ nome, linhas: [l] })
@@ -626,6 +647,8 @@ export function Agenda(p: {
         // excluir, tocar de novo fecha.
         onClick={soAcoes
           ? e => e.stopPropagation()
+          // Acontecimento só se lê: editar e apagar ficam no computador.
+          : i.detalhe.acontecimento === true ? undefined
           : () => setAberto(aberto === chave ? null : chave)}
         key={chave}>
         {soAcoes ? null : (
@@ -635,7 +658,7 @@ export function Agenda(p: {
                   para não precisar mexer no banco —, e é a marca no detalhe que
                   faz a etiqueta dizer o que aquilo é de verdade. */}
               <span className="item-tipo">
-                {i.detalhe.comemorativa === true
+                {i.detalhe.acontecimento === true ? 'Acontecimento' : i.detalhe.comemorativa === true
                   ? rotuloComemorativa(i)
                   : ROTULO.compromisso}
               </span>
@@ -709,7 +732,7 @@ export function Agenda(p: {
 
   return (
     <div className="tema-agenda">
-      <Cabecalho titulo="Chegando" />
+      <Cabecalho titulo="Calendário" />
       {p.cardapio.erro && <Aviso>{p.cardapio.erro}</Aviso>}
 
       <div className="bloco">
@@ -782,7 +805,8 @@ export function Agenda(p: {
             campo de procurar é só ruído. */}
         {(provas(p.cardapio.cardapio).length
           + compromissos(p.cardapio.cardapio).length
-          + tarefas(p.cardapio.cardapio).length) > 4 && (
+          + tarefas(p.cardapio.cardapio).length
+          + acontecimentos(p.cardapio.cardapio).length) > 4 && (
           <div className="busca">
             <input
               className="busca-campo"
@@ -799,7 +823,9 @@ export function Agenda(p: {
           <p className="secao-vazia">
             {termo
               ? `Nada com "${busca.trim()}".`
-              : filtro !== 'todos'
+              : filtro === 'acontecimento'
+                ? 'Nenhum acontecimento registrado ainda. Registre pelo calendário do Cortex.'
+                : filtro !== 'todos'
                 ? 'Nada deste tipo chegando.'
                 : `Nada marcado nos próximos dias. Provas, compromissos e tarefas
                  aparecem aqui assim que existirem no Cortex.`}

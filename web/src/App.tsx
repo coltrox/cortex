@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import './estilo.css'
 import { guardadoDoNavegador } from './guardado'
 import { lerVaultId, gravarVaultId, idDoFragmento } from './ajustes'
@@ -11,6 +11,7 @@ import { Aviso } from './componentes'
 import { useVersaoNova } from './versao'
 import { Hoje } from './telas/Hoje'
 import { Treino, haTreinoEmAndamento } from './telas/Treino'
+import { segmentoVizinho } from './telas/Saude'
 import { Cardio } from './telas/Cardio'
 import { Medidas } from './telas/Medidas'
 import { Gasto } from './telas/Gasto'
@@ -74,7 +75,7 @@ const ABAS: { id: Tela; nome: string; area: string | null; forma: string }[] = [
   // O desenho chama esta aba de "Chegando"; a tela sempre se chamou `agenda`.
   // O rótulo é do desenho, o id é o que já existe — renomear a tela seria
   // mexer em doze arquivos para trocar uma palavra que só aparece aqui.
-  { id: 'agenda',   nome: 'Chegando', area: 'calendario', forma: '50% 7px 50% 7px' }
+  { id: 'agenda',   nome: 'Calendário', area: 'calendario', forma: '50% 7px 50% 7px' }
 ]
 
 /**
@@ -202,6 +203,42 @@ export function App() {
   const [ensinando, setEnsinando] = useState(
     () => !jaInstalado() && !viuTutorial(guardadoDoNavegador)
   )
+
+  /*
+   * Arrastar para os lados troca de segmento dentro da Saúde (Dia, Dieta,
+   * Corpo, Treino). Só gesto claramente horizontal e rápido: rolar a tela na
+   * diagonal não pode trocar de aba. Começar num campo, numa lista aberta ou
+   * na beirada da tela (o voltar do sistema) não conta.
+   */
+  useEffect(() => {
+    if (segmentoVizinho(tela, 1) === null && segmentoVizinho(tela, -1) === null) return
+    let inicio: { x: number; y: number; t: number } | null = null
+    const comecou = (e: TouchEvent): void => {
+      const toque = e.touches[0]
+      const alvo = e.target as Element | null
+      inicio = e.touches.length === 1 && toque.clientX > 24 && toque.clientX < window.innerWidth - 24 &&
+        !alvo?.closest('input, textarea, select, .selecao-lista, [data-sem-arrasto]')
+        ? { x: toque.clientX, y: toque.clientY, t: Date.now() }
+        : null
+    }
+    const terminou = (e: TouchEvent): void => {
+      if (!inicio) return
+      const toque = e.changedTouches[0]
+      const dx = toque.clientX - inicio.x
+      const dy = toque.clientY - inicio.y
+      const rapido = Date.now() - inicio.t < 700
+      inicio = null
+      if (!rapido || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2) return
+      const destino = segmentoVizinho(tela, dx < 0 ? 1 : -1)
+      if (destino) setTela(destino)
+    }
+    document.addEventListener('touchstart', comecou, { passive: true })
+    document.addEventListener('touchend', terminou, { passive: true })
+    return () => {
+      document.removeEventListener('touchstart', comecou)
+      document.removeEventListener('touchend', terminou)
+    }
+  }, [tela])
 
   if (faltaCredencial()) {
     return (

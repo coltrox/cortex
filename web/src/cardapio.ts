@@ -321,7 +321,17 @@ export function provas(c: Cardapio): ItemCardapio[] {
 }
 
 export function compromissos(c: Cardapio): ItemCardapio[] {
-  return porData(c.itens.filter(i => i.especie === 'compromisso'), 'data')
+  return porData(c.itens.filter(i => i.especie === 'compromisso' && i.detalhe.acontecimento !== true), 'data')
+}
+
+/**
+ * O que já aconteceu, registrado no Cortex. Sobe como compromisso marcado
+ * (sem espécie nova no banco); fica fora de `compromissos` para não aparecer
+ * como coisa a fazer. Do mais recente para o mais antigo.
+ */
+export function acontecimentos(c: Cardapio): ItemCardapio[] {
+  return porData(c.itens.filter(i => i.especie === 'compromisso' && i.detalhe.acontecimento === true), 'data')
+    .reverse()
 }
 
 export function tarefas(c: Cardapio): ItemCardapio[] {

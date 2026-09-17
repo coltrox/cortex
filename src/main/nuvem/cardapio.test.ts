@@ -380,7 +380,10 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // `diario`, logo acima. Sao dois tipos para uma secao so na tela.
     // `pessoa` entrou em 13/09/2026, e so pelo aniversario -- ver o teste de
     // vazamento, que continua barrando o resto da ficha.
+    // `acontecimento` entrou em 16/09/2026: sobe como compromisso marcado, so
+    // titulo e data, para a busca do Calendario no celular.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
+      'acontecimento',
       'anotacao', 'data-comemorativa', 'diario', 'evento', 'hidratacao', 'meta-cofre', 'pessoa',
       'plano', 'porquinho', 'prova', 'rotina', 'simulado', 'suplemento', 'tarefa',
       'treino-modelo'
@@ -1026,5 +1029,27 @@ describe('data comemorativa no cardapio', () => {
     })], HOJE, [])
     expect(c[0].detalhe).toMatchObject({ quem: 'Juliana' })
     expect(JSON.stringify(c)).not.toContain('SEGREDO-OBSERVACAO')
+  })
+})
+
+describe('montarCardapio — acontecimentos', () => {
+  it('sobem como compromisso marcado, só com título e data, e o nome leva a data', () => {
+    const c = montar([
+      nota({ path: 'Agenda/Acontecimentos/2026-08-01 - Troquei o óleo.md', title: 'Troquei o óleo',
+        tipo: 'acontecimento', date: '2026-08-01', campos: { texto: 'segredo do detalhe 123' } }),
+      nota({ path: 'Agenda/Acontecimentos/2026-03-01 - Troquei o óleo.md', title: 'Troquei o óleo',
+        tipo: 'acontecimento', date: '2026-03-01' })
+    ])
+    expect(c).toEqual([
+      { especie: 'compromisso', nome: '2026-08-01 · Troquei o óleo',
+        detalhe: { path: 'Agenda/Acontecimentos/2026-08-01 - Troquei o óleo.md', data: '2026-08-01', titulo: 'Troquei o óleo', acontecimento: true } },
+      { especie: 'compromisso', nome: '2026-03-01 · Troquei o óleo',
+        detalhe: { path: 'Agenda/Acontecimentos/2026-03-01 - Troquei o óleo.md', data: '2026-03-01', titulo: 'Troquei o óleo', acontecimento: true } }
+    ])
+    expect(JSON.stringify(c)).not.toContain('segredo do detalhe')
+  })
+
+  it('acontecimento sem data válida não sobe', () => {
+    expect(montar([nota({ path: 'x.md', title: 'x', tipo: 'acontecimento', date: 'ontem' })])).toEqual([])
   })
 })

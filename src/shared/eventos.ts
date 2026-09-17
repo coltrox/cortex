@@ -97,6 +97,9 @@ export const TIPOS_NOTA_CARDAPIO = [
   // A meta de água do dia e o tamanho da garrafa. O TOTAL bebido não vem
   // daqui: vem do diário, como todo registro do dia.
   'hidratacao',
+  // O que aconteceu num dia passado: sobe como compromisso marcado, para o
+  // celular achar na busca do Calendário. Só título e data.
+  'acontecimento',
   // A anotação rápida — a que o celular acabou de criar, voltando para ele.
   // Só as de HOJE sobem; ver `montarCardapio`, que é quem corta.
   'anotacao',

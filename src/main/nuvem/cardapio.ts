@@ -361,6 +361,29 @@ export function montarCardapio(
    * crus obrigaria o celular a refazer essa conta — e as duas pontas
    * divergiriam no primeiro 29 de fevereiro.
    */
+  /*
+   * Os acontecimentos — o que já aconteceu, registrado num dia passado.
+   *
+   * Espécie `compromisso` com a marca `acontecimento`, pelo mesmo motivo da
+   * data comemorativa: sem espécie nova, sem SQL novo. Sobem SÓ título e data
+   * (os detalhes ficam no computador), e os 500 mais recentes: é para achar
+   * na busca, não para carregar a vida inteira a cada publicação.
+   *
+   * O nome leva a data na frente porque a chave do cardápio é (espécie, nome):
+   * "Troquei o óleo" em dois dias viraria um só.
+   */
+  notas
+    .filter(x => x.tipo === 'acontecimento' && /^\d{4}-\d{2}-\d{2}$/.test(txt(x.date)))
+    .sort((a, b) => txt(b.date).localeCompare(txt(a.date)))
+    .slice(0, 500)
+    .forEach(n => {
+      out.push({
+        especie: 'compromisso',
+        nome: `${txt(n.date)} · ${txt(n.title)}`,
+        detalhe: comValor({ path: n.path, data: txt(n.date), titulo: txt(n.title), acontecimento: true })
+      })
+    })
+
   for (const n of notas.filter(x => x.tipo === 'data-comemorativa')) {
     const quando = proximaOcorrencia(num(n.campos.dia) ?? 0, num(n.campos.mes) ?? 0, hoje)
     if (!quando || !aindaInteressa(quando, hoje)) continue

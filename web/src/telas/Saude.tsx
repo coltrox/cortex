@@ -30,6 +30,16 @@ const SEGMENTOS: { id: Tela; nome: string }[] = [
 ]
 
 /**
+ * O segmento ao lado, para o arrastar: -1 é o da esquerda, +1 o da direita.
+ * Nas pontas não dá a volta — arrastar além do último não faz nada.
+ */
+export function segmentoVizinho(atual: Tela, direcao: 1 | -1): Tela | null {
+  const i = SEGMENTOS.findIndex(s => s.id === atual)
+  if (i < 0) return null
+  return SEGMENTOS[i + direcao]?.id ?? null
+}
+
+/**
  * A barra de segmentos, desenhada por todas as telas da área.
  *
  * Cada tela a desenha, em vez de um invólucro comum desenhar por todas: o
