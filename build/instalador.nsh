@@ -28,3 +28,41 @@
 !ifndef MUI_FINISHPAGE_TEXT
   !define MUI_FINISHPAGE_TEXT "O Cortex está pronto para usar.$\r$\n$\r$\nDaqui em diante ele se atualiza sozinho: procura versão nova, baixa em segundo plano e troca quando você fecha o app."
 !endif
+
+; ---------------------------------------------------------------------------
+; Fechar o Cortex antes de instalar por cima.
+;
+; O padrão do electron-builder desistia rápido e pedia para "fechar a janela" —
+; mas às vezes não há janela: o conector do Claude roda o próprio Cortex.exe em
+; segundo plano, e o app aberto pode levar alguns segundos gravando o índice ao
+; fechar. Aqui: pede para fechar, espera, força (com os processos filhos), e só
+; depois de quatro voltas pergunta — dizendo o que pode estar segurando.
+; Só processos com o nome do app e do usuário atual; o instalador e o
+; desinstalador têm outro nome e não entram.
+; ---------------------------------------------------------------------------
+!include LogicLib.nsh
+
+!macro customCheckAppRunning
+  StrCpy $R9 0
+  cortexFechar:
+    DetailPrint "Fechando o Cortex…"
+    nsExec::Exec `"$SYSDIR\cmd.exe" /C taskkill /T /IM "${APP_EXECUTABLE_FILENAME}" /FI "USERNAME eq %USERNAME%"`
+    Pop $0
+    Sleep 1500
+    nsExec::Exec `"$SYSDIR\cmd.exe" /C taskkill /F /T /IM "${APP_EXECUTABLE_FILENAME}" /FI "USERNAME eq %USERNAME%"`
+    Pop $0
+    Sleep 1000
+    nsExec::Exec `"$SYSDIR\cmd.exe" /C tasklist /FI "USERNAME eq %USERNAME%" /FI "IMAGENAME eq ${APP_EXECUTABLE_FILENAME}" /FO CSV /NH | "$SYSDIR\findstr.exe" /B /I /C:"\"${APP_EXECUTABLE_FILENAME}\""`
+    Pop $0
+    ${If} $0 == 0
+      IntOp $R9 $R9 + 1
+      ${If} $R9 < 4
+        Goto cortexFechar
+      ${EndIf}
+      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "O Cortex ainda está aberto e não fechou sozinho.$\r$\n$\r$\nFeche o Cortex e também o Claude, se ele estiver usando o conector do Cortex. Depois clique em Repetir." /SD IDCANCEL IDRETRY cortexRepetir
+      Quit
+      cortexRepetir:
+      StrCpy $R9 0
+      Goto cortexFechar
+    ${EndIf}
+!macroend

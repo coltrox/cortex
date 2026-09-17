@@ -754,6 +754,11 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', async () => {
   desligarCampainha()
-  await session.close()
+  // Fechar não pode ficar pendurado: o instalador de uma versão nova espera o
+  // Cortex sair para trocar os arquivos. Se fechar o índice travar, sai assim
+  // mesmo em 3 s — as notas já estão gravadas, e o índice se refaz ao abrir.
+  const limite = setTimeout(() => app.exit(0), 3000)
+  await session.close().catch(() => {})
+  clearTimeout(limite)
   if (process.platform !== 'darwin') app.quit()
 })
