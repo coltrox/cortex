@@ -495,6 +495,33 @@ export function eventoCompromisso(
 }
 
 /**
+ * O que aconteceu num dia — hoje ou antes. Sai como `compromisso` com a marca
+ * `acontecimento`, pelo mesmo motivo da data comemorativa: sem tipo novo de
+ * evento, sem SQL novo no banco. O Cortex grava a nota em
+ * `Agenda/Acontecimentos`.
+ */
+export function eventoAcontecimento(
+  titulo: string,
+  data: string,
+  detalhes = '',
+  dia: string = diaLocal()
+): Evento {
+  const quando = data.trim() || dia
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(quando)) throw new Error('data precisa ser AAAA-MM-DD')
+  if (quando > dia) throw new Error('acontecimento é de hoje ou de antes — para o futuro, marque um compromisso')
+  return validarEvento({
+    tipo: 'compromisso',
+    dia,
+    dados: comValor({
+      titulo: texto(titulo, 'o que aconteceu'),
+      data: quando,
+      texto: detalhes.trim().slice(0, 2000) || undefined,
+      acontecimento: true
+    })
+  })
+}
+
+/**
  * Movimento do porquinho: guardar ou tirar.
  *
  * Manda o movimento, nunca o saldo. O saldo é a soma dos movimentos, e quem

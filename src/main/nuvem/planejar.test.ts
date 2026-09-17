@@ -987,3 +987,20 @@ describe('planejar — editar suplemento e tarefa diaria', () => {
     }))).toEqual([])
   })
 })
+
+describe('planejar — acontecimento vindo do celular', () => {
+  it('vira nota em Agenda/Acontecimentos com a data na frente do nome', () => {
+    expect(planejar(ev('compromisso', {
+      titulo: 'Troquei o óleo', data: '2026-08-20', texto: 'Posto do centro', acontecimento: true
+    }))).toEqual([{
+      acao: 'nota', tipo: 'acontecimento', seExistir: 'criarOutro',
+      path: 'Agenda/Acontecimentos/2026-08-20 - Troquei o óleo.md',
+      frontmatter: { tipo: 'acontecimento', titulo: 'Troquei o óleo', date: '2026-08-20', texto: 'Posto do centro' }
+    }])
+  })
+
+  it('data no futuro ou inválida não vira nota — acontecimento é de hoje ou antes', () => {
+    expect(planejar(ev('compromisso', { titulo: 'X', data: '2026-09-01', acontecimento: true }))).toEqual([])
+    expect(planejar(ev('compromisso', { titulo: 'X', data: 'ontem', acontecimento: true }))).toEqual([])
+  })
+})

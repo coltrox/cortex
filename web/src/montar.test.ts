@@ -428,3 +428,18 @@ describe('água', () => {
     expect(() => eventoAgua(Number.NaN, DIA)).toThrow()
   })
 })
+
+describe('eventoAcontecimento', () => {
+  it('sai como compromisso marcado, com a data escolhida', async () => {
+    const { eventoAcontecimento } = await import('./montar')
+    expect(eventoAcontecimento('Troquei o óleo', '2026-08-20', ' Posto ', '2026-08-28')).toEqual({
+      tipo: 'compromisso', dia: '2026-08-28',
+      dados: { titulo: 'Troquei o óleo', data: '2026-08-20', texto: 'Posto', acontecimento: true }
+    })
+  })
+
+  it('recusa data no futuro', async () => {
+    const { eventoAcontecimento } = await import('./montar')
+    expect(() => eventoAcontecimento('X', '2026-08-29', '', '2026-08-28')).toThrow(/hoje ou de antes/)
+  })
+})

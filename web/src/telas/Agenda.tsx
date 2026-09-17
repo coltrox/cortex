@@ -74,7 +74,8 @@ const TIPOS_MARCAR: [TipoNovo, string][] = [
   ['compromisso', 'Compromisso'],
   ['prova', 'Prova'],
   ['tarefa', 'Tarefa'],
-  ['comemorativa', 'Data comemorativa']
+  ['comemorativa', 'Data comemorativa'],
+  ['acontecimento', 'Acontecimento']
 ]
 
 /**

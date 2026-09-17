@@ -608,6 +608,29 @@ export function planejar(evento: Evento): Operacao[] {
       if (!titulo) return []
 
       /*
+       * Acontecimento: o que já aconteceu, registrado pelo celular.
+       *
+       * Mesmo evento com uma marca, como a data comemorativa. Só hoje ou antes
+       * — o futuro é compromisso. O arquivo leva a data na frente, igual ao
+       * formulário do Cortex, e dois registros iguais em dias diferentes são
+       * dois arquivos.
+       */
+      if (dados.acontecimento === true) {
+        const data = txt(dados.data)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || data > dia) return []
+        return [{
+          acao: 'nota', tipo: 'acontecimento', seExistir: 'criarOutro',
+          path: `Agenda/Acontecimentos/${nomeArquivo(`${data} - ${titulo}`)}.md`,
+          frontmatter: comValor({
+            tipo: 'acontecimento',
+            titulo: titulo.slice(0, 200),
+            date: data,
+            texto: txt(dados.texto).trim().slice(0, 2000) || undefined
+          })
+        }]
+      }
+
+      /*
        * Data comemorativa: o mesmo evento, com uma marca.
        *
        * Aniversário não é compromisso — ele se repete todo ano, e por isso a

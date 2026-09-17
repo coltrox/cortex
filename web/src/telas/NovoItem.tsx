@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  diaLocal, dadosComemorativa, eventoCompromisso, eventoItemEditado, eventoProvaNova,
+  diaLocal, dadosComemorativa, eventoCompromisso, eventoAcontecimento, eventoItemEditado, eventoProvaNova,
   eventoTarefaNova, eventoDataComemorativa
 } from '../montar'
 import { guardadoDoNavegador } from '../guardado'
@@ -12,7 +12,7 @@ import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
 
 /** O que se pode marcar do celular na agenda. */
-export type TipoNovo = 'compromisso' | 'prova' | 'tarefa' | 'comemorativa'
+export type TipoNovo = 'compromisso' | 'prova' | 'tarefa' | 'comemorativa' | 'acontecimento'
 
 /**
  * O item que a tela abre preenchido, quando é edição e não criação.
@@ -104,6 +104,12 @@ const FORMA: Record<TipoNovo, {
    * campo próprio, em branco quando não se sabe, e a prévia embaixo mostra o
    * que vai aparecer na lista antes de marcar.
    */
+  /* O que já aconteceu: hoje ou antes, para achar depois na busca. */
+  acontecimento: {
+    titulo: 'Registrar acontecimento', tituloEdicao: 'Mudar acontecimento',
+    rotuloNome: 'O que aconteceu', dicaNome: 'Troquei o óleo do carro',
+    rotuloData: 'Quando', temHora: false, temLocal: false, temMateria: false
+  },
   comemorativa: {
     titulo: 'Nova data comemorativa', tituloEdicao: 'Mudar data comemorativa',
     rotuloNome: 'De quem, ou de quê', dicaNome: 'Aniversário de namoro',
@@ -156,6 +162,8 @@ export function NovoItem(p: {
   const [hora, setHora] = useState(e?.hora ?? '')
   const [local, setLocal] = useState(e?.local ?? '')
   const [materia, setMateria] = useState(e?.materia ?? '')
+  const [detalhes, setDetalhes] = useState('')
+  const acontecimento = p.tipo === 'acontecimento'
   // A data comemorativa: dia e mês nascem com os da nota (ou com os de hoje,
   // numa criação), e o ano só vem se a nota tiver um.
   const [diaC, setDiaC] = useState(() => String(e?.dia ?? Number((e?.data || diaLocal()).slice(8, 10))))
@@ -194,6 +202,8 @@ export function NovoItem(p: {
             : { titulo, data, hora, local, materia },
           hoje
         ))
+      } else if (acontecimento) {
+        p.envio.registrar(eventoAcontecimento(titulo, data, detalhes, hoje))
       } else if (p.tipo === 'prova') {
         p.envio.registrar(eventoProvaNova(titulo, data, { materia, local }, hoje))
       } else if (p.tipo === 'tarefa') {
@@ -217,7 +227,7 @@ export function NovoItem(p: {
        *
        * Só na criação: editar já mexe num item que está na tela.
        */
-      if (!e) {
+      if (!e && p.tipo !== 'acontecimento') {
         // `p.tipo`, e não o booleano `comemorativa`: é a comparação que estreita
         // o tipo, e o ramo de baixo só aceita os três tipos da agenda comum.
         const pendente = p.tipo === 'comemorativa'
@@ -290,6 +300,14 @@ export function NovoItem(p: {
 
         {/* Sem `&& !e`: a matéria agora também é editável, e escondê-la na
             edição fazia trocar a matéria de uma prova exigir o computador. */}
+        {acontecimento && (
+          <Campo rotulo="Detalhes (opcional)" valor={detalhes} aoMudar={setDetalhes} linhas={3}
+            dica="O que vale lembrar depois" />
+        )}
+        {acontecimento && data > hoje && (
+          <p className="previa-comemorativa previa-erro">Acontecimento é de hoje ou de antes. Para o futuro, marque um compromisso.</p>
+        )}
+
         {f.temMateria && (
           <Campo rotulo="Matéria" valor={materia} aoMudar={setMateria} dica="física" />
         )}
@@ -300,7 +318,7 @@ export function NovoItem(p: {
         <Botao
           tipo="principal"
           aoClicar={enviar}
-          desligado={titulo.trim() === '' || problema !== null}
+          desligado={titulo.trim() === '' || problema !== null || (acontecimento && data > hoje)}
         >
           {e ? 'Salvar mudança' : 'Marcar'}
         </Botao>
