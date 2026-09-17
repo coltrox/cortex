@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**61 arquivos, 1129 testes**, rodando em ~23 s.
+**62 arquivos, 1133 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -407,7 +407,7 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
-`v2.4.0` — paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
+`v2.4.1` — paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
 Estudos, acontecimentos na Agenda, clonar repositório do GitHub na lente Dev e
 um conector MCP para o Claude Code consultar o vault. A 2.3.0 trouxe o redesign
 do app de computador: tema escuro próprio, sidebar única, página Hoje em duas
