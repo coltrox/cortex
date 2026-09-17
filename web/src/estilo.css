@@ -1953,3 +1953,21 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 .novo-exercicio{ display:flex; flex-direction:column; gap:var(--e2); }
 .novo-exercicio .linha-acoes{ margin-top:0; }
 .btn-mini:disabled{ opacity:.45; }
+
+/* "+ série" e "concluir" da sessão: borda cheia (o tracejado quebrava nos
+   cantos e parecia campo vazio) e alinhados às colunas de kg e reps. */
+.lista-treino .cartao-exercicio > .linha-acoes{
+  display:grid; grid-template-columns:1fr 1fr; gap:var(--e2);
+  margin:var(--e3) 42px 0 34px;
+}
+.lista-treino .cartao-exercicio > .linha-acoes .btn-mini{
+  min-height:42px; border:1px solid var(--borda); border-style:solid;
+  background:var(--painel-alto); color:var(--txt-2);
+  font:600 13px/1 var(--fonte);
+}
+.lista-treino .cartao-exercicio > .linha-acoes .btn-mini:active{ border-color:var(--acento); color:var(--acento); }
+.lista-treino .cartao-exercicio > .linha-acoes .btn-mini-ligado{
+  border-color:var(--ok); color:var(--ok); background:rgba(74,222,128,.08);
+}
+.lista-treino .novo-exercicio > .linha-acoes{ margin:0; }
+.lista-treino .adicionar-exercicio{ border-style:solid; background:var(--painel); }
