@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**63 arquivos, 1150 testes**, rodando em ~23 s.
+**63 arquivos, 1154 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -407,7 +407,7 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
-`v2.5.0` — Google Agenda de duas vias (um calendário "Cortex" na conta Google), paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
+`v2.5.1` — Google Agenda de duas vias (um calendário "Cortex" na conta Google), paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
 Estudos, acontecimentos na Agenda, clonar repositório do GitHub na lente Dev e
 um conector MCP para o Claude Code consultar o vault. A 2.3.0 trouxe o redesign
 do app de computador: tema escuro próprio, sidebar única, página Hoje em duas
