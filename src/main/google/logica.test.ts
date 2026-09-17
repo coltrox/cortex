@@ -158,7 +158,7 @@ describe('planejarSincronia', () => {
       mapa: {}, anoAtual: ANO
     })
     expect(p.paraCortex).toEqual([{
-      acao: 'criar', id: 'novo', atualizado: '2026-09-10T12:00:00.000Z',
+      acao: 'criar', id: 'novo', atualizado: '2026-09-10T12:00:00.000Z', instancia: false,
       campos: { titulo: 'Cinema', date: '2026-09-25', hora: '19:00', local: 'Shopping' }
     }])
   })
@@ -182,5 +182,34 @@ describe('planejarSincronia', () => {
     const mapaNovo: Mapa = { 'Agenda/A.md': { id: 'ga', hash: hashDoCorpo(corpoDoCortex(depois, ANO)!), atualizado: op.atualizado } }
     const p2 = planejarSincronia({ itens: [{ ...depois, mtime: Date.now() }], eventos: [ev], mapa: mapaNovo, anoAtual: ANO })
     expect(p2).toEqual({ paraGoogle: [], paraCortex: [], desligar: [] })
+  })
+})
+
+describe('planejarSincronia — eventos repetidos criados no Google', () => {
+  it('cada ocorrência vira compromisso, marcado como ocorrência', () => {
+    const p = planejarSincronia({
+      itens: [],
+      eventos: [
+        evento({ id: 'mae', summary: 'Inglês', recurrence: ['RRULE:FREQ=WEEKLY'] }),
+        evento({ id: 'mae_20260919', summary: 'Inglês', recurringEventId: 'mae', start: { dateTime: '2026-09-19T09:00:00-03:00' } })
+      ],
+      mapa: {}, anoAtual: ANO, hoje: '2026-09-17'
+    })
+    expect(p.paraCortex).toEqual([{
+      acao: 'criar', id: 'mae_20260919', atualizado: '2026-09-10T12:00:00.000Z', instancia: true,
+      campos: { titulo: 'Inglês', date: '2026-09-19', hora: '09:00', local: null }
+    }])
+  })
+
+  it('ocorrência que passou e saiu da janela só se desliga; a que sumiu no futuro cancela', () => {
+    const passada = item({ path: 'Agenda/Inglês.md', date: '2026-09-12' })
+    const futura = item({ path: 'Agenda/Inglês (2).md', date: '2026-09-26' })
+    const mapa: Mapa = {
+      [passada.path]: { ...ligacao(passada, 'mae_0912'), instancia: true },
+      [futura.path]: { ...ligacao(futura, 'mae_0926'), instancia: true }
+    }
+    const p = planejarSincronia({ itens: [passada, futura], eventos: [], mapa, anoAtual: ANO, hoje: '2026-09-17' })
+    expect(p.desligar.sort()).toEqual([futura.path, passada.path].sort())
+    expect(p.paraCortex).toEqual([{ acao: 'cancelar', path: futura.path }])
   })
 })

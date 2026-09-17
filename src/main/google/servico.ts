@@ -5,7 +5,7 @@ import { pastasProtegidas } from '../config'
 import { ApiAgenda, autorizar, lerArquivoCliente, clienteDoBuild, ErroDeLogin, CalendarioSumiu, type Cliente } from './api'
 import type { Guarda, DadosGoogle } from './guarda'
 import {
-  planejarSincronia, corpoDoCortex, hashDoCorpo, itemDepoisDoGoogle,
+  planejarSincronia, corpoDoCortex, hashDoCorpo, itemDepoisDoGoogle, somarDias,
   type ItemCortex, type Mapa, type CamposDoGoogle, type EventoGoogle
 } from './logica'
 
@@ -31,6 +31,14 @@ export type EstadoGoogle = {
 }
 
 const texto = (v: unknown): string => (typeof v === 'string' ? v : '')
+const mapaTem = (mapa: Mapa, id: string): boolean => Object.values(mapa).some(l => l.id === id)
+
+/** Hoje no fuso de quem usa o PC, sem passar por UTC. */
+function diaLocal(): string {
+  const d = new Date()
+  const p = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
 const numero = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN
   return Number.isInteger(n) ? n : null
@@ -148,10 +156,21 @@ export class ServicoAgenda {
       }
       const cal = calendarioId
 
+      // Ocorrências de eventos repetidos criados fora do Cortex, de ontem a 60
+      // dias. As das datas comemorativas do próprio Cortex ficam de fora: elas
+      // já são uma nota só, que se repete.
+      const hoje = diaLocal()
+      const porId = new Map(eventos.map(e => [e.id, e]))
+      for (const ev of await api.listarRepeticoes(cal, somarDias(hoje, -1), somarDias(hoje, 60))) {
+        if (ev.extendedProperties?.private?.cortex === '1' && !mapaTem(mapa, ev.id)) continue
+        porId.set(ev.id, ev)
+      }
+      eventos = [...porId.values()]
+
       const itens = this.itensDoCortex()
       const porPath = new Map(itens.map(i => [i.path, i]))
       const anoAtual = new Date().getFullYear()
-      const plano = planejarSincronia({ itens, eventos, mapa, anoAtual })
+      const plano = planejarSincronia({ itens, eventos, mapa, anoAtual, hoje })
 
       for (const path of plano.desligar) delete mapa[path]
 
@@ -174,7 +193,12 @@ export class ServicoAgenda {
           if (!item) continue
           await this.atualizarNota(op.path, op.campos)
           const corpo = corpoDoCortex(itemDepoisDoGoogle(item, op.campos), anoAtual)
-          if (corpo) mapa[op.path] = { id: op.id, hash: hashDoCorpo(corpo), atualizado: op.atualizado }
+          if (corpo) {
+            mapa[op.path] = {
+              id: op.id, hash: hashDoCorpo(corpo), atualizado: op.atualizado,
+              ...(mapa[op.path]?.instancia ? { instancia: true } : {})
+            }
+          }
         } else if (op.acao === 'cancelar') {
           await this.patch(op.path, { cancelado: true })
         } else {
@@ -187,7 +211,7 @@ export class ServicoAgenda {
           if (!corpo) continue
           // O evento ganha a marca do Cortex, para a próxima rodada saber de quem ele é.
           const r = await api.atualizar(cal, op.id, { extendedProperties: corpo.extendedProperties })
-          mapa[path] = { id: op.id, hash: hashDoCorpo(corpo), atualizado: r.atualizado }
+          mapa[path] = { id: op.id, hash: hashDoCorpo(corpo), atualizado: r.atualizado, ...(op.instancia ? { instancia: true } : {}) }
         }
       }
 

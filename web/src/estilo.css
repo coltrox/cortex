@@ -1971,3 +1971,13 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 }
 .lista-treino .novo-exercicio > .linha-acoes{ margin:0; }
 .lista-treino .adicionar-exercicio{ border-style:solid; background:var(--painel); }
+
+/* Ajustar a refeição só hoje: itens e números do dia, sem mexer no plano. */
+.refeicao-ajuste{ display:flex; flex-direction:column; gap:var(--e2); }
+.ajuste-itens{ min-height:78px; resize:vertical; line-height:1.4; padding-top:10px; padding-bottom:10px; }
+.ajuste-numeros{ display:grid; grid-template-columns:1fr 1fr; gap:var(--e2); }
+.ajuste-numeros label{ display:flex; align-items:center; gap:6px; }
+.ajuste-numeros span{ flex:none; font-size:12px; color:var(--txt-3); }
+.ajuste-numeros .troca-campo{ min-width:0; width:100%; }
+.ajuste-botoes{ display:flex; gap:var(--e2); justify-content:flex-end; }
+.ajuste-botoes .btn{ width:auto; flex:1; }

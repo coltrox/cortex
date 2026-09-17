@@ -9,6 +9,9 @@ import { guardadoDoNavegador } from '../guardado'
 import {
   comAlteracoes, guardarAlteracao, chaveEfetiva, type Alteracao
 } from '../lancamentosLocais'
+import {
+  guardarGasto, comGastosLocais, ehLocal, guardarMovimento, saldoComMovimentos
+} from '../dinheiroLocal'
 import { Cabecalho, Aviso, Secao, Selecao } from '../componentes'
 
 /**
@@ -158,14 +161,23 @@ export function Dinheiro(p: {
   // O publicado, com as edições e exclusões feitas aqui por cima até o Cortex
   // devolvê-las — ver `lancamentosLocais`.
   const todas = useMemo(
-    () => temGrana ? comAlteracoes(guardadoDoNavegador, transacoes(p.cardapio.cardapio)) : [],
+    // E os lançados aqui que o Cortex ainda não devolveu — ver `dinheiroLocal`.
+    () => temGrana
+      ? comAlteracoes(guardadoDoNavegador, comGastosLocais(guardadoDoNavegador, transacoes(p.cardapio.cardapio)))
+      : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [p.cardapio.cardapio, temGrana, versao]
   )
   const doMes = totaisDoMes(todas, mes)
   const doDia = todas.filter(t => t.data === dia)
   const saldoDoDia = doDia.reduce((a, t) => a + (t.entrada ? t.valor : -t.valor), 0)
-  const cofrinho = temGrana ? porquinho(p.cardapio.cardapio) : null
+  const publicado = temGrana ? porquinho(p.cardapio.cardapio) : null
+  // O saldo já com os movimentos feitos aqui que ainda estão a caminho.
+  const cofrinho = useMemo(
+    () => publicado ? { ...publicado, saldo: saldoComMovimentos(guardadoDoNavegador, publicado.saldo) } : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [p.cardapio.cardapio, temGrana, versao]
+  )
 
   /*
    * O mês NÃO tem meta, e por isso não tem barra.
@@ -180,10 +192,16 @@ export function Dinheiro(p: {
 
   const lancar = (entrada: boolean): void => {
     try {
-      p.envio.registrar(eventoGasto(desc, Number(valor.replace(',', '.')), {
+      const quanto = Number(valor.replace(',', '.'))
+      p.envio.registrar(eventoGasto(desc, quanto, {
         cat: cat || undefined,
         dir: entrada ? 'entrada' : 'saida'
       }, dia))
+      // Aparece na lista agora, e não só depois da volta pelo computador.
+      guardarGasto(guardadoDoNavegador, transacoes(p.cardapio.cardapio), {
+        data: dia, item: desc, valor: quanto, cat, entrada
+      })
+      setVersao(v => v + 1)
       setDesc('')
       setValor('')
       setCat('')
@@ -219,9 +237,12 @@ export function Dinheiro(p: {
 
   const mexerNoCofre = (direcao: 'deposito' | 'sangria'): void => {
     try {
+      const quanto = Number(cofre.replace(',', '.'))
       p.envio.registrar(eventoPorquinho(
-        cofrinho?.nome ?? 'Porquinho', Number(cofre.replace(',', '.')), direcao, dia
+        cofrinho?.nome ?? 'Porquinho', quanto, direcao, dia
       ))
+      guardarMovimento(guardadoDoNavegador, publicado?.saldo ?? 0, direcao === 'sangria' ? -quanto : quanto)
+      setVersao(v => v + 1)
       setCofre('')
       setErro(null)
     } catch (e) {
@@ -358,7 +379,8 @@ export function Dinheiro(p: {
                 key={t.chave}
                 t={t}
                 aberta={aberta === t.chave}
-                aoAbrir={() => setAberta(aberta === t.chave ? null : t.chave)}
+                // O que ainda não chegou ao vault não tem o que editar nem excluir.
+                aoAbrir={() => { if (!ehLocal(t)) setAberta(aberta === t.chave ? null : t.chave) }}
                 aoEditar={() => { setEditando(t.chave); setAberta(null) }}
                 aoExcluir={() => {
                   // Excluir no vault não tem desfazer pelo celular.

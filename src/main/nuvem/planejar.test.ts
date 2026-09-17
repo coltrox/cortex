@@ -1004,3 +1004,15 @@ describe('planejar — acontecimento vindo do celular', () => {
     expect(planejar(ev('compromisso', { titulo: 'X', data: 'ontem', acontecimento: true }))).toEqual([])
   })
 })
+
+describe('planejar — refeição ajustada só no dia', () => {
+  it('itens e números do dia entram no detalhe; número absurdo é descartado', () => {
+    expect(planejar(ev('refeicao_plano', { nome: 'Almoço', itens: 'arroz e frango', kcal: 650, prot: 99999 }))).toEqual([
+      { acao: 'diario-conjunto', dia: '2026-08-27', campo: 'dieta_feitas', valor: 'Almoço' },
+      {
+        acao: 'diario-item', dia: '2026-08-27', campo: 'dieta_detalhes', chave: 'nome', valor: 'Almoço',
+        item: { nome: 'Almoço', itens: 'arroz e frango', kcal: 650 }
+      }
+    ])
+  })
+})

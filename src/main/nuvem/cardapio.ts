@@ -185,14 +185,18 @@ export function montarCardapio(
    * `nivel` só passa se for um dos dois valores que a tela entende. Um texto
    * qualquer viraria um botão que não existe no celular.
    */
-  const detalhesRefeicao = new Map<string, { nivel?: string; troca?: string }>()
+  const detalhesRefeicao = new Map<string, { nivel?: string; troca?: string; itens?: string; kcal?: number; prot?: number }>()
   for (const d of lista(diario?.campos.dieta_detalhes)) {
     const nome = txt(d.nome)
     if (!nome) continue
     const nivel = txt(d.nivel)
     detalhesRefeicao.set(nome, {
       nivel: nivel === 'metade' || nivel === 'pouco' ? nivel : undefined,
-      troca: txt(d.troca).slice(0, 120) || undefined
+      troca: txt(d.troca).slice(0, 120) || undefined,
+      // A refeição ajustada só hoje: itens e números do dia, sem mexer no plano.
+      itens: txt(d.itens).slice(0, 300) || undefined,
+      kcal: num(d.kcal),
+      prot: num(d.prot)
     })
   }
 
@@ -300,7 +304,10 @@ export function montarCardapio(
         dias: listaDeTexto(r.dias).length > 0 ? listaDeTexto(r.dias) : undefined,
         feito: feitosHoje.refeicao.has(nome) ? true : undefined,
         nivel: detalheDoDia?.nivel,
-        troca: detalheDoDia?.troca
+        troca: detalheDoDia?.troca,
+        itensDia: detalheDoDia?.itens,
+        kcalDia: detalheDoDia?.kcal,
+        protDia: detalheDoDia?.prot
       })
     })
   }

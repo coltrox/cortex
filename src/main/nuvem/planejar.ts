@@ -222,13 +222,22 @@ export function planejar(evento: Evento): Operacao[] {
       const nivelBruto = txt(dados.nivel)
       const nivel = nivelBruto === 'metade' || nivelBruto === 'pouco' ? nivelBruto : undefined
       const troca = txt(dados.troca).slice(0, 120)
+      // O que a refeição foi hoje, quando mudou do plano. Números fora de uma
+      // faixa possível são descartados: `dados` é registro livre.
+      const itens = txt(dados.itens).trim().slice(0, 300) || undefined
+      const noLimite = (v: unknown, teto: number): number | undefined => {
+        const n = num(v)
+        return n !== undefined && n >= 0 && n <= teto ? Math.round(n) : undefined
+      }
+      const kcal = noLimite(dados.kcal, 5000)
+      const prot = noLimite(dados.prot, 1000)
 
-      if (desmarcou || (!nivel && !troca)) {
+      if (desmarcou || (!nivel && !troca && !itens && kcal === undefined && prot === undefined)) {
         ops.push({ acao: 'diario-item', dia, campo: 'dieta_detalhes', chave: 'nome', valor: nome, item: null })
       } else {
         ops.push({
           acao: 'diario-item', dia, campo: 'dieta_detalhes', chave: 'nome', valor: nome,
-          item: comValor({ nome, nivel, troca })
+          item: comValor({ nome, nivel, troca, itens, kcal, prot })
         })
       }
       return ops

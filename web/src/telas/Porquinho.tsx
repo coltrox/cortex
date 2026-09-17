@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { diaLocal, eventoPorquinho } from '../montar'
 import { porquinho, reais } from '../cardapio'
+import { guardarMovimento, saldoComMovimentos } from '../dinheiroLocal'
+import { guardadoDoNavegador } from '../guardado'
 import { Cabecalho, Botao, Campo, CampoNumero, Aviso, Secao } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -21,7 +23,9 @@ export function Porquinho(p: {
   cardapio: UsoDoCardapio
   irPara: (t: Tela) => void
 }) {
-  const cofre = porquinho(p.cardapio.cardapio)
+  const publicado = porquinho(p.cardapio.cardapio)
+  // O saldo já com o que foi guardado ou tirado aqui e ainda está a caminho.
+  const cofre = publicado ? { ...publicado, saldo: saldoComMovimentos(guardadoDoNavegador, publicado.saldo) } : null
   const [valor, setValor] = useState('')
   const [titulo, setTitulo] = useState('')
   const [direcao, setDirecao] = useState<'deposito' | 'sangria'>('deposito')
@@ -39,6 +43,7 @@ export function Porquinho(p: {
         direcao,
         diaLocal()
       ))
+      guardarMovimento(guardadoDoNavegador, publicado?.saldo ?? 0, guardando ? Number(valor) : -Number(valor))
       p.irPara('hoje')
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'não deu para registrar')

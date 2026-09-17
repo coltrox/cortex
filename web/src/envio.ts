@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Evento } from '@compartilhado/eventos'
 import { guardadoDoNavegador } from './guardado'
 import { lerVaultId } from './ajustes'
@@ -9,6 +9,8 @@ import {
   ouvirCampainha, tocarCampainha, reavaliarCampainha, acordarCampainha
 } from './campainha'
 import { lerCardapio, gravarCardapio, type Cardapio } from './cardapio'
+import { guardarEdicao, aplicarEdicoes, EVENTO_EDICAO_LOCAL } from './edicoesLocais'
+import { diaLocal } from './montar'
 
 /** De quanto em quanto tempo a fila tenta sair sozinha, com o app aberto. */
 const INTERVALO_MS = 30_000
@@ -95,6 +97,11 @@ export function useEnvio() {
 
   const registrar = useCallback((evento: Evento) => {
     fila.enfileirar(evento)
+    // Uma edição aparece na hora, por cima do cardápio, até o Cortex devolver —
+    // ver `edicoesLocais`. Num lugar só, para toda tela que edita valer igual.
+    if (evento.tipo === 'compromisso_editado') {
+      guardarEdicao(guardadoDoNavegador, lerCardapio(guardadoDoNavegador), evento.dados as Record<string, unknown>)
+    }
     setEstado(e => ({ ...e, naFila: fila.quantos() }))
     void drenar()
   }, [fila, drenar])
@@ -217,5 +224,18 @@ export function useCardapio(): UsoDoCardapio {
     }
   }, [atualizar])
 
-  return { cardapio, atualizar, erro, buscando }
+  // Edição guardada agora (em qualquer tela): o cardápio visível se refaz.
+  const [versaoLocal, setVersaoLocal] = useState(0)
+  useEffect(() => {
+    const aoEditar = (): void => setVersaoLocal(v => v + 1)
+    window.addEventListener(EVENTO_EDICAO_LOCAL, aoEditar)
+    return () => window.removeEventListener(EVENTO_EDICAO_LOCAL, aoEditar)
+  }, [])
+  const visivel = useMemo(
+    () => aplicarEdicoes(guardadoDoNavegador, cardapio, diaLocal()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cardapio, versaoLocal]
+  )
+
+  return { cardapio: visivel, atualizar, erro, buscando }
 }

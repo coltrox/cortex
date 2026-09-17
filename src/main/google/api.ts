@@ -242,6 +242,38 @@ export class ApiAgenda {
     return out
   }
 
+  /**
+   * As ocorrências de eventos que se repetem, numa janela de datas.
+   *
+   * A lista normal traz só o evento-mãe (com a regra de repetição); o Cortex
+   * não tem compromisso repetido, então lê cada ocorrência como um evento.
+   * Janela curta de propósito: um "toda segunda" sem fim viraria centenas de
+   * notas.
+   */
+  async listarRepeticoes(calendario: string, de: string, ate: string): Promise<EventoGoogle[]> {
+    const out: EventoGoogle[] = []
+    let proxima: string | undefined
+    for (let voltas = 0; voltas < 20; voltas++) {
+      const q = new URLSearchParams({
+        singleEvents: 'true', showDeleted: 'true', maxResults: '2500',
+        timeMin: `${de}T00:00:00-03:00`, timeMax: `${ate}T23:59:59-03:00`
+      })
+      if (proxima) q.set('pageToken', proxima)
+      const r = await this.chamar<{ items?: unknown; nextPageToken?: unknown }>(
+        'GET', `/calendars/${encodeURIComponent(calendario)}/events?${q}`
+      )
+      if (Array.isArray(r.items)) {
+        for (const e of r.items) {
+          const ev = e as EventoGoogle
+          if (ev && typeof ev.id === 'string' && typeof ev.recurringEventId === 'string') out.push(ev)
+        }
+      }
+      proxima = typeof r.nextPageToken === 'string' ? r.nextPageToken : undefined
+      if (!proxima) break
+    }
+    return out
+  }
+
   async inserir(calendario: string, corpo: CorpoEvento): Promise<{ id: string; atualizado: string }> {
     const e = await this.chamar<EventoGoogle>('POST', `/calendars/${encodeURIComponent(calendario)}/events`, corpo)
     return { id: e.id, atualizado: typeof e.updated === 'string' ? e.updated : '' }

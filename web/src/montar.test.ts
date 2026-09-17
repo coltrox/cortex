@@ -443,3 +443,15 @@ describe('eventoAcontecimento', () => {
     expect(() => eventoAcontecimento('X', '2026-08-29', '', '2026-08-28')).toThrow(/hoje ou de antes/)
   })
 })
+
+describe('eventoRefeicaoPlano — ajuste só do dia', () => {
+  it('leva itens, kcal e prot quando marcou; desmarcar não leva nada', async () => {
+    const { eventoRefeicaoPlano } = await import('./montar')
+    expect(eventoRefeicaoPlano('Almoço', '2026-09-17', true, undefined, undefined, { itens: ' arroz e frango ', kcal: 650.4, prot: 42 }).dados)
+      .toEqual({ nome: 'Almoço', itens: 'arroz e frango', kcal: 650, prot: 42 })
+    expect(eventoRefeicaoPlano('Almoço', '2026-09-17', false, undefined, undefined, { itens: 'x', kcal: 1 }).dados)
+      .toEqual({ nome: 'Almoço', feito: false })
+    expect(eventoRefeicaoPlano('Almoço', '2026-09-17', true, undefined, undefined, { kcal: 99999 }).dados)
+      .toEqual({ nome: 'Almoço' })
+  })
+})

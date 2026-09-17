@@ -37,6 +37,19 @@ function txt(v: unknown): string {
   return typeof v === 'string' ? v : ''
 }
 
+/** Número do dia: `null` quando não foi ajustado (vale o do plano). */
+function numDia(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null
+}
+
+/**
+ * O que foi respondido sobre uma refeição hoje: quanto comeu, o que trocou,
+ * e — quando a refeição mudou do plano — os itens e os números do dia.
+ * `itens` vazio e números `null` querem dizer "igual ao plano".
+ */
+type DetalheDia = { nivel: NivelRefeicao; troca: string; itens: string; kcal: number | null; prot: number | null }
+const SEM_DETALHE: DetalheDia = { nivel: 'tudo', troca: '', itens: '', kcal: null, prot: null }
+
 export function Dieta(p: {
   envio: ReturnType<typeof useEnvio>
   cardapio: ReturnType<typeof useCardapio>
@@ -53,7 +66,7 @@ export function Dieta(p: {
    * toque e o cardápio voltar do banco passam segundos ou minutos, e sem isto
    * o chip escolhido voltaria ao lugar anterior na frente da pessoa.
    */
-  const [rascunho, setRascunho] = useState<Record<string, { nivel: NivelRefeicao; troca: string }>>({})
+  const [rascunho, setRascunho] = useState<Record<string, DetalheDia>>({})
 
   const temSaude = areaLigada(p.cardapio.cardapio, 'saude')
   // Com o dia: o pré-treino de segunda a sexta não aparece no fim de semana.
@@ -87,7 +100,8 @@ export function Dieta(p: {
         const doCardapio = refeicoes.find(x => x.nome === nome)?.detalhe
         const nivel = txt(doCardapio?.nivel) || 'tudo'
         const troca = txt(doCardapio?.troca)
-        if (nivel === r.nivel && troca === r.troca) continue
+        if (nivel === r.nivel && troca === r.troca && txt(doCardapio?.itensDia) === r.itens &&
+          numDia(doCardapio?.kcalDia) === r.kcal && numDia(doCardapio?.protDia) === r.prot) continue
         out[nome] = r
       }
       return out
@@ -104,23 +118,26 @@ export function Dieta(p: {
    * O rascunho vence enquanto existe; depois vale o cardápio; e o padrão é
    * "tudo", que é o que marcar sem abrir o painel sempre quis dizer.
    */
-  const detalheDe = (nome: string): { nivel: NivelRefeicao; troca: string } => {
+  const detalheDe = (nome: string): DetalheDia => {
     if (rascunho[nome]) return rascunho[nome]
     const d = refeicoes.find(x => x.nome === nome)?.detalhe
     const nivel = txt(d?.nivel)
     return {
       nivel: nivel === 'metade' || nivel === 'pouco' ? nivel : 'tudo',
-      troca: txt(d?.troca)
+      troca: txt(d?.troca),
+      itens: txt(d?.itensDia),
+      kcal: numDia(d?.kcalDia),
+      prot: numDia(d?.protDia)
     }
   }
 
   /** Manda o evento com o detalhe que vale agora. Marcar e detalhar são o mesmo. */
-  const registrar = (nome: string, feito: boolean, d: { nivel: NivelRefeicao; troca: string }): void => {
-    p.envio.registrar(eventoRefeicaoPlano(nome, dia, feito, d.nivel, d.troca))
+  const registrar = (nome: string, feito: boolean, d: DetalheDia): void => {
+    p.envio.registrar(eventoRefeicaoPlano(nome, dia, feito, d.nivel, d.troca, { itens: d.itens, kcal: d.kcal, prot: d.prot }))
   }
 
   /** Responder no painel marca a refeição junto: dizer quanto comeu é comer. */
-  const detalhar = (nome: string, mudanca: Partial<{ nivel: NivelRefeicao; troca: string }>): void => {
+  const detalhar = (nome: string, mudanca: Partial<DetalheDia>): void => {
     const novo = { ...detalheDe(nome), ...mudanca }
     setRascunho(r => ({ ...r, [nome]: novo }))
     const chave = `refeicao:${nome}`
@@ -137,7 +154,7 @@ export function Dieta(p: {
       marcarFeito(guardadoDoNavegador, dia, anti)
       desmarcarFeito(guardadoDoNavegador, dia, chave)
       // Desmarcou: o detalhe morre junto, aqui e no diário.
-      setRascunho(r => ({ ...r, [nome]: { nivel: 'tudo', troca: '' } }))
+      setRascunho(r => ({ ...r, [nome]: SEM_DETALHE }))
     } else {
       marcarFeito(guardadoDoNavegador, dia, chave)
       desmarcarFeito(guardadoDoNavegador, dia, anti)
@@ -145,7 +162,7 @@ export function Dieta(p: {
     setFeitos(jaFeitos(guardadoDoNavegador, dia))
     // Ao marcar, leva junto o que já foi respondido antes; ao desmarcar, o
     // construtor do evento descarta o detalhe sozinho.
-    registrar(nome, !estava, estava ? { nivel: 'tudo', troca: '' } : detalheDe(nome))
+    registrar(nome, !estava, estava ? SEM_DETALHE : detalheDe(nome))
   }
 
   /*
@@ -168,12 +185,15 @@ export function Dieta(p: {
    */
   const planejadas = refeicoes.reduce((a, r) => a + num(r.detalhe.kcal), 0)
   const fatorDe = (nome: string): number => FATOR_NIVEL[detalheDe(nome).nivel]
+  /** Calorias e proteína desta refeição hoje: as do dia quando ajustadas, senão as do plano. */
+  const kcalDe = (r: { nome: string; detalhe: Record<string, unknown> }): number => detalheDe(r.nome).kcal ?? num(r.detalhe.kcal)
+  const protDe = (r: { nome: string; detalhe: Record<string, unknown> }): number => detalheDe(r.nome).prot ?? num(r.detalhe.prot)
   const comidas = Math.round(refeicoes.reduce(
     (a, r) => a + (marcada(r.nome, r.detalhe.feito === true)
-      ? num(r.detalhe.kcal) * fatorDe(r.nome) : 0), 0))
+      ? kcalDe(r) * fatorDe(r.nome) : 0), 0))
   const proteina = Math.round(refeicoes.reduce(
     (a, r) => a + (marcada(r.nome, r.detalhe.feito === true)
-      ? num(r.detalhe.prot) * fatorDe(r.nome) : 0), 0))
+      ? protDe(r) * fatorDe(r.nome) : 0), 0))
   const marcadas = refeicoes.filter(r => marcada(r.nome, r.detalhe.feito === true)).length
   const fracao = planejadas > 0 ? Math.min(1, comidas / planejadas) : 0
 
@@ -240,9 +260,9 @@ export function Dieta(p: {
                   // O que foi respondido vem na frente dos itens do plano:
                   // depois de responder, é isso que a pessoa volta para ver.
                   feito && d.nivel !== 'tudo' ? `comi ${ROTULO_NIVEL[d.nivel]}` : '',
-                  feito && d.troca ? `troquei por ${d.troca}` : txt(r.detalhe.itens),
-                  num(r.detalhe.kcal) > 0
-                    ? `${Math.round(num(r.detalhe.kcal) * (feito ? FATOR_NIVEL[d.nivel] : 1))} kcal`
+                  feito && d.troca ? `troquei por ${d.troca}` : (feito && d.itens) || txt(r.detalhe.itens),
+                  (feito ? kcalDe(r) : num(r.detalhe.kcal)) > 0
+                    ? `${Math.round((feito ? kcalDe(r) : num(r.detalhe.kcal)) * (feito ? FATOR_NIVEL[d.nivel] : 1))} kcal`
                     : ''
                 ]} />}
                 feito={feito}
@@ -285,6 +305,15 @@ export function Dieta(p: {
                   <TrocaCampo
                     valor={d.troca}
                     aoSalvar={troca => { detalhar(r.nome, { troca }); setAberta(null) }}
+                  />
+
+                  <span className="refeicao-pergunta">Ajustar só hoje</span>
+                  <AjusteDoDia
+                    planoItens={txt(r.detalhe.itens)}
+                    planoKcal={num(r.detalhe.kcal)}
+                    planoProt={num(r.detalhe.prot)}
+                    atual={d}
+                    aoSalvar={aj => { detalhar(r.nome, aj); setAberta(null) }}
                   />
                 </div>
               )}
@@ -332,6 +361,78 @@ function TrocaCampo({ valor, aoSalvar }: { valor: string; aoSalvar: (t: string) 
       <button className="troca-salvar" type="button" disabled={!mudou} onClick={salvar}>
         Salvar
       </button>
+    </div>
+  )
+}
+
+/**
+ * A refeição de hoje, quando ela não foi como o plano manda.
+ *
+ * Edita os itens e os números SÓ do dia: vai para o diário, e o plano da
+ * nutricionista continua igual amanhã. Estado próprio, pelo mesmo motivo do
+ * campo de troca — cada letra não pode virar um evento na fila.
+ */
+function AjusteDoDia({ planoItens, planoKcal, planoProt, atual, aoSalvar }: {
+  planoItens: string
+  planoKcal: number
+  planoProt: number
+  atual: DetalheDia
+  aoSalvar: (aj: Pick<DetalheDia, 'itens' | 'kcal' | 'prot'>) => void
+}) {
+  const [itens, setItens] = useState(atual.itens || planoItens)
+  const [kcal, setKcal] = useState(String(atual.kcal ?? (planoKcal || '')))
+  const [prot, setProt] = useState(String(atual.prot ?? (planoProt || '')))
+  const ajustado = atual.itens !== '' || atual.kcal !== null || atual.prot !== null
+
+  const numero = (t: string): number | null => {
+    const n = Number(t.replace(',', '.'))
+    return t.trim() === '' || !Number.isFinite(n) || n < 0 ? null : Math.round(n)
+  }
+
+  const salvar = (): void => {
+    const k = numero(kcal)
+    const pr = numero(prot)
+    aoSalvar({
+      // Igual ao plano não é ajuste: não viaja, e a refeição segue o plano.
+      itens: itens.trim() === planoItens.trim() ? '' : itens.trim(),
+      kcal: k === planoKcal ? null : k,
+      prot: pr === planoProt ? null : pr
+    })
+  }
+
+  return (
+    <div className="refeicao-ajuste">
+      <textarea
+        className="troca-campo ajuste-itens"
+        rows={3}
+        maxLength={300}
+        value={itens}
+        placeholder="o que teve nesta refeição hoje"
+        onChange={e => setItens(e.target.value)}
+      />
+      <div className="ajuste-numeros">
+        <label>
+          <input className="troca-campo" inputMode="numeric" value={kcal}
+            onChange={e => setKcal(e.target.value)} />
+          <span>kcal</span>
+        </label>
+        <label>
+          <input className="troca-campo" inputMode="numeric" value={prot}
+            onChange={e => setProt(e.target.value)} />
+          <span>g prot</span>
+        </label>
+      </div>
+      <div className="ajuste-botoes">
+        {ajustado && (
+          <button type="button" className="btn"
+            onClick={() => aoSalvar({ itens: '', kcal: null, prot: null })}>
+            Voltar ao plano
+          </button>
+        )}
+        <button type="button" className="btn btn-principal" onClick={salvar}>
+          Salvar hoje
+        </button>
+      </div>
     </div>
   )
 }

@@ -117,13 +117,23 @@ export function eventoRefeicaoPlano(
   dia: string = diaLocal(),
   feito = true,
   nivel?: NivelRefeicao,
-  troca?: string
+  troca?: string,
+  /**
+   * O que a refeição foi HOJE, quando mudou do plano: os itens, e as calorias e
+   * a proteína do dia. Fica no diário — o plano da nutricionista não muda.
+   */
+  ajuste?: { itens?: string; kcal?: number | null; prot?: number | null }
 ): Evento {
+  const numeroDoDia = (v: number | null | undefined, teto: number): number | undefined =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= teto ? Math.round(v) : undefined
   return validarEvento({
     tipo: 'refeicao_plano', dia,
     dados: comValor({
       nome: texto(nome, 'nome'),
       feito: feito ? undefined : false,
+      itens: feito && ajuste?.itens ? ajuste.itens.trim().slice(0, 300) : undefined,
+      kcal: feito ? numeroDoDia(ajuste?.kcal, 5000) : undefined,
+      prot: feito ? numeroDoDia(ajuste?.prot, 1000) : undefined,
       // Desmarcar apaga o detalhe junto: um "comi metade" pendurado numa
       // refeição que a pessoa acabou de dizer que não comeu é contradição
       // dentro do próprio diário.
