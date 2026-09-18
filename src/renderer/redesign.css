@@ -1136,5 +1136,8 @@ body {
    flutuante, que continua à mão para ver o npm run dev. */
 .dev-corpo[data-amplo="true"] {
   position: fixed; inset: 12px; z-index: 35; height: auto;
+  /* Abaixo dos botões da janela (minimizar, fechar): a barra de título do
+     Windows ocupa 40 px no topo. Em tela cheia (F11) ela some e a variável zera. */
+  top: max(12px, calc(env(titlebar-area-height, 0px) + 6px));
   box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
 }
