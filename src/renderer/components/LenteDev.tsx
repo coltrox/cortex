@@ -305,6 +305,15 @@ function Codigo({
   const [semArvore, setSemArvore] = useState(false)
   /** Pasta para trazer à vista na árvore quando ela aparecer (o projeto recém-criado). */
   const rolarPara = useRef<string | null>(null)
+  /**
+   * A pasta sobre a qual um arquivo do Explorer está sendo arrastado ('' é a
+   * raiz). É ela que abre a tampa e balança — pedido do dono, para ficar
+   * claro onde o arquivo vai cair.
+   */
+  const [soltarEm, setSoltarEm] = useState<string | null>(null)
+  /** O que acabou de ser copiado para a árvore, para piscar ao chegar. */
+  const [chegaram, setChegaram] = useState<Set<string>>(() => new Set())
+  const [avisoArvore, setAvisoArvore] = useState<string | null>(null)
 
   const [arquivo, setArquivo] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
@@ -405,6 +414,64 @@ function Codigo({
     setAbertas(nova)
   }
 
+  // Parar com o arquivo na mão sobre uma pasta fechada abre a pasta, como no VS Code.
+  useEffect(() => {
+    if (!soltarEm || abertas.has(soltarEm) || !raiz) return
+    const t = setTimeout(() => {
+      setAbertas(a => new Set(a).add(soltarEm))
+      if (!filhos[soltarEm]) void lerPasta(raiz, soltarEm)
+    }, 700)
+    return () => clearTimeout(t)
+  }, [soltarEm, abertas, raiz, filhos, lerPasta])
+
+  /**
+   * Copia para `dest` o que veio do Explorer. O processo principal nunca
+   * sobrescreve — um nome repetido vira "nome (2)" —, então soltar não
+   * destrói nada. A pasta de destino abre e a cópia pisca ao chegar.
+   */
+  const copiarSoltos = async (dest: string, arquivos: FileList): Promise<void> => {
+    if (!raiz) return
+    setAvisoArvore(null)
+    const novos: string[] = []
+    for (const f of Array.from(arquivos)) {
+      const origem = window.vaultApi.caminhoArrastado(f)
+      if (!origem) continue
+      try {
+        novos.push((await window.vaultApi.copiarParaPasta(raiz, dest, origem)).rel)
+      } catch (e) {
+        const motivo = e instanceof Error
+          ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+          : 'não deu para copiar'
+        setAvisoArvore(`${f.name}: ${motivo}`)
+      }
+    }
+    if (dest) setAbertas(a => new Set(a).add(dest))
+    await lerPasta(raiz, dest)
+    if (novos.length > 0) {
+      rolarPara.current = novos[0]
+      setChegaram(new Set(novos))
+      setTimeout(() => setChegaram(new Set()), 1600)
+    }
+  }
+
+  const temArquivos = (e: DragEvent): boolean => Array.from(e.dataTransfer?.types ?? []).includes('Files')
+  /** Um arquivo do Explorer passando por cima de `dest`: a árvore toma o arrastar para si. */
+  const arrastoSobre = (e: DragEvent, dest: string): void => {
+    if (!temArquivos(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+    setSobrevoando(false)
+    if (soltarEm !== dest) setSoltarEm(dest)
+  }
+  const soltarNa = (e: DragEvent, dest: string): void => {
+    if (!temArquivos(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    setSoltarEm(null)
+    if (e.dataTransfer.files.length > 0) void copiarSoltos(dest, e.dataTransfer.files)
+  }
+
   const criarProjeto = async (
     modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
   ): Promise<boolean> => {
@@ -421,6 +488,16 @@ function Codigo({
     setArquivo(rel)
     setTexto(c)
     setGravado(c)
+  }
+
+  /** Fecha o arquivo aberto. Com mudança não salva, pergunta antes. */
+  const fecharArquivo = (): void => {
+    if (texto !== gravado && !window.confirm('Fechar sem salvar as mudanças?')) return
+    setArquivo(null)
+    setTexto('')
+    setGravado('')
+    setAmplo(false)
+    setSemArvore(false)
   }
 
   const salvar = async (): Promise<void> => {
@@ -480,10 +557,20 @@ function Codigo({
           data-inerte={!it.pasta && !it.editavel}
           data-ext={it.pasta ? undefined : extensao(it.nome)}
           data-rel={it.rel}
+          data-soltar={it.pasta && soltarEm === it.rel}
+          data-dentro={!!soltarEm && it.rel.startsWith(soltarEm + '/')}
+          data-chegou={chegaram.has(it.rel)}
           title={it.pasta ? it.rel : `${it.rel} · ${Math.max(1, Math.round(it.tamanho / 1024))} kB`}
+          // Soltar num arquivo é soltar na pasta dele, como no VS Code.
+          onDragOver={e => arrastoSobre(e, it.pasta ? it.rel : paiDe(it.rel))}
+          onDrop={e => soltarNa(e, it.pasta ? it.rel : paiDe(it.rel))}
           onClick={() => {
             if (it.pasta) alternarPasta(it.rel)
-            else if (it.editavel) { setFoco({ rel: it.rel, pasta: false }); void abrirArquivo(it.rel) }
+            else if (it.editavel && it.rel !== arquivo) {
+              if (texto !== gravado && !window.confirm('Trocar de arquivo sem salvar as mudanças?')) return
+              setFoco({ rel: it.rel, pasta: false })
+              void abrirArquivo(it.rel)
+            }
           }}
         >
           <span className="dev-seta" aria-hidden="true">{it.pasta ? '›' : ''}</span>
@@ -567,7 +654,17 @@ function Codigo({
           />
 
           <div className="dev-corpo" data-amplo={amplo} data-sem-arvore={semArvore && !!arquivo}>
-            <div className="dev-arvore" role="tree" aria-label={`Arquivos de ${nomeRaiz}`}>
+            <div
+              className="dev-arvore"
+              role="tree"
+              aria-label={`Arquivos de ${nomeRaiz}`}
+              data-soltar={soltarEm === ''}
+              onDragOver={e => arrastoSobre(e, '')}
+              onDrop={e => soltarNa(e, '')}
+              onDragLeave={e => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSoltarEm(null)
+              }}
+            >
               <div className="dev-arvore-topo">
                 <span className="dev-arvore-nome" title={raiz}>{nomeRaiz}</span>
                 <span className="dev-arvore-botoes">
@@ -579,7 +676,11 @@ function Codigo({
                   )}
                 </span>
               </div>
+              {avisoArvore && (
+                <div className="dev-arvore-aviso" role="alert" onClick={() => setAvisoArvore(null)}>{avisoArvore}</div>
+              )}
               {linhas('', 0)}
+              {soltarEm === '' && <div className="dev-item-vazio">Soltar em {nomeRaiz}</div>}
             </div>
 
             <div className="dev-editor">
@@ -610,6 +711,7 @@ function Codigo({
                       <button className="btn pequeno" onClick={() => void salvar()} disabled={!sujo || salvando}>
                         {salvando ? 'Salvando…' : 'Salvar'}
                       </button>
+                      <button className="btn-icone dev-fechar" title="Fechar o arquivo" onClick={fecharArquivo}>×</button>
                     </span>
                   </div>
                   <EditorCodigo

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { PastasDev, ehTexto } from './pastas'
+import { PastasDev, ehTexto, nomeLivre } from './pastas'
 
 let base: string, proj: string, fora: string
 
@@ -127,5 +127,49 @@ describe('ehTexto', () => {
     expect(ehTexto('.gitignore')).toBe(true)
     expect(ehTexto('a.png')).toBe(false)
     expect(ehTexto('Makefile')).toBe(false)
+  })
+})
+
+describe('PastasDev — copiar o que foi arrastado do Explorer', () => {
+  it('copia um arquivo de fora para dentro da pasta escolhida', async () => {
+    const rel = await autorizado().copiarPara(proj, 'src', join(fora, 'senhas.txt'))
+    expect(rel).toBe('src/senhas.txt')
+    expect(await autorizado().ler(proj, 'src/senhas.txt')).toBe('nao deveria ser lido')
+  })
+
+  it('não sobrescreve: um nome que já existe ganha (2), (3)…', async () => {
+    await writeFile(join(fora, 'app.ts'), 'novo', 'utf8')
+    expect(await autorizado().copiarPara(proj, 'src', join(fora, 'app.ts'))).toBe('src/app (2).ts')
+    expect(await autorizado().copiarPara(proj, 'src', join(fora, 'app.ts'))).toBe('src/app (3).ts')
+    expect(await autorizado().ler(proj, 'src/app.ts')).toBe('export const x = 1\n')
+  })
+
+  it('copia uma pasta inteira', async () => {
+    const rel = await autorizado().copiarPara(proj, '', fora)
+    expect(rel).toBe('segredos')
+    expect(await autorizado().ler(proj, 'segredos/senhas.txt')).toBe('nao deveria ser lido')
+  })
+
+  it('recusa destino fora da pasta autorizada', async () => {
+    await expect(autorizado().copiarPara(proj, '../segredos', join(proj, 'README.md'))).rejects.toThrow(/fora/)
+    await expect(new PastasDev(() => [proj]).copiarPara(fora, '', join(proj, 'README.md'))).rejects.toThrow(/autorizada/)
+  })
+
+  it('recusa copiar uma pasta para dentro dela mesma', async () => {
+    await expect(new PastasDev(() => [base]).copiarPara(base, 'projeto/src', proj)).rejects.toThrow(/dentro dela mesma/)
+  })
+
+  it('recusa destino que não é pasta e origem que não existe', async () => {
+    await expect(autorizado().copiarPara(proj, 'README.md', join(fora, 'senhas.txt'))).rejects.toThrow(/não é uma pasta/)
+    await expect(autorizado().copiarPara(proj, 'src', join(fora, 'nada.txt'))).rejects.toThrow(/não existe/)
+  })
+})
+
+describe('nome livre para a cópia', () => {
+  it('mantém a extensão e numera antes dela', () => {
+    expect(nomeLivre('a.ts', new Set())).toBe('a.ts')
+    expect(nomeLivre('a.ts', new Set(['a.ts']))).toBe('a (2).ts')
+    expect(nomeLivre('.env', new Set(['.env']))).toBe('.env (2)')
+    expect(nomeLivre('pasta', new Set(['pasta', 'pasta (2)']))).toBe('pasta (3)')
   })
 })

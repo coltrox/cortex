@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**67 arquivos, 1183 testes**, rodando em ~23 s.
+**67 arquivos, 1190 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -407,7 +407,7 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
-`v2.6.7` — lente Dev como o VS Code: árvore que abre para baixo, código colorido (tema Min), editor ampliável, scripts no projeto em que se está e o projeto recém-criado já aberto, Novo projeto todo em cascata, Google Agenda de duas vias, que também puxa os seus outros calendários (um calendário "Cortex" na conta Google), paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
+`v2.6.8` — lente Dev como o VS Code: árvore que abre para baixo, arrastar arquivos do Explorer para dentro de uma pasta, fechar o arquivo aberto, código colorido (tema Min), editor ampliável, scripts no projeto em que se está e o projeto recém-criado já aberto, Novo projeto todo em cascata, Google Agenda de duas vias, que também puxa os seus outros calendários (um calendário "Cortex" na conta Google), paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
 Estudos, acontecimentos na Agenda, clonar repositório do GitHub na lente Dev e
 um conector MCP para o Claude Code consultar o vault. A 2.3.0 trouxe o redesign
 do app de computador: tema escuro próprio, sidebar única, página Hoje em duas

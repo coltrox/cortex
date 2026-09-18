@@ -1,4 +1,4 @@
-import { readFile, writeFile, readdir, stat, mkdir, rename, rm } from 'node:fs/promises'
+import { readFile, writeFile, readdir, stat, mkdir, rename, rm, cp } from 'node:fs/promises'
 import { resolve, relative, isAbsolute, join, dirname, sep, basename } from 'node:path'
 import { randomUUID } from 'node:crypto'
 
@@ -48,6 +48,21 @@ export function ehTexto(nome: string): boolean {
   const ponto = nome.lastIndexOf('.')
   if (ponto <= 0) return TEXTO.has(nome.toLowerCase())
   return TEXTO.has(nome.slice(ponto).toLowerCase())
+}
+
+/**
+ * Um nome que ainda não existe na pasta: "app.ts", depois "app (2).ts",
+ * "app (3).ts"… como o Explorer faz. Arquivo que começa com ponto (".env")
+ * não tem extensão — o número vai no fim.
+ */
+export function nomeLivre(nome: string, existentes: Set<string>): string {
+  if (!existentes.has(nome)) return nome
+  const ponto = nome.lastIndexOf('.')
+  const [base, ext] = ponto > 0 ? [nome.slice(0, ponto), nome.slice(ponto)] : [nome, '']
+  for (let n = 2; ; n++) {
+    const tentativa = `${base} (${n})${ext}`
+    if (!existentes.has(tentativa)) return tentativa
+  }
 }
 
 export class PastasDev {
@@ -115,6 +130,33 @@ export class PastasDev {
     if (s.size > LIMITE_BYTES) throw new Error(`arquivo grande demais (${Math.round(s.size / 1024)} kB)`)
     if (!ehTexto(basename(abs))) throw new Error('arquivo binário — o editor só abre texto')
     return readFile(abs, 'utf8')
+  }
+
+  /**
+   * Copia um arquivo ou pasta arrastado do Explorer para dentro de `relDestino`.
+   *
+   * A origem é um caminho absoluto qualquer — é o que o arrastar entrega, e
+   * arrastar É a escolha da pessoa, como no Explorer. O destino passa pelo
+   * mesmo guarda de sempre. Nunca sobrescreve: um nome que já existe ganha
+   * " (2)". Devolve o caminho relativo da cópia.
+   */
+  async copiarPara(raiz: string, relDestino: string, origem: string): Promise<string> {
+    const destino = this.resolver(raiz, relDestino)
+    const sDestino = await stat(destino).catch(() => null)
+    if (!sDestino?.isDirectory()) throw new Error('o destino não é uma pasta')
+
+    const de = resolve(origem)
+    const sOrigem = await stat(de).catch(() => null)
+    if (!sOrigem) throw new Error('o arquivo arrastado não existe mais')
+    const volta = relative(de, destino)
+    if (sOrigem.isDirectory() && (volta === '' || (!volta.startsWith('..') && !isAbsolute(volta)))) {
+      throw new Error('não dá para copiar uma pasta para dentro dela mesma')
+    }
+
+    const nome = nomeLivre(basename(de), new Set(await readdir(destino)))
+    const para = join(destino, nome)
+    await cp(de, para, { recursive: true, errorOnExist: true, force: false })
+    return this.posix(relative(resolve(raiz), para))
   }
 
   /** Escrita atômica, mesmo contrato do vault: o arquivo nunca fica parcial. */

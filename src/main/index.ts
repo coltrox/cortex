@@ -689,6 +689,22 @@ ipcMain.handle('dev:vscode', async (_e, payload: unknown) => {
   })
 })
 
+/**
+ * Copia para uma pasta da árvore o que foi arrastado do Explorer.
+ *
+ * O caminho de origem vem do renderer (webUtils, no preload), e é a única
+ * coisa que ele nomeia fora das pastas autorizadas: só é LIDO, nunca
+ * gravado. O destino passa por PastasDev.resolver. Ver copiarPara.
+ */
+ipcMain.handle('dev:copiar', async (_e, payload: unknown) => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { raiz?: unknown; sub?: unknown; origem?: unknown }
+  if (typeof p.raiz !== 'string') throw new Error('raiz inválida')
+  if (typeof p.origem !== 'string' || !p.origem) throw new Error('arquivo inválido')
+  const rel = await session.pastasDev.copiarPara(p.raiz, typeof p.sub === 'string' ? p.sub : '', p.origem)
+  return { rel }
+})
+
 /** Abre a pasta no explorador de arquivos do sistema. */
 ipcMain.handle('dev:reveal', async (_e, payload: unknown) => {
   if (!session.isOpen) throw new Error('nenhum vault aberto')

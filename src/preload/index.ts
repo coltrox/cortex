@@ -85,6 +85,10 @@ const api = {
   abrirTerminal(raiz: string, sub = ''): Promise<{ cwd: string }> {
     return ipcRenderer.invoke('dev:terminal', { raiz, sub })
   },
+  /** Copia um arquivo ou pasta arrastado do Explorer para dentro de sub. Nunca sobrescreve. */
+  copiarParaPasta(raiz: string, sub: string, origem: string): Promise<{ rel: string }> {
+    return ipcRenderer.invoke('dev:copiar', { raiz, sub, origem })
+  },
   abrirNoExplorador(raiz: string, sub = ''): Promise<{ ok: true }> {
     return ipcRenderer.invoke('dev:reveal', { raiz, sub })
   },

@@ -165,6 +165,7 @@ declare global {
       saidaDoProcesso(id: string): Promise<{ linhas: string[] }>
       limparEncerrados(): Promise<{ processos: ProcessoInfo[] }>
       abrirNoVsCode(raiz: string, sub?: string): Promise<{ ok: boolean; motivo?: string }>
+      copiarParaPasta(raiz: string, sub: string, origem: string): Promise<{ rel: string }>
       novoProjeto(modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string): Promise<ProjetoCriado>
       clonarRepo(url: string): Promise<ProjetoCriado>
 

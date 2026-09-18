@@ -1141,3 +1141,40 @@ body {
   top: max(12px, calc(env(titlebar-area-height, 0px) + 6px));
   box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
 }
+
+/* ---------- Soltar arquivos do Explorer numa pasta da árvore (2.6.8) ----------
+   Com o arquivo na mão, a pasta embaixo do cursor abre a tampa e balança, e o
+   que está dentro dela ganha um fundo — fica claro onde o arquivo vai cair. */
+.dev-icone { position: relative; }
+.dev-item[data-pasta="true"] .dev-icone::after {
+  content: ''; position: absolute; left: -1px; right: -1px; top: -2px; height: 4px;
+  border-radius: 2px 2px 0 0; background: var(--pale-yel); filter: brightness(1.15);
+  transform-origin: 0 100%; transition: transform .18s var(--curva, ease);
+}
+.dev-item[data-soltar="true"] {
+  outline: none; border-radius: 0;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.dev-item[data-soltar="true"] .dev-icone { animation: pasta-balanca .5s ease-in-out infinite alternate; opacity: 1; }
+.dev-item[data-soltar="true"] .dev-icone::after { transform: rotate(-32deg) translateY(-1px); }
+.dev-item[data-dentro="true"] { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.dev-arvore[data-soltar="true"] { outline: none; border-radius: 0; box-shadow: inset 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface-sunk)); }
+@keyframes pasta-balanca {
+  from { transform: rotate(-7deg) scale(1.12); }
+  to   { transform: rotate(7deg) scale(1.22) translateY(-1px); }
+}
+/* O que acabou de chegar pisca uma vez. */
+.dev-item[data-chegou="true"] { animation: chegou 1.5s ease-out; }
+@keyframes chegou {
+  0%, 30% { background: color-mix(in srgb, var(--pale-grn) 35%, transparent); }
+  100% { background: transparent; }
+}
+.dev-arvore-aviso {
+  margin: 6px 8px; padding: 6px 9px; border-radius: 6px; cursor: pointer;
+  font-size: 12px; color: var(--pale-red); background: var(--pale-red-bg);
+}
+.dev-fechar { font-size: 17px; }
+@media (prefers-reduced-motion: reduce) {
+  .dev-item[data-soltar="true"] .dev-icone, .dev-item[data-chegou="true"] { animation: none; }
+}
