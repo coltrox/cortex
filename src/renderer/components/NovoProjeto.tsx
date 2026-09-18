@@ -241,6 +241,122 @@ export function comandoDe(modelo: ModeloProjeto, linguagem: LinguagemProjeto, no
   }
 }
 
+/** Uma linha de uma lista em cascata. */
+export type OpcaoCascata = { id: string; titulo: string; detalhe?: string; etiqueta?: string }
+
+/**
+ * As opções que casam com o que foi digitado: pelo começo de qualquer palavra
+ * do nome ou da etiqueta, sem acento e sem caixa. Vazio devolve todas.
+ */
+export function filtrarOpcoes<T extends OpcaoCascata>(opcoes: T[], texto: string): T[] {
+  const t = semAcento(texto.trim())
+  if (!t) return opcoes
+  return opcoes.filter(o =>
+    semAcento(`${o.titulo} ${o.etiqueta ?? ''}`)
+      .split(/[\s·/+.-]+/)
+      .some(palavra => palavra.startsWith(t))
+  )
+}
+
+/**
+ * Um campo que abre uma lista em cascata, com busca.
+ *
+ * Pedido do dono: tudo em cascata, e não cartões e chips. Fechado, mostra o
+ * que está escolhido; aberto, filtra pelo que se digita. Setas andam, Enter
+ * escolhe, Esc fecha só a lista.
+ */
+function Cascata({ id, opcoes, valor, aoEscolher, filtrar, placeholder, vazio }: {
+  id: string
+  opcoes: OpcaoCascata[]
+  valor: string
+  aoEscolher: (id: string) => void
+  /** Filtro próprio (o das linguagens); sem ele, `filtrarOpcoes`. */
+  filtrar?: (texto: string) => OpcaoCascata[]
+  placeholder: string
+  vazio: string
+}) {
+  const [aberta, setAberta] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [destaque, setDestaque] = useState(0)
+  const achados = filtrar ? filtrar(busca) : filtrarOpcoes(opcoes, busca)
+  const atual = opcoes.find(o => o.id === valor)
+
+  const abrir = (): void => {
+    if (aberta) return
+    setAberta(true)
+    // Abre com o escolhido em destaque: Enter logo em seguida não troca nada.
+    setDestaque(Math.max(0, opcoes.findIndex(o => o.id === valor)))
+  }
+  const fechar = (): void => { setAberta(false); setBusca('') }
+  const escolher = (o: OpcaoCascata): void => { aoEscolher(o.id); fechar() }
+
+  return (
+    <div className="novo-projeto-cascata" data-aberta={aberta}>
+      <input
+        role="combobox"
+        aria-expanded={aberta}
+        aria-controls={id}
+        // Fechada, mostra o escolhido; aberta, o que se digita.
+        value={aberta ? busca : atual?.titulo ?? ''}
+        placeholder={aberta ? (atual?.titulo ?? placeholder) : placeholder}
+        onFocus={abrir}
+        onClick={abrir}
+        onBlur={fechar}
+        onChange={e => { setBusca(e.target.value); setAberta(true); setDestaque(0) }}
+        onKeyDown={e => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault(); abrir()
+            setDestaque(d => Math.min(d + 1, achados.length - 1))
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault(); setDestaque(d => Math.max(d - 1, 0))
+          } else if (e.key === 'Enter' && aberta) {
+            e.preventDefault()
+            const o = achados[destaque]
+            if (o) escolher(o)
+          } else if (e.key === 'Escape' && aberta) {
+            // Fecha a lista, e não a janela inteira.
+            e.stopPropagation(); fechar()
+          }
+        }}
+      />
+      {!aberta && atual?.etiqueta && <em className="novo-projeto-lado novo-projeto-cascata-etiqueta">{atual.etiqueta}</em>}
+      <span className="novo-projeto-cascata-seta" aria-hidden="true">▾</span>
+      {aberta && (
+        <div className="novo-projeto-cascata-lista" id={id} role="listbox">
+          {achados.length === 0 && <div className="novo-projeto-cascata-vazio">{vazio}</div>}
+          {achados.map((o, i) => (
+            <button
+              key={o.id}
+              type="button"
+              role="option"
+              aria-selected={i === destaque}
+              className={`novo-projeto-cascata-item ${o.id === valor ? 'escolhido' : ''}`}
+              // `mouseDown` + preventDefault: o clique chega antes de o
+              // campo perder o foco e fechar a lista.
+              onMouseDown={e => { e.preventDefault(); escolher(o) }}
+              onMouseEnter={() => setDestaque(i)}
+            >
+              <span className="novo-projeto-cascata-item-topo">
+                <strong>{o.titulo}</strong>
+                {o.etiqueta && <em className="novo-projeto-lado">{o.etiqueta}</em>}
+              </span>
+              {o.detalhe && <span>{o.detalhe}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const OPCOES_LINGUAGEM: OpcaoCascata[] = [
+  { id: 'ts', titulo: 'TypeScript', detalhe: 'Arquivos .ts e .tsx, com tipos.' },
+  { id: 'js', titulo: 'JavaScript', detalhe: 'Arquivos .js e .jsx, sem tipos.' }
+]
+
+const opcaoDoGrupo = (g: Grupo): OpcaoCascata =>
+  ({ id: g.id, titulo: g.nome, detalhe: g.modelos.map(m => m.nome).join(' · ') })
+
 /**
  * Criar um projeto novo: linguagem, aplicação, nome — e o Cortex roda o resto.
  *
@@ -255,13 +371,9 @@ export function NovoProjeto({ aoCriar, aoFechar }: {
   const [linguagem, setLinguagem] = useState<LinguagemProjeto>('ts')
   const [nome, setNome] = useState('')
   const [enviando, setEnviando] = useState(false)
-  /** A lista de linguagens está aberta, e o que foi digitado nela. */
-  const [cascata, setCascata] = useState(false)
-  const [busca, setBusca] = useState('')
-  const [destaque, setDestaque] = useState(0)
   const valido = NOME_VALIDO.test(nome)
   const grupo = grupoDe(modelo)
-  const achados = filtrarGrupos(busca)
+  const escolhido = grupo.modelos.find(m => m.id === modelo) ?? grupo.modelos[0]
 
   useEffect(() => {
     const k = (e: KeyboardEvent): void => { if (e.key === 'Escape') aoFechar() }
@@ -269,12 +381,11 @@ export function NovoProjeto({ aoCriar, aoFechar }: {
     return () => window.removeEventListener('keydown', k)
   }, [aoFechar])
 
-  const escolher = (g: Grupo): void => {
-    // Trocar de linguagem já escolhe a primeira aplicação dela: nenhum cartão
-    // fica aceso de um grupo que saiu da tela.
-    if (g.id !== grupo.id) setModelo(g.modelos[0].id)
-    setCascata(false)
-    setBusca('')
+  const escolherGrupo = (id: string): void => {
+    // Trocar de linguagem já escolhe a primeira aplicação dela: nenhuma
+    // aplicação fica escolhida de um grupo que saiu da tela.
+    const g = GRUPOS.find(x => x.id === id)
+    if (g && g.id !== grupo.id) setModelo(g.modelos[0].id)
   }
 
   const criar = async (): Promise<void> => {
@@ -301,92 +412,43 @@ export function NovoProjeto({ aoCriar, aoFechar }: {
         </div>
 
         <span className="form-rotulo">Criar aplicação em</span>
-        <div className="novo-projeto-cascata">
-          <input
-            role="combobox"
-            aria-expanded={cascata}
-            aria-controls="novo-projeto-linguagens"
-            // Fechada, mostra a linguagem escolhida; aberta, o que se digita.
-            value={cascata ? busca : grupo.nome}
-            placeholder="Digite: Java, Go, Flutter, API…"
-            onFocus={() => { setCascata(true); setDestaque(0) }}
-            onClick={() => setCascata(true)}
-            onBlur={() => { setCascata(false); setBusca('') }}
-            onChange={e => { setBusca(e.target.value); setCascata(true); setDestaque(0) }}
-            onKeyDown={e => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault(); setCascata(true)
-                setDestaque(d => Math.min(d + 1, achados.length - 1))
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault(); setDestaque(d => Math.max(d - 1, 0))
-              } else if (e.key === 'Enter' && cascata) {
-                e.preventDefault()
-                const g = achados[destaque]
-                if (g) escolher(g)
-              } else if (e.key === 'Escape' && cascata) {
-                // Fecha a lista, e não a janela inteira.
-                e.stopPropagation(); setCascata(false); setBusca('')
-              }
-            }}
-          />
-          <span className="novo-projeto-cascata-seta" aria-hidden="true">▾</span>
-          {cascata && (
-            <div className="novo-projeto-cascata-lista" id="novo-projeto-linguagens" role="listbox">
-              {achados.length === 0 && <div className="novo-projeto-cascata-vazio">Nenhuma linguagem com esse nome.</div>}
-              {achados.map((g, i) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  role="option"
-                  aria-selected={i === destaque}
-                  className={`novo-projeto-cascata-item ${g.id === grupo.id ? 'escolhido' : ''}`}
-                  // `mouseDown` + preventDefault: o clique chega antes de o
-                  // campo perder o foco e fechar a lista.
-                  onMouseDown={e => { e.preventDefault(); escolher(g) }}
-                  onMouseEnter={() => setDestaque(i)}
-                >
-                  <strong>{g.nome}</strong>
-                  <span>{g.modelos.map(m => m.nome).join(' · ')}</span>
-                </button>
-              ))}
+        <Cascata
+          id="novo-projeto-linguagens"
+          opcoes={GRUPOS.map(opcaoDoGrupo)}
+          filtrar={t => filtrarGrupos(t).map(opcaoDoGrupo)}
+          valor={grupo.id}
+          aoEscolher={escolherGrupo}
+          placeholder="Digite: Java, Go, Flutter, API…"
+          vazio="Nenhuma linguagem com esse nome."
+        />
+
+        <div className="novo-projeto-linha" data-duas={grupo.ts}>
+          <div className="novo-projeto-coluna">
+            <span className="form-rotulo">Tipo de aplicação</span>
+            <Cascata
+              id="novo-projeto-tipos"
+              opcoes={grupo.modelos.map(m => ({ id: m.id, titulo: m.nome, detalhe: m.descricao, etiqueta: m.lado }))}
+              valor={escolhido.id}
+              aoEscolher={id => setModelo(id as ModeloProjeto)}
+              placeholder="Escolha o tipo"
+              vazio="Nenhum tipo com esse nome."
+            />
+          </div>
+          {grupo.ts && (
+            <div className="novo-projeto-coluna">
+              <span className="form-rotulo">Linguagem</span>
+              <Cascata
+                id="novo-projeto-ts-js"
+                opcoes={OPCOES_LINGUAGEM}
+                valor={linguagem}
+                aoEscolher={id => setLinguagem(id as LinguagemProjeto)}
+                placeholder="TypeScript ou JavaScript"
+                vazio="Só TypeScript ou JavaScript."
+              />
             </div>
           )}
         </div>
-
-        <span className="form-rotulo">Tipo de aplicação</span>
-        <div className="novo-projeto-modelos">
-          {grupo.modelos.map(m => (
-            <button
-              key={m.id}
-              type="button"
-              className="novo-projeto-modelo"
-              aria-pressed={modelo === m.id}
-              onClick={() => setModelo(m.id)}
-            >
-              <span className="novo-projeto-modelo-topo">
-                <strong>{m.nome}</strong>
-                <em className="novo-projeto-lado">{m.lado}</em>
-              </span>
-              <span>{m.descricao}</span>
-            </button>
-          ))}
-        </div>
-
-        {grupo.ts && (
-          <>
-            <span className="form-rotulo">Linguagem</span>
-            <div className="chips">
-              <button type="button" className="chip" aria-pressed={linguagem === 'ts'}
-                onClick={() => setLinguagem('ts')}>
-                TypeScript (.tsx)
-              </button>
-              <button type="button" className="chip" aria-pressed={linguagem === 'js'}
-                onClick={() => setLinguagem('js')}>
-                JavaScript (.jsx)
-              </button>
-            </div>
-          </>
-        )}
+        <p className="form-dica novo-projeto-descricao">{escolhido.descricao}</p>
 
         <label className="novo-projeto-campo">
           <span className="form-rotulo">Nome do projeto</span>

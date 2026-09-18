@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 import type { ProcessoInfo } from '../../shared/types'
 
@@ -107,10 +107,12 @@ export function SaidaProcesso({ proc }: { proc: ProcessoInfo }) {
  * `aoTerminar` avisa quando um processo desta pasta acaba — é o que faz um
  * projeto recém-criado aparecer na árvore sem ninguém recarregar.
  */
-export function PainelRodar({ raiz, sub, aoTerminar }: {
+export function PainelRodar({ raiz, sub, aoTerminar, extras }: {
   raiz: string
   sub: string
   aoTerminar?: () => void
+  /** Botões a mais no fim da barra (Terminal, Explorer), para ficar uma barra só. */
+  extras?: ReactNode
 }) {
   const [scripts, setScripts] = useState<string[]>([])
   const [rodando, setRodando] = useState<ProcessoInfo[]>([])
@@ -192,16 +194,28 @@ export function PainelRodar({ raiz, sub, aoTerminar }: {
     <div className="rodar">
       <div className="rodar-botoes">
         {scripts.length === 0 && (
-          <span className="form-dica">Sem dev, start ou build no package.json desta pasta.</span>
+          <span className="form-dica">Sem dev, start ou build no package.json da raiz.</span>
         )}
-        {scripts.map(s => (
-          <button key={s} className="btn" onClick={() => void rodar(s)}>
-            {rotuloDoScript(s)}
-          </button>
-        ))}
-        <button className="btn-fantasma" onClick={() => void abrirVsCode()}>
-          Abrir no VS Code
+        {scripts.map((s, i) => {
+          const vivo = ativos.some(p => p.script === s)
+          return (
+            <button
+              key={s}
+              className={'rodar-script' + (i === 0 ? ' principal' : '')}
+              data-vivo={vivo}
+              title={vivo ? 'Já está rodando — apertar abre outro' : 'Roda na raiz do projeto'}
+              onClick={() => void rodar(s)}
+            >
+              <span className="rodar-play" aria-hidden="true">{vivo ? '●' : '▶'}</span>
+              {rotuloDoScript(s)}
+            </button>
+          )
+        })}
+        <span className="rodar-espaco" />
+        <button className="btn-fantasma pequeno" onClick={() => void abrirVsCode()}>
+          VS Code
         </button>
+        {extras}
       </div>
 
       {aviso && <div className="aviso">{aviso}</div>}

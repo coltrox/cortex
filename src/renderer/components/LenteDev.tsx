@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type DragEvent } from 'react'
+import { useCallback, useEffect, useState, type DragEvent, type ReactNode } from 'react'
 import { PainelRodar } from './PainelRodar'
 import { EditorCodigo } from './EditorCodigo'
 import { NovoProjeto } from './NovoProjeto'
@@ -273,15 +273,27 @@ function ClonarRepo({ aoClonar, aoFechar }: {
 
 /* ---------- metade do disco ---------- */
 
+/** A extensão, para o arquivo ganhar a cor do tipo na árvore (como no VS Code). */
+const extensao = (nome: string): string => {
+  const i = nome.lastIndexOf('.')
+  return i > 0 ? nome.slice(i + 1).toLowerCase() : ''
+}
+
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
   aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo
 }: PropsDev) {
   const [sobrevoando, setSobrevoando] = useState(false)
   const [raiz, setRaiz] = useState<string | null>(pastasDev[0] ?? null)
-  const [pastaAtual, setPastaAtual] = useState('')
-  const [itens, setItens] = useState<EntradaDev[]>([])
-  const [carregando, setCarregando] = useState(false)
+  /**
+   * O conteúdo de cada pasta já lida, pela pasta ('' é a raiz).
+   *
+   * A árvore abre para baixo, como no VS Code: entrar numa pasta não troca a
+   * tela, só mostra o que tem dentro logo abaixo dela. Cada pasta é lida só
+   * quando abre pela primeira vez.
+   */
+  const [filhos, setFilhos] = useState<Record<string, EntradaDev[]>>({})
+  const [abertas, setAbertas] = useState<Set<string>>(() => new Set())
 
   const [arquivo, setArquivo] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
@@ -297,38 +309,59 @@ function Codigo({
    */
   const [querRaiz, setQuerRaiz] = useState<string | null>(null)
 
+  const trocarRaiz = (r: string | null): void => {
+    setRaiz(r)
+    setFilhos({})
+    setAbertas(new Set())
+    setArquivo(null)
+  }
+
   // Uma pasta autorizada agora, ou a última removida, muda quem deve estar
   // selecionado — sem isto a tela ficaria apontando para uma raiz que saiu.
   useEffect(() => {
     if (querRaiz) {
       if (!pastasDev.includes(querRaiz)) return
-      setRaiz(querRaiz)
-      setPastaAtual('')
-      setArquivo(null)
+      trocarRaiz(querRaiz)
       setQuerRaiz(null)
       return
     }
     if (raiz && pastasDev.includes(raiz)) return
-    setRaiz(pastasDev[0] ?? null)
-    setPastaAtual('')
-    setArquivo(null)
+    trocarRaiz(pastasDev[0] ?? null)
   }, [pastasDev, raiz, querRaiz])
 
-  const carregar = useCallback(async (r: string, sub: string) => {
-    setCarregando(true)
-    try { setItens(await arvore(r, sub)) } finally { setCarregando(false) }
+  const lerPasta = useCallback(async (r: string, sub: string) => {
+    try {
+      const itens = await arvore(r, sub)
+      setFilhos(f => ({ ...f, [sub]: itens }))
+    } catch {
+      setFilhos(f => ({ ...f, [sub]: [] }))
+    }
   }, [arvore])
 
   useEffect(() => {
-    if (raiz) void carregar(raiz, pastaAtual)
-    else setItens([])
-  }, [raiz, pastaAtual, carregar])
+    if (raiz) void lerPasta(raiz, '')
+  }, [raiz, lerPasta])
 
   // Um processo que termina (a criação de um projeto, um build) muda o que há
-  // na pasta: a árvore é lida de novo sem ninguém apertar nada.
+  // na pasta: a raiz e as pastas abertas são lidas de novo.
   const recarregar = useCallback(() => {
-    if (raiz) void carregar(raiz, pastaAtual)
-  }, [raiz, pastaAtual, carregar])
+    if (!raiz) return
+    void lerPasta(raiz, '')
+    for (const p of abertas) void lerPasta(raiz, p)
+  }, [raiz, abertas, lerPasta])
+
+  const alternarPasta = (rel: string): void => {
+    if (!raiz) return
+    const nova = new Set(abertas)
+    if (nova.has(rel)) {
+      // Fechar uma pasta fecha as de dentro também, como no VS Code.
+      for (const p of nova) if (p === rel || p.startsWith(rel + '/')) nova.delete(p)
+    } else {
+      nova.add(rel)
+      if (!filhos[rel]) void lerPasta(raiz, rel)
+    }
+    setAbertas(nova)
+  }
 
   const criarProjeto = async (
     modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
@@ -357,7 +390,7 @@ function Codigo({
   }
 
   const sujo = texto !== gravado
-  const trilha = pastaAtual ? pastaAtual.split('/') : []
+  const nomeRaiz = raiz ? raiz.split(/[\\/]/).filter(Boolean).pop() ?? raiz : ''
 
   // Arrastar do explorador de arquivos é o atalho para o mesmo diálogo: o
   // caminho vai para o processo principal, que confirma antes de autorizar.
@@ -384,6 +417,40 @@ function Codigo({
       {clonando && <ClonarRepo aoClonar={clonarRepo} aoFechar={() => setClonando(false)} />}
     </>
   )
+
+  /** As linhas de uma pasta aberta, e dentro delas as das subpastas abertas. */
+  const linhas = (sub: string, nivel: number): ReactNode[] => {
+    const itens = filhos[sub]
+    const recuo = { paddingLeft: 8 + nivel * 14 }
+    if (!itens) return [<div key={`${sub}/…`} className="dev-item-vazio" style={recuo}>Lendo…</div>]
+    if (itens.length === 0) return [<div key={`${sub}/∅`} className="dev-item-vazio" style={recuo}>Pasta vazia</div>]
+    return itens.flatMap(it => {
+      const aberta = it.pasta && abertas.has(it.rel)
+      const linha = (
+        <button
+          key={it.rel}
+          className="dev-item"
+          style={recuo}
+          aria-current={arquivo === it.rel}
+          aria-expanded={it.pasta ? aberta : undefined}
+          data-pasta={it.pasta}
+          data-inerte={!it.pasta && !it.editavel}
+          data-ext={it.pasta ? undefined : extensao(it.nome)}
+          title={it.pasta ? it.rel : `${it.rel} · ${Math.max(1, Math.round(it.tamanho / 1024))} kB`}
+          onClick={() => {
+            if (it.pasta) alternarPasta(it.rel)
+            else if (it.editavel) void abrirArquivo(it.rel)
+          }}
+        >
+          <span className="dev-seta" aria-hidden="true">{it.pasta ? '›' : ''}</span>
+          <span className="dev-icone" aria-hidden="true" />
+          <span className="dev-nome">{it.nome}</span>
+          {!it.pasta && !it.editavel && <span className="dev-tag">binário</span>}
+        </button>
+      )
+      return aberta ? [linha, ...linhas(it.rel, nivel + 1)] : [linha]
+    })
+  }
 
   if (pastasDev.length === 0) {
     return (
@@ -413,17 +480,17 @@ function Codigo({
         nome="Pastas de código"
         direita={
           <span className="dev-secao-botoes">
-            <button className="btn-fantasma" onClick={() => setCriandoProjeto(true)}>+ Novo projeto</button>
-            <button className="btn-fantasma" onClick={() => setClonando(true)}>+ Clonar do GitHub</button>
-            <button className="btn-fantasma" onClick={aoAutorizar}>+ Autorizar pasta</button>
+            <button className="btn-fantasma pequeno" onClick={() => setCriandoProjeto(true)}>+ Novo projeto</button>
+            <button className="btn-fantasma pequeno" onClick={() => setClonando(true)}>Clonar do GitHub</button>
+            <button className="btn-fantasma pequeno" onClick={aoAutorizar}>Autorizar pasta</button>
           </span>
         }
       />
 
-      <div className="chips">
+      <div className="chips dev-raizes">
         {pastasDev.map(p => (
           <span key={p} className="chip-raiz" aria-pressed={raiz === p} title={p}>
-            <button onClick={() => { setRaiz(p); setPastaAtual(''); setArquivo(null) }}>
+            <button onClick={() => { if (raiz !== p) trocarRaiz(p) }}>
               {p.split(/[\\/]/).filter(Boolean).pop()}
             </button>
             <button
@@ -437,68 +504,50 @@ function Codigo({
 
       {raiz && (
         <>
-          <div className="dev-barra">
-            <div className="trilha">
-              <button className="trilha-seg" disabled={pastaAtual === ''}
-                onClick={() => { setPastaAtual(''); setArquivo(null) }}>
-                {raiz.split(/[\\/]/).filter(Boolean).pop()}
-              </button>
-              {trilha.map((seg, i) => {
-                const caminho = trilha.slice(0, i + 1).join('/')
-                return (
-                  <button key={caminho} className="trilha-seg" disabled={caminho === pastaAtual}
-                    onClick={() => { setPastaAtual(caminho); setArquivo(null) }}>
-                    {seg}
-                  </button>
-                )
-              })}
-            </div>
-            <div className="dev-acoes">
-              <button className="btn-fantasma" onClick={() => aoTerminal(raiz, pastaAtual)}>
-                Terminal do sistema
-              </button>
-              <button className="btn-fantasma" onClick={() => aoRevelar(raiz, pastaAtual)}>
-                Abrir no Explorer
-              </button>
-            </div>
-          </div>
-
-          <PainelRodar raiz={raiz} sub={pastaAtual} aoTerminar={recarregar} />
+          {/*
+            Os scripts rodam SEMPRE na raiz do projeto, qualquer que seja o
+            arquivo aberto: é onde está o package.json. Pedido do dono — antes
+            entrar numa subpasta sumia com o npm run dev.
+          */}
+          <PainelRodar
+            raiz={raiz}
+            sub=""
+            aoTerminar={recarregar}
+            extras={
+              <>
+                <button className="btn-fantasma pequeno" onClick={() => aoTerminal(raiz, '')}>Terminal</button>
+                <button className="btn-fantasma pequeno" onClick={() => aoRevelar(raiz, '')}>Explorer</button>
+              </>
+            }
+          />
 
           <div className="dev-corpo">
-            <div className="dev-arvore">
-              {carregando && <div className="vazio">Lendo…</div>}
-              {!carregando && itens.length === 0 && <div className="vazio">Pasta vazia.</div>}
-              {itens.map(it => (
-                <button
-                  key={it.rel}
-                  className="dev-item"
-                  aria-current={arquivo === it.rel}
-                  data-pasta={it.pasta}
-                  data-inerte={!it.pasta && !it.editavel}
-                  title={it.pasta ? it.rel : `${it.rel} · ${Math.max(1, Math.round(it.tamanho / 1024))} kB`}
-                  onClick={() => {
-                    if (it.pasta) { setPastaAtual(it.rel); setArquivo(null) }
-                    else if (it.editavel) void abrirArquivo(it.rel)
-                  }}
-                >
-                  <span className="dev-icone">{it.pasta ? '▸' : '·'}</span>
-                  <span className="dev-nome">{it.nome}</span>
-                  {!it.pasta && !it.editavel && <span className="dev-tag">binário</span>}
-                </button>
-              ))}
+            <div className="dev-arvore" role="tree" aria-label={`Arquivos de ${nomeRaiz}`}>
+              <div className="dev-arvore-topo">
+                <span className="dev-arvore-nome" title={raiz}>{nomeRaiz}</span>
+                <span className="dev-arvore-botoes">
+                  <button className="btn-icone" title="Recolher pastas" disabled={abertas.size === 0}
+                    onClick={() => setAbertas(new Set())}>⊟</button>
+                  <button className="btn-icone" title="Ler de novo" onClick={recarregar}>↻</button>
+                </span>
+              </div>
+              {linhas('', 0)}
             </div>
 
             <div className="dev-editor">
               {!arquivo ? (
-                <Vazio>Escolha um arquivo de texto à esquerda para editar.</Vazio>
+                <Vazio>Abra uma pasta na árvore e escolha um arquivo para editar.</Vazio>
               ) : (
                 <>
                   <div className="dev-editor-topo">
-                    <span className="nota-caminho">{arquivo}</span>
+                    <span className="dev-editor-trilha" title={arquivo}>
+                      {arquivo.split('/').map((seg, i, todos) => (
+                        <span key={i} data-ultimo={i === todos.length - 1}>{seg}</span>
+                      ))}
+                    </span>
                     <span className="nota-trilha-dir">
                       {sujo && <span className="salvo" data-sujo>não salvo</span>}
-                      <button className="btn" onClick={() => void salvar()} disabled={!sujo || salvando}>
+                      <button className="btn pequeno" onClick={() => void salvar()} disabled={!sujo || salvando}>
                         {salvando ? 'Salvando…' : 'Salvar'}
                       </button>
                     </span>

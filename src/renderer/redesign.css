@@ -947,3 +947,134 @@ body {
 .paleta-fundo > .paleta { margin-top: min(6vh, 40px); }
 /* O botão do aviso vermelho vai para a linha de baixo, e não no meio da frase. */
 .google-erro .btn-fantasma { display: flex; margin-top: 10px; }
+
+/* ==========================================================================
+   Dev › Código como o VS Code (2.6.5)
+
+   A árvore abre para baixo: clicar numa pasta mostra o que tem dentro logo
+   abaixo, recuado, sem trocar de tela. A barra de scripts fica fixa em cima e
+   roda sempre na raiz do projeto.
+   ========================================================================== */
+
+/* Botões menores e iguais entre si, para caber tudo numa barra só. */
+.btn.pequeno, .btn-fantasma.pequeno { padding: 4px 11px; font-size: 12.5px; }
+.btn-icone:disabled { opacity: .35; cursor: default; }
+.btn-icone:disabled:hover { background: transparent; border-color: transparent; color: var(--text-3); }
+
+.dev-raizes { margin-bottom: 12px; }
+
+/* A barra de rodar: scripts à esquerda, atalhos à direita. */
+.rodar {
+  border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface); margin: 0 0 12px; padding: 8px 10px;
+  gap: 8px;
+}
+.rodar-botoes { gap: 6px; }
+.rodar-espaco { flex: 1; min-width: 8px; }
+.rodar-script {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px; border-radius: 7px; cursor: pointer;
+  font: 12.5px var(--mono); color: var(--text);
+  background: var(--surface-sunk); border: 1px solid var(--border);
+  transition: background var(--dur, .15s), border-color var(--dur, .15s);
+}
+.rodar-script:hover { border-color: var(--border-strong); background: var(--surface); }
+.rodar-script.principal { background: var(--accent-bg); border-color: transparent; color: var(--accent); }
+.rodar-script.principal:hover { border-color: var(--accent); }
+.rodar-play { font-size: 9px; line-height: 1; color: var(--pale-grn); }
+.rodar-script.principal .rodar-play { color: var(--accent); }
+.rodar-script[data-vivo="true"] .rodar-play { color: var(--pale-grn); }
+
+/* Explorador e editor lado a lado, altura presa à janela. */
+.dev-corpo {
+  grid-template-columns: minmax(200px, 270px) minmax(0, 1fr); gap: 0;
+  height: clamp(340px, calc(100vh - 340px), 900px); min-height: 0;
+}
+.dev-arvore {
+  max-height: none; min-height: 0; padding: 0 0 8px;
+  background: var(--surface-sunk);
+}
+.dev-arvore-topo {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 7px 6px 7px 12px; margin-bottom: 2px;
+  background: var(--surface-sunk); border-bottom: 1px solid var(--border);
+}
+.dev-arvore-nome {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dev-arvore-botoes { display: inline-flex; gap: 2px; flex: none; }
+
+.dev-item {
+  gap: 5px; padding-top: 3px; padding-bottom: 3px; padding-right: 8px;
+  border-radius: 0; font-size: 13px; line-height: 1.35;
+}
+.dev-item:hover { background: var(--surface-hover, var(--surface)); }
+.dev-item[data-pasta="true"] { font-weight: 500; }
+.dev-item[aria-current="true"] { background: var(--accent-bg); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
+.dev-item-vazio { padding: 3px 8px; font-size: 12px; color: var(--text-3); font-style: italic; }
+
+.dev-seta {
+  flex: none; width: 12px; text-align: center; font-size: 14px; line-height: 1;
+  color: var(--text-3); transition: transform .12s;
+}
+.dev-item[aria-expanded="true"] .dev-seta { transform: rotate(90deg); }
+/* O quadradinho do tipo: pasta amarela, cada extensão com a sua cor. */
+.dev-icone {
+  flex: none; width: 9px; height: 9px; border-radius: 2px; font-size: 0;
+  background: var(--text-3); opacity: .7;
+}
+.dev-item[data-pasta="true"] .dev-icone { background: var(--pale-yel); border-radius: 1px 3px 2px 2px; width: 11px; opacity: .9; }
+.dev-item[data-ext="ts"] .dev-icone, .dev-item[data-ext="tsx"] .dev-icone { background: #3178C6; opacity: 1; }
+.dev-item[data-ext="js"] .dev-icone, .dev-item[data-ext="jsx"] .dev-icone,
+.dev-item[data-ext="mjs"] .dev-icone, .dev-item[data-ext="cjs"] .dev-icone { background: #E8C43A; opacity: 1; }
+.dev-item[data-ext="json"] .dev-icone { background: #CB9A3A; opacity: 1; }
+.dev-item[data-ext="css"] .dev-icone, .dev-item[data-ext="scss"] .dev-icone { background: #7E57C2; opacity: 1; }
+.dev-item[data-ext="html"] .dev-icone { background: #E4572E; opacity: 1; }
+.dev-item[data-ext="md"] .dev-icone { background: #5B9BD5; opacity: 1; }
+.dev-item[data-ext="py"] .dev-icone { background: #3C78AA; opacity: 1; }
+.dev-item[data-ext="java"] .dev-icone, .dev-item[data-ext="kt"] .dev-icone { background: #D0661F; opacity: 1; }
+.dev-item[data-ext="go"] .dev-icone { background: #29BEB0; opacity: 1; }
+.dev-item[data-ext="rs"] .dev-icone { background: #C8553D; opacity: 1; }
+.dev-item[data-ext="cs"] .dev-icone { background: #68217A; opacity: 1; }
+.dev-nome { font-family: inherit; font-size: 13px; }
+
+/* O editor ocupa a altura toda do painel. */
+.dev-editor { min-height: 0; padding: 0; }
+.dev-editor > .vazio, .dev-editor > .vazio-grande { margin: auto; }
+.dev-editor-topo {
+  margin: 0; padding: 6px 10px 6px 14px; min-height: 38px;
+  border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.dev-editor-trilha {
+  flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;
+  font-size: 12.5px; color: var(--text-3); white-space: nowrap;
+}
+.dev-editor-trilha > span + span::before { content: '›'; margin: 0 6px; color: var(--text-3); }
+.dev-editor-trilha > span[data-ultimo="true"] { color: var(--text); font-weight: 500; }
+.dev-editor .codigo-caixa { flex: 1; min-height: 0; border: 0; border-radius: 0; }
+
+@media (max-width: 900px) {
+  .dev-corpo { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .dev-arvore { max-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .dev-editor .codigo-caixa { min-height: 360px; }
+}
+
+/* ---------- Novo projeto: tudo em cascata ---------- */
+.novo-projeto-linha { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; }
+.novo-projeto-linha[data-duas="true"] { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.novo-projeto-coluna { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.novo-projeto-descricao { margin: -2px 0 0; }
+.novo-projeto-cascata input { width: 100%; padding-right: 30px; cursor: pointer; }
+.novo-projeto-cascata[data-aberta="true"] input { cursor: text; }
+.novo-projeto-cascata-etiqueta {
+  position: absolute; right: 28px; top: 7px; pointer-events: none;
+}
+.novo-projeto-cascata:has(.novo-projeto-cascata-etiqueta) input { padding-right: 110px; }
+.novo-projeto-cascata-item-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.novo-projeto-cascata-item .novo-projeto-cascata-item-topo { font-size: inherit; color: var(--text); }
+@media (max-width: 560px) {
+  .novo-projeto-linha[data-duas="true"] { grid-template-columns: minmax(0, 1fr); }
+}
+.dev-editor .editor.codigo { min-height: 0; }

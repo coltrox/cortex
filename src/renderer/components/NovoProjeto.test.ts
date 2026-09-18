@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizarNome, comandoDe, NOME_VALIDO, GRUPOS, grupoDe, filtrarGrupos } from './NovoProjeto'
+import { normalizarNome, comandoDe, NOME_VALIDO, GRUPOS, grupoDe, filtrarGrupos, filtrarOpcoes } from './NovoProjeto'
 import { nomeDeProjetoValido, MODELOS_PROJETO, usaLinguagem } from '../../main/dev/novoProjeto'
 
 describe('nome digitado no novo projeto', () => {
@@ -79,5 +79,27 @@ describe('busca de linguagem no novo projeto', () => {
 
   it('nada casando devolve lista vazia', () => {
     expect(filtrarGrupos('cobol')).toEqual([])
+  })
+})
+
+describe('cascata generica do novo projeto', () => {
+  const opcoes = [
+    { id: 'vite', titulo: 'React + Vite', etiqueta: 'Frontend' },
+    { id: 'node-api', titulo: 'API com Express', etiqueta: 'Backend' },
+    { id: 'expo', titulo: 'Expo', etiqueta: 'Mobile' }
+  ]
+
+  it('vazio devolve todas', () => {
+    expect(filtrarOpcoes(opcoes, '  ')).toEqual(opcoes)
+  })
+
+  it('acha pelo comeco de qualquer palavra do nome ou da etiqueta, sem acento', () => {
+    expect(filtrarOpcoes(opcoes, 'vi').map(o => o.id)).toEqual(['vite'])
+    expect(filtrarOpcoes(opcoes, 'express').map(o => o.id)).toEqual(['node-api'])
+    expect(filtrarOpcoes(opcoes, 'MOB').map(o => o.id)).toEqual(['expo'])
+  })
+
+  it('nao acha pelo meio da palavra', () => {
+    expect(filtrarOpcoes(opcoes, 'ite')).toEqual([])
   })
 })
