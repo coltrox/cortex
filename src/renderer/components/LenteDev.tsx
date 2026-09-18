@@ -280,6 +280,11 @@ const extensao = (nome: string): string => {
   return i > 0 ? nome.slice(i + 1).toLowerCase() : ''
 }
 
+/** O tipo que marca um item da própria árvore sendo arrastado (mover, e não copiar). */
+const TIPO_ITEM = 'application/x-cortex-dev-item'
+/** Abrem numa visualização em vez do editor. Mesma lista de `tipoDeMidia`, no processo principal. */
+const EXT_MIDIA = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'pdf'])
+
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
   aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo
@@ -314,6 +319,33 @@ function Codigo({
   /** O que acabou de ser copiado para a árvore, para piscar ao chegar. */
   const [chegaram, setChegaram] = useState<Set<string>>(() => new Set())
   const [avisoArvore, setAvisoArvore] = useState<string | null>(null)
+  /** O item da árvore sendo arrastado para outra pasta (mover). */
+  const arrastado = useRef<string | null>(null)
+  /** Foto, PDF ou outro arquivo que não é texto, aberto no lugar do editor. */
+  const [visor, setVisor] = useState<{ rel: string; tipo: string; url: string; tamanho: number } | null>(null)
+  /** O menu do botão direito (ou do ⋯) de um item. */
+  const [menu, setMenu] = useState<{ x: number; y: number; it: EntradaDev } | null>(null)
+  /** O item com o nome virando campo de texto (F2). */
+  const [renomeando, setRenomeando] = useState<string | null>(null)
+
+  // O endereço da foto/PDF ocupa memória até ser devolvido.
+  // Pela URL, e não pelo objeto: renomear troca o objeto mas mantém a mesma foto.
+  const urlVisor = visor?.url
+  useEffect(() => () => { if (urlVisor) URL.revokeObjectURL(urlVisor) }, [urlVisor])
+
+  useEffect(() => {
+    if (!menu) return
+    const fechar = (): void => setMenu(null)
+    const k = (e: KeyboardEvent): void => { if (e.key === 'Escape') setMenu(null) }
+    window.addEventListener('keydown', k)
+    window.addEventListener('resize', fechar)
+    window.addEventListener('wheel', fechar, { passive: true })
+    return () => {
+      window.removeEventListener('keydown', k)
+      window.removeEventListener('resize', fechar)
+      window.removeEventListener('wheel', fechar)
+    }
+  }, [menu])
 
   const [arquivo, setArquivo] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
@@ -454,22 +486,134 @@ function Codigo({
     }
   }
 
-  const temArquivos = (e: DragEvent): boolean => Array.from(e.dataTransfer?.types ?? []).includes('Files')
-  /** Um arquivo do Explorer passando por cima de `dest`: a árvore toma o arrastar para si. */
+  /**
+   * Um arrastar que a árvore aceita: arquivo do Explorer (copia) ou um item
+   * da própria árvore (move). O item arrastado fica em `arrastado`, porque
+   * durante o arrastar o navegador não deixa ler o que vai no `dataTransfer`.
+   */
+  const ehArrasto = (e: DragEvent): boolean => {
+    const tipos = Array.from(e.dataTransfer?.types ?? [])
+    return tipos.includes('Files') || tipos.includes(TIPO_ITEM)
+  }
+  /** Soltar um item nele mesmo ou dentro dele não faz sentido: a pasta não acende. */
+  const destinoProibido = (dest: string): boolean => {
+    const a = arrastado.current
+    return !!a && (dest === a || dest.startsWith(a + '/') || dest === paiDe(a))
+  }
   const arrastoSobre = (e: DragEvent, dest: string): void => {
-    if (!temArquivos(e)) return
+    if (!ehArrasto(e)) return
     e.preventDefault()
     e.stopPropagation()
-    e.dataTransfer.dropEffect = 'copy'
     setSobrevoando(false)
+    if (destinoProibido(dest)) {
+      e.dataTransfer.dropEffect = 'none'
+      if (soltarEm !== null) setSoltarEm(null)
+      return
+    }
+    e.dataTransfer.dropEffect = arrastado.current ? 'move' : 'copy'
     if (soltarEm !== dest) setSoltarEm(dest)
   }
   const soltarNa = (e: DragEvent, dest: string): void => {
-    if (!temArquivos(e)) return
+    if (!ehArrasto(e)) return
     e.preventDefault()
     e.stopPropagation()
     setSoltarEm(null)
-    if (e.dataTransfer.files.length > 0) void copiarSoltos(dest, e.dataTransfer.files)
+    const item = arrastado.current
+    arrastado.current = null
+    if (item) { if (!destinoProibido(dest)) void moverItem(item, dest) }
+    else if (e.dataTransfer.files.length > 0) void copiarSoltos(dest, e.dataTransfer.files)
+  }
+
+  /** O erro do processo principal sem o "Error invoking remote method…" na frente. */
+  const motivoDe = (e: unknown, padrao: string): string =>
+    e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : padrao
+
+  /**
+   * Depois de mover ou renomear, tudo que apontava para o caminho antigo
+   * (pastas abertas, arquivo aberto, foco) passa a apontar para o novo.
+   */
+  const seguirCaminho = (de: string, para: string): void => {
+    const troca = (p: string): string => (p === de ? para : p.startsWith(de + '/') ? para + p.slice(de.length) : p)
+    setAbertas(a => new Set([...a].map(troca)))
+    setArquivo(a => (a ? troca(a) : a))
+    setVisor(v => (v ? { ...v, rel: troca(v.rel) } : v))
+    setFoco(f => (f ? { ...f, rel: troca(f.rel) } : f))
+  }
+
+  const moverItem = async (rel: string, dest: string): Promise<void> => {
+    if (!raiz) return
+    setAvisoArvore(null)
+    try {
+      const { rel: novo } = await window.vaultApi.moverItem(raiz, rel, dest)
+      seguirCaminho(rel, novo)
+      if (dest) setAbertas(a => new Set(a).add(dest))
+      await Promise.all([lerPasta(raiz, paiDe(rel)), lerPasta(raiz, dest)])
+      rolarPara.current = novo
+      setChegaram(new Set([novo]))
+      setTimeout(() => setChegaram(new Set()), 1600)
+    } catch (e) { setAvisoArvore(motivoDe(e, 'não deu para mover')) }
+  }
+
+  const renomearItem = async (rel: string, nome: string): Promise<void> => {
+    setRenomeando(null)
+    const atual = rel.slice(rel.lastIndexOf('/') + 1)
+    if (!raiz || !nome.trim() || nome.trim() === atual) return
+    setAvisoArvore(null)
+    try {
+      const { rel: novo } = await window.vaultApi.renomearItem(raiz, rel, nome)
+      seguirCaminho(rel, novo)
+      await lerPasta(raiz, paiDe(rel))
+      setChegaram(new Set([novo]))
+      setTimeout(() => setChegaram(new Set()), 1600)
+    } catch (e) { setAvisoArvore(motivoDe(e, 'não deu para renomear')) }
+  }
+
+  /** Manda para a Lixeira do Windows — dá para recuperar de lá. Pergunta antes. */
+  const excluirItem = async (it: EntradaDev): Promise<void> => {
+    if (!raiz) return
+    const oque = it.pasta ? `a pasta "${it.nome}" e tudo dentro dela` : `"${it.nome}"`
+    if (!window.confirm(`Mandar ${oque} para a Lixeira?`)) return
+    setAvisoArvore(null)
+    try {
+      await window.vaultApi.excluirItem(raiz, it.rel)
+      const dentro = (p: string | null | undefined): boolean => !!p && (p === it.rel || p.startsWith(it.rel + '/'))
+      if (dentro(arquivo)) { setArquivo(null); setTexto(''); setGravado('') }
+      if (dentro(visor?.rel)) setVisor(null)
+      if (dentro(foco?.rel)) setFoco(null)
+      setAbertas(a => new Set([...a].filter(p => !dentro(p))))
+      await lerPasta(raiz, paiDe(it.rel))
+    } catch (e) { setAvisoArvore(motivoDe(e, 'não deu para excluir')) }
+  }
+
+  const abrirNoPadrao = async (rel: string): Promise<void> => {
+    if (!raiz) return
+    const r = await window.vaultApi.abrirNoPadrao(raiz, rel).catch(e => ({ ok: false, motivo: motivoDe(e, '') }))
+    if (!r.ok) setAvisoArvore(`Não abriu: ${r.motivo ?? 'sem programa para este tipo'}`)
+  }
+
+  /**
+   * Foto e PDF abrem numa visualização; o resto (zip, exe…) mostra um botão
+   * para abrir no programa padrão. Pedido do dono — antes eram "binário"
+   * parados, sem clique.
+   */
+  const abrirVisor = async (it: EntradaDev): Promise<void> => {
+    if (!raiz) return
+    if (texto !== gravado && !window.confirm('Trocar de arquivo sem salvar as mudanças?')) return
+    setFoco({ rel: it.rel, pasta: false })
+    setArquivo(null); setTexto(''); setGravado('')
+    if (!EXT_MIDIA.has(extensao(it.nome))) {
+      setVisor({ rel: it.rel, tipo: 'outro', url: '', tamanho: it.tamanho })
+      return
+    }
+    try {
+      const m = await window.vaultApi.lerMidia(raiz, it.rel)
+      const bytes = Uint8Array.from(atob(m.base64), c => c.charCodeAt(0))
+      const url = URL.createObjectURL(new Blob([bytes], { type: m.tipo }))
+      setVisor({ rel: it.rel, tipo: m.tipo, url, tamanho: it.tamanho })
+    } catch (e) {
+      setVisor({ rel: it.rel, tipo: 'outro', url: '', tamanho: it.tamanho })
+      setAvisoArvore(motivoDe(e, 'não deu para mostrar'))
+    }
   }
 
   const criarProjeto = async (
@@ -485,6 +629,7 @@ function Codigo({
     if (!raiz) return
     const c = await lerArquivo(raiz, rel)
     if (c === null) return
+    setVisor(null)
     setArquivo(rel)
     setTexto(c)
     setGravado(c)
@@ -493,6 +638,7 @@ function Codigo({
   /** Fecha o arquivo aberto. Com mudança não salva, pergunta antes. */
   const fecharArquivo = (): void => {
     if (texto !== gravado && !window.confirm('Fechar sem salvar as mudanças?')) return
+    setVisor(null)
     setArquivo(null)
     setTexto('')
     setGravado('')
@@ -546,37 +692,92 @@ function Codigo({
     if (itens.length === 0) return [<div key={`${sub}/∅`} className="dev-item-vazio" style={recuo}>Pasta vazia</div>]
     return itens.flatMap(it => {
       const aberta = it.pasta && abertas.has(it.rel)
+      const ext = it.pasta ? undefined : extensao(it.nome)
+      const destino = it.pasta ? it.rel : paiDe(it.rel)
+      const cabeca = (
+        <>
+          <span className="dev-seta" aria-hidden="true">{it.pasta ? '›' : ''}</span>
+          <span className="dev-icone" aria-hidden="true" />
+        </>
+      )
+      // Renomeando: o nome vira campo. Enter ou sair do campo grava; Esc desiste.
+      if (renomeando === it.rel) {
+        return [
+          <div key={it.rel} className="dev-item dev-item-renomear" style={recuo} data-pasta={it.pasta} data-ext={ext}>
+            {cabeca}
+            <input
+              className="dev-renomear"
+              defaultValue={it.nome}
+              autoFocus
+              onFocus={e => {
+                // Seleciona o nome sem a extensão, como o Explorer.
+                const ponto = it.pasta ? -1 : it.nome.lastIndexOf('.')
+                e.currentTarget.setSelectionRange(0, ponto > 0 ? ponto : it.nome.length)
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); void renomearItem(it.rel, e.currentTarget.value) }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setRenomeando(null) }
+              }}
+              onBlur={e => void renomearItem(it.rel, e.currentTarget.value)}
+            />
+          </div>,
+          ...(aberta ? linhas(it.rel, nivel + 1) : [])
+        ]
+      }
       const linha = (
         <button
           key={it.rel}
           className="dev-item"
           style={recuo}
-          aria-current={arquivo === it.rel}
+          aria-current={arquivo === it.rel || visor?.rel === it.rel}
           aria-expanded={it.pasta ? aberta : undefined}
           data-pasta={it.pasta}
-          data-inerte={!it.pasta && !it.editavel}
-          data-ext={it.pasta ? undefined : extensao(it.nome)}
+          data-ext={ext}
           data-rel={it.rel}
           data-soltar={it.pasta && soltarEm === it.rel}
           data-dentro={!!soltarEm && it.rel.startsWith(soltarEm + '/')}
           data-chegou={chegaram.has(it.rel)}
+          data-arrastando={arrastado.current === it.rel}
           title={it.pasta ? it.rel : `${it.rel} · ${Math.max(1, Math.round(it.tamanho / 1024))} kB`}
+          draggable
+          onDragStart={e => {
+            arrastado.current = it.rel
+            e.dataTransfer.setData(TIPO_ITEM, it.rel)
+            e.dataTransfer.effectAllowed = 'move'
+          }}
+          onDragEnd={() => { arrastado.current = null; setSoltarEm(null) }}
           // Soltar num arquivo é soltar na pasta dele, como no VS Code.
-          onDragOver={e => arrastoSobre(e, it.pasta ? it.rel : paiDe(it.rel))}
-          onDrop={e => soltarNa(e, it.pasta ? it.rel : paiDe(it.rel))}
+          onDragOver={e => arrastoSobre(e, destino)}
+          onDrop={e => soltarNa(e, destino)}
+          onContextMenu={e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, it }) }}
+          onKeyDown={e => {
+            if (e.key === 'F2') { e.preventDefault(); setRenomeando(it.rel) }
+            else if (e.key === 'Delete') { e.preventDefault(); void excluirItem(it) }
+          }}
           onClick={() => {
             if (it.pasta) alternarPasta(it.rel)
-            else if (it.editavel && it.rel !== arquivo) {
+            else if (it.rel === arquivo || it.rel === visor?.rel) return
+            else if (it.editavel) {
               if (texto !== gravado && !window.confirm('Trocar de arquivo sem salvar as mudanças?')) return
               setFoco({ rel: it.rel, pasta: false })
               void abrirArquivo(it.rel)
-            }
+            } else void abrirVisor(it)
           }}
         >
-          <span className="dev-seta" aria-hidden="true">{it.pasta ? '›' : ''}</span>
-          <span className="dev-icone" aria-hidden="true" />
+          {cabeca}
           <span className="dev-nome">{it.nome}</span>
-          {!it.pasta && !it.editavel && <span className="dev-tag">binário</span>}
+          {!it.pasta && !it.editavel && !EXT_MIDIA.has(ext ?? '') && <span className="dev-tag">binário</span>}
+          <span
+            className="dev-mais"
+            role="button"
+            aria-label={`Ações de ${it.nome}`}
+            title="Renomear, excluir…"
+            onClick={e => {
+              e.stopPropagation()
+              const r = e.currentTarget.getBoundingClientRect()
+              setMenu({ x: r.left, y: r.bottom + 2, it })
+            }}
+          >⋯</span>
         </button>
       )
       return aberta ? [linha, ...linhas(it.rel, nivel + 1)] : [linha]
@@ -653,7 +854,7 @@ function Codigo({
             }
           />
 
-          <div className="dev-corpo" data-amplo={amplo} data-sem-arvore={semArvore && !!arquivo}>
+          <div className="dev-corpo" data-amplo={amplo} data-sem-arvore={semArvore && (!!arquivo || !!visor)}>
             <div
               className="dev-arvore"
               role="tree"
@@ -671,7 +872,7 @@ function Codigo({
                   <button className="btn-icone" title="Recolher pastas" disabled={abertas.size === 0}
                     onClick={() => setAbertas(new Set())}>⊟</button>
                   <button className="btn-icone" title="Ler de novo" onClick={recarregar}>↻</button>
-                  {arquivo && (
+                  {(arquivo || visor) && (
                     <button className="btn-icone" title="Esconder a árvore" onClick={() => setSemArvore(true)}>⇤</button>
                   )}
                 </span>
@@ -684,7 +885,48 @@ function Codigo({
             </div>
 
             <div className="dev-editor">
-              {!arquivo ? (
+              {visor ? (
+                <>
+                  <div className="dev-editor-topo">
+                    <span className="dev-editor-trilha" title={visor.rel}>
+                      {visor.rel.split('/').map((seg, i, todos) => (
+                        <span key={i} data-ultimo={i === todos.length - 1}>{seg}</span>
+                      ))}
+                    </span>
+                    <span className="nota-trilha-dir">
+                      {semArvore && (
+                        <button className="btn-fantasma pequeno" title="Mostrar a árvore" onClick={() => setSemArvore(false)}>
+                          ⇥ Arquivos
+                        </button>
+                      )}
+                      <button
+                        className="btn-fantasma pequeno"
+                        title={amplo ? 'Voltar ao tamanho normal (Esc)' : 'Ampliar na tela toda'}
+                        onClick={() => setAmplo(a => !a)}
+                      >
+                        {amplo ? '⤡ Reduzir' : '⤢ Ampliar'}
+                      </button>
+                      <button className="btn-fantasma pequeno" onClick={() => void abrirNoPadrao(visor.rel)}>
+                        Abrir no app padrão
+                      </button>
+                      <button className="btn-icone dev-fechar" title="Fechar" onClick={fecharArquivo}>×</button>
+                    </span>
+                  </div>
+                  {visor.tipo.startsWith('image/') ? (
+                    <div className="dev-visor"><img src={visor.url} alt={visor.rel} /></div>
+                  ) : visor.tipo === 'application/pdf' ? (
+                    <iframe className="dev-visor-pdf" src={visor.url} title={visor.rel} />
+                  ) : (
+                    <div className="dev-visor dev-visor-outro">
+                      <span className="dev-visor-nome">{visor.rel.split('/').pop()}</span>
+                      <span className="form-dica">
+                        {Math.max(1, Math.round(visor.tamanho / 1024))} kB · não é texto, foto nem PDF — abre no programa do Windows.
+                      </span>
+                      <button className="btn" onClick={() => void abrirNoPadrao(visor.rel)}>Abrir no app padrão</button>
+                    </div>
+                  )}
+                </>
+              ) : !arquivo ? (
                 <Vazio>Abra uma pasta na árvore e escolha um arquivo para editar.</Vazio>
               ) : (
                 <>
@@ -723,6 +965,35 @@ function Codigo({
                 </>
               )}
             </div>
+          </div>
+        </>
+      )}
+
+      {menu && (
+        <>
+          <div className="dev-menu-fundo" onMouseDown={() => setMenu(null)} onContextMenu={e => { e.preventDefault(); setMenu(null) }} />
+          <div
+            className="dev-menu"
+            role="menu"
+            // Perto da borda, o menu abre para dentro da janela.
+            style={{ left: Math.min(menu.x, window.innerWidth - 220), top: Math.min(menu.y, window.innerHeight - 190) }}
+          >
+            <span className="dev-menu-titulo">{menu.it.nome}</span>
+            {!menu.it.pasta && (
+              <button role="menuitem" onClick={() => { const it = menu.it; setMenu(null); void abrirNoPadrao(it.rel) }}>
+                Abrir no app padrão
+              </button>
+            )}
+            <button role="menuitem" onClick={() => { const it = menu.it; setMenu(null); aoRevelar(raiz ?? '', it.pasta ? it.rel : paiDe(it.rel)) }}>
+              Mostrar no Explorer
+            </button>
+            <button role="menuitem" onClick={() => { const it = menu.it; setMenu(null); setRenomeando(it.rel) }}>
+              Renomear <kbd>F2</kbd>
+            </button>
+            <span className="dev-menu-dica">Para mover, arraste para outra pasta.</span>
+            <button role="menuitem" className="perigo" onClick={() => { const it = menu.it; setMenu(null); void excluirItem(it) }}>
+              Excluir <kbd>Del</kbd>
+            </button>
           </div>
         </>
       )}

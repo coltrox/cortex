@@ -705,6 +705,52 @@ ipcMain.handle('dev:copiar', async (_e, payload: unknown) => {
   return { rel }
 })
 
+/** O `{ raiz, rel }` de um item da árvore, conferido. */
+function itemDoPayload(payload: unknown): { raiz: string; rel: string } {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { raiz?: unknown; rel?: unknown }
+  if (typeof p.raiz !== 'string' || typeof p.rel !== 'string') throw new Error('item inválido')
+  return { raiz: p.raiz, rel: p.rel }
+}
+
+/**
+ * Exclui um arquivo ou pasta da árvore mandando para a LIXEIRA, e não
+ * apagando de vez: um clique errado se desfaz pela Lixeira do Windows.
+ */
+ipcMain.handle('dev:excluir', async (_e, payload: unknown) => {
+  const { raiz, rel } = itemDoPayload(payload)
+  await shell.trashItem(session.pastasDev.item(raiz, rel))
+  return { ok: true }
+})
+
+/** Move um item para outra pasta da mesma raiz (arrastar dentro da árvore). */
+ipcMain.handle('dev:mover', async (_e, payload: unknown) => {
+  const { raiz, rel } = itemDoPayload(payload)
+  const para = (payload as { para?: unknown }).para
+  if (typeof para !== 'string') throw new Error('destino inválido')
+  return { rel: await session.pastasDev.mover(raiz, rel, para) }
+})
+
+ipcMain.handle('dev:renomear', async (_e, payload: unknown) => {
+  const { raiz, rel } = itemDoPayload(payload)
+  const nome = (payload as { nome?: unknown }).nome
+  if (typeof nome !== 'string') throw new Error('nome inválido')
+  return { rel: await session.pastasDev.renomear(raiz, rel, nome) }
+})
+
+/** Foto ou PDF em base64, para o Dev mostrar em vez de "binário". */
+ipcMain.handle('dev:ler-midia', async (_e, payload: unknown) => {
+  const { raiz, rel } = itemDoPayload(payload)
+  return session.pastasDev.lerMidia(raiz, rel)
+})
+
+/** Abre um arquivo no programa padrão do Windows (o que não abre dentro do Cortex). */
+ipcMain.handle('dev:abrir-padrao', async (_e, payload: unknown) => {
+  const { raiz, rel } = itemDoPayload(payload)
+  const erro = await shell.openPath(session.pastasDev.item(raiz, rel))
+  return erro ? { ok: false, motivo: erro } : { ok: true }
+})
+
 /** Abre a pasta no explorador de arquivos do sistema. */
 ipcMain.handle('dev:reveal', async (_e, payload: unknown) => {
   if (!session.isOpen) throw new Error('nenhum vault aberto')
@@ -737,7 +783,9 @@ app.whenReady().then(async () => {
           ...detalhes.responseHeaders,
           'Content-Security-Policy': [
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data:; font-src 'self' data:; connect-src 'none'; " +
+            // blob: para foto e PDF da lente Dev, que chegam do processo principal
+            // em base64 e viram um endereço local — nada vem da rede.
+            "img-src 'self' data: blob:; frame-src blob:; font-src 'self' data:; connect-src 'none'; " +
             "object-src 'none'; base-uri 'none'; form-action 'none'"
           ]
         }

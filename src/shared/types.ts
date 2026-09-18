@@ -166,6 +166,11 @@ declare global {
       limparEncerrados(): Promise<{ processos: ProcessoInfo[] }>
       abrirNoVsCode(raiz: string, sub?: string): Promise<{ ok: boolean; motivo?: string }>
       copiarParaPasta(raiz: string, sub: string, origem: string): Promise<{ rel: string }>
+      excluirItem(raiz: string, rel: string): Promise<{ ok: true }>
+      moverItem(raiz: string, rel: string, para: string): Promise<{ rel: string }>
+      renomearItem(raiz: string, rel: string, nome: string): Promise<{ rel: string }>
+      lerMidia(raiz: string, rel: string): Promise<{ tipo: string; base64: string }>
+      abrirNoPadrao(raiz: string, rel: string): Promise<{ ok: boolean; motivo?: string }>
       novoProjeto(modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string): Promise<ProjetoCriado>
       clonarRepo(url: string): Promise<ProjetoCriado>
 

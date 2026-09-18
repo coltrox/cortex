@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { PastasDev, ehTexto, nomeLivre } from './pastas'
+import { PastasDev, ehTexto, nomeLivre, tipoDeMidia } from './pastas'
 
 let base: string, proj: string, fora: string
 
@@ -171,5 +171,54 @@ describe('nome livre para a cópia', () => {
     expect(nomeLivre('a.ts', new Set(['a.ts']))).toBe('a (2).ts')
     expect(nomeLivre('.env', new Set(['.env']))).toBe('.env (2)')
     expect(nomeLivre('pasta', new Set(['pasta', 'pasta (2)']))).toBe('pasta (3)')
+  })
+})
+
+describe('PastasDev — mover, renomear, excluir e ver mídia', () => {
+  it('move um arquivo para outra pasta e devolve o caminho novo', async () => {
+    expect(await autorizado().mover(proj, 'README.md', 'src')).toBe('src/README.md')
+    expect(await autorizado().ler(proj, 'src/README.md')).toBe('# projeto\n')
+    await expect(autorizado().ler(proj, 'README.md')).rejects.toThrow()
+  })
+
+  it('mover para onde já tem um igual ganha (2), e para a mesma pasta não faz nada', async () => {
+    await writeFile(join(proj, 'src', 'README.md'), 'outro', 'utf8')
+    expect(await autorizado().mover(proj, 'README.md', 'src')).toBe('src/README (2).md')
+    expect(await autorizado().mover(proj, 'src/app.ts', 'src')).toBe('src/app.ts')
+  })
+
+  it('não move uma pasta para dentro dela mesma, nem a raiz', async () => {
+    await mkdir(join(proj, 'src', 'lib'))
+    await expect(autorizado().mover(proj, 'src', 'src/lib')).rejects.toThrow(/dentro dela mesma/)
+    await expect(autorizado().mover(proj, '', 'src')).rejects.toThrow(/raiz/)
+  })
+
+  it('renomeia, e recusa nome inválido ou que já existe', async () => {
+    expect(await autorizado().renomear(proj, 'src/app.ts', 'main.ts')).toBe('src/main.ts')
+    await expect(autorizado().renomear(proj, 'README.md', 'src')).rejects.toThrow(/já existe/)
+    await expect(autorizado().renomear(proj, 'README.md', '../fora.md')).rejects.toThrow(/nome inválido/)
+    await expect(autorizado().renomear(proj, 'README.md', 'a:b')).rejects.toThrow(/nome inválido/)
+  })
+
+  it('o caminho de um item para a Lixeira nunca é a raiz nem sai dela', () => {
+    expect(autorizado().item(proj, 'src/app.ts')).toBe(join(resolve(proj), 'src', 'app.ts'))
+    expect(() => autorizado().item(proj, '')).toThrow(/raiz/)
+    expect(() => autorizado().item(proj, '../segredos')).toThrow(/fora/)
+  })
+
+  it('lê foto e PDF como base64 com o tipo certo, e recusa o resto', async () => {
+    await writeFile(join(proj, 'foto.PNG'), Buffer.from([1, 2, 3]))
+    await writeFile(join(proj, 'doc.pdf'), '%PDF-1.4')
+    expect(await autorizado().lerMidia(proj, 'foto.PNG')).toEqual({ tipo: 'image/png', base64: 'AQID' })
+    expect((await autorizado().lerMidia(proj, 'doc.pdf')).tipo).toBe('application/pdf')
+    await expect(autorizado().lerMidia(proj, 'README.md')).rejects.toThrow(/não é foto nem PDF/)
+  })
+
+  it('reconhece as extensões de mídia', () => {
+    expect(tipoDeMidia('a.jpg')).toBe('image/jpeg')
+    expect(tipoDeMidia('a.webp')).toBe('image/webp')
+    expect(tipoDeMidia('a.pdf')).toBe('application/pdf')
+    expect(tipoDeMidia('a.svg')).toBeNull()
+    expect(tipoDeMidia('a.zip')).toBeNull()
   })
 })

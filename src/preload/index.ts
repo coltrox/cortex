@@ -89,6 +89,22 @@ const api = {
   copiarParaPasta(raiz: string, sub: string, origem: string): Promise<{ rel: string }> {
     return ipcRenderer.invoke('dev:copiar', { raiz, sub, origem })
   },
+  /** Manda para a Lixeira (não apaga de vez). */
+  excluirItem(raiz: string, rel: string): Promise<{ ok: true }> {
+    return ipcRenderer.invoke('dev:excluir', { raiz, rel })
+  },
+  moverItem(raiz: string, rel: string, para: string): Promise<{ rel: string }> {
+    return ipcRenderer.invoke('dev:mover', { raiz, rel, para })
+  },
+  renomearItem(raiz: string, rel: string, nome: string): Promise<{ rel: string }> {
+    return ipcRenderer.invoke('dev:renomear', { raiz, rel, nome })
+  },
+  lerMidia(raiz: string, rel: string): Promise<{ tipo: string; base64: string }> {
+    return ipcRenderer.invoke('dev:ler-midia', { raiz, rel })
+  },
+  abrirNoPadrao(raiz: string, rel: string): Promise<{ ok: boolean; motivo?: string }> {
+    return ipcRenderer.invoke('dev:abrir-padrao', { raiz, rel })
+  },
   abrirNoExplorador(raiz: string, sub = ''): Promise<{ ok: true }> {
     return ipcRenderer.invoke('dev:reveal', { raiz, sub })
   },
