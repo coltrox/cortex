@@ -107,9 +107,11 @@ export function SaidaProcesso({ proc }: { proc: ProcessoInfo }) {
  * `aoTerminar` avisa quando um processo desta pasta acaba — é o que faz um
  * projeto recém-criado aparecer na árvore sem ninguém recarregar.
  */
-export function PainelRodar({ raiz, sub, aoTerminar, extras }: {
+export function PainelRodar({ raiz, sub, titulo, aoTerminar, extras }: {
   raiz: string
   sub: string
+  /** O nome do projeto onde os scripts rodam, no começo da barra. */
+  titulo?: string
   aoTerminar?: () => void
   /** Botões a mais no fim da barra (Terminal, Explorer), para ficar uma barra só. */
   extras?: ReactNode
@@ -193,8 +195,9 @@ export function PainelRodar({ raiz, sub, aoTerminar, extras }: {
   return (
     <div className="rodar">
       <div className="rodar-botoes">
+        {titulo && <span className="rodar-projeto" title="Os scripts rodam nesta pasta">{titulo}</span>}
         {scripts.length === 0 && (
-          <span className="form-dica">Sem dev, start ou build no package.json da raiz.</span>
+          <span className="form-dica">Sem dev, start ou build no package.json desta pasta.</span>
         )}
         {scripts.map((s, i) => {
           const vivo = ativos.some(p => p.script === s)

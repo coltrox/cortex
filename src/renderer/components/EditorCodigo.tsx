@@ -1,4 +1,5 @@
-import { useRef, type KeyboardEvent, type UIEvent } from 'react'
+import { useMemo, useRef, type KeyboardEvent, type UIEvent } from 'react'
+import { colorir } from './colorir'
 
 /** Um nível de indentação. Dois espaços é o que o resto deste projeto usa. */
 const PASSO = '  '
@@ -11,17 +12,25 @@ const PASSO = '  '
  * para o próximo campo, e Enter que mantém a indentação da linha anterior.
  *
  * Não é o Monaco nem o CodeMirror, e é de propósito: os dois são pesados o
- * bastante para dobrar o tamanho do app, e o que falta neles aqui —
- * coloração — é o que menos importa quando o mesmo arquivo abre no VS Code a
- * um botão de distância.
+ * bastante para dobrar o tamanho do app.
+ *
+ * A cor (tema Min do VS Code, pedido do dono) é uma camada por baixo: um
+ * `pre` com o texto colorido por `colorir`, e o `textarea` por cima com a
+ * letra transparente — só o cursor e a seleção aparecem dele. As duas rolam
+ * juntas, e nenhuma quebra linha: é o que mantém letra sobre letra e a
+ * numeração batendo com o texto.
  */
-export function EditorCodigo({ valor, aoMudar, aoSalvar }: {
+export function EditorCodigo({ valor, ext = '', aoMudar, aoSalvar }: {
   valor: string
+  /** A extensão do arquivo, que decide as cores. */
+  ext?: string
   aoMudar: (v: string) => void
   aoSalvar: () => void
 }) {
   const area = useRef<HTMLTextAreaElement>(null)
   const calha = useRef<HTMLDivElement>(null)
+  const cor = useRef<HTMLPreElement>(null)
+  const pedacos = useMemo(() => colorir(valor, ext), [valor, ext])
 
   const linhas = valor.split('\n').length
 
@@ -79,9 +88,11 @@ export function EditorCodigo({ valor, aoMudar, aoSalvar }: {
     }
   }
 
-  // A calha não tem barra de rolagem própria: ela acompanha a do texto.
+  // A calha e a camada de cor não têm barra de rolagem própria: acompanham a do texto.
   const aoRolar = (e: UIEvent<HTMLTextAreaElement>): void => {
-    if (calha.current) calha.current.scrollTop = e.currentTarget.scrollTop
+    const { scrollTop, scrollLeft } = e.currentTarget
+    if (calha.current) calha.current.scrollTop = scrollTop
+    if (cor.current) { cor.current.scrollTop = scrollTop; cor.current.scrollLeft = scrollLeft }
   }
 
   return (
@@ -91,15 +102,22 @@ export function EditorCodigo({ valor, aoMudar, aoSalvar }: {
           <div key={i}>{i + 1}</div>
         ))}
       </div>
-      <textarea
-        ref={area}
-        className="editor codigo"
-        value={valor}
-        spellCheck={false}
-        onChange={e => aoMudar(e.target.value)}
-        onKeyDown={aoTeclar}
-        onScroll={aoRolar}
-      />
+      <div className="codigo-camadas">
+        <pre className="codigo-cor" ref={cor} aria-hidden="true">
+          {pedacos.map((p, i) => (p.t ? <span key={i} className={`c-${p.t}`}>{p.s}</span> : p.s))}
+          {'\n'}
+        </pre>
+        <textarea
+          ref={area}
+          className="editor codigo"
+          value={valor}
+          wrap="off"
+          spellCheck={false}
+          onChange={e => aoMudar(e.target.value)}
+          onKeyDown={aoTeclar}
+          onScroll={aoRolar}
+        />
+      </div>
     </div>
   )
 }

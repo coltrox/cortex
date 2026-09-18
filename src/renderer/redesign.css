@@ -1078,3 +1078,63 @@ body {
   .novo-projeto-linha[data-duas="true"] { grid-template-columns: minmax(0, 1fr); }
 }
 .dev-editor .editor.codigo { min-height: 0; }
+
+/* ---------- Cor do código: tema Min do VS Code ----------
+   O texto colorido é um `pre` por baixo do `textarea` transparente. Os dois
+   precisam da mesma letra, do mesmo recuo e de nenhuma quebra de linha, ou
+   as letras deixam de cair umas sobre as outras. */
+:root {
+  --c-texto: #24292E; --c-chave: #D32F2F; --c-str: #2B5581; --c-num: #1976D2;
+  --c-const: #1976D2; --c-com: #A0A4A9; --c-fun: #6F42C1; --c-tipo: #6F42C1;
+  --c-tag: #D32F2F; --c-prop: #1976D2;
+}
+:root[data-tema="escuro"] {
+  --c-texto: #BBBBBB; --c-chave: #F97583; --c-str: #FFAB70; --c-num: #79B8FF;
+  --c-const: #79B8FF; --c-com: #6B737C; --c-fun: #B392F0; --c-tipo: #B392F0;
+  --c-tag: #F97583; --c-prop: #79B8FF;
+}
+.codigo-camadas { position: relative; flex: 1; min-width: 0; min-height: 0; }
+.codigo-camadas > .codigo-cor,
+.codigo-camadas > .editor.codigo {
+  position: absolute; inset: 0; margin: 0; min-height: 0;
+  padding: 12px; border: 0; border-radius: 0;
+  font: 13px/1.6 var(--mono); tab-size: 2; letter-spacing: normal;
+  white-space: pre; overflow-wrap: normal; word-break: normal;
+}
+.codigo-cor {
+  overflow: hidden; pointer-events: none; color: var(--c-texto); background: var(--surface);
+  /* Folga para rolar tão longe quanto o textarea, que perde espaço para as barras. */
+  padding-right: 40px !important; padding-bottom: 40px !important;
+}
+.codigo-camadas > .editor.codigo {
+  overflow: auto; resize: none; background: transparent;
+  color: transparent; caret-color: var(--text); -webkit-text-fill-color: transparent;
+}
+.codigo-camadas > .editor.codigo::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.codigo-camadas > .editor.codigo:focus { outline: none; box-shadow: none; }
+.c-chave { color: var(--c-chave); }
+.c-str { color: var(--c-str); }
+.c-num { color: var(--c-num); }
+.c-const { color: var(--c-const); }
+.c-com { color: var(--c-com); font-style: italic; }
+.c-fun { color: var(--c-fun); }
+.c-tipo { color: var(--c-tipo); }
+.c-tag { color: var(--c-tag); }
+.c-prop { color: var(--c-prop); }
+
+/* ---------- Mais espaço para o código (2.6.6) ---------- */
+/* O projeto onde os scripts rodam, no começo da barra. */
+.rodar-projeto {
+  font-size: 12px; font-weight: 600; color: var(--text-2);
+  padding: 0 10px 0 4px; margin-right: 2px; border-right: 1px solid var(--border);
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Árvore escondida: o editor ocupa a largura toda. */
+.dev-corpo[data-sem-arvore="true"] { grid-template-columns: minmax(0, 1fr); }
+.dev-corpo[data-sem-arvore="true"] .dev-arvore { display: none; }
+/* Ampliado: o painel cobre a janela (Esc volta). Fica abaixo do terminal
+   flutuante, que continua à mão para ver o npm run dev. */
+.dev-corpo[data-amplo="true"] {
+  position: fixed; inset: 12px; z-index: 35; height: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+}

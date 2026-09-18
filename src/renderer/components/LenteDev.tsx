@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState, type DragEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { PainelRodar } from './PainelRodar'
 import { EditorCodigo } from './EditorCodigo'
 import { NovoProjeto } from './NovoProjeto'
+import { projetoDoFoco, type Foco } from './projetoAtual'
 import type { EntradaDev } from '../useVault'
 import type { LinguagemProjeto, ModeloProjeto } from '../../shared/types'
 import { Secao, Titulo, Linha, Vazio, txt, type PropsLente } from './base'
@@ -38,9 +39,9 @@ type PropsDev = PropsLente & {
   /** Cria um projeto em Área de Trabalho\projetos; `null` se não deu. */
   aoNovoProjeto: (
     modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
-  ) => Promise<{ raiz: string } | null>
+  ) => Promise<{ raiz: string; pasta: string } | null>
   /** Clona um repositório do GitHub em Área de Trabalho\projetos. */
-  aoClonarRepo: (url: string) => Promise<{ raiz: string } | null>
+  aoClonarRepo: (url: string) => Promise<{ raiz: string; pasta: string } | null>
 }
 
 const nomeBase = (p: string): string => p.slice(p.lastIndexOf('/') + 1).replace(/\.md$/i, '')
@@ -294,6 +295,16 @@ function Codigo({
    */
   const [filhos, setFilhos] = useState<Record<string, EntradaDev[]>>({})
   const [abertas, setAbertas] = useState<Set<string>>(() => new Set())
+  /** O último item clicado: é dele que sai o projeto dos scripts. */
+  const [foco, setFoco] = useState<Foco>(null)
+  /**
+   * Mais espaço para o código: o editor em tela cheia (Esc volta) e a árvore
+   * escondida. Pedido do dono — o painel ao lado da árvore ficava apertado.
+   */
+  const [amplo, setAmplo] = useState(false)
+  const [semArvore, setSemArvore] = useState(false)
+  /** Pasta para trazer à vista na árvore quando ela aparecer (o projeto recém-criado). */
+  const rolarPara = useRef<string | null>(null)
 
   const [arquivo, setArquivo] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
@@ -307,21 +318,36 @@ function Codigo({
    * pastas autorizadas chegar com ela. Selecionar antes faria o efeito abaixo
    * achar a raiz "não autorizada" e trocar para a primeira da lista.
    */
-  const [querRaiz, setQuerRaiz] = useState<string | null>(null)
+  const [querRaiz, setQuerRaiz] = useState<{ raiz: string; pasta: string } | null>(null)
 
   const trocarRaiz = (r: string | null): void => {
     setRaiz(r)
     setFilhos({})
     setAbertas(new Set())
+    setFoco(null)
     setArquivo(null)
+  }
+
+  /**
+   * Depois de criar ou clonar, a árvore já abre o projeto novo — e não só a
+   * pasta `projetos` fechada. Pedido do dono. Se a pasta ainda não existe
+   * (a instalação está começando), ela é lida de novo quando o processo acaba.
+   */
+  const abrirProjetoNovo = (r: string, pasta: string): void => {
+    setAbertas(new Set([pasta]))
+    setFoco({ rel: pasta, pasta: true })
+    rolarPara.current = pasta
+    void lerPasta(r, '')
+    void lerPasta(r, pasta)
   }
 
   // Uma pasta autorizada agora, ou a última removida, muda quem deve estar
   // selecionado — sem isto a tela ficaria apontando para uma raiz que saiu.
   useEffect(() => {
     if (querRaiz) {
-      if (!pastasDev.includes(querRaiz)) return
-      trocarRaiz(querRaiz)
+      if (!pastasDev.includes(querRaiz.raiz)) return
+      trocarRaiz(querRaiz.raiz)
+      abrirProjetoNovo(querRaiz.raiz, querRaiz.pasta)
       setQuerRaiz(null)
       return
     }
@@ -342,6 +368,21 @@ function Codigo({
     if (raiz) void lerPasta(raiz, '')
   }, [raiz, lerPasta])
 
+  // O projeto recém-criado vem para a vista assim que a linha dele existe.
+  useEffect(() => {
+    const alvo = rolarPara.current
+    if (!alvo) return
+    const el = document.querySelector(`.dev-item[data-rel="${CSS.escape(alvo)}"]`)
+    if (el) { el.scrollIntoView({ block: 'nearest' }); rolarPara.current = null }
+  }, [filhos])
+
+  useEffect(() => {
+    if (!amplo) return
+    const k = (e: KeyboardEvent): void => { if (e.key === 'Escape') setAmplo(false) }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [amplo])
+
   // Um processo que termina (a criação de um projeto, um build) muda o que há
   // na pasta: a raiz e as pastas abertas são lidas de novo.
   const recarregar = useCallback(() => {
@@ -352,6 +393,7 @@ function Codigo({
 
   const alternarPasta = (rel: string): void => {
     if (!raiz) return
+    setFoco({ rel, pasta: true })
     const nova = new Set(abertas)
     if (nova.has(rel)) {
       // Fechar uma pasta fecha as de dentro também, como no VS Code.
@@ -368,7 +410,7 @@ function Codigo({
   ): Promise<boolean> => {
     const r = await aoNovoProjeto(modelo, linguagem, nome)
     if (!r) return false
-    setQuerRaiz(r.raiz)
+    setQuerRaiz({ raiz: r.raiz, pasta: r.pasta })
     return true
   }
 
@@ -390,6 +432,7 @@ function Codigo({
   }
 
   const sujo = texto !== gravado
+  const projeto = projetoDoFoco(foco, filhos)
   const nomeRaiz = raiz ? raiz.split(/[\\/]/).filter(Boolean).pop() ?? raiz : ''
 
   // Arrastar do explorador de arquivos é o atalho para o mesmo diálogo: o
@@ -407,7 +450,7 @@ function Codigo({
   const clonarRepo = async (url: string): Promise<boolean> => {
     const r = await aoClonarRepo(url)
     if (!r) return false
-    setQuerRaiz(r.raiz)
+    setQuerRaiz({ raiz: r.raiz, pasta: r.pasta })
     return true
   }
 
@@ -436,10 +479,11 @@ function Codigo({
           data-pasta={it.pasta}
           data-inerte={!it.pasta && !it.editavel}
           data-ext={it.pasta ? undefined : extensao(it.nome)}
+          data-rel={it.rel}
           title={it.pasta ? it.rel : `${it.rel} · ${Math.max(1, Math.round(it.tamanho / 1024))} kB`}
           onClick={() => {
             if (it.pasta) alternarPasta(it.rel)
-            else if (it.editavel) void abrirArquivo(it.rel)
+            else if (it.editavel) { setFoco({ rel: it.rel, pasta: false }); void abrirArquivo(it.rel) }
           }}
         >
           <span className="dev-seta" aria-hidden="true">{it.pasta ? '›' : ''}</span>
@@ -505,23 +549,24 @@ function Codigo({
       {raiz && (
         <>
           {/*
-            Os scripts rodam SEMPRE na raiz do projeto, qualquer que seja o
-            arquivo aberto: é onde está o package.json. Pedido do dono — antes
-            entrar numa subpasta sumia com o npm run dev.
+            Os scripts rodam SEMPRE na raiz do projeto em que se está, qualquer
+            que seja o arquivo aberto: é onde está o package.json. Pedido do
+            dono — antes entrar numa subpasta sumia com o npm run dev.
           */}
           <PainelRodar
             raiz={raiz}
-            sub=""
+            sub={projeto}
+            titulo={projeto ? projeto.split('/').pop() : nomeRaiz}
             aoTerminar={recarregar}
             extras={
               <>
-                <button className="btn-fantasma pequeno" onClick={() => aoTerminal(raiz, '')}>Terminal</button>
-                <button className="btn-fantasma pequeno" onClick={() => aoRevelar(raiz, '')}>Explorer</button>
+                <button className="btn-fantasma pequeno" onClick={() => aoTerminal(raiz, projeto)}>Terminal</button>
+                <button className="btn-fantasma pequeno" onClick={() => aoRevelar(raiz, projeto)}>Explorer</button>
               </>
             }
           />
 
-          <div className="dev-corpo">
+          <div className="dev-corpo" data-amplo={amplo} data-sem-arvore={semArvore && !!arquivo}>
             <div className="dev-arvore" role="tree" aria-label={`Arquivos de ${nomeRaiz}`}>
               <div className="dev-arvore-topo">
                 <span className="dev-arvore-nome" title={raiz}>{nomeRaiz}</span>
@@ -529,6 +574,9 @@ function Codigo({
                   <button className="btn-icone" title="Recolher pastas" disabled={abertas.size === 0}
                     onClick={() => setAbertas(new Set())}>⊟</button>
                   <button className="btn-icone" title="Ler de novo" onClick={recarregar}>↻</button>
+                  {arquivo && (
+                    <button className="btn-icone" title="Esconder a árvore" onClick={() => setSemArvore(true)}>⇤</button>
+                  )}
                 </span>
               </div>
               {linhas('', 0)}
@@ -547,6 +595,18 @@ function Codigo({
                     </span>
                     <span className="nota-trilha-dir">
                       {sujo && <span className="salvo" data-sujo>não salvo</span>}
+                      {semArvore && (
+                        <button className="btn-fantasma pequeno" title="Mostrar a árvore" onClick={() => setSemArvore(false)}>
+                          ⇥ Arquivos
+                        </button>
+                      )}
+                      <button
+                        className="btn-fantasma pequeno"
+                        title={amplo ? 'Voltar ao tamanho normal (Esc)' : 'Ampliar o código na tela toda'}
+                        onClick={() => setAmplo(a => !a)}
+                      >
+                        {amplo ? '⤡ Reduzir' : '⤢ Ampliar'}
+                      </button>
                       <button className="btn pequeno" onClick={() => void salvar()} disabled={!sujo || salvando}>
                         {salvando ? 'Salvando…' : 'Salvar'}
                       </button>
@@ -554,6 +614,7 @@ function Codigo({
                   </div>
                   <EditorCodigo
                     valor={texto}
+                    ext={extensao(arquivo)}
                     aoMudar={setTexto}
                     aoSalvar={() => void salvar()}
                   />
