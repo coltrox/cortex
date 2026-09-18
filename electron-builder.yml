@@ -74,7 +74,11 @@ nsis:
   # administrador, que é o que permite instalar num PC de escola.
   perMachine: false
   oneClick: false
-  allowToChangeInstallationDirectory: true
+  # Sem escolher a pasta: com essa opção ligada, o electron-builder apaga e
+  # recria os atalhos a cada instalação por cima (só a atualização automática,
+  # que manda --updated, os mantinha) — e atalho recriado tira o Cortex da
+  # barra de tarefas. A pasta é sempre a do usuário (perMachine: false).
+  allowToChangeInstallationDirectory: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Cortex
