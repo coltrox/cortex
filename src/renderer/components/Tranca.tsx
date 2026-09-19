@@ -11,10 +11,10 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
  * A conferência acontece no processo principal. Este componente manda a
  * senha e recebe um sim ou não — ele nunca vê o segredo guardado.
  *
- * O visual (pedido do dono, "achei muito feinha"): cadeado num disco com a
- * cor da área, o campo e o botão numa peça só, olho para ver o que foi
- * digitado, a dica como etiqueta, aviso de Caps Lock e um tremor curto
- * quando a senha não confere.
+ * O visual segue a referência que o dono mandou: cartão escuro, cadeado em
+ * contorno, título grande em serifa num degradê da cor da área, a senha em
+ * pontos grandes numa pílula escura, o botão de seta metálico e a dica como
+ * etiqueta, sem itálico.
  */
 export function Tranca({ nome, dica, aoDestrancar }: {
   nome: string
@@ -69,20 +69,18 @@ export function Tranca({ nome, dica, aoDestrancar }: {
 
   return (
     <div className="tranca">
-      <div key={tremor} className="tranca-caixa" data-tremer={tremor > 0}>
-        <div className="tranca-icone" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
-            <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
-            <circle cx="12" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
-          </svg>
-        </div>
-        <span className="tranca-selo">Área trancada</span>
-        <h2>{nome}</h2>
-        <p className="tranca-texto">Digite a senha para abrir.</p>
+      <div key={tremor} className="tranca-cartao" data-tremer={tremor > 0}>
+        <svg className="tranca-cadeado" width="26" height="26" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="5" y="10.5" width="14" height="10" rx="2" />
+          <path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" />
+          <path d="M12 14.5v2" />
+        </svg>
+        <span className="tranca-sobre">Área Trancada</span>
+        <h2 className="tranca-titulo">{nome}</h2>
+        <p className="tranca-sub">Digite a senha para abrir.</p>
 
-        <div className="tranca-campo" data-erro={!!erro}>
+        <div className="tranca-pilula" data-erro={!!erro}>
           <input
             ref={campo}
             type={ver ? 'text' : 'password'}
@@ -96,41 +94,41 @@ export function Tranca({ nome, dica, aoDestrancar }: {
           />
           <button
             type="button"
-            className="tranca-ver"
+            className="tranca-olho"
             title={ver ? 'Esconder a senha' : 'Mostrar a senha'}
             aria-pressed={ver}
             onClick={() => { setVer(v => !v); campo.current?.focus() }}
           >
             {ver ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 3l18 18" /><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-3.1 4" />
                 <path d="M6.6 6.6C3.9 8.4 2.5 12 2.5 12s3.5 7 9.5 7a9.7 9.7 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
               </svg>
             ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z" /><circle cx="12" cy="12" r="3" />
               </svg>
             )}
           </button>
           <button
             type="button"
-            className="tranca-abrir"
+            className="tranca-seta"
             title="Abrir (Enter)"
             aria-label="Abrir"
             onClick={() => void tentar()}
             disabled={senha === '' || conferindo}
           >
             {conferindo ? <span className="tranca-girando" aria-hidden="true" /> : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14" /><path d="M13 6l6 6-6 6" />
               </svg>
             )}
           </button>
         </div>
 
-        <div className="tranca-rodape" aria-live="polite">
-          {erro ? <span className="tranca-erro">{erro}</span>
-            : caps ? <span className="tranca-caps">Caps Lock ligado</span>
+        <div className="tranca-aviso" aria-live="polite">
+          {erro ? <span className="tranca-aviso-erro">{erro}</span>
+            : caps ? <span className="tranca-aviso-caps">Caps Lock está ligado</span>
               : null}
         </div>
 

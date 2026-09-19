@@ -1367,97 +1367,114 @@ body {
 .chip-projeto:not([aria-pressed="true"]) { opacity: .85; }
 .chip-projeto:not([aria-pressed="true"]):hover { opacity: 1; }
 
-/* ---------- Tranca de painel, redesenhada (2.6.20) ----------
-   Cartão com o cadeado num disco da cor da área, título em serifa, o campo e
-   o botão numa peça só, e a dica como etiqueta. Senha errada: um tremor curto. */
-.tranca { min-height: 70vh; }
-.tranca-caixa {
-  position: relative; max-width: 360px; gap: 0; padding: 34px 30px 26px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 24px 60px rgba(0, 0, 0, .28);
-  overflow: hidden;
-}
-/* Um brilho discreto da cor da área atrás do cadeado. */
-.tranca-caixa::before {
-  content: ''; position: absolute; top: -90px; left: 50%; width: 260px; height: 200px;
-  transform: translateX(-50%); pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--acento, var(--accent)) 22%, transparent), transparent);
-}
-.tranca-caixa > svg { display: none; }
-.tranca-icone {
-  position: relative; width: 52px; height: 52px; margin-bottom: 14px;
-  display: grid; place-items: center; border-radius: 16px;
-  color: var(--acento, var(--accent));
-  background: color-mix(in srgb, var(--acento, var(--accent)) 14%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--acento, var(--accent)) 30%, transparent);
-}
-.tranca-selo {
-  font-size: 10.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--text-3); margin-bottom: 6px;
-}
-.tranca-caixa h2 { margin: 0; font-family: var(--serif); font-size: 26px; font-weight: 400; line-height: 1.15; color: var(--text); }
-.tranca-texto { margin: 8px 0 20px !important; font-size: 13px; color: var(--text-3); }
 
-/* O campo e o botão numa peça só. */
-.tranca-campo {
-  position: relative; width: 100%; display: flex; align-items: center; gap: 4px;
-  padding: 4px; border-radius: 12px;
-  background: var(--surface-sunk); border: 1px solid var(--border-strong);
-  transition: border-color .15s, box-shadow .15s;
+/* ---------- Tela de área trancada (2.6.21) ----------
+   Segue a referência do dono: cartão escuro, cadeado em contorno, título
+   grande em serifa num degradê da cor da área, a senha em pontos grandes
+   numa pílula escura, botão de seta metálico e a dica como etiqueta. */
+.tranca { min-height: 68vh; }
+.tranca-cartao {
+  --tr: var(--acento, var(--accent));
+  position: relative; width: min(420px, 100%);
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: 30px 32px 26px; border-radius: 22px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--tr) 7%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, #fff 3%), var(--surface-sunk));
+  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .05) inset, 0 30px 70px rgba(0, 0, 0, .35);
 }
-.tranca-campo:focus-within {
-  border-color: var(--acento, var(--accent));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento, var(--accent)) 18%, transparent);
+.tranca-cadeado { color: var(--tr); opacity: .85; margin-bottom: 14px; }
+.tranca-sobre {
+  font-family: var(--serif); font-size: 14px; letter-spacing: .01em;
+  color: color-mix(in srgb, var(--tr) 45%, var(--text-2));
 }
-.tranca-campo[data-erro="true"] { border-color: var(--pale-red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pale-red) 16%, transparent); }
-.tranca-caixa .tranca-campo input {
-  flex: 1; min-width: 0; width: auto; padding: 9px 8px 9px 12px;
-  font: 15px/1.4 var(--sans); letter-spacing: .06em; text-align: left;
-  color: var(--text); background: transparent; border: 0; border-radius: 8px;
+.tranca-titulo {
+  margin: 4px 0 0; font-family: var(--serif); font-weight: 400;
+  font-size: clamp(30px, 3.4vw, 38px); line-height: 1.1; letter-spacing: -.01em;
+  /* O degradê da cor da área, clareando para cima — como na referência. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tr) 45%, #fff), var(--tr));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.tranca-caixa .tranca-campo input:focus { outline: none; border: 0; }
-.tranca-caixa .tranca-campo input::placeholder { letter-spacing: normal; color: var(--text-3); }
-.tranca-ver, .tranca-abrir {
-  flex: none; display: grid; place-items: center; width: 36px; height: 36px;
-  border-radius: 9px; border: 0; cursor: pointer; font: inherit;
+.tranca-sub { margin: 10px 0 22px; font-size: 13.5px; color: var(--text-3); }
+
+/* A pílula: senha em pontos grandes, o olho e o botão metálico. */
+.tranca-pilula {
+  width: 100%; display: flex; align-items: center; gap: 6px;
+  padding: 6px 6px 6px 10px; border-radius: 16px;
+  background: color-mix(in srgb, #000 35%, var(--surface-sunk));
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, .45), 0 1px 0 rgba(255, 255, 255, .04);
+  transition: border-color .18s, box-shadow .18s;
 }
-.tranca-ver { background: transparent; color: var(--text-3); }
-.tranca-ver:hover, .tranca-ver[aria-pressed="true"] { color: var(--text); background: var(--surface); }
-.tranca-abrir { background: var(--acento, var(--accent)); color: #fff; transition: filter .15s, opacity .15s; }
-.tranca-abrir:hover:not(:disabled) { filter: brightness(1.1); }
-.tranca-abrir:disabled { opacity: .35; cursor: default; }
+.tranca-pilula:focus-within {
+  border-color: color-mix(in srgb, var(--tr) 55%, transparent);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, .45), 0 0 0 3px color-mix(in srgb, var(--tr) 14%, transparent);
+}
+.tranca-pilula[data-erro="true"] {
+  border-color: color-mix(in srgb, var(--pale-red) 60%, transparent);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, .45), 0 0 0 3px color-mix(in srgb, var(--pale-red) 14%, transparent);
+}
+.tranca-pilula input {
+  flex: 1; min-width: 0; padding: 10px 6px 10px 8px;
+  font: 16px/1.2 var(--sans); color: var(--text);
+  background: transparent; border: 0; outline: none;
+}
+/* Os pontos grandes e claros da referência; o texto à mostra fica normal. */
+.tranca-pilula input[type="password"]:not(:placeholder-shown) {
+  font-size: 34px; letter-spacing: .1em; padding-top: 0; padding-bottom: 4px; line-height: 1;
+  color: #eeeae4; text-shadow: 0 0 6px rgba(255, 255, 255, .25);
+}
+.tranca-pilula input::placeholder { color: var(--text-3); }
+.tranca-olho {
+  flex: none; width: 36px; height: 36px; display: grid; place-items: center;
+  border: 0; border-radius: 10px; cursor: pointer; background: transparent; color: var(--text-3);
+  transition: color .15s, background .15s;
+}
+.tranca-olho:hover, .tranca-olho[aria-pressed="true"] { color: var(--text); background: color-mix(in srgb, var(--text) 7%, transparent); }
+.tranca-seta {
+  flex: none; width: 50px; height: 42px; display: grid; place-items: center;
+  border-radius: 12px; cursor: pointer; color: #3a3a3a;
+  background: linear-gradient(180deg, #d9d6d1 0%, #a9a6a1 55%, #8f8c87 100%);
+  border: 1px solid rgba(255, 255, 255, .25);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .55) inset, 0 -2px 4px rgba(0, 0, 0, .2) inset, 0 6px 14px rgba(0, 0, 0, .4);
+  transition: transform .12s, filter .15s, opacity .15s;
+}
+.tranca-seta:hover:not(:disabled) { filter: brightness(1.07); }
+.tranca-seta:active:not(:disabled) { transform: translateY(1px) scale(.98); }
+.tranca-seta:disabled { opacity: .45; cursor: default; }
 .tranca-girando {
-  width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, .35); border-top-color: #fff;
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, .2); border-top-color: #3a3a3a;
   animation: tranca-gira .7s linear infinite;
 }
 @keyframes tranca-gira { to { transform: rotate(360deg); } }
 
-.tranca-rodape { min-height: 20px; margin-top: 8px; font-size: 12.5px; }
-.tranca-erro { color: var(--pale-red); }
-.tranca-caps { color: var(--pale-yel); }
+.tranca-aviso { min-height: 20px; margin-top: 10px; font-size: 12.5px; }
+.tranca-aviso-erro { color: var(--pale-red); }
+.tranca-aviso-caps { color: var(--pale-yel); }
 
-/* A dica, como etiqueta no pé do cartão. */
-.tranca-dica {
-  margin: 10px 0 0 !important; display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 12px 6px 6px; border-radius: 999px;
-  background: var(--surface-sunk); border: 1px solid var(--border);
-  font-size: 12.5px;
+/* A dica: etiqueta "DICA" e o texto, sem itálico (pedido do dono). */
+.tranca-cartao .tranca-dica {
+  margin: 4px 0 0; display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px 5px 5px; border-radius: 999px; font-size: 12.5px;
+  background: color-mix(in srgb, #000 25%, var(--surface-sunk));
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
 }
+.tranca-cartao .tranca-dica span { font-style: normal; }
 .tranca-dica-rotulo {
-  padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--acento, var(--accent)); background: color-mix(in srgb, var(--acento, var(--accent)) 14%, transparent);
+  padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-2); background: color-mix(in srgb, var(--text) 9%, transparent);
 }
-.tranca-dica-texto { color: var(--text-2); font-style: italic; }
+.tranca-dica-texto { color: var(--text-2); }
 
 /* Senha errada: o cartão treme de leve. */
-.tranca-caixa[data-tremer="true"] { animation: tranca-treme .38s cubic-bezier(.36, .07, .19, .97); }
+.tranca-cartao[data-tremer="true"] { animation: tranca-treme .4s cubic-bezier(.36, .07, .19, .97); }
 @keyframes tranca-treme {
   15%, 85% { transform: translateX(-2px); }
   30%, 70% { transform: translateX(5px); }
-  45%, 55% { transform: translateX(-6px); }
+  45%, 55% { transform: translateX(-7px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tranca-caixa[data-tremer="true"], .tranca-girando { animation: none; }
+  .tranca-cartao[data-tremer="true"], .tranca-girando { animation: none; }
 }
-.tranca-dica .tranca-dica-rotulo { font-style: normal; }
