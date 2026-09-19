@@ -81,6 +81,8 @@ export type ProcessoInfo = {
   url: string | null
   /** `null` enquanto roda; o codigo de saida depois que termina. */
   saiu: number | null
+  /** A pasta onde roda (a do projeto) — é o que acende a bolinha na aba do projeto. */
+  cwd: string
 }
 
 /** Criar projeto pela lente Dev. Ver main/dev/novoProjeto.ts. */

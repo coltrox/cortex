@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { projetoDoFoco, lerEstadoDev } from './projetoAtual'
+import { projetoDoFoco, lerEstadoDev, processoEhDoProjeto } from './projetoAtual'
 
 const arq = (nome: string) => ({ nome, pasta: false })
 const pasta = (nome: string) => ({ nome, pasta: true })
@@ -49,7 +49,7 @@ describe('projeto de onde os scripts rodam', () => {
 describe('onde a pessoa estava no Dev (guardado nas preferências)', () => {
   it('lê o que foi guardado', () => {
     const e = { raiz: 'C:/p', base: 'app', abertas: ['app/src'], arquivo: 'app/src/App.tsx' }
-    expect(lerEstadoDev(JSON.stringify(e))).toEqual(e)
+    expect(lerEstadoDev(JSON.stringify(e))).toEqual({ ...e, abertos: [] })
     expect(lerEstadoDev(JSON.stringify({ ...e, arquivo: null }))?.arquivo).toBeNull()
   })
 
@@ -58,7 +58,30 @@ describe('onde a pessoa estava no Dev (guardado nas preferências)', () => {
     expect(lerEstadoDev('{ quebrado')).toBeNull()
     expect(lerEstadoDev(JSON.stringify({ base: 'x' }))).toBeNull()
     expect(lerEstadoDev(JSON.stringify({ raiz: 'C:/p', base: 1, abertas: 'x', arquivo: 2 })))
-      .toEqual({ raiz: 'C:/p', base: '', abertas: [], arquivo: null })
+      .toEqual({ raiz: 'C:/p', base: '', abertas: [], arquivo: null, abertos: [] })
     expect(lerEstadoDev(JSON.stringify({ raiz: 'C:/p', abertas: ['a', 3, 'b'] }))?.abertas).toEqual(['a', 'b'])
+  })
+})
+
+describe('abas de projetos abertos', () => {
+  it('guarda e lê as abas abertas, descartando as estranhas', () => {
+    const e = { raiz: 'C:/p', base: 'a', abertas: [], arquivo: null, abertos: [{ raiz: 'C:/p', base: 'a' }, { raiz: 'C:/p', base: 'b' }] }
+    expect(lerEstadoDev(JSON.stringify(e))?.abertos).toEqual(e.abertos)
+    expect(lerEstadoDev(JSON.stringify({ raiz: 'C:/p', abertos: [{ raiz: 'C:/p' }, 3, { raiz: 'C:/p', base: 'ok' }] }))?.abertos)
+      .toEqual([{ raiz: 'C:/p', base: 'ok' }])
+    expect(lerEstadoDev(JSON.stringify({ raiz: 'C:/p' }))?.abertos).toEqual([])
+  })
+
+  it('o processo é do projeto quando roda na pasta dele (ou dentro dela)', () => {
+    // Montado com join('\\') para as barras invertidas do Windows sobreviverem.
+    const win = (...p: string[]): string => p.join('\\')
+    const raiz = win('C:', 'Users', 'x', 'AppData', 'Roaming', 'Cortex', 'projetos')
+    expect(processoEhDoProjeto(win(raiz, 'cco-landing'), raiz, 'cco-landing')).toBe(true)
+    expect(processoEhDoProjeto(win(raiz, 'CCO-LANDING', 'web'), raiz, 'cco-landing')).toBe(true)
+    expect(processoEhDoProjeto(raiz.split('\\').join('/') + '/cco-landing', raiz, 'cco-landing')).toBe(true)
+    // Um projeto com nome que começa igual não é o mesmo.
+    expect(processoEhDoProjeto(win(raiz, 'cco-landing-2'), raiz, 'cco-landing')).toBe(false)
+    // Criar projeto roda na pasta de fora: não é de nenhuma aba.
+    expect(processoEhDoProjeto(raiz, raiz, 'cco-landing')).toBe(false)
   })
 })

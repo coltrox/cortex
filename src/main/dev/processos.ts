@@ -69,6 +69,8 @@ export type ProcessoInfo = {
   url: string | null
   /** `null` enquanto está rodando; o código de saída depois que termina. */
   saiu: number | null
+  /** A pasta onde roda (a do projeto) — é o que acende a bolinha na aba do projeto. */
+  cwd: string
 }
 
 /**
@@ -135,7 +137,7 @@ export class Processos {
    */
   iniciarEtapas(raiz: string, rotulo: string, etapas: Etapa[]): ProcessoInfo {
     const p: Processo = {
-      id: randomUUID(), raiz, script: rotulo, pid: null, url: null, saiu: null,
+      id: randomUUID(), raiz, script: rotulo, pid: null, url: null, saiu: null, cwd: etapas[0]?.cwd ?? raiz,
       linhas: [], filho: null, parado: false
     }
 
@@ -261,6 +263,6 @@ export class Processos {
   }
 
   private publico(p: Processo): ProcessoInfo {
-    return { id: p.id, raiz: p.raiz, script: p.script, pid: p.pid, url: p.url, saiu: p.saiu }
+    return { id: p.id, raiz: p.raiz, script: p.script, pid: p.pid, url: p.url, saiu: p.saiu, cwd: p.cwd }
   }
 }

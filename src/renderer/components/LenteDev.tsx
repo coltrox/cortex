@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { PainelRodar } from './PainelRodar'
 import { EditorCodigo } from './EditorCodigo'
 import { NovoProjeto, AvisoErro } from './NovoProjeto'
-import { projetoDoFoco, lerEstadoDev, type Foco, type EstadoDev } from './projetoAtual'
+import { projetoDoFoco, lerEstadoDev, processoEhDoProjeto, type Foco, type EstadoDev, type ProjetoAberto } from './projetoAtual'
+import type { ProcessoInfo } from '../../shared/types'
 import type { EntradaDev } from '../useVault'
 import type { LinguagemProjeto, ModeloProjeto } from '../../shared/types'
 import { Secao, Titulo, Linha, Vazio, txt, type PropsLente } from './base'
@@ -412,6 +413,28 @@ function Codigo({
   const [base, setBase] = useState('')
   /** O projeto recém-criado cuja pasta ainda não apareceu no disco. */
   const [aguardando, setAguardando] = useState<string | null>(null)
+  /**
+   * As abas de projetos abertos, ao lado da pasta (pedido do dono: navegar
+   * entre projetos e rodar mais de um ao mesmo tempo). Entrar num projeto
+   * abre a aba; o × fecha — o que está rodando continua rodando.
+   */
+  const [abertos, setAbertos] = useState<ProjetoAberto[]>([])
+  /** O que cada aba tinha aberto (pastas e arquivo), para voltar a ela igual. */
+  const memoria = useRef(new Map<string, { abertas: string[]; arquivo: string | null }>())
+  /** Os processos rodando, para a bolinha verde nas abas. */
+  const [procs, setProcs] = useState<ProcessoInfo[]>([])
+  useEffect(() => {
+    let vivo = true
+    const tique = async (): Promise<void> => {
+      try {
+        const r = await window.vaultApi.listarProcessos()
+        if (vivo) setProcs(r.processos)
+      } catch { /* a janela pode estar fechando */ }
+    }
+    void tique()
+    const t = setInterval(() => void tique(), 2000)
+    return () => { vivo = false; clearInterval(t) }
+  }, [])
   /** O arquivo aberto agora, para quem roda depois de uma espera (o abrir sozinho). */
   const arquivoAtual = useRef<string | null>(null)
   arquivoAtual.current = arquivo
@@ -444,10 +467,61 @@ function Codigo({
   /** Abre uma pasta como a raiz da árvore (o "Abrir pasta" do VS Code). '' volta para tudo. */
   const abrirComoBase = (rel: string): void => {
     if (!raiz) return
-    setBase(rel)
-    setFoco(rel ? { rel, pasta: true } : null)
-    if (!filhos[rel]) void lerPasta(raiz, rel)
+    void irPara(raiz, rel)
   }
+
+  const chaveDe = (r: string, b: string): string => `${r}|${b}`
+
+  /**
+   * Vai para um projeto (uma aba) — ou para a lista de uma pasta, com `b`
+   * vazio. Guarda o que estava aberto aqui (pastas expandidas e arquivo) e
+   * devolve o que o destino tinha, como trocar de aba no VS Code.
+   */
+  const irPara = async (r: string, b: string): Promise<void> => {
+    if (r === raiz && b === base) return
+    if (!(await podeLargar('Trocar de projeto sem salvar as mudanças?'))) return
+    if (raiz) memoria.current.set(chaveDe(raiz, base), { abertas: [...abertas], arquivo })
+    const m = memoria.current.get(chaveDe(r, b))
+    if (r !== raiz) { setRaiz(r); setFilhos({}) }
+    setBase(b)
+    setVisor(null)
+    setArquivo(null); setTexto(''); setGravado('')
+    setAbertas(new Set(m?.abertas ?? []))
+    setFoco(b ? { rel: b, pasta: true } : null)
+    await Promise.all([
+      lerPasta(r, ''),
+      ...(b ? [lerPasta(r, b)] : []),
+      ...(m?.abertas ?? []).map(a => lerPasta(r, a))
+    ])
+    if (m?.arquivo) {
+      const irmaos = await arvore(r, paiDe(m.arquivo)).catch(() => [])
+      if (irmaos.some(x => x.rel === m.arquivo && x.editavel)) {
+        setFoco({ rel: m.arquivo, pasta: false })
+        await abrirArquivo(m.arquivo, r)
+      }
+    }
+  }
+
+  /** Fecha a aba. O que está rodando nela continua (o terminal para, se quiser). */
+  const fecharProjeto = async (a: ProjetoAberto): Promise<void> => {
+    const atual = a.raiz === raiz && a.base === base
+    if (atual && !(await podeLargar('Fechar o projeto sem salvar as mudanças?'))) return
+    memoria.current.delete(chaveDe(a.raiz, a.base))
+    setAbertos(l => l.filter(x => !(x.raiz === a.raiz && x.base === a.base)))
+    if (atual) {
+      setVisor(null)
+      setArquivo(null); setTexto(''); setGravado('')
+      setAbertas(new Set())
+      setFoco(null)
+      setBase('')
+    }
+  }
+
+  // Entrar num projeto (clicar nele, criar, clonar, voltar ao reabrir) abre a aba dele.
+  useEffect(() => {
+    if (!raiz || !base) return
+    setAbertos(l => (l.some(a => a.raiz === raiz && a.base === base) ? l : [...l, { raiz, base }]))
+  }, [raiz, base])
 
   // Uma pasta autorizada agora, ou a última removida, muda quem deve estar
   // selecionado — sem isto a tela ficaria apontando para uma raiz que saiu.
@@ -500,6 +574,7 @@ function Codigo({
       setFilhos({})
       setBase(e.base)
       setAbertas(new Set(e.abertas))
+      setAbertos(e.abertos.filter(a => pastasDev.includes(a.raiz)))
       setFoco(e.base ? { rel: e.base, pasta: true } : null)
       await Promise.all([
         lerPasta(e.raiz, ''),
@@ -512,7 +587,7 @@ function Codigo({
         const irmaos = await arvore(e.raiz, paiDe(e.arquivo)).catch(() => [])
         if (irmaos.some(x => x.rel === e.arquivo && x.editavel)) {
           setFoco({ rel: e.arquivo, pasta: false })
-          await abrirArquivo(e.arquivo)
+          await abrirArquivo(e.arquivo, e.raiz)
         }
       }
     })()
@@ -523,11 +598,11 @@ function Codigo({
   useEffect(() => {
     if (!restaurado.current || !raiz) return
     const t = setTimeout(() => {
-      const e: EstadoDev = { raiz, base, abertas: [...abertas], arquivo }
+      const e: EstadoDev = { raiz, base, abertas: [...abertas], arquivo, abertos }
       void window.vaultApi.gravarPref(CHAVE_ESTADO_DEV, JSON.stringify(e)).catch(() => {})
     }, 500)
     return () => clearTimeout(t)
-  }, [raiz, base, abertas, arquivo])
+  }, [raiz, base, abertas, arquivo, abertos])
 
   // O projeto recém-criado vem para a vista assim que a linha dele existe.
   useEffect(() => {
@@ -794,9 +869,9 @@ function Codigo({
     return true
   }
 
-  const abrirArquivo = async (rel: string): Promise<void> => {
-    if (!raiz) return
-    const c = await lerArquivo(raiz, rel)
+  const abrirArquivo = async (rel: string, r: string | null = raiz): Promise<void> => {
+    if (!r) return
+    const c = await lerArquivo(r, rel)
     if (c === null) return
     setVisor(null)
     setArquivo(rel)
@@ -1054,19 +1129,39 @@ function Codigo({
 
       <div className="chips dev-raizes">
         {pastasDev.map(p => (
-          <span key={p} className="chip-raiz" aria-pressed={raiz === p} title={p}>
-            <button onClick={() => { if (raiz !== p) trocarRaiz(p) }}>
-              {rotuloDaPasta(p, pastaProjetos)}
-            </button>
-            {/* A pasta de projetos do Cortex não sai: é onde os projetos novos nascem. */}
-            {p !== pastaProjetos && (
-              <button
-                className="btn-icone perigo"
-                title="Fechar esta pasta (não apaga nada do disco)"
-                onClick={() => aoRemoverPastaDev(p)}
-              >×</button>
-            )}
-          </span>
+          <Fragment key={p}>
+            <span className="chip-raiz" aria-pressed={raiz === p && !base} title={p}>
+              {/* Clicar na pasta volta para a lista de projetos dela. */}
+              <button onClick={() => void irPara(p, '')}>
+                {rotuloDaPasta(p, pastaProjetos)}
+              </button>
+              {/* A pasta de projetos do Cortex não sai: é onde os projetos novos nascem. */}
+              {p !== pastaProjetos && (
+                <button
+                  className="btn-icone perigo"
+                  title="Fechar esta pasta (não apaga nada do disco)"
+                  onClick={() => aoRemoverPastaDev(p)}
+                >×</button>
+              )}
+            </span>
+            {abertos.filter(a => a.raiz === p).map(a => {
+              const ativo = raiz === a.raiz && base === a.base
+              const rodando = procs.some(pr => pr.saiu === null && processoEhDoProjeto(pr.cwd, a.raiz, a.base))
+              return (
+                <span key={chaveDe(a.raiz, a.base)} className="chip-raiz chip-projeto" aria-pressed={ativo} title={`${a.base}${rodando ? ' — rodando' : ''}`}>
+                  <button onClick={() => void irPara(a.raiz, a.base)}>
+                    {rodando && <span className="rodar-ponto vivo" aria-label="rodando" />}
+                    {a.base.slice(a.base.lastIndexOf('/') + 1)}
+                  </button>
+                  <button
+                    className="btn-icone"
+                    title={rodando ? 'Fechar a aba (o que está rodando continua)' : 'Fechar a aba'}
+                    onClick={() => void fecharProjeto(a)}
+                  >×</button>
+                </span>
+              )
+            })}
+          </Fragment>
         ))}
       </div>
 

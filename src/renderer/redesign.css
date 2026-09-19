@@ -1360,3 +1360,9 @@ body {
   width: 8px; height: 8px; border-radius: 50%; background: var(--pale-grn);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--pale-grn) 22%, transparent);
 }
+
+/* As abas dos projetos abertos, ao lado da pasta (2.6.19). */
+.chip-projeto > button:first-child { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11.5px; }
+.chip-projeto .rodar-ponto { width: 7px; height: 7px; }
+.chip-projeto:not([aria-pressed="true"]) { opacity: .85; }
+.chip-projeto:not([aria-pressed="true"]):hover { opacity: 1; }
