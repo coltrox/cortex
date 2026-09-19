@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { projetoDoFoco } from './projetoAtual'
+import { projetoDoFoco, lerEstadoDev } from './projetoAtual'
 
 const arq = (nome: string) => ({ nome, pasta: false })
 const pasta = (nome: string) => ({ nome, pasta: true })
@@ -43,5 +43,22 @@ describe('projeto de onde os scripts rodam', () => {
 
   it('pasta ainda não lida não trava: cai na de primeiro nível', () => {
     expect(projetoDoFoco({ rel: 'outro', pasta: true }, projetos)).toBe('outro')
+  })
+})
+
+describe('onde a pessoa estava no Dev (guardado nas preferências)', () => {
+  it('lê o que foi guardado', () => {
+    const e = { raiz: 'C:/p', base: 'app', abertas: ['app/src'], arquivo: 'app/src/App.tsx' }
+    expect(lerEstadoDev(JSON.stringify(e))).toEqual(e)
+    expect(lerEstadoDev(JSON.stringify({ ...e, arquivo: null }))?.arquivo).toBeNull()
+  })
+
+  it('desconfia do arquivo: formato estranho ou quebrado não restaura nada', () => {
+    expect(lerEstadoDev(undefined)).toBeNull()
+    expect(lerEstadoDev('{ quebrado')).toBeNull()
+    expect(lerEstadoDev(JSON.stringify({ base: 'x' }))).toBeNull()
+    expect(lerEstadoDev(JSON.stringify({ raiz: 'C:/p', base: 1, abertas: 'x', arquivo: 2 })))
+      .toEqual({ raiz: 'C:/p', base: '', abertas: [], arquivo: null })
+    expect(lerEstadoDev(JSON.stringify({ raiz: 'C:/p', abertas: ['a', 3, 'b'] }))?.abertas).toEqual(['a', 'b'])
   })
 })

@@ -7,6 +7,31 @@ export type Foco = { rel: string; pasta: boolean } | null
 const pai = (rel: string): string => (rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '')
 
 /**
+ * Onde a pessoa estava no Dev: a pasta aberta (`raiz`), o projeto em que
+ * entrou (`base`), as pastas expandidas e o arquivo aberto. Guardado nas
+ * preferências do computador para voltar ao mesmo lugar depois de trocar de
+ * área ou reabrir o Cortex.
+ */
+export type EstadoDev = { raiz: string; base: string; abertas: string[]; arquivo: string | null }
+
+/** Lê o que foi guardado, desconfiando: formato estranho vira padrão, sem raiz não restaura nada. */
+export function lerEstadoDev(texto: string | undefined): EstadoDev | null {
+  if (!texto) return null
+  try {
+    const o = JSON.parse(texto) as Record<string, unknown>
+    if (!o || typeof o.raiz !== 'string' || !o.raiz) return null
+    return {
+      raiz: o.raiz,
+      base: typeof o.base === 'string' ? o.base : '',
+      abertas: Array.isArray(o.abertas) ? o.abertas.filter((a): a is string => typeof a === 'string') : [],
+      arquivo: typeof o.arquivo === 'string' && o.arquivo ? o.arquivo : null
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
  * A pasta do projeto em que a pessoa está, relativa à pasta autorizada.
  *
  * É dela que saem os scripts (npm run dev), o terminal e o VS Code. A pasta

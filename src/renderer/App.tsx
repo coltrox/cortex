@@ -324,8 +324,6 @@ export function App() {
             aoTerminal={(raiz, sub) => void v.abrirTerminal(raiz, sub)}
             aoNovoProjeto={(modelo, linguagem, nome) => v.novoProjeto(modelo, linguagem, nome)}
             aoClonarRepo={url => v.clonarRepo(url)}
-            lateralEscondida={semLateral}
-            aoAlternarLateral={() => setSemLateral(s => !s)}
             aoRevelar={(raiz, sub) => void v.revelar(raiz, sub)}
             aoCriarPasta={p => void v.criarPasta(p)}
             aoMoverNota={(de, para) => void v.mover(de, para)}

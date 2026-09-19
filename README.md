@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**69 arquivos, 1215 testes**, rodando em ~23 s.
+**69 arquivos, 1217 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -407,7 +407,7 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
-`v2.6.17` — o conector do Claude mostra "Conectado" quando já está registrado; botão de menu no topo (Ctrl+B) com a tela usando a largura toda, Explorer do Dev consertado; pasta de projetos dentro do Cortex, ajuda para instalar a ferramenta que falta, botão Conectar do Claude, esconder o menu (Ctrl+B) e interromper todos os terminais; Ctrl+F no editor do Dev e clicar num projeto entra nele; criar projeto abre a pasta dele como a do editor e já abre o arquivo principal; criar projeto corrigido (subpastas, aviso do que instalar, sem o erro ENOENT ao abrir o projeto novo) e botão "Salvar sozinho" no editor do Dev; atualizar não tira mais o Cortex da barra de tarefas; lente Dev como o VS Code: árvore que abre para baixo, arrastar arquivos do Explorer para dentro de uma pasta, mover arrastando, renomear (F2), excluir para a Lixeira, foto e PDF abertos no app, fechar o arquivo aberto, código colorido (tema Min), editor ampliável, scripts no projeto em que se está e o projeto recém-criado já aberto, Novo projeto todo em cascata, Google Agenda de duas vias, que também puxa os seus outros calendários (um calendário "Cortex" na conta Google), paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
+`v2.6.18` — o Dev lembra o projeto e o arquivo abertos; o conector do Claude mostra "Conectado" quando já está registrado; botão de menu no topo (Ctrl+B) com a tela usando a largura toda, Explorer do Dev consertado; pasta de projetos dentro do Cortex, ajuda para instalar a ferramenta que falta, botão Conectar do Claude, esconder o menu (Ctrl+B) e interromper todos os terminais; Ctrl+F no editor do Dev e clicar num projeto entra nele; criar projeto abre a pasta dele como a do editor e já abre o arquivo principal; criar projeto corrigido (subpastas, aviso do que instalar, sem o erro ENOENT ao abrir o projeto novo) e botão "Salvar sozinho" no editor do Dev; atualizar não tira mais o Cortex da barra de tarefas; lente Dev como o VS Code: árvore que abre para baixo, arrastar arquivos do Explorer para dentro de uma pasta, mover arrastando, renomear (F2), excluir para a Lixeira, foto e PDF abertos no app, fechar o arquivo aberto, código colorido (tema Min), editor ampliável, scripts no projeto em que se está e o projeto recém-criado já aberto, Novo projeto todo em cascata, Google Agenda de duas vias, que também puxa os seus outros calendários (um calendário "Cortex" na conta Google), paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
 Estudos, acontecimentos na Agenda, clonar repositório do GitHub na lente Dev e
 um conector MCP para o Claude Code consultar o vault. A 2.3.0 trouxe o redesign
 do app de computador: tema escuro próprio, sidebar única, página Hoje em duas

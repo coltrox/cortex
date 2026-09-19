@@ -1335,8 +1335,6 @@ body {
   .shell, .shell > .sidebar-app { transition: none; }
 }
 .icone-lateral { flex: none; }
-.dev-alternar-menu { display: inline-flex; align-items: center; gap: 7px; }
-.dev-alternar-menu[aria-pressed="true"] { color: var(--text); border-color: var(--border-strong); background: var(--surface); }
 /* O botão do menu no topo, antes do caminho: só o ícone com o menu à vista,
    "Abrir menu" quando ele está escondido. */
 .topo-menu {

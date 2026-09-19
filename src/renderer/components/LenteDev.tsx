@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState, type DragEvent, type ReactNod
 import { PainelRodar } from './PainelRodar'
 import { EditorCodigo } from './EditorCodigo'
 import { NovoProjeto, AvisoErro } from './NovoProjeto'
-import { projetoDoFoco, type Foco } from './projetoAtual'
-import { IconeLateral } from './IconeLateral'
+import { projetoDoFoco, lerEstadoDev, type Foco, type EstadoDev } from './projetoAtual'
 import type { EntradaDev } from '../useVault'
 import type { LinguagemProjeto, ModeloProjeto } from '../../shared/types'
 import { Secao, Titulo, Linha, Vazio, txt, type PropsLente } from './base'
@@ -43,10 +42,6 @@ type PropsDev = PropsLente & {
   ) => Promise<{ raiz: string; pasta: string } | { erro: string }>
   /** Clona um repositório do GitHub na pasta de projetos do Cortex. */
   aoClonarRepo: (url: string) => Promise<{ raiz: string; pasta: string } | { erro: string }>
-  /** O menu lateral do app está escondido (o código ocupando a tela). */
-  lateralEscondida?: boolean
-  /** Esconde ou mostra o menu lateral do app — o mesmo que o Ctrl+B. */
-  aoAlternarLateral?: () => void
 }
 
 const nomeBase = (p: string): string => p.slice(p.lastIndexOf('/') + 1).replace(/\.md$/i, '')
@@ -309,6 +304,8 @@ const TIPO_ITEM = 'application/x-cortex-dev-item'
 const EXT_MIDIA = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'pdf'])
 /** Nas preferências do computador: '1' liga o salvar sozinho do editor. */
 const CHAVE_SALVAR_SOZINHO = 'dev.salvarSozinho'
+/** Nas preferências do computador: onde a pessoa estava no Dev (ver `EstadoDev`). */
+const CHAVE_ESTADO_DEV = 'dev.estado'
 /** Arquivos que dizem "esta pasta é um projeto" — e não uma pasta que guarda projetos. */
 const MARCAS_DE_PROJETO = new Set([
   'package.json', 'go.mod', 'Cargo.toml', 'pom.xml', 'build.gradle', 'build.gradle.kts',
@@ -329,7 +326,7 @@ const ARQUIVOS_INICIAIS = [
 
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
-  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo, lateralEscondida = false, aoAlternarLateral
+  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo
 }: PropsDev) {
   const [sobrevoando, setSobrevoando] = useState(false)
   const [raiz, setRaiz] = useState<string | null>(pastasDev[0] ?? null)
@@ -478,6 +475,59 @@ function Codigo({
   useEffect(() => {
     if (raiz) void lerPasta(raiz, '')
   }, [raiz, lerPasta])
+
+  /*
+   * Onde a pessoa estava: pasta aberta, projeto em que entrou, pastas
+   * expandidas e arquivo aberto. Pedido do dono — trocar de área ou fechar o
+   * Cortex e voltar cai no mesmo lugar. Lido uma vez (a lente Dev desmonta ao
+   * trocar de área), e aplicado quando a lista de pastas chega.
+   */
+  const restaurado = useRef(false)
+  const [lembrado, setLembrado] = useState<EstadoDev | null | undefined>(undefined)
+  useEffect(() => {
+    void window.vaultApi.lerPrefs()
+      .then(p => setLembrado(lerEstadoDev(p[CHAVE_ESTADO_DEV])))
+      .catch(() => setLembrado(null))
+  }, [])
+
+  useEffect(() => {
+    if (restaurado.current || lembrado === undefined || pastasDev.length === 0) return
+    restaurado.current = true
+    const e = lembrado
+    if (!e || !pastasDev.includes(e.raiz) || querRaiz) return
+    void (async () => {
+      setRaiz(e.raiz)
+      setFilhos({})
+      setBase(e.base)
+      setAbertas(new Set(e.abertas))
+      setFoco(e.base ? { rel: e.base, pasta: true } : null)
+      await Promise.all([
+        lerPasta(e.raiz, ''),
+        ...(e.base ? [lerPasta(e.raiz, e.base)] : []),
+        ...e.abertas.map(a => lerPasta(e.raiz, a))
+      ])
+      // O arquivo só reabre se ainda existe e é texto — apagado por fora, fica
+      // só o projeto aberto, sem aviso de erro.
+      if (e.arquivo) {
+        const irmaos = await arvore(e.raiz, paiDe(e.arquivo)).catch(() => [])
+        if (irmaos.some(x => x.rel === e.arquivo && x.editavel)) {
+          setFoco({ rel: e.arquivo, pasta: false })
+          await abrirArquivo(e.arquivo)
+        }
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lembrado, pastasDev])
+
+  // Guarda a cada mudança (meio segundo depois, para não gravar a cada clique).
+  useEffect(() => {
+    if (!restaurado.current || !raiz) return
+    const t = setTimeout(() => {
+      const e: EstadoDev = { raiz, base, abertas: [...abertas], arquivo }
+      void window.vaultApi.gravarPref(CHAVE_ESTADO_DEV, JSON.stringify(e)).catch(() => {})
+    }, 500)
+    return () => clearTimeout(t)
+  }, [raiz, base, abertas, arquivo])
 
   // O projeto recém-criado vem para a vista assim que a linha dele existe.
   useEffect(() => {
@@ -998,17 +1048,6 @@ function Codigo({
             <button className="btn-fantasma pequeno" onClick={() => setCriandoProjeto(true)}>+ Novo projeto</button>
             <button className="btn-fantasma pequeno" onClick={() => setClonando(true)}>Clonar do GitHub</button>
             <button className="btn-fantasma pequeno" title="Abrir outra pasta de código do computador" onClick={aoAutorizar}>Abrir pasta</button>
-            {aoAlternarLateral && (
-              <button
-                className="btn-fantasma pequeno dev-alternar-menu"
-                aria-pressed={lateralEscondida}
-                title={lateralEscondida ? 'Mostrar o menu lateral (Ctrl+B)' : 'Esconder o menu lateral, para o código ocupar a tela (Ctrl+B)'}
-                onClick={aoAlternarLateral}
-              >
-                <IconeLateral aberta={!lateralEscondida} />
-                {lateralEscondida ? 'Abrir menu' : 'Esconder menu'}
-              </button>
-            )}
           </span>
         }
       />
