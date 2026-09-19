@@ -28,6 +28,7 @@ import { LenteEstudos } from './components/LenteEstudos'
 import { LenteGrana } from './components/LenteGrana'
 import { LenteDev } from './components/LenteDev'
 import { TerminalFlutuante } from './components/TerminalFlutuante'
+import { IconeLateral } from './components/IconeLateral'
 
 /** Engrenagem do rodapé do rail — abre as Configurações. */
 function IconeConfig({ size = 18 }: { size?: number }) {
@@ -323,7 +324,8 @@ export function App() {
             aoTerminal={(raiz, sub) => void v.abrirTerminal(raiz, sub)}
             aoNovoProjeto={(modelo, linguagem, nome) => v.novoProjeto(modelo, linguagem, nome)}
             aoClonarRepo={url => v.clonarRepo(url)}
-            aoEsconderLateral={() => setSemLateral(true)}
+            lateralEscondida={semLateral}
+            aoAlternarLateral={() => setSemLateral(s => !s)}
             aoRevelar={(raiz, sub) => void v.revelar(raiz, sub)}
             aoCriarPasta={p => void v.criarPasta(p)}
             aoMoverNota={(de, para) => void v.mover(de, para)}
@@ -339,11 +341,6 @@ export function App() {
   return (
     <>
       <div className="shell" data-lente={v.lente} data-sem-lateral={semLateral}>
-        {semLateral && (
-          <button className="sb-abrir" title="Mostrar o menu (Ctrl+B)" onClick={() => setSemLateral(false)}>
-            ☰ Menu
-          </button>
-        )}
         {/*
           * A sidebar única do redesign.
           *
@@ -425,6 +422,17 @@ export function App() {
 
         <main className="main">
           <div className="topo">
+            {/* Esconder e mostrar o menu, em qualquer tela (o mesmo que Ctrl+B).
+                Escondido, o botão diz "Abrir menu" — é por ele que se volta. */}
+            <button
+              className="topo-menu"
+              aria-pressed={semLateral}
+              title={semLateral ? 'Abrir o menu (Ctrl+B)' : 'Esconder o menu (Ctrl+B)'}
+              onClick={() => setSemLateral(s => !s)}
+            >
+              <IconeLateral aberta={!semLateral} />
+              {semLateral && <span>Abrir menu</span>}
+            </button>
             <span className="caminho">
               <strong>{lenteAtual?.nome}</strong>
               {subs && (

@@ -3,6 +3,7 @@ import { PainelRodar } from './PainelRodar'
 import { EditorCodigo } from './EditorCodigo'
 import { NovoProjeto, AvisoErro } from './NovoProjeto'
 import { projetoDoFoco, type Foco } from './projetoAtual'
+import { IconeLateral } from './IconeLateral'
 import type { EntradaDev } from '../useVault'
 import type { LinguagemProjeto, ModeloProjeto } from '../../shared/types'
 import { Secao, Titulo, Linha, Vazio, txt, type PropsLente } from './base'
@@ -42,8 +43,10 @@ type PropsDev = PropsLente & {
   ) => Promise<{ raiz: string; pasta: string } | { erro: string }>
   /** Clona um repositório do GitHub na pasta de projetos do Cortex. */
   aoClonarRepo: (url: string) => Promise<{ raiz: string; pasta: string } | { erro: string }>
-  /** Esconde a barra lateral do app, para o código ocupar a tela (volta pelo ☰ ou Ctrl+B). */
-  aoEsconderLateral?: () => void
+  /** O menu lateral do app está escondido (o código ocupando a tela). */
+  lateralEscondida?: boolean
+  /** Esconde ou mostra o menu lateral do app — o mesmo que o Ctrl+B. */
+  aoAlternarLateral?: () => void
 }
 
 const nomeBase = (p: string): string => p.slice(p.lastIndexOf('/') + 1).replace(/\.md$/i, '')
@@ -326,7 +329,7 @@ const ARQUIVOS_INICIAIS = [
 
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
-  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo, aoEsconderLateral
+  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo, lateralEscondida = false, aoAlternarLateral
 }: PropsDev) {
   const [sobrevoando, setSobrevoando] = useState(false)
   const [raiz, setRaiz] = useState<string | null>(pastasDev[0] ?? null)
@@ -995,9 +998,15 @@ function Codigo({
             <button className="btn-fantasma pequeno" onClick={() => setCriandoProjeto(true)}>+ Novo projeto</button>
             <button className="btn-fantasma pequeno" onClick={() => setClonando(true)}>Clonar do GitHub</button>
             <button className="btn-fantasma pequeno" title="Abrir outra pasta de código do computador" onClick={aoAutorizar}>Abrir pasta</button>
-            {aoEsconderLateral && (
-              <button className="btn-fantasma pequeno" title="Esconder o menu lateral (Ctrl+B)" onClick={aoEsconderLateral}>
-                ⇤ Esconder menu
+            {aoAlternarLateral && (
+              <button
+                className="btn-fantasma pequeno dev-alternar-menu"
+                aria-pressed={lateralEscondida}
+                title={lateralEscondida ? 'Mostrar o menu lateral (Ctrl+B)' : 'Esconder o menu lateral, para o código ocupar a tela (Ctrl+B)'}
+                onClick={aoAlternarLateral}
+              >
+                <IconeLateral aberta={!lateralEscondida} />
+                {lateralEscondida ? 'Abrir menu' : 'Esconder menu'}
               </button>
             )}
           </span>

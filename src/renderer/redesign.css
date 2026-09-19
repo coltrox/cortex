@@ -1325,16 +1325,33 @@ body {
 /* ---------- Esconder o menu lateral (2.6.15) ----------
    Some por inteiro: o conteúdo ocupa a largura toda, e o ☰ no canto (ou
    Ctrl+B) traz o menu de volta. */
-.shell[data-sem-lateral="true"] { grid-template-columns: minmax(0, 1fr); }
-.shell[data-sem-lateral="true"] > .sidebar-app { display: none; }
-.sb-abrir {
-  position: fixed; top: 8px; left: 10px; z-index: 30;
-  display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px;
-  font: inherit; font-size: 12.5px; color: var(--text-2); cursor: pointer;
-  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px;
+/* A barra desliza para fora (a coluna encolhe até zero) em vez de sumir de
+   uma vez; o conteúdo acompanha. */
+.shell { transition: grid-template-columns .24s var(--curva, ease); }
+.shell > .sidebar-app { min-width: 0; overflow: hidden; transition: opacity .18s var(--curva, ease); }
+.shell[data-sem-lateral="true"] { grid-template-columns: 0px minmax(0, 1fr); }
+.shell[data-sem-lateral="true"] > .sidebar-app { opacity: 0; pointer-events: none; border-right-color: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  .shell, .shell > .sidebar-app { transition: none; }
+}
+.icone-lateral { flex: none; }
+.dev-alternar-menu { display: inline-flex; align-items: center; gap: 7px; }
+.dev-alternar-menu[aria-pressed="true"] { color: var(--text); border-color: var(--border-strong); background: var(--surface); }
+/* O botão do menu no topo, antes do caminho: só o ícone com o menu à vista,
+   "Abrir menu" quando ele está escondido. */
+.topo-menu {
+  flex: none; display: inline-flex; align-items: center; gap: 7px;
+  height: 28px; padding: 0 8px; margin: 0 10px 0 -6px;
+  font: inherit; font-size: 12.5px; color: var(--text-3); cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-radius: 7px;
   -webkit-app-region: no-drag;
 }
-.sb-abrir:hover { color: var(--text); border-color: var(--text-3); }
-.shell[data-sem-lateral="true"] .topo { padding-left: 110px; }
+.topo-menu:hover { color: var(--text); background: var(--surface-sunk); border-color: var(--border); }
+.topo-menu[aria-pressed="true"] { color: var(--text); padding: 0 11px; background: var(--surface); border-color: var(--border-strong); }
+
+/* Com o menu escondido, o conteúdo usa a largura toda — em qualquer tela.
+   No Dev, sempre: código e árvore aproveitam cada coluna. */
+.shell[data-sem-lateral="true"] .lente,
+.shell[data-lente="dev"] .lente { max-width: none; }
 /* A pasta de projetos vazia: por onde começar. */
 .dev-comecar { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 12px; font-size: 12.5px; color: var(--text-3); }

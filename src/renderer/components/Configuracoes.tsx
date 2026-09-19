@@ -389,8 +389,15 @@ function BlocoGoogle() {
           </div>
           {!estado.podeLer && (
             <p className="config-alerta google-erro">
-              Para puxar os compromissos da sua agenda do Google, conecte de novo
-              e autorize a leitura dos calendários.{' '}
+              {/*
+                Só aparece para quem conectou antes de o Cortex ler os outros
+                calendários: a permissão nova precisa ser aprovada UMA vez.
+                Dizer isso evita a impressão de que é preciso reconectar sempre.
+              */}
+              Falta uma permissão, só desta vez: quando você conectou, o Cortex ainda não
+              lia os seus outros calendários. Clique em “Conectar de novo” e, na tela do
+              Google, deixe marcada a opção de ver os seus calendários. Depois disso tudo
+              sincroniza sozinho.{' '}
               <button className="btn-fantasma" disabled={ocupado !== null}
                 onClick={() => void fazer('conectar', () => window.vaultApi.google.conectar())}>
                 {ocupado === 'conectar' ? 'Esperando o login…' : 'Conectar de novo'}

@@ -829,7 +829,18 @@ ipcMain.handle('dev:reveal', async (_e, payload: unknown) => {
   const p = (payload ?? {}) as { raiz?: unknown; sub?: unknown }
   if (typeof p.raiz !== 'string') throw new Error('raiz inválida')
   const alvo = session.pastasDev.resolver(p.raiz, typeof p.sub === 'string' ? p.sub : '')
-  await shell.openPath(alvo)
+  // No Windows, o explorer.exe direto: o `shell.openPath` respondia "ok" e
+  // não abria janela nenhuma na pasta de projetos (dentro do AppData), e a
+  // falha ficava muda. O caminho vai como argumento, nunca dentro de um
+  // comando montado.
+  if (process.platform === 'win32') {
+    spawn(join(process.env.SystemRoot ?? 'C:\\Windows', 'explorer.exe'), [alvo], {
+      detached: true, stdio: 'ignore', windowsHide: false
+    }).unref()
+    return { ok: true }
+  }
+  const erro = await shell.openPath(alvo)
+  if (erro) throw new Error(`não deu para abrir a pasta: ${erro}`)
   return { ok: true }
 })
 
