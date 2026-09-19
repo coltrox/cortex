@@ -222,3 +222,13 @@ describe('PastasDev — mover, renomear, excluir e ver mídia', () => {
     expect(tipoDeMidia('a.zip')).toBeNull()
   })
 })
+
+describe('PastasDev — pasta que ainda não existe', () => {
+  it('lista vazio em vez de erro (o projeto novo ainda está sendo criado)', async () => {
+    expect(await autorizado().listar(proj, 'ainda-nao-existe')).toEqual([])
+  })
+
+  it('continua recusando o que sai da pasta autorizada', async () => {
+    await expect(autorizado().listar(proj, '../segredos')).rejects.toThrow(/fora/)
+  })
+})
