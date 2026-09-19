@@ -292,6 +292,12 @@ const TIPO_ITEM = 'application/x-cortex-dev-item'
 const EXT_MIDIA = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'pdf'])
 /** Nas preferências do computador: '1' liga o salvar sozinho do editor. */
 const CHAVE_SALVAR_SOZINHO = 'dev.salvarSozinho'
+/** Arquivos que dizem "esta pasta é um projeto" — e não uma pasta que guarda projetos. */
+const MARCAS_DE_PROJETO = new Set([
+  'package.json', 'go.mod', 'Cargo.toml', 'pom.xml', 'build.gradle', 'build.gradle.kts',
+  'requirements.txt', 'pyproject.toml', 'composer.json', 'Gemfile', 'pubspec.yaml',
+  'CMakeLists.txt', 'Makefile', 'index.html'
+])
 /**
  * O arquivo que abre sozinho quando um projeto novo aparece — o primeiro que
  * existir, na ordem. É o "por onde começar" de cada modelo.
@@ -787,6 +793,12 @@ function Codigo({
   // Sem nada clicado, o projeto é a pasta aberta na árvore.
   const projeto = projetoDoFoco(foco ?? (base ? { rel: base, pasta: true } : null), filhos)
   const nomeBase = base ? base.slice(base.lastIndexOf('/') + 1) : ''
+  /**
+   * A pasta autorizada é ela mesma um projeto (tem package.json, go.mod…)?
+   * Aí clicar nas pastas dela expande, como sempre. Se não — é uma pasta de
+   * projetos, como `Desktop\projetos` —, clicar num projeto entra nele.
+   */
+  const raizEhProjeto = (filhos[''] ?? []).some(e => !e.pasta && MARCAS_DE_PROJETO.has(e.nome))
   const nomeRaiz = raiz ? raiz.split(/[\\/]/).filter(Boolean).pop() ?? raiz : ''
 
   // Arrastar do explorador de arquivos é o atalho para o mesmo diálogo: o
@@ -886,7 +898,13 @@ function Codigo({
             else if (e.key === 'Delete') { e.preventDefault(); void excluirItem(it) }
           }}
           onClick={async () => {
-            if (it.pasta) alternarPasta(it.rel)
+            if (it.pasta) {
+              // Na pasta de projetos, clicar num projeto ENTRA nele (a árvore
+              // vira o projeto, o ‹ volta). Dentro dele, as pastas abrem para
+              // baixo, como no VS Code. Pedido do dono.
+              if (nivel === 0 && !base && !raizEhProjeto) abrirComoBase(it.rel)
+              else alternarPasta(it.rel)
+            }
             else if (it.rel === arquivo || it.rel === visor?.rel) return
             else if (it.editavel) {
               if (!(await podeLargar('Trocar de arquivo sem salvar as mudanças?'))) return

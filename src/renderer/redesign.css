@@ -1257,3 +1257,35 @@ body {
 
 /* O ‹ que volta da pasta aberta (o projeto) para a pasta autorizada inteira. */
 .dev-arvore-voltar { flex: none; font-size: 16px; margin-left: -6px; margin-right: -2px; }
+
+/* ---------- Ctrl+F no editor (2.6.14) ----------
+   As ocorrências são uma camada por baixo da cor: letra invisível, só o
+   fundo das marcas aparece. Por isso a cor deixa de pintar o fundo. */
+.codigo-camadas { background: var(--surface); }
+.codigo-cor { background: transparent !important; }
+.codigo-camadas > .codigo-marcas {
+  position: absolute; inset: 0; margin: 0; padding: 12px; padding-right: 40px; padding-bottom: 40px;
+  font: 13px/1.6 var(--mono); tab-size: 2; white-space: pre; overflow: hidden;
+  color: transparent; pointer-events: none;
+}
+.codigo-marcas mark {
+  color: transparent; border-radius: 2px;
+  background: color-mix(in srgb, var(--pale-yel) 38%, transparent);
+}
+.codigo-marcas mark.atual {
+  background: color-mix(in srgb, var(--pale-yel) 75%, transparent);
+  box-shadow: 0 0 0 1px var(--pale-yel);
+}
+.codigo-busca {
+  position: absolute; top: 8px; right: 22px; z-index: 3;
+  display: flex; align-items: center; gap: 4px; padding: 5px 6px 5px 8px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
+}
+.codigo-busca input {
+  width: 190px; padding: 4px 8px; font: 12.5px var(--mono); color: var(--text);
+  background: var(--surface-sunk); border: 1px solid var(--border); border-radius: 4px; outline: none;
+}
+.codigo-busca input:focus { border-color: var(--accent); }
+.codigo-busca-conta { min-width: 62px; font-size: 11.5px; color: var(--text-3); text-align: center; white-space: nowrap; }
+.codigo-busca-conta[data-vazio="true"] { color: var(--pale-red); }
