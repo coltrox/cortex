@@ -249,6 +249,12 @@ export class Processos {
     for (const id of this.mapa.keys()) this.parar(id)
   }
 
+  /** Esquece um processo que já terminou. Um que ainda roda fica — só o "parar" o tira. */
+  esquecer(id: string): void {
+    const p = this.mapa.get(id)
+    if (p && p.saiu !== null) this.mapa.delete(id)
+  }
+
   /** Esquece processos já encerrados, para a lista não crescer para sempre. */
   limparEncerrados(): void {
     for (const [id, p] of this.mapa) if (p.saiu !== null) this.mapa.delete(id)

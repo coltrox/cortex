@@ -7,7 +7,7 @@ import { registerIpc, sincronizadorDe } from './ipc/handlers'
 import { ligarCampainha, desligarCampainha } from './nuvem/campainha'
 import { Processos, scriptsDoProjeto } from './dev/processos'
 import {
-  etapasNovoProjeto, arquivosNovoProjeto, escreverArquivosIniciais, comandosExternos, comandoInstalado, avisoDeFalta, nomeDeProjetoValido, MODELOS_PROJETO, LINGUAGENS_PROJETO,
+  etapasNovoProjeto, arquivosNovoProjeto, escreverArquivosIniciais, comandosExternos, comandoInstalado, avisoDeFalta, atualizarPathDoWindows, rodarCurto, nomeDeProjetoValido, MODELOS_PROJETO, LINGUAGENS_PROJETO,
   NOME_MODELO, repoDoGithub
 } from './dev/novoProjeto'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
@@ -128,6 +128,7 @@ async function abrirVault(root: string): Promise<{ root: string; config: ConfigP
     )
   }
   await session.open(root, avisarMudanca)
+  await garantirPastaDeProjetos().catch(err => console.error('[cortex] pasta de projetos:', err))
   await lembrarVault(session.vault.root)
   void atualizarInstrucoesClaude()
   ligarCampainha(session.config, aoTocarCampainha)
@@ -315,19 +316,47 @@ ipcMain.handle('google:desconectar', async () => agenda.desconectar())
  * `CORTEX_DADOS` diz onde está o `cortex.json` com o último vault, e
  * `CORTEX_APP` de onde carregar o gray-matter que o app já usa.
  */
-ipcMain.handle('app:conectorClaude', async () => {
+/**
+ * Os argumentos do `claude mcp add` que registra o conector: os caminhos
+ * DESTA instalação, entre aspas (um nome de usuário com espaço quebraria o
+ * caminho no meio). O mesmo texto serve para o botão "Copiar comando" e para
+ * o "Conectar", que o roda num terminal do próprio app.
+ */
+function argsDoConector(): string[] {
   const script = app.isPackaged
     ? join(process.resourcesPath, 'cortex-mcp.mjs')
     : join(app.getAppPath(), 'resources', 'mcp', 'cortex-mcp.mjs')
   const aspas = (s: string): string => `"${s}"`
-  const comando = [
-    'claude mcp add cortex --scope user',
-    '-e ELECTRON_RUN_AS_NODE=1',
-    `-e CORTEX_DADOS=${aspas(app.getPath('userData'))}`,
-    `-e CORTEX_APP=${aspas(app.getAppPath())}`,
+  return [
+    'mcp', 'add', 'cortex', '--scope', 'user',
+    '-e', 'ELECTRON_RUN_AS_NODE=1',
+    '-e', `CORTEX_DADOS=${aspas(app.getPath('userData'))}`,
+    '-e', `CORTEX_APP=${aspas(app.getAppPath())}`,
     '--', aspas(process.execPath), aspas(script)
-  ].join(' ')
-  return { comando }
+  ]
+}
+
+ipcMain.handle('app:conectorClaude', async () => {
+  return { comando: ['claude', ...argsDoConector()].join(' ') }
+})
+
+/**
+ * O botão "Conectar" do conector do Claude.
+ *
+ * Roda o `claude mcp add` como um processo do Cortex — a saída aparece num
+ * terminal dentro das Configurações, que fecha sozinho quando dá certo.
+ * Pedido do dono. Antes remove um "cortex" que já exista (outra versão,
+ * outro caminho): sem isso o add responderia que ele já existe.
+ */
+ipcMain.handle('app:conectar-claude', async () => {
+  await atualizarPathDoWindows()
+  if (!(await comandoInstalado('claude'))) throw new Error(avisoDeFalta('claude'))
+  const shell = process.platform === 'win32'
+  await rodarCurto('claude', ['mcp', 'remove', 'cortex', '--scope', 'user'], shell)
+  const processo = processos.iniciarEtapas(app.getPath('userData'), 'conectar o Claude', [
+    { comando: 'claude', args: argsDoConector(), cwd: app.getPath('home') }
+  ])
+  return { processo }
 })
 
 /*
@@ -393,6 +422,33 @@ ipcMain.handle('vault:pick', async () => {
 function pastaDosVaults(): string {
   return join(app.getPath('userData'), 'vaults')
 }
+
+/**
+ * A pasta dos projetos do Dev: `userData\projetos`, ao lado dos vaults.
+ *
+ * Pedido do dono: os projetos que o Cortex cria (e os que clona) ficam nos
+ * arquivos do próprio Cortex, como o vault — e não mais na Área de Trabalho.
+ * Ela já vem criada e aberta no Dev; outras pastas entram por "Abrir pasta".
+ */
+function pastaDeProjetos(): string {
+  return join(app.getPath('userData'), 'projetos')
+}
+
+/**
+ * A pasta de projetos existe e está autorizada, na frente da lista.
+ * Roda a cada vault aberto: a lista de autorização mora no vault, e um vault
+ * novo (ou um em que ela foi tirada) volta a tê-la.
+ */
+async function garantirPastaDeProjetos(): Promise<void> {
+  if (!session.isOpen) return
+  const base = pastaDeProjetos()
+  await mkdir(base, { recursive: true })
+  const atuais = session.config.pastasDev
+  if (atuais.some(x => resolve(x) === resolve(base))) return
+  await session.salvarConfig({ pastasDev: [base, ...atuais] })
+}
+
+ipcMain.handle('dev:pasta-projetos', async () => pastaDeProjetos())
 
 /**
  * O primeiro nome livre dentro de `vaults`.
@@ -525,6 +581,20 @@ ipcMain.handle('dev:rodar', async (_e, payload: unknown) => {
   return processos.iniciar(p.raiz, cwd, p.script)
 })
 
+/** Tira da lista um processo que já terminou (o terminal do "Conectar", que fecha sozinho). */
+ipcMain.handle('dev:esquecer', async (_e, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown }
+  if (typeof p.id !== 'string') throw new Error('id inválido')
+  processos.esquecer(p.id)
+  return { ok: true }
+})
+
+/** O "Interromper todos" do terminal: para tudo que o Cortex iniciou. */
+ipcMain.handle('dev:parar-todos', async () => {
+  processos.pararTudo()
+  return { ok: true }
+})
+
 ipcMain.handle('dev:parar', async (_e, payload: unknown) => {
   const p = (payload ?? {}) as { id?: unknown }
   if (typeof p.id !== 'string') throw new Error('id inválido')
@@ -546,7 +616,7 @@ ipcMain.handle('dev:limpar-encerrados', async () => {
 })
 
 /**
- * Cria um projeto novo em `Área de Trabalho\projetos` e já instala tudo.
+ * Cria um projeto novo na pasta de projetos do Cortex e já instala tudo.
  *
  * A tela manda três coisas: o modelo e a linguagem, de listas fechadas, e um
  * nome, conferido pelo formato estreito de `novoProjeto.ts`. Os comandos são
@@ -569,7 +639,7 @@ ipcMain.handle('dev:novo-projeto', async (_e, payload: unknown) => {
   }
   const nome = p.nome
 
-  const base = join(app.getPath('desktop'), 'projetos')
+  const base = pastaDeProjetos()
   await mkdir(base, { recursive: true })
   if (await stat(join(base, nome)).catch(() => null)) {
     throw new Error(`já existe uma pasta "${nome}" em projetos`)
@@ -579,6 +649,7 @@ ipcMain.handle('dev:novo-projeto', async (_e, payload: unknown) => {
   // neste computador? Se não, um aviso claro do que instalar — e nenhuma
   // pasta pela metade.
   const etapas = etapasNovoProjeto(modelo, linguagem, nome, base)
+  await atualizarPathDoWindows()
   for (const c of comandosExternos(etapas)) {
     if (!(await comandoInstalado(c))) throw new Error(avisoDeFalta(c))
   }
@@ -602,7 +673,7 @@ ipcMain.handle('dev:novo-projeto', async (_e, payload: unknown) => {
 })
 
 /**
- * Clona um repositório do GitHub em `Área de Trabalho\projetos`.
+ * Clona um repositório do GitHub na pasta de projetos do Cortex.
  *
  * Mesma exceção consciente do novo projeto: a pasta `projetos` entra na
  * autorização sem diálogo, porque o lugar é fixo e escolhido aqui. O que vem
@@ -614,11 +685,12 @@ ipcMain.handle('dev:clonar-repo', async (_e, payload: unknown) => {
   const repo = repoDoGithub((payload as { url?: unknown } | null)?.url)
   if (!repo) throw new Error('repositório inválido: use o link do GitHub ou dono/repositório')
 
-  const base = join(app.getPath('desktop'), 'projetos')
+  const base = pastaDeProjetos()
   await mkdir(base, { recursive: true })
   if (await stat(join(base, repo.nome)).catch(() => null)) {
     throw new Error(`já existe uma pasta "${repo.nome}" em projetos`)
   }
+  await atualizarPathDoWindows()
   if (!(await comandoInstalado('git'))) throw new Error(avisoDeFalta('git'))
 
   let pastasDev = session.config.pastasDev

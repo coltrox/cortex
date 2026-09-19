@@ -1,6 +1,7 @@
 import { join, resolve, relative, isAbsolute, dirname } from 'node:path'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
+import { avisoDeFalta } from '../../shared/ferramentas'
 import type { Etapa } from './processos'
 import type { ModeloProjeto, LinguagemProjeto } from '../../shared/types'
 
@@ -107,27 +108,6 @@ const GITIGNORE_PYTHON = '.venv/\n__pycache__/\n*.pyc\n.env\n'
  * Nos outros modelos o criador oficial monta tudo, e a lista é vazia.
  */
 /**
- * O que instalar quando um comando das etapas não existe no computador.
- *
- * Sem esta conferência, criar um projeto Python num PC sem Python rodava o
- * atalho falso da Microsoft Store, que responde em inglês "Python was not
- * found…" — e ainda sobrava uma pasta de projeto pela metade.
- */
-const FERRAMENTAS: Record<string, { nome: string; onde: string }> = {
-  git: { nome: 'O Git', onde: 'git-scm.com/downloads' },
-  npm: { nome: 'Node.js', onde: 'nodejs.org' },
-  npx: { nome: 'Node.js', onde: 'nodejs.org' },
-  python: { nome: 'Python', onde: 'python.org/downloads (marque "Add python.exe to PATH" na instalação)' },
-  dotnet: { nome: 'O SDK do .NET', onde: 'dotnet.microsoft.com/download' },
-  mvn: { nome: 'O Maven', onde: 'maven.apache.org (precisa também do JDK)' },
-  go: { nome: 'Go', onde: 'go.dev/dl' },
-  cargo: { nome: 'Rust', onde: 'rustup.rs' },
-  composer: { nome: 'O Composer', onde: 'getcomposer.org (precisa também do PHP)' },
-  rails: { nome: 'O Ruby on Rails', onde: 'rubyonrails.org (precisa do Ruby)' },
-  flutter: { nome: 'O Flutter', onde: 'docs.flutter.dev/get-started/install' }
-}
-
-/**
  * Os programas de que as etapas dependem, sem repetir. Fica de fora o que
  * mora dentro do projeto (o python do `.venv`, que tem barra no caminho) —
  * ele é criado pelas próprias etapas.
@@ -136,39 +116,93 @@ export function comandosExternos(etapas: Etapa[]): string[] {
   return [...new Set(etapas.map(e => e.comando).filter(c => !/[\\/]/.test(c)))]
 }
 
-/** Código de saída de "comando não encontrado": 9009 no Windows (cmd e o atalho da Store), 127 nos outros. */
+/** Código de saída de "comando não encontrado" do atalho falso do Python da Microsoft Store (e do sh). */
 export function comandoFaltou(codigo: number | null): boolean {
   return codigo === 9009 || codigo === 127
 }
 
-export function avisoDeFalta(comando: string): string {
-  const f = FERRAMENTAS[comando]
-  return f
-    ? `${f.nome} não está instalado neste computador (ou não está no PATH). Instale em ${f.onde} e tente de novo.`
-    : `${comando} não está instalado neste computador (ou não está no PATH).`
+// O aviso e a ajuda para instalar moram em `shared/ferramentas.ts`: a tela
+// usa a mesma tabela para mostrar o link e o comando do winget.
+export { avisoDeFalta }
+
+type Rodada = { ok: boolean; codigo: number | null; saida: string }
+
+/** Roda um comando curto e devolve o código e a saída. Demorar mais de 15 s conta como "existe". */
+export function rodarCurto(comando: string, args: string[], shell: boolean): Promise<Rodada> {
+  return new Promise(ok => {
+    let fim = false
+    let saida = ''
+    const acabar = (r: Rodada): void => { if (!fim) { fim = true; ok(r) } }
+    try {
+      const filho = spawn(comando, args, { shell, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] })
+      filho.stdout?.on('data', (d: Buffer) => { saida += d.toString() })
+      filho.on('error', () => acabar({ ok: false, codigo: null, saida }))
+      filho.on('close', codigo => acabar({ ok: codigo === 0, codigo, saida }))
+      setTimeout(() => { filho.kill(); acabar({ ok: true, codigo: null, saida }) }, 15_000)
+    } catch { acabar({ ok: false, codigo: null, saida }) }
+  })
 }
 
 /**
- * Confere se um comando existe rodando `<comando> --version`. Qualquer saída
- * que não seja "não encontrado" conta como instalado — `go --version` sai
- * com 2 e o Go está lá. Demorar demais também conta: melhor tentar criar do
- * que barrar quem tem a ferramenta.
+ * Confere se uma ferramenta está instalada.
+ *
+ * 1. `where` (Windows) ou `command -v`: o comando existe no PATH? Antes a
+ *    conferência era só o código do `--version`, e o `cmd` devolve 1 — e
+ *    não 9009 — quando o comando nem existe: Go, Rust, Maven, Flutter
+ *    passavam como instalados e a criação falhava lá na frente.
+ * 2. `--version` não pode dar 9009: é o atalho falso do Python da Microsoft
+ *    Store, que o `where` acha mas que só abre a loja.
+ * 3. O .NET pode estar só com o runtime, sem o SDK que cria projetos: aí
+ *    `dotnet --list-sdks` volta vazio.
  */
-export function comandoInstalado(comando: string): Promise<boolean> {
-  return new Promise(ok => {
-    let fim = false
-    const acabar = (v: boolean): void => { if (!fim) { fim = true; ok(v) } }
-    try {
-      // `shell` no Windows porque npm, npx e afins são .cmd. O comando vem da
-      // tabela de etapas, nunca do renderer.
-      const filho = spawn(comando, ['--version'], {
-        shell: process.platform === 'win32', windowsHide: true, stdio: 'ignore'
-      })
-      filho.on('error', () => acabar(false))
-      filho.on('close', codigo => acabar(!comandoFaltou(codigo)))
-      setTimeout(() => { filho.kill(); acabar(true) }, 15_000)
-    } catch { acabar(false) }
+export async function comandoInstalado(comando: string): Promise<boolean> {
+  // O comando vem da tabela de etapas, nunca do renderer — mas vai para um
+  // shell, então só letras passam.
+  if (!/^[a-z]+$/.test(comando)) return false
+  const achou = process.platform === 'win32'
+    ? await rodarCurto('where', [comando], false)
+    : await rodarCurto('sh', ['-c', `command -v ${comando}`], false)
+  if (!achou.ok) return false
+  const versao = await rodarCurto(comando, ['--version'], process.platform === 'win32')
+  if (comandoFaltou(versao.codigo)) return false
+  if (comando === 'dotnet') {
+    const sdks = await rodarCurto('dotnet', ['--list-sdks'], process.platform === 'win32')
+    return sdks.saida.trim().length > 0
+  }
+  return true
+}
+
+/**
+ * O PATH do Windows como ele está AGORA no registro: o da máquina seguido do
+ * do usuário, com as variáveis (%USERPROFILE%…) trocadas pelo valor.
+ */
+export function montarPath(maquina: string, usuario: string, env: Record<string, string | undefined>): string {
+  const expandir = (p: string): string => p.replace(/%([^%]+)%/g, (t, nome: string) => {
+    const achado = Object.keys(env).find(k => k.toLowerCase() === nome.toLowerCase())
+    return achado ? env[achado] ?? t : t
   })
+  return [maquina, usuario].map(expandir).filter(Boolean).join(';')
+}
+
+/**
+ * Relê o PATH do registro do Windows para este processo.
+ *
+ * Um programa instalado com o Cortex aberto (o Python, pelo aviso de
+ * ferramenta faltando) só entraria no PATH do app depois de reabrir — o
+ * Windows não atualiza o ambiente de quem já está rodando. Relendo aqui,
+ * instalar e clicar em "Criar" de novo já funciona.
+ */
+export async function atualizarPathDoWindows(): Promise<void> {
+  if (process.platform !== 'win32') return
+  const ler = async (chave: string): Promise<string> => {
+    const r = await rodarCurto('reg', ['query', chave, '/v', 'Path'], false)
+    const m = /Path\s+REG_(?:EXPAND_)?SZ\s+(.*)/i.exec(r.saida)
+    return m ? m[1].trim() : ''
+  }
+  const maquina = await ler('HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment')
+  const usuario = await ler('HKCU\\Environment')
+  if (!maquina && !usuario) return
+  process.env.PATH = montarPath(maquina, usuario, process.env)
 }
 
 /**

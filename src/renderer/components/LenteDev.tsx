@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { PainelRodar } from './PainelRodar'
 import { EditorCodigo } from './EditorCodigo'
-import { NovoProjeto } from './NovoProjeto'
+import { NovoProjeto, AvisoErro } from './NovoProjeto'
 import { projetoDoFoco, type Foco } from './projetoAtual'
 import type { EntradaDev } from '../useVault'
 import type { LinguagemProjeto, ModeloProjeto } from '../../shared/types'
@@ -36,12 +36,14 @@ type PropsDev = PropsLente & {
   aoCriarPasta: (pasta: string) => void
   aoMoverNota: (de: string, paraPasta: string) => void
   aoSoltarPastas: (arquivos: FileList) => void
-  /** Cria um projeto em Área de Trabalho\projetos; `{ erro }` com o motivo se não deu. */
+  /** Cria um projeto na pasta de projetos do Cortex; `{ erro }` com o motivo se não deu. */
   aoNovoProjeto: (
     modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
   ) => Promise<{ raiz: string; pasta: string } | { erro: string }>
-  /** Clona um repositório do GitHub em Área de Trabalho\projetos. */
+  /** Clona um repositório do GitHub na pasta de projetos do Cortex. */
   aoClonarRepo: (url: string) => Promise<{ raiz: string; pasta: string } | { erro: string }>
+  /** Esconde a barra lateral do app, para o código ocupar a tela (volta pelo ☰ ou Ctrl+B). */
+  aoEsconderLateral?: () => void
 }
 
 const nomeBase = (p: string): string => p.slice(p.lastIndexOf('/') + 1).replace(/\.md$/i, '')
@@ -263,10 +265,10 @@ function ClonarRepo({ aoClonar, aoFechar }: {
         />
         <p className="form-dica">
           {valido
-            ? `Vai para Área de Trabalho\\projetos\\${nome}. Repositório privado usa o login do Git deste computador.`
+            ? `Vai para a pasta de projetos do Cortex, em projetos\\${nome}. Repositório privado usa o login do Git deste computador.`
             : 'Cole o link do repositório, ou escreva dono/repositório.'}
         </p>
-        {erro && <div className="novo-projeto-erro" role="alert">{erro}</div>}
+        {erro && <AvisoErro erro={erro} />}
         <div className="novo-projeto-rodape">
           <button className="btn-fantasma" onClick={aoFechar}>Cancelar</button>
           <button className="btn" onClick={() => void clonar()} disabled={!valido || enviando}>
@@ -279,6 +281,18 @@ function ClonarRepo({ aoClonar, aoFechar }: {
 }
 
 /* ---------- metade do disco ---------- */
+
+/**
+ * O nome no chip de uma pasta aberta. A do Cortex é "projetos"; outra com o
+ * mesmo nome (a da Área de Trabalho) leva a pasta de cima, para não ter dois
+ * chips iguais.
+ */
+function rotuloDaPasta(p: string, pastaProjetos: string | null): string {
+  const partes = p.split(/[\\/]/).filter(Boolean)
+  const nome = partes.pop() ?? p
+  if (p === pastaProjetos || nome.toLowerCase() !== 'projetos') return nome
+  return `${partes.pop() ?? ''} › ${nome}`
+}
 
 /** A extensão, para o arquivo ganhar a cor do tipo na árvore (como no VS Code). */
 const extensao = (nome: string): string => {
@@ -312,7 +326,7 @@ const ARQUIVOS_INICIAIS = [
 
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
-  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo
+  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo, aoEsconderLateral
 }: PropsDev) {
   const [sobrevoando, setSobrevoando] = useState(false)
   const [raiz, setRaiz] = useState<string | null>(pastasDev[0] ?? null)
@@ -386,6 +400,11 @@ function Codigo({
    * achar a raiz "não autorizada" e trocar para a primeira da lista.
    */
   const [querRaiz, setQuerRaiz] = useState<{ raiz: string; pasta: string } | null>(null)
+  /** A pasta de projetos do Cortex, que vem aberta e não tem o ×. */
+  const [pastaProjetos, setPastaProjetos] = useState<string | null>(null)
+  useEffect(() => {
+    void window.vaultApi.pastaDeProjetos().then(setPastaProjetos).catch(() => {})
+  }, [])
   /**
    * A pasta aberta como raiz da árvore, relativa à autorizada ('' = toda ela).
    * Criar um projeto abre a pasta dele aqui, como o "Abrir pasta" do VS Code.
@@ -832,7 +851,19 @@ function Codigo({
     const itens = filhos[sub]
     const recuo = { paddingLeft: 8 + nivel * 14 }
     if (!itens) return [<div key={`${sub}/…`} className="dev-item-vazio" style={recuo}>Lendo…</div>]
-    if (itens.length === 0) return [<div key={`${sub}/∅`} className="dev-item-vazio" style={recuo}>Pasta vazia</div>]
+    if (itens.length === 0) {
+      // A pasta de projetos do Cortex vazia é o começo de tudo: diz por onde ir.
+      if (sub === '' && raiz === pastaProjetos) {
+        return [
+          <div key="∅-projetos" className="dev-comecar">
+            <span>Nenhum projeto ainda.</span>
+            <button className="btn pequeno" onClick={() => setCriandoProjeto(true)}>+ Novo projeto</button>
+            <button className="btn-fantasma pequeno" onClick={() => setClonando(true)}>Clonar do GitHub</button>
+          </div>
+        ]
+      }
+      return [<div key={`${sub}/∅`} className="dev-item-vazio" style={recuo}>Pasta vazia</div>]
+    }
     return itens.flatMap(it => {
       const aberta = it.pasta && abertas.has(it.rel)
       const ext = it.pasta ? undefined : extensao(it.nome)
@@ -947,7 +978,7 @@ function Codigo({
           <div className="dev-vazio-botoes">
             <button className="btn grande" onClick={() => setCriandoProjeto(true)}>Novo projeto</button>
             <button className="btn-fantasma" onClick={() => setClonando(true)}>Clonar do GitHub</button>
-            <button className="btn-fantasma" onClick={aoAutorizar}>Escolher uma pasta</button>
+            <button className="btn-fantasma" onClick={aoAutorizar}>Abrir pasta</button>
           </div>
         </div>
         {janelaNovoProjeto}
@@ -963,7 +994,12 @@ function Codigo({
           <span className="dev-secao-botoes">
             <button className="btn-fantasma pequeno" onClick={() => setCriandoProjeto(true)}>+ Novo projeto</button>
             <button className="btn-fantasma pequeno" onClick={() => setClonando(true)}>Clonar do GitHub</button>
-            <button className="btn-fantasma pequeno" onClick={aoAutorizar}>Autorizar pasta</button>
+            <button className="btn-fantasma pequeno" title="Abrir outra pasta de código do computador" onClick={aoAutorizar}>Abrir pasta</button>
+            {aoEsconderLateral && (
+              <button className="btn-fantasma pequeno" title="Esconder o menu lateral (Ctrl+B)" onClick={aoEsconderLateral}>
+                ⇤ Esconder menu
+              </button>
+            )}
           </span>
         }
       />
@@ -972,13 +1008,16 @@ function Codigo({
         {pastasDev.map(p => (
           <span key={p} className="chip-raiz" aria-pressed={raiz === p} title={p}>
             <button onClick={() => { if (raiz !== p) trocarRaiz(p) }}>
-              {p.split(/[\\/]/).filter(Boolean).pop()}
+              {rotuloDaPasta(p, pastaProjetos)}
             </button>
-            <button
-              className="btn-icone perigo"
-              title="Tirar a autorização (não apaga nada do disco)"
-              onClick={() => aoRemoverPastaDev(p)}
-            >×</button>
+            {/* A pasta de projetos do Cortex não sai: é onde os projetos novos nascem. */}
+            {p !== pastaProjetos && (
+              <button
+                className="btn-icone perigo"
+                title="Fechar esta pasta (não apaga nada do disco)"
+                onClick={() => aoRemoverPastaDev(p)}
+              >×</button>
+            )}
           </span>
         ))}
       </div>

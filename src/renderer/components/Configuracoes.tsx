@@ -3,6 +3,10 @@ import { SeletorAreas } from './Abertura'
 import { ProtecaoSenha } from './ProtecaoSenha'
 import { lerTema, salvarTema, aplicarTema, type Tema } from '../tema'
 import type { Config } from '../useVault'
+import { mensagemDeErro } from '../useVault'
+import type { ProcessoInfo } from '../../shared/types'
+import { SaidaProcesso } from './PainelRodar'
+import { AvisoErro } from './NovoProjeto'
 
 /*
  * Abas na lateral: o painel cresceu a ponto de virar rolagem, e quem abre as
@@ -407,13 +411,50 @@ function BlocoGoogle() {
 /**
  * O conector do Cortex para o Claude (MCP).
  *
- * Mostra o comando pronto, com os caminhos desta instalação, em vez de
- * registrar sozinho: mexer na configuração do Claude Code é decisão de quem
- * usa, e um comando visível dá para conferir antes de rodar.
+ * Um botão "Conectar" (pedido do dono): abre um terminal aqui mesmo, roda o
+ * registro no Claude Code e fecha sozinho quando dá certo. Registrar continua
+ * sendo decisão de quem usa — nada roda sem o clique —, e o comando
+ * continua à vista, para conferir ou rodar à mão.
  */
 function BlocoClaude() {
   const [comando, setComando] = useState('')
   const [copiado, setCopiado] = useState(false)
+  /** O processo do "Conectar" enquanto a saída dele está na tela. */
+  const [proc, setProc] = useState<ProcessoInfo | null>(null)
+  const [estado, setEstado] = useState<'parado' | 'rodando' | 'ok' | 'falhou'>('parado')
+  const [erro, setErro] = useState<string | null>(null)
+
+  // Acompanha o processo; deu certo, o terminal fecha sozinho em 1,5 s.
+  useEffect(() => {
+    if (!proc || estado !== 'rodando') return
+    const t = setInterval(() => {
+      void window.vaultApi.listarProcessos().then(r => {
+        const p = r.processos.find(x => x.id === proc.id)
+        if (!p || p.saiu === null) return
+        setProc(p)
+        if (p.saiu === 0) {
+          setEstado('ok')
+          setTimeout(() => {
+            setProc(null)
+            void window.vaultApi.esquecerProcesso(p.id).catch(() => {})
+          }, 1500)
+        } else setEstado('falhou')
+      }).catch(() => {})
+    }, 700)
+    return () => clearInterval(t)
+  }, [proc, estado])
+
+  const conectar = async (): Promise<void> => {
+    setErro(null)
+    try {
+      const r = await window.vaultApi.conectarClaude()
+      setProc(r.processo)
+      setEstado('rodando')
+    } catch (e) {
+      setErro(mensagemDeErro(e))
+      setEstado('parado')
+    }
+  }
 
   useEffect(() => {
     void window.vaultApi.conectorClaude().then(r => setComando(r.comando)).catch(() => {})
@@ -434,11 +475,22 @@ function BlocoClaude() {
         notas, ver o que tem para hoje, criar anotação e marcar tarefa do dia.
         Contas, senhas, documentos e painéis trancados ficam de fora.
       </p>
-      <p className="form-dica">Rode uma vez no terminal:</p>
-      <pre className="config-comando"><code>{comando || '…'}</code></pre>
-      <button className="btn" onClick={copiar} disabled={!comando}>
-        {copiado ? 'Copiado' : 'Copiar comando'}
-      </button>
+      <div className="config-conectar">
+        <button className="btn" onClick={() => void conectar()} disabled={estado === 'rodando'}>
+          {estado === 'rodando' ? 'Conectando…' : estado === 'ok' ? 'Conectado ✓' : 'Conectar'}
+        </button>
+        {estado === 'ok' && <span className="form-dica">Pronto: o Claude Code já enxerga o Cortex (abra uma conversa nova).</span>}
+        {estado === 'falhou' && <span className="config-conectar-falhou">Não conectou — veja a saída abaixo.</span>}
+      </div>
+      {erro && <AvisoErro erro={erro} />}
+      {proc && <div className="config-terminal"><SaidaProcesso key={proc.id} proc={proc} /></div>}
+      <details className="config-manual">
+        <summary>Ou rode à mão no terminal</summary>
+        <pre className="config-comando"><code>{comando || '…'}</code></pre>
+        <button className="btn-fantasma pequeno" onClick={copiar} disabled={!comando}>
+          {copiado ? 'Copiado' : 'Copiar comando'}
+        </button>
+      </details>
     </section>
   )
 }

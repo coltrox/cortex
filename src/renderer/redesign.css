@@ -1289,3 +1289,52 @@ body {
 .codigo-busca input:focus { border-color: var(--accent); }
 .codigo-busca-conta { min-width: 62px; font-size: 11.5px; color: var(--text-3); text-align: center; white-space: nowrap; }
 .codigo-busca-conta[data-vazio="true"] { color: var(--pale-red); }
+
+/* ---------- Falta instalar a ferramenta (2.6.15) ---------- */
+.novo-projeto-falta {
+  display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; border-radius: 8px;
+  background: color-mix(in srgb, var(--pale-yel) 10%, var(--surface-sunk));
+  border: 1px solid color-mix(in srgb, var(--pale-yel) 40%, transparent);
+  font-size: 12.5px; line-height: 1.45; color: var(--text-2);
+}
+.novo-projeto-falta strong { font-size: 13.5px; color: var(--text); }
+.novo-projeto-falta-dica { font-size: 12px; color: var(--text-3); }
+.novo-projeto-falta-acoes { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0; }
+.novo-projeto-falta-acoes a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.novo-projeto-falta-cmd {
+  display: flex; align-items: center; gap: 8px; padding: 5px 5px 5px 10px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.novo-projeto-falta-cmd code { flex: 1; min-width: 0; font: 12px var(--mono); color: var(--text); overflow-x: auto; white-space: nowrap; }
+
+/* ---------- Terminal: interromper todos e fechar (2.6.15) ---------- */
+.terminal-flutuante-acoes { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.btn-fantasma.perigo { color: var(--pale-red); }
+.btn-fantasma.perigo:hover:not(:disabled) { background: var(--pale-red-bg); }
+.btn-fantasma:disabled { opacity: .45; cursor: default; }
+
+/* ---------- Conectar o Claude (2.6.15) ---------- */
+.config-conectar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 8px; }
+.config-conectar-falhou { font-size: 12.5px; color: var(--pale-red); }
+.config-terminal { margin: 6px 0 10px; }
+.config-terminal .rodar-linhas { max-height: 180px; }
+.config-manual { margin-top: 6px; }
+.config-manual summary { cursor: pointer; font-size: 12.5px; color: var(--text-3); }
+.config-manual[open] summary { margin-bottom: 8px; }
+
+/* ---------- Esconder o menu lateral (2.6.15) ----------
+   Some por inteiro: o conteúdo ocupa a largura toda, e o ☰ no canto (ou
+   Ctrl+B) traz o menu de volta. */
+.shell[data-sem-lateral="true"] { grid-template-columns: minmax(0, 1fr); }
+.shell[data-sem-lateral="true"] > .sidebar-app { display: none; }
+.sb-abrir {
+  position: fixed; top: 8px; left: 10px; z-index: 30;
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px;
+  font: inherit; font-size: 12.5px; color: var(--text-2); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px;
+  -webkit-app-region: no-drag;
+}
+.sb-abrir:hover { color: var(--text); border-color: var(--text-3); }
+.shell[data-sem-lateral="true"] .topo { padding-left: 110px; }
+/* A pasta de projetos vazia: por onde começar. */
+.dev-comecar { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 12px; font-size: 12.5px; color: var(--text-3); }

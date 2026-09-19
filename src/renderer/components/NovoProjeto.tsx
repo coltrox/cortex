@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { LinguagemProjeto, ModeloProjeto } from '../../shared/types'
+import { lerFalta, comandoWinget } from '../../shared/ferramentas'
 
 /**
  * De que lado a aplicação fica.
@@ -241,6 +242,59 @@ export function comandoDe(modelo: ModeloProjeto, linguagem: LinguagemProjeto, no
   }
 }
 
+/**
+ * O motivo de não ter criado (ou clonado), dentro da própria janela.
+ *
+ * Se é uma ferramenta que falta (Python, Go, .NET…), vira uma ajuda para
+ * instalar: o site oficial, o comando do winget com botão de copiar e o que
+ * costuma dar errado. Pedido do dono — "avisa que não tem instalado e ajuda a
+ * instalar". O Cortex relê o PATH do Windows a cada tentativa, então dá para
+ * instalar e tentar de novo sem reabrir o app.
+ */
+export function AvisoErro({ erro }: { erro: string }) {
+  const [copiado, setCopiado] = useState(false)
+  const falta = lerFalta(erro)
+  if (!falta) return <div className="novo-projeto-erro" role="alert">{erro}</div>
+  const f = falta.ferramenta
+  const winget = f ? comandoWinget(f) : null
+  const copiar = (): void => {
+    if (!winget) return
+    void navigator.clipboard.writeText(winget).then(() => {
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 1800)
+    })
+  }
+  return (
+    <div className="novo-projeto-falta" role="alert">
+      <strong>Falta instalar {f?.nome ?? falta.comando}</strong>
+      <span>
+        {falta.texto} Instale e tente de novo — não precisa fechar o Cortex.
+      </span>
+      {f?.dica && <span className="novo-projeto-falta-dica">{f.dica}</span>}
+      <div className="novo-projeto-falta-acoes">
+        {f && (
+          <a className="btn pequeno" href={f.url} target="_blank" rel="noreferrer">
+            Baixar {f.nome} no site oficial ↗
+          </a>
+        )}
+      </div>
+      {winget && (
+        <>
+          <span className="novo-projeto-falta-dica">
+            Ou num terminal, com o winget (já vem no Windows 10 e 11):
+          </span>
+          <div className="novo-projeto-falta-cmd">
+            <code>{winget}</code>
+            <button type="button" className="btn-fantasma pequeno" onClick={copiar}>
+              {copiado ? 'Copiado ✓' : 'Copiar'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 /** Uma linha de uma lista em cascata. */
 export type OpcaoCascata = { id: string; titulo: string; detalhe?: string; etiqueta?: string }
 
@@ -466,10 +520,10 @@ export function NovoProjeto({ aoCriar, aoFechar }: {
           />
         </label>
         <p className="form-dica">
-          Vai para <code>Área de Trabalho\projetos\{nome || 'meu-app'}</code>. A pasta
-          projetos é criada se ainda não existir, e a instalação aparece no terminal.
+          Vai para <code>projetos\{nome || 'meu-app'}</code>, a pasta de projetos do
+          Cortex, e já abre no editor. A instalação aparece no terminal.
         </p>
-        {erro && <div className="novo-projeto-erro" role="alert">{erro}</div>}
+        {erro && <AvisoErro erro={erro} />}
         <pre className="novo-projeto-comando">{comandoDe(modelo, linguagem, nome || 'meu-app')}</pre>
 
         <div className="novo-projeto-rodape">

@@ -47,6 +47,13 @@ const api = {
   conectorClaude(): Promise<{ comando: string }> {
     return ipcRenderer.invoke('app:conectorClaude')
   },
+  /** Roda o registro do conector num processo do Cortex (o botão "Conectar"). */
+  conectarClaude(): Promise<{ processo: ProcessoInfo }> {
+    return ipcRenderer.invoke('app:conectar-claude')
+  },
+  esquecerProcesso(id: string): Promise<{ ok: true }> {
+    return ipcRenderer.invoke('dev:esquecer', { id })
+  },
 
   /** Pinta os botões da janela no tema do app. Só aceita os dois nomes. */
   temaDaJanela(tema: 'claro' | 'escuro'): Promise<void> {
@@ -64,6 +71,10 @@ const api = {
     return ipcRenderer.invoke('vault:create')
   },
 
+  /** A pasta de projetos do Cortex (`userData\projetos`), a que já vem aberta no Dev. */
+  pastaDeProjetos(): Promise<string> {
+    return ipcRenderer.invoke('dev:pasta-projetos')
+  },
   /** Abre o diálogo nativo e devolve a lista de pastas autorizadas já atualizada. */
   autorizarPastaDev(): Promise<string[]> {
     return ipcRenderer.invoke('dev:add-folder')
@@ -125,6 +136,10 @@ const api = {
   },
   pararProcesso(id: string): Promise<{ ok: true }> {
     return ipcRenderer.invoke('dev:parar', { id })
+  },
+  /** Para todos os processos que o Cortex iniciou (o "Interromper todos" do terminal). */
+  pararTodos(): Promise<{ ok: true }> {
+    return ipcRenderer.invoke('dev:parar-todos')
   },
   listarProcessos(): Promise<{ processos: ProcessoInfo[] }> {
     return ipcRenderer.invoke('dev:processos')

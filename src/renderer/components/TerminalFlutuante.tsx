@@ -19,6 +19,12 @@ export function TerminalFlutuante() {
   const [processos, setProcessos] = useState<ProcessoInfo[]>([])
   const [aberto, setAberto] = useState(false)
   const [atual, setAtual] = useState<string | null>(null)
+  /**
+   * Os processos que já existiam quando a pessoa clicou em "Fechar". O
+   * terminal some até aparecer um processo que não esteja aqui — um npm run
+   * dev novo, uma criação de projeto.
+   */
+  const [dispensados, setDispensados] = useState<Set<string> | null>(null)
 
   useEffect(() => {
     let vivo = true
@@ -36,11 +42,33 @@ export function TerminalFlutuante() {
   }, [])
 
   if (processos.length === 0) return null
+  if (dispensados && processos.every(p => dispensados.has(p.id))) return null
 
   const vivos = processos.filter(p => p.saiu === null)
   const proc = processos.find(p => p.id === atual)
     ?? vivos[vivos.length - 1]
     ?? processos[processos.length - 1]
+
+  /** Para tudo que está rodando. Com algo rodando, pergunta antes. */
+  const interromperTodos = async (): Promise<void> => {
+    if (vivos.length > 0 && !window.confirm(
+      vivos.length === 1 ? `Interromper ${vivos[0].script}?` : `Interromper os ${vivos.length} processos rodando?`
+    )) return
+    await window.vaultApi.pararTodos().catch(() => {})
+  }
+
+  /**
+   * Fecha o terminal: some da tela e esquece os encerrados. O que ainda roda
+   * continua rodando — é o "Interromper todos" que para.
+   */
+  const fechar = async (): Promise<void> => {
+    setAberto(false)
+    setAtual(null)
+    const r = await window.vaultApi.limparEncerrados().catch(() => null)
+    const restantes = r?.processos ?? processos
+    setProcessos(restantes)
+    setDispensados(new Set(restantes.map(p => p.id)))
+  }
 
   return (
     <>
@@ -71,7 +99,20 @@ export function TerminalFlutuante() {
                 </button>
               )}
             </div>
-            <button className="btn-icone" title="Esconder" onClick={() => setAberto(false)}>×</button>
+            <span className="terminal-flutuante-acoes">
+              <button
+                className="btn-fantasma pequeno perigo"
+                title="Para todos os processos que o Cortex iniciou"
+                disabled={vivos.length === 0}
+                onClick={() => void interromperTodos()}
+              >
+                ■ Interromper todos
+              </button>
+              <button className="btn-fantasma pequeno" title="Fechar o terminal" onClick={() => void fechar()}>
+                Fechar
+              </button>
+              <button className="btn-icone" title="Esconder (continua no canto)" onClick={() => setAberto(false)}>–</button>
+            </span>
           </div>
           <SaidaProcesso key={proc.id} proc={proc} />
         </div>

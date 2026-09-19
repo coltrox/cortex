@@ -134,6 +134,8 @@ declare global {
       versaoDoApp(): Promise<string>
       /** O comando `claude mcp add` que liga o conector do Cortex. */
       conectorClaude(): Promise<{ comando: string }>
+      conectarClaude(): Promise<{ processo: ProcessoInfo }>
+      esquecerProcesso(id: string): Promise<{ ok: true }>
       atualizacao: {
         estado(): Promise<EstadoAtualizacao>
         procurar(): Promise<EstadoAtualizacao>
@@ -152,6 +154,7 @@ declare global {
       pickVault(): Promise<EstadoVault | null>
       criarVault(): Promise<EstadoVault | null>
       autorizarPastaDev(): Promise<string[]>
+      pastaDeProjetos(): Promise<string>
       caminhoArrastado(f: File): string
       autorizarPastaArrastada(caminho: string): Promise<string[]>
       abrirTerminal(raiz: string, sub?: string): Promise<{ cwd: string }>
@@ -161,6 +164,7 @@ declare global {
       scriptsDoProjeto(raiz: string, sub?: string): Promise<{ scripts: string[] }>
       rodarScript(raiz: string, script: string, sub?: string): Promise<ProcessoInfo>
       pararProcesso(id: string): Promise<{ ok: true }>
+      pararTodos(): Promise<{ ok: true }>
       listarProcessos(): Promise<{ processos: ProcessoInfo[] }>
       saidaDoProcesso(id: string): Promise<{ linhas: string[] }>
       limparEncerrados(): Promise<{ processos: ProcessoInfo[] }>

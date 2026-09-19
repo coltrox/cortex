@@ -4,8 +4,9 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import {
   nomeDeProjetoValido, etapasNovoProjeto, arquivosNovoProjeto, escreverArquivosIniciais, MODELOS_PROJETO,
-  comandosExternos, comandoFaltou, avisoDeFalta
+  comandosExternos, comandoFaltou, avisoDeFalta, montarPath
 } from './novoProjeto'
+import { lerFalta, comandoWinget, FERRAMENTAS } from '../../shared/ferramentas'
 
 const BASE = join('C:', 'Users', 'x', 'Desktop', 'projetos')
 
@@ -254,8 +255,29 @@ describe('ferramenta que falta no computador', () => {
     expect(comandoFaltou(2)).toBe(false)
   })
 
-  it('o aviso diz o que instalar e onde, em português', () => {
-    expect(avisoDeFalta('python')).toMatch(/Python não está instalado.*python\.org/)
+  it('o aviso tem a marca que a tela reconhece, e a ajuda traz site e winget', () => {
+    const aviso = avisoDeFalta('python')
+    expect(aviso).toMatch(/^\[falta:python\] Python não está instalado/)
+    const falta = lerFalta(aviso)
+    expect(falta?.texto).toBe('Python não está instalado neste computador.')
+    expect(falta?.ferramenta?.url).toMatch(/python\.org/)
+    expect(comandoWinget(falta!.ferramenta!)).toBe('winget install -e --id Python.Python.3.12')
+    expect(lerFalta('outro erro qualquer')).toBeNull()
     expect(avisoDeFalta('xyz')).toMatch(/xyz não está instalado/)
+  })
+
+  it('toda ferramenta que as etapas usam tem ajuda para instalar', () => {
+    for (const m of MODELOS_PROJETO) {
+      for (const c of comandosExternos(etapasNovoProjeto(m, 'ts', 'app', BASE))) {
+        expect(FERRAMENTAS[c], c).toBeDefined()
+      }
+    }
+  })
+
+  it('o PATH relido do registro junta máquina e usuário e troca as variáveis', () => {
+    expect(montarPath('C:\\Windows;%SystemRoot%\\bin', '%USERPROFILE%\\go\\bin', {
+      SystemRoot: 'C:\\Windows', USERPROFILE: 'C:\\Users\\x'
+    })).toBe('C:\\Windows;C:\\Windows\\bin;C:\\Users\\x\\go\\bin')
+    expect(montarPath('', 'a', {})).toBe('a')
   })
 })

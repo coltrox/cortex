@@ -75,6 +75,22 @@ export function App() {
    * A tela só muda ao clicar numa aba.
    */
   const [abertas, setAbertas] = useState<string[]>(() => [v.lente])
+  /**
+   * A barra lateral escondida, para o Dev ocupar a tela toda (pedido do
+   * dono). Some por inteiro — para ir a outra área, abre de novo pelo ☰ no
+   * canto ou pelo Ctrl+B, como no VS Code.
+   */
+  const [semLateral, setSemLateral] = useState(false)
+  useEffect(() => {
+    const k = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        setSemLateral(s => !s)
+      }
+    }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [])
   const alternarArea = (id: string): void =>
     setAbertas(a => (a.includes(id) ? a.filter(x => x !== id) : [...a, id]))
 
@@ -307,6 +323,7 @@ export function App() {
             aoTerminal={(raiz, sub) => void v.abrirTerminal(raiz, sub)}
             aoNovoProjeto={(modelo, linguagem, nome) => v.novoProjeto(modelo, linguagem, nome)}
             aoClonarRepo={url => v.clonarRepo(url)}
+            aoEsconderLateral={() => setSemLateral(true)}
             aoRevelar={(raiz, sub) => void v.revelar(raiz, sub)}
             aoCriarPasta={p => void v.criarPasta(p)}
             aoMoverNota={(de, para) => void v.mover(de, para)}
@@ -321,7 +338,12 @@ export function App() {
 
   return (
     <>
-      <div className="shell" data-lente={v.lente}>
+      <div className="shell" data-lente={v.lente} data-sem-lateral={semLateral}>
+        {semLateral && (
+          <button className="sb-abrir" title="Mostrar o menu (Ctrl+B)" onClick={() => setSemLateral(false)}>
+            ☰ Menu
+          </button>
+        )}
         {/*
           * A sidebar única do redesign.
           *
