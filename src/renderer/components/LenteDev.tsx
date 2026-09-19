@@ -292,6 +292,17 @@ const TIPO_ITEM = 'application/x-cortex-dev-item'
 const EXT_MIDIA = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'pdf'])
 /** Nas preferências do computador: '1' liga o salvar sozinho do editor. */
 const CHAVE_SALVAR_SOZINHO = 'dev.salvarSozinho'
+/**
+ * O arquivo que abre sozinho quando um projeto novo aparece — o primeiro que
+ * existir, na ordem. É o "por onde começar" de cada modelo.
+ */
+const ARQUIVOS_INICIAIS = [
+  'src/App.tsx', 'src/App.jsx', 'src/App.vue', 'src/App.svelte', 'app/page.tsx', 'app/page.js',
+  'src/app/page.tsx', 'src/app/page.js', 'App.tsx', 'App.js', 'src/main.tsx', 'src/main.jsx',
+  'src/main.ts', 'src/main.js', 'src/index.ts', 'src/index.js', 'app.py', 'main.py', 'main.go',
+  'src/main.rs', 'src/lib.rs', 'src/Main.java', 'src/Main.kt', 'main.cpp', 'main.c', 'Program.cs',
+  'public/index.php', 'main.rb', 'lib/main.dart', 'index.html', 'README.md'
+]
 
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
@@ -369,6 +380,16 @@ function Codigo({
    * achar a raiz "não autorizada" e trocar para a primeira da lista.
    */
   const [querRaiz, setQuerRaiz] = useState<{ raiz: string; pasta: string } | null>(null)
+  /**
+   * A pasta aberta como raiz da árvore, relativa à autorizada ('' = toda ela).
+   * Criar um projeto abre a pasta dele aqui, como o "Abrir pasta" do VS Code.
+   */
+  const [base, setBase] = useState('')
+  /** O projeto recém-criado cuja pasta ainda não apareceu no disco. */
+  const [aguardando, setAguardando] = useState<string | null>(null)
+  /** O arquivo aberto agora, para quem roda depois de uma espera (o abrir sozinho). */
+  const arquivoAtual = useRef<string | null>(null)
+  arquivoAtual.current = arquivo
 
   const trocarRaiz = (r: string | null): void => {
     setRaiz(r)
@@ -376,6 +397,7 @@ function Codigo({
     setAbertas(new Set())
     setFoco(null)
     setArquivo(null)
+    setBase('')
   }
 
   /**
@@ -384,11 +406,22 @@ function Codigo({
    * (a instalação está começando), ela é lida de novo quando o processo acaba.
    */
   const abrirProjetoNovo = (r: string, pasta: string): void => {
-    setAbertas(new Set([pasta]))
+    // Como "Abrir pasta" no VS Code: a árvore passa a ser só o projeto novo, e
+    // o arquivo principal abre sozinho quando a pasta existir. Pedido do dono.
+    setBase(pasta)
+    setAbertas(new Set())
     setFoco({ rel: pasta, pasta: true })
-    rolarPara.current = pasta
+    setAguardando(pasta)
     void lerPasta(r, '')
     void lerPasta(r, pasta)
+  }
+
+  /** Abre uma pasta como a raiz da árvore (o "Abrir pasta" do VS Code). '' volta para tudo. */
+  const abrirComoBase = (rel: string): void => {
+    if (!raiz) return
+    setBase(rel)
+    setFoco(rel ? { rel, pasta: true } : null)
+    if (!filhos[rel]) void lerPasta(raiz, rel)
   }
 
   // Uma pasta autorizada agora, ou a última removida, muda quem deve estar
@@ -434,12 +467,61 @@ function Codigo({
   }, [amplo])
 
   // Um processo que termina (a criação de um projeto, um build) muda o que há
-  // na pasta: a raiz e as pastas abertas são lidas de novo.
+  // na pasta: a raiz, a pasta aberta e as pastas expandidas são lidas de novo.
   const recarregar = useCallback(() => {
     if (!raiz) return
     void lerPasta(raiz, '')
+    if (base) void lerPasta(raiz, base)
     for (const p of abertas) void lerPasta(raiz, p)
-  }, [raiz, abertas, lerPasta])
+  }, [raiz, base, abertas, lerPasta])
+
+  /*
+   * O projeto recém-criado: a pasta é lida de novo a cada 1,5 s até aparecer
+   * algo dentro (o create-vite a cria alguns segundos depois do clique), e aí
+   * o arquivo principal abre no editor — se a pessoa ainda não abriu outro.
+   */
+  useEffect(() => {
+    if (!aguardando || !raiz) return
+    let voltas = 0
+    const t = setInterval(() => {
+      if (++voltas > 120) { setAguardando(null); return }
+      void lerPasta(raiz, aguardando)
+    }, 1500)
+    return () => clearInterval(t)
+  }, [aguardando, raiz, lerPasta])
+
+  useEffect(() => {
+    const pasta = aguardando
+    if (!pasta || !raiz || !(filhos[pasta]?.length)) return
+    setAguardando(null)
+    void (async () => {
+      // Espera um instante: o criador ainda pode estar escrevendo os arquivos.
+      await new Promise(r => setTimeout(r, 800))
+      const nivel1 = await arvore(raiz, pasta)
+      const subs = nivel1.filter(e => e.pasta && ['src', 'app', 'lib', 'public'].includes(e.nome))
+      const listas = await Promise.all(subs.map(e => arvore(raiz, e.rel)))
+      setFilhos(f => {
+        const n = { ...f, [pasta]: nivel1 }
+        subs.forEach((e, i) => { n[e.rel] = listas[i] })
+        return n
+      })
+      const existe = new Set([...nivel1, ...listas.flat()].filter(e => !e.pasta).map(e => e.rel))
+      const inicial = ARQUIVOS_INICIAIS.map(c => pasta + '/' + c).find(c => existe.has(c))
+      if (!inicial) return
+      const dir = paiDe(inicial)
+      if (dir !== pasta) setAbertas(a => new Set(a).add(dir))
+      // Só se a pessoa não abriu outra coisa enquanto esperava.
+      if (arquivoAtual.current === null) {
+        setFoco({ rel: inicial, pasta: false })
+        await abrirArquivo(inicial)
+        // A saída da instalação empurra o editor para baixo: a tela desce até ele.
+        requestAnimationFrame(() => {
+          document.querySelector('.dev-corpo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aguardando, raiz, filhos])
 
   const alternarPasta = (rel: string): void => {
     if (!raiz) return
@@ -702,7 +784,9 @@ function Codigo({
     setAutoSalvar(novo)
     void window.vaultApi.gravarPref(CHAVE_SALVAR_SOZINHO, novo ? '1' : '0').catch(() => {})
   }
-  const projeto = projetoDoFoco(foco, filhos)
+  // Sem nada clicado, o projeto é a pasta aberta na árvore.
+  const projeto = projetoDoFoco(foco ?? (base ? { rel: base, pasta: true } : null), filhos)
+  const nomeBase = base ? base.slice(base.lastIndexOf('/') + 1) : ''
   const nomeRaiz = raiz ? raiz.split(/[\\/]/).filter(Boolean).pop() ?? raiz : ''
 
   // Arrastar do explorador de arquivos é o atalho para o mesmo diálogo: o
@@ -906,15 +990,21 @@ function Codigo({
               className="dev-arvore"
               role="tree"
               aria-label={`Arquivos de ${nomeRaiz}`}
-              data-soltar={soltarEm === ''}
-              onDragOver={e => arrastoSobre(e, '')}
-              onDrop={e => soltarNa(e, '')}
+              data-soltar={soltarEm === base}
+              onDragOver={e => arrastoSobre(e, base)}
+              onDrop={e => soltarNa(e, base)}
               onDragLeave={e => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSoltarEm(null)
               }}
             >
               <div className="dev-arvore-topo">
-                <span className="dev-arvore-nome" title={raiz}>{nomeRaiz}</span>
+                {base && (
+                  <button className="btn-icone dev-arvore-voltar" title={`Voltar para ${paiDe(base) ? paiDe(base) : nomeRaiz}`}
+                    onClick={() => abrirComoBase(paiDe(base))}>‹</button>
+                )}
+                <span className="dev-arvore-nome" title={base ? `${nomeRaiz}/${base}` : raiz}>
+                  {base ? nomeBase : nomeRaiz}
+                </span>
                 <span className="dev-arvore-botoes">
                   <button className="btn-icone" title="Recolher pastas" disabled={abertas.size === 0}
                     onClick={() => setAbertas(new Set())}>⊟</button>
@@ -927,8 +1017,8 @@ function Codigo({
               {avisoArvore && (
                 <div className="dev-arvore-aviso" role="alert" onClick={() => setAvisoArvore(null)}>{avisoArvore}</div>
               )}
-              {linhas('', 0)}
-              {soltarEm === '' && <div className="dev-item-vazio">Soltar em {nomeRaiz}</div>}
+              {linhas(base, 0)}
+              {soltarEm === base && <div className="dev-item-vazio">Soltar em {base ? nomeBase : nomeRaiz}</div>}
             </div>
 
             <div className="dev-editor">
@@ -1041,6 +1131,11 @@ function Codigo({
             {!menu.it.pasta && (
               <button role="menuitem" onClick={() => { const it = menu.it; setMenu(null); void abrirNoPadrao(it.rel) }}>
                 Abrir no app padrão
+              </button>
+            )}
+            {menu.it.pasta && (
+              <button role="menuitem" onClick={() => { const it = menu.it; setMenu(null); abrirComoBase(it.rel) }}>
+                Abrir como pasta do editor
               </button>
             )}
             <button role="menuitem" onClick={() => { const it = menu.it; setMenu(null); aoRevelar(raiz ?? '', it.pasta ? it.rel : paiDe(it.rel)) }}>

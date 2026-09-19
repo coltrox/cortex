@@ -148,6 +148,9 @@ export function PainelRodar({ raiz, sub, titulo, aoTerminar, extras }: {
         const r = await window.vaultApi.listarProcessos()
         if (!vivo) return
         const daqui = r.processos.filter(p => p.raiz === raiz)
+        // Um processo que começou agora (criar outro projeto, por exemplo) passa
+        // a ser o que aparece — antes a tela ficava na saída do anterior.
+        const novo = daqui.find(p => p.saiu === null && !estados.current.has(p.id))
         let terminou = false
         for (const p of daqui) {
           if (estados.current.get(p.id) === null && p.saiu !== null) terminou = true
@@ -155,7 +158,7 @@ export function PainelRodar({ raiz, sub, titulo, aoTerminar, extras }: {
         }
         setRodando(daqui)
         // Sem aba aberta, abre a do que está rodando agora.
-        setAberto(a => (a && daqui.some(p => p.id === a))
+        setAberto(a => novo ? novo.id : (a && daqui.some(p => p.id === a))
           ? a
           : (daqui.filter(p => p.saiu === null).pop()?.id ?? null))
         if (terminou) {

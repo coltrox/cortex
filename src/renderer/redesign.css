@@ -1254,3 +1254,6 @@ body {
   color: var(--pale-red); background: var(--pale-red-bg);
   border: 1px solid color-mix(in srgb, var(--pale-red) 30%, transparent);
 }
+
+/* O ‹ que volta da pasta aberta (o projeto) para a pasta autorizada inteira. */
+.dev-arvore-voltar { flex: none; font-size: 16px; margin-left: -6px; margin-right: -2px; }
