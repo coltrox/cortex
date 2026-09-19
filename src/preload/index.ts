@@ -47,6 +47,10 @@ const api = {
   conectorClaude(): Promise<{ comando: string }> {
     return ipcRenderer.invoke('app:conectorClaude')
   },
+  /** Se o conector já está registrado no Claude Code (e para esta instalação). */
+  estadoConector(): Promise<{ estado: 'conectado' | 'outra-instalacao' | 'desconectado' }> {
+    return ipcRenderer.invoke('app:estado-conector')
+  },
   /** Roda o registro do conector num processo do Cortex (o botão "Conectar"). */
   conectarClaude(): Promise<{ processo: ProcessoInfo }> {
     return ipcRenderer.invoke('app:conectar-claude')

@@ -1355,3 +1355,10 @@ body {
 .shell[data-lente="dev"] .lente { max-width: none; }
 /* A pasta de projetos vazia: por onde começar. */
 .dev-comecar { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 12px; font-size: 12.5px; color: var(--text-3); }
+
+/* O conector do Claude já registrado: "Conectado" com a bolinha verde. */
+.config-conectado { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--text); }
+.config-conectado-ponto {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--pale-grn);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pale-grn) 22%, transparent);
+}

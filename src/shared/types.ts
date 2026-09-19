@@ -134,6 +134,7 @@ declare global {
       versaoDoApp(): Promise<string>
       /** O comando `claude mcp add` que liga o conector do Cortex. */
       conectorClaude(): Promise<{ comando: string }>
+      estadoConector(): Promise<{ estado: 'conectado' | 'outra-instalacao' | 'desconectado' }>
       conectarClaude(): Promise<{ processo: ProcessoInfo }>
       esquecerProcesso(id: string): Promise<{ ok: true }>
       atualizacao: {

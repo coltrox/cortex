@@ -16,6 +16,7 @@ import {
   ligarAtualizacaoAutomatica, estadoDaAtualizacao, procurarAtualizacaoAgora, reiniciarParaAtualizar
 } from './atualizador'
 import { instrucoesParaClaude, gravarSeMudou } from './instrucoesClaude'
+import { lerEstadoDoConector } from './estadoConector'
 import { ServicoAgenda } from './google/servico'
 import { GuardaCifrada } from './google/guarda'
 
@@ -335,6 +336,11 @@ function argsDoConector(): string[] {
     '--', aspas(process.execPath), aspas(script)
   ]
 }
+
+/** Se o conector já está registrado no Claude Code, e para este Cortex. Só lê o ~/.claude.json. */
+ipcMain.handle('app:estado-conector', async () => {
+  return { estado: await lerEstadoDoConector(join(app.getPath('home'), '.claude.json'), process.execPath) }
+})
 
 ipcMain.handle('app:conectorClaude', async () => {
   return { comando: ['claude', ...argsDoConector()].join(' ') }

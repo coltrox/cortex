@@ -430,6 +430,11 @@ function BlocoClaude() {
   const [proc, setProc] = useState<ProcessoInfo | null>(null)
   const [estado, setEstado] = useState<'parado' | 'rodando' | 'ok' | 'falhou'>('parado')
   const [erro, setErro] = useState<string | null>(null)
+  /** O que o Claude Code tem registrado agora — lido ao abrir o bloco. */
+  const [conexao, setConexao] = useState<'conectado' | 'outra-instalacao' | 'desconectado' | null>(null)
+  useEffect(() => {
+    void window.vaultApi.estadoConector().then(r => setConexao(r.estado)).catch(() => setConexao('desconectado'))
+  }, [])
 
   // Acompanha o processo; deu certo, o terminal fecha sozinho em 1,5 s.
   useEffect(() => {
@@ -441,6 +446,7 @@ function BlocoClaude() {
         setProc(p)
         if (p.saiu === 0) {
           setEstado('ok')
+          setConexao('conectado')
           setTimeout(() => {
             setProc(null)
             void window.vaultApi.esquecerProcesso(p.id).catch(() => {})
@@ -483,9 +489,19 @@ function BlocoClaude() {
         Contas, senhas, documentos e painéis trancados ficam de fora.
       </p>
       <div className="config-conectar">
-        <button className="btn" onClick={() => void conectar()} disabled={estado === 'rodando'}>
-          {estado === 'rodando' ? 'Conectando…' : estado === 'ok' ? 'Conectado ✓' : 'Conectar'}
-        </button>
+        {conexao === 'conectado' && estado !== 'rodando' ? (
+          <>
+            <span className="config-conectado"><span className="config-conectado-ponto" />Conectado</span>
+            <button className="btn-fantasma pequeno" onClick={() => void conectar()}>Conectar de novo</button>
+          </>
+        ) : (
+          <button className="btn" onClick={() => void conectar()} disabled={estado === 'rodando' || conexao === null}>
+            {estado === 'rodando' ? 'Conectando…' : conexao === 'outra-instalacao' ? 'Atualizar conexão' : 'Conectar'}
+          </button>
+        )}
+        {conexao === 'outra-instalacao' && estado !== 'rodando' && (
+          <span className="form-dica">Registrado para outra instalação do Cortex — atualize para apontar para esta.</span>
+        )}
         {estado === 'ok' && <span className="form-dica">Pronto: o Claude Code já enxerga o Cortex (abra uma conversa nova).</span>}
         {estado === 'falhou' && <span className="config-conectar-falhou">Não conectou — veja a saída abaixo.</span>}
       </div>
