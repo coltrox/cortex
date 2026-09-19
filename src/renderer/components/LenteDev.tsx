@@ -36,12 +36,12 @@ type PropsDev = PropsLente & {
   aoCriarPasta: (pasta: string) => void
   aoMoverNota: (de: string, paraPasta: string) => void
   aoSoltarPastas: (arquivos: FileList) => void
-  /** Cria um projeto em Área de Trabalho\projetos; `null` se não deu. */
+  /** Cria um projeto em Área de Trabalho\projetos; `{ erro }` com o motivo se não deu. */
   aoNovoProjeto: (
     modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
-  ) => Promise<{ raiz: string; pasta: string } | null>
+  ) => Promise<{ raiz: string; pasta: string } | { erro: string }>
   /** Clona um repositório do GitHub em Área de Trabalho\projetos. */
-  aoClonarRepo: (url: string) => Promise<{ raiz: string; pasta: string } | null>
+  aoClonarRepo: (url: string) => Promise<{ raiz: string; pasta: string } | { erro: string }>
 }
 
 const nomeBase = (p: string): string => p.slice(p.lastIndexOf('/') + 1).replace(/\.md$/i, '')
@@ -216,11 +216,13 @@ const PARECE_REPO =
   /^(?:(?:https?:\/\/)?(?:www\.)?github\.com\/|git@github\.com:)?[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}?(?:\.git)?\/?$/
 
 function ClonarRepo({ aoClonar, aoFechar }: {
-  aoClonar: (url: string) => Promise<boolean>
+  /** `true` se começou; texto com o motivo se não. */
+  aoClonar: (url: string) => Promise<true | string>
   aoFechar: () => void
 }) {
   const [url, setUrl] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
   const valido = PARECE_REPO.test(url.trim())
   const nome = valido ? url.trim().replace(/\/$/, '').replace(/\.git$/, '').split(/[/:]/).pop() : ''
 
@@ -233,8 +235,11 @@ function ClonarRepo({ aoClonar, aoFechar }: {
   const clonar = async (): Promise<void> => {
     if (!valido || enviando) return
     setEnviando(true)
+    setErro(null)
     try {
-      if (await aoClonar(url.trim())) aoFechar()
+      const r = await aoClonar(url.trim())
+      if (r === true) aoFechar()
+      else setErro(r)
     } finally {
       setEnviando(false)
     }
@@ -261,6 +266,7 @@ function ClonarRepo({ aoClonar, aoFechar }: {
             ? `Vai para Área de Trabalho\\projetos\\${nome}. Repositório privado usa o login do Git deste computador.`
             : 'Cole o link do repositório, ou escreva dono/repositório.'}
         </p>
+        {erro && <div className="novo-projeto-erro" role="alert">{erro}</div>}
         <div className="novo-projeto-rodape">
           <button className="btn-fantasma" onClick={aoFechar}>Cancelar</button>
           <button className="btn" onClick={() => void clonar()} disabled={!valido || enviando}>
@@ -284,6 +290,8 @@ const extensao = (nome: string): string => {
 const TIPO_ITEM = 'application/x-cortex-dev-item'
 /** Abrem numa visualização em vez do editor. Mesma lista de `tipoDeMidia`, no processo principal. */
 const EXT_MIDIA = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'pdf'])
+/** Nas preferências do computador: '1' liga o salvar sozinho do editor. */
+const CHAVE_SALVAR_SOZINHO = 'dev.salvarSozinho'
 
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
@@ -351,6 +359,7 @@ function Codigo({
   const [texto, setTexto] = useState('')
   const [gravado, setGravado] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [autoSalvar, setAutoSalvar] = useState(false)
 
   const [criandoProjeto, setCriandoProjeto] = useState(false)
   const [clonando, setClonando] = useState(false)
@@ -598,7 +607,7 @@ function Codigo({
    */
   const abrirVisor = async (it: EntradaDev): Promise<void> => {
     if (!raiz) return
-    if (texto !== gravado && !window.confirm('Trocar de arquivo sem salvar as mudanças?')) return
+    if (!(await podeLargar('Trocar de arquivo sem salvar as mudanças?'))) return
     setFoco({ rel: it.rel, pasta: false })
     setArquivo(null); setTexto(''); setGravado('')
     if (!EXT_MIDIA.has(extensao(it.nome))) {
@@ -618,9 +627,9 @@ function Codigo({
 
   const criarProjeto = async (
     modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
-  ): Promise<boolean> => {
+  ): Promise<true | string> => {
     const r = await aoNovoProjeto(modelo, linguagem, nome)
-    if (!r) return false
+    if ('erro' in r) return r.erro
     setQuerRaiz({ raiz: r.raiz, pasta: r.pasta })
     return true
   }
@@ -635,9 +644,20 @@ function Codigo({
     setGravado(c)
   }
 
-  /** Fecha o arquivo aberto. Com mudança não salva, pergunta antes. */
-  const fecharArquivo = (): void => {
-    if (texto !== gravado && !window.confirm('Fechar sem salvar as mudanças?')) return
+  /**
+   * Pode largar o arquivo aberto? Sem mudança, sim. Com o salvar sozinho
+   * ligado, grava agora (a espera de 0,8 s ainda não tinha passado) e segue.
+   * Sem ele, pergunta.
+   */
+  const podeLargar = async (pergunta: string): Promise<boolean> => {
+    if (texto === gravado) return true
+    if (autoSalvar) { await salvar(); return true }
+    return window.confirm(pergunta)
+  }
+
+  /** Fecha o arquivo aberto. Com mudança não salva, salva ou pergunta antes. */
+  const fecharArquivo = async (): Promise<void> => {
+    if (!(await podeLargar('Fechar sem salvar as mudanças?'))) return
     setVisor(null)
     setArquivo(null)
     setTexto('')
@@ -655,6 +675,33 @@ function Codigo({
   }
 
   const sujo = texto !== gravado
+
+  /*
+   * Salvar sozinho, como o "Auto Save" do VS Code: 0,8 s depois de parar de
+   * digitar, o arquivo é gravado. Pedido do dono. Liga e desliga no topo do
+   * editor, e a escolha fica guardada nas preferências deste computador.
+   */
+  useEffect(() => {
+    let vivo = true
+    void window.vaultApi.lerPrefs()
+      .then(p => { if (vivo) setAutoSalvar(p[CHAVE_SALVAR_SOZINHO] === '1') })
+      .catch(() => { /* sem preferência: desligado */ })
+    return () => { vivo = false }
+  }, [])
+
+  useEffect(() => {
+    if (!autoSalvar || !arquivo || !sujo || salvando) return
+    const t = setTimeout(() => void salvar(), 800)
+    return () => clearTimeout(t)
+    // `salvar` muda a cada render; o que decide a espera é o texto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSalvar, arquivo, texto, gravado, salvando])
+
+  const alternarAutoSalvar = (): void => {
+    const novo = !autoSalvar
+    setAutoSalvar(novo)
+    void window.vaultApi.gravarPref(CHAVE_SALVAR_SOZINHO, novo ? '1' : '0').catch(() => {})
+  }
   const projeto = projetoDoFoco(foco, filhos)
   const nomeRaiz = raiz ? raiz.split(/[\\/]/).filter(Boolean).pop() ?? raiz : ''
 
@@ -670,9 +717,9 @@ function Codigo({
     }
   }
 
-  const clonarRepo = async (url: string): Promise<boolean> => {
+  const clonarRepo = async (url: string): Promise<true | string> => {
     const r = await aoClonarRepo(url)
-    if (!r) return false
+    if ('erro' in r) return r.erro
     setQuerRaiz({ raiz: r.raiz, pasta: r.pasta })
     return true
   }
@@ -754,11 +801,11 @@ function Codigo({
             if (e.key === 'F2') { e.preventDefault(); setRenomeando(it.rel) }
             else if (e.key === 'Delete') { e.preventDefault(); void excluirItem(it) }
           }}
-          onClick={() => {
+          onClick={async () => {
             if (it.pasta) alternarPasta(it.rel)
             else if (it.rel === arquivo || it.rel === visor?.rel) return
             else if (it.editavel) {
-              if (texto !== gravado && !window.confirm('Trocar de arquivo sem salvar as mudanças?')) return
+              if (!(await podeLargar('Trocar de arquivo sem salvar as mudanças?'))) return
               setFoco({ rel: it.rel, pasta: false })
               void abrirArquivo(it.rel)
             } else void abrirVisor(it)
@@ -909,7 +956,7 @@ function Codigo({
                       <button className="btn-fantasma pequeno" onClick={() => void abrirNoPadrao(visor.rel)}>
                         Abrir no app padrão
                       </button>
-                      <button className="btn-icone dev-fechar" title="Fechar" onClick={fecharArquivo}>×</button>
+                      <button className="btn-icone dev-fechar" title="Fechar" onClick={() => void fecharArquivo()}>×</button>
                     </span>
                   </div>
                   {visor.tipo.startsWith('image/') ? (
@@ -937,7 +984,17 @@ function Codigo({
                       ))}
                     </span>
                     <span className="nota-trilha-dir">
-                      {sujo && <span className="salvo" data-sujo>não salvo</span>}
+                      {autoSalvar
+                        ? <span className="salvo" data-sujo={sujo || salvando}>{sujo || salvando ? 'salvando…' : 'salvo'}</span>
+                        : sujo && <span className="salvo" data-sujo>não salvo</span>}
+                      <button
+                        className="btn-fantasma pequeno dev-auto"
+                        aria-pressed={autoSalvar}
+                        title={autoSalvar ? 'Salvando sozinho enquanto você digita — clique para desligar' : 'Salvar sozinho enquanto digita, como o Auto Save do VS Code'}
+                        onClick={alternarAutoSalvar}
+                      >
+                        <span className="dev-auto-ponto" aria-hidden="true" />Salvar sozinho
+                      </button>
                       {semArvore && (
                         <button className="btn-fantasma pequeno" title="Mostrar a árvore" onClick={() => setSemArvore(false)}>
                           ⇥ Arquivos
@@ -950,10 +1007,12 @@ function Codigo({
                       >
                         {amplo ? '⤡ Reduzir' : '⤢ Ampliar'}
                       </button>
-                      <button className="btn pequeno" onClick={() => void salvar()} disabled={!sujo || salvando}>
-                        {salvando ? 'Salvando…' : 'Salvar'}
-                      </button>
-                      <button className="btn-icone dev-fechar" title="Fechar o arquivo" onClick={fecharArquivo}>×</button>
+                      {!autoSalvar && (
+                        <button className="btn pequeno" onClick={() => void salvar()} disabled={!sujo || salvando}>
+                          {salvando ? 'Salvando…' : 'Salvar'}
+                        </button>
+                      )}
+                      <button className="btn-icone dev-fechar" title="Fechar o arquivo" onClick={() => void fecharArquivo()}>×</button>
                     </span>
                   </div>
                   <EditorCodigo

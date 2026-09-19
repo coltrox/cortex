@@ -22,6 +22,16 @@ export type Backlink = { path: string; title: string; line: number }
 export type Config = ConfigVault
 export type EntradaDev = { nome: string; rel: string; pasta: boolean; tamanho: number; editavel: boolean }
 
+/**
+ * A mensagem de um erro para a tela. Erros do processo principal chegam como
+ * "Error invoking remote method 'canal': Error: <a mensagem>" — o começo é
+ * detalhe do Electron, em inglês, e não diz nada a quem usa o app.
+ */
+export function mensagemDeErro(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e)
+  return m.replace(/^Error invoking remote method '[^']+': (?:[A-Za-z]*Error: )?/, '')
+}
+
 /** Agrupa por pasta de primeiro nível — a raiz vira um grupo próprio. */
 export function agruparPorPasta(notas: NoteComCampos[]): [string, NoteComCampos[]][] {
   const grupos = new Map<string, NoteComCampos[]>()
@@ -63,7 +73,7 @@ export function useVault() {
   const [entrando, setEntrando] = useState<Backlink[]>([])
 
   const [erro, setErro] = useState<string | null>(null)
-  const falhou = (e: unknown): void => setErro(e instanceof Error ? e.message : String(e))
+  const falhou = (e: unknown): void => setErro(mensagemDeErro(e))
 
   const recarregar = useCallback(async () => {
     if (!root) return
@@ -374,24 +384,26 @@ export function useVault() {
     modelo: import('../shared/types').ModeloProjeto,
     linguagem: import('../shared/types').LinguagemProjeto,
     nome: string
-  ): Promise<import('../shared/types').ProjetoCriado | null> => {
+  ): Promise<import('../shared/types').ProjetoCriado | { erro: string }> => {
+    // O erro volta para a janela do Novo projeto, que fica aberta e o mostra
+    // ali — no aviso do topo ele ficava escondido atrás da janela.
     try {
       const r = await window.vaultApi.novoProjeto(modelo, linguagem, nome)
       setConfig(c => ({ ...c, pastasDev: r.pastasDev }))
       setErro(null)
       return r
-    } catch (e) { falhou(e); return null }
+    } catch (e) { return { erro: mensagemDeErro(e) } }
   }, [])
 
   const clonarRepo = useCallback(async (
     url: string
-  ): Promise<import('../shared/types').ProjetoCriado | null> => {
+  ): Promise<import('../shared/types').ProjetoCriado | { erro: string }> => {
     try {
       const r = await window.vaultApi.clonarRepo(url)
       setConfig(c => ({ ...c, pastasDev: r.pastasDev }))
       setErro(null)
       return r
-    } catch (e) { falhou(e); return null }
+    } catch (e) { return { erro: mensagemDeErro(e) } }
   }, [])
 
   const revelar = useCallback(async (raiz: string, subPasta = ''): Promise<void> => {

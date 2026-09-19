@@ -1,4 +1,6 @@
-import { join } from 'node:path'
+import { join, resolve, relative, isAbsolute, dirname } from 'node:path'
+import { mkdir, writeFile, rm } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
 import type { Etapa } from './processos'
 import type { ModeloProjeto, LinguagemProjeto } from '../../shared/types'
 
@@ -104,6 +106,97 @@ const GITIGNORE_PYTHON = '.venv/\n__pycache__/\n*.pyc\n.env\n'
  * conferido. Os caminhos são relativos à pasta do projeto e nunca sobem dela.
  * Nos outros modelos o criador oficial monta tudo, e a lista é vazia.
  */
+/**
+ * O que instalar quando um comando das etapas não existe no computador.
+ *
+ * Sem esta conferência, criar um projeto Python num PC sem Python rodava o
+ * atalho falso da Microsoft Store, que responde em inglês "Python was not
+ * found…" — e ainda sobrava uma pasta de projeto pela metade.
+ */
+const FERRAMENTAS: Record<string, { nome: string; onde: string }> = {
+  git: { nome: 'O Git', onde: 'git-scm.com/downloads' },
+  npm: { nome: 'Node.js', onde: 'nodejs.org' },
+  npx: { nome: 'Node.js', onde: 'nodejs.org' },
+  python: { nome: 'Python', onde: 'python.org/downloads (marque "Add python.exe to PATH" na instalação)' },
+  dotnet: { nome: 'O SDK do .NET', onde: 'dotnet.microsoft.com/download' },
+  mvn: { nome: 'O Maven', onde: 'maven.apache.org (precisa também do JDK)' },
+  go: { nome: 'Go', onde: 'go.dev/dl' },
+  cargo: { nome: 'Rust', onde: 'rustup.rs' },
+  composer: { nome: 'O Composer', onde: 'getcomposer.org (precisa também do PHP)' },
+  rails: { nome: 'O Ruby on Rails', onde: 'rubyonrails.org (precisa do Ruby)' },
+  flutter: { nome: 'O Flutter', onde: 'docs.flutter.dev/get-started/install' }
+}
+
+/**
+ * Os programas de que as etapas dependem, sem repetir. Fica de fora o que
+ * mora dentro do projeto (o python do `.venv`, que tem barra no caminho) —
+ * ele é criado pelas próprias etapas.
+ */
+export function comandosExternos(etapas: Etapa[]): string[] {
+  return [...new Set(etapas.map(e => e.comando).filter(c => !/[\\/]/.test(c)))]
+}
+
+/** Código de saída de "comando não encontrado": 9009 no Windows (cmd e o atalho da Store), 127 nos outros. */
+export function comandoFaltou(codigo: number | null): boolean {
+  return codigo === 9009 || codigo === 127
+}
+
+export function avisoDeFalta(comando: string): string {
+  const f = FERRAMENTAS[comando]
+  return f
+    ? `${f.nome} não está instalado neste computador (ou não está no PATH). Instale em ${f.onde} e tente de novo.`
+    : `${comando} não está instalado neste computador (ou não está no PATH).`
+}
+
+/**
+ * Confere se um comando existe rodando `<comando> --version`. Qualquer saída
+ * que não seja "não encontrado" conta como instalado — `go --version` sai
+ * com 2 e o Go está lá. Demorar demais também conta: melhor tentar criar do
+ * que barrar quem tem a ferramenta.
+ */
+export function comandoInstalado(comando: string): Promise<boolean> {
+  return new Promise(ok => {
+    let fim = false
+    const acabar = (v: boolean): void => { if (!fim) { fim = true; ok(v) } }
+    try {
+      // `shell` no Windows porque npm, npx e afins são .cmd. O comando vem da
+      // tabela de etapas, nunca do renderer.
+      const filho = spawn(comando, ['--version'], {
+        shell: process.platform === 'win32', windowsHide: true, stdio: 'ignore'
+      })
+      filho.on('error', () => acabar(false))
+      filho.on('close', codigo => acabar(!comandoFaltou(codigo)))
+      setTimeout(() => { filho.kill(); acabar(true) }, 15_000)
+    } catch { acabar(false) }
+  })
+}
+
+/**
+ * Grava o esqueleto de `arquivosNovoProjeto` em `pasta`.
+ *
+ * Cria as subpastas antes de cada arquivo — antes não criava, e todo modelo
+ * com arquivo em `src/` ou `public/` (API com Express, Java, Kotlin, PHP)
+ * falhava com ENOENT. Cada caminho é conferido para não sair da pasta. Se
+ * algo falha no meio, a pasta é apagada: sobrar metade dela fazia a próxima
+ * tentativa com o mesmo nome dizer "já existe".
+ */
+export async function escreverArquivosIniciais(pasta: string, arquivos: ArquivoInicial[]): Promise<void> {
+  const raiz = resolve(pasta)
+  await mkdir(raiz, { recursive: true })
+  try {
+    for (const a of arquivos) {
+      const destino = resolve(raiz, a.caminho)
+      const volta = relative(raiz, destino)
+      if (!volta || volta.startsWith('..') || isAbsolute(volta)) throw new Error('arquivo fora da pasta do projeto')
+      await mkdir(dirname(destino), { recursive: true })
+      await writeFile(destino, a.conteudo, 'utf8')
+    }
+  } catch (e) {
+    await rm(raiz, { recursive: true, force: true })
+    throw e
+  }
+}
+
 export function arquivosNovoProjeto(
   modelo: ModeloProjeto, nome: string, linguagem: LinguagemProjeto = 'ts'
 ): ArquivoInicial[] {

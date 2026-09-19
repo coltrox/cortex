@@ -364,13 +364,16 @@ const opcaoDoGrupo = (g: Grupo): OpcaoCascata =>
  * existe, por exemplo), ela fica aberta com o que foi escolhido.
  */
 export function NovoProjeto({ aoCriar, aoFechar }: {
-  aoCriar: (modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string) => Promise<boolean>
+  /** `true` se começou; texto com o motivo se não — mostrado aqui mesmo, na janela. */
+  aoCriar: (modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string) => Promise<true | string>
   aoFechar: () => void
 }) {
   const [modelo, setModelo] = useState<ModeloProjeto>('vite')
   const [linguagem, setLinguagem] = useState<LinguagemProjeto>('ts')
   const [nome, setNome] = useState('')
   const [enviando, setEnviando] = useState(false)
+  /** O motivo de não ter dado, do processo principal ("Python não está instalado…"). */
+  const [erro, setErro] = useState<string | null>(null)
   const valido = NOME_VALIDO.test(nome)
   const grupo = grupoDe(modelo)
   const escolhido = grupo.modelos.find(m => m.id === modelo) ?? grupo.modelos[0]
@@ -391,8 +394,11 @@ export function NovoProjeto({ aoCriar, aoFechar }: {
   const criar = async (): Promise<void> => {
     if (!valido || enviando) return
     setEnviando(true)
+    setErro(null)
     try {
-      if (await aoCriar(modelo, linguagem, nome)) aoFechar()
+      const r = await aoCriar(modelo, linguagem, nome)
+      if (r === true) aoFechar()
+      else setErro(r)
     } finally {
       setEnviando(false)
     }
@@ -463,6 +469,7 @@ export function NovoProjeto({ aoCriar, aoFechar }: {
           Vai para <code>Área de Trabalho\projetos\{nome || 'meu-app'}</code>. A pasta
           projetos é criada se ainda não existir, e a instalação aparece no terminal.
         </p>
+        {erro && <div className="novo-projeto-erro" role="alert">{erro}</div>}
         <pre className="novo-projeto-comando">{comandoDe(modelo, linguagem, nome || 'meu-app')}</pre>
 
         <div className="novo-projeto-rodape">

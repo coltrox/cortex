@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { join } from 'node:path'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import {
-  nomeDeProjetoValido, etapasNovoProjeto, arquivosNovoProjeto, MODELOS_PROJETO
+  nomeDeProjetoValido, etapasNovoProjeto, arquivosNovoProjeto, escreverArquivosIniciais, MODELOS_PROJETO,
+  comandosExternos, comandoFaltou, avisoDeFalta
 } from './novoProjeto'
 
 const BASE = join('C:', 'Users', 'x', 'Desktop', 'projetos')
@@ -203,5 +206,56 @@ describe('repoDoGithub', () => {
       'https://gitlab.com/a/b', 'file:///C:/x', 'ext::sh -c calc', '--upload-pack=calc/x',
       'a/-b', 'a/..', 'a/b/c', 'https://github.com/a/b?x=1', 'a/b; rm -rf', '', 42
     ]) expect(repoDoGithub(ruim)).toBeNull()
+  })
+})
+
+describe('escrever os arquivos iniciais', () => {
+  it('cria as subpastas (src/, public/) de todo modelo com esqueleto', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'cortex-novo-'))
+    try {
+      for (const modelo of MODELOS_PROJETO) {
+        const arquivos = arquivosNovoProjeto(modelo, 'app', 'ts')
+        if (arquivos.length === 0) continue
+        const pasta = join(base, modelo)
+        await escreverArquivosIniciais(pasta, arquivos)
+        for (const a of arquivos) {
+          expect(await readFile(join(pasta, a.caminho), 'utf8')).toBe(a.conteudo)
+        }
+      }
+    } finally { await rm(base, { recursive: true, force: true }) }
+  })
+
+  it('recusa caminho que sai da pasta e não deixa a pasta pela metade', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'cortex-novo-'))
+    const pasta = join(base, 'app')
+    try {
+      await expect(escreverArquivosIniciais(pasta, [
+        { caminho: 'ok.txt', conteudo: 'x' },
+        { caminho: '../fora.txt', conteudo: 'x' }
+      ])).rejects.toThrow(/fora da pasta/)
+      expect(await stat(pasta).catch(() => null)).toBeNull()
+      expect(await stat(join(base, 'fora.txt')).catch(() => null)).toBeNull()
+    } finally { await rm(base, { recursive: true, force: true }) }
+  })
+})
+
+describe('ferramenta que falta no computador', () => {
+  it('só os comandos de fora do projeto contam, sem repetir', () => {
+    const etapas = etapasNovoProjeto('flask', 'ts', 'app', BASE)
+    expect(comandosExternos(etapas)).toEqual(['python'])
+    expect(comandosExternos(etapasNovoProjeto('vite', 'ts', 'app', BASE))).toEqual(['npx', 'npm'])
+  })
+
+  it('9009 (Windows) e 127 (Linux/Mac) são "não encontrado"; o resto é instalado', () => {
+    expect(comandoFaltou(9009)).toBe(true)
+    expect(comandoFaltou(127)).toBe(true)
+    expect(comandoFaltou(0)).toBe(false)
+    // `go --version` sai com 2, mas o Go está lá.
+    expect(comandoFaltou(2)).toBe(false)
+  })
+
+  it('o aviso diz o que instalar e onde, em português', () => {
+    expect(avisoDeFalta('python')).toMatch(/Python não está instalado.*python\.org/)
+    expect(avisoDeFalta('xyz')).toMatch(/xyz não está instalado/)
   })
 })

@@ -7,7 +7,7 @@ import { registerIpc, sincronizadorDe } from './ipc/handlers'
 import { ligarCampainha, desligarCampainha } from './nuvem/campainha'
 import { Processos, scriptsDoProjeto } from './dev/processos'
 import {
-  etapasNovoProjeto, arquivosNovoProjeto, nomeDeProjetoValido, MODELOS_PROJETO, LINGUAGENS_PROJETO,
+  etapasNovoProjeto, arquivosNovoProjeto, escreverArquivosIniciais, comandosExternos, comandoInstalado, avisoDeFalta, nomeDeProjetoValido, MODELOS_PROJETO, LINGUAGENS_PROJETO,
   NOME_MODELO, repoDoGithub
 } from './dev/novoProjeto'
 import { projetarConfigParaRenderer, type ConfigParaRenderer } from './config'
@@ -575,6 +575,14 @@ ipcMain.handle('dev:novo-projeto', async (_e, payload: unknown) => {
     throw new Error(`já existe uma pasta "${nome}" em projetos`)
   }
 
+  // Antes de criar qualquer coisa: as ferramentas que as etapas usam existem
+  // neste computador? Se não, um aviso claro do que instalar — e nenhuma
+  // pasta pela metade.
+  const etapas = etapasNovoProjeto(modelo, linguagem, nome, base)
+  for (const c of comandosExternos(etapas)) {
+    if (!(await comandoInstalado(c))) throw new Error(avisoDeFalta(c))
+  }
+
   let pastasDev = session.config.pastasDev
   let raiz = pastasDev.find(x => resolve(x) === resolve(base))
   if (!raiz) {
@@ -586,17 +594,8 @@ ipcMain.handle('dev:novo-projeto', async (_e, payload: unknown) => {
   // `novoProjeto.ts`, com conteúdo fixo, e cada caminho é conferido para não
   // sair da pasta do projeto antes de ser escrito.
   const arquivos = arquivosNovoProjeto(modelo, nome, linguagem)
-  if (arquivos.length > 0) {
-    const pasta = join(base, nome)
-    await mkdir(pasta, { recursive: true })
-    for (const a of arquivos) {
-      const destino = resolve(pasta, a.caminho)
-      if (!ehOuContem(pasta, destino)) throw new Error('arquivo fora da pasta do projeto')
-      await writeFile(destino, a.conteudo, 'utf8')
-    }
-  }
+  if (arquivos.length > 0) await escreverArquivosIniciais(join(base, nome), arquivos)
 
-  const etapas = etapasNovoProjeto(modelo, linguagem, nome, base)
   const rotulo = `criar ${NOME_MODELO[modelo]} · ${nome}`
   const processo = processos.iniciarEtapas(raiz, rotulo, etapas)
   return { processo, raiz, pasta: nome, pastasDev }
@@ -620,6 +619,7 @@ ipcMain.handle('dev:clonar-repo', async (_e, payload: unknown) => {
   if (await stat(join(base, repo.nome)).catch(() => null)) {
     throw new Error(`já existe uma pasta "${repo.nome}" em projetos`)
   }
+  if (!(await comandoInstalado('git'))) throw new Error(avisoDeFalta('git'))
 
   let pastasDev = session.config.pastasDev
   let raiz = pastasDev.find(x => resolve(x) === resolve(base))
