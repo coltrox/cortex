@@ -407,9 +407,22 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
-`v2.6.21` — tela de área trancada redesenhada (cartão escuro, título em serifa, senha em pontos grandes); abas de projetos abertos no Dev (com bolinha de rodando); o Dev lembra o projeto e o arquivo abertos; o conector do Claude mostra "Conectado" quando já está registrado; botão de menu no topo (Ctrl+B) com a tela usando a largura toda, Explorer do Dev consertado; pasta de projetos dentro do Cortex, ajuda para instalar a ferramenta que falta, botão Conectar do Claude, esconder o menu (Ctrl+B) e interromper todos os terminais; Ctrl+F no editor do Dev e clicar num projeto entra nele; criar projeto abre a pasta dele como a do editor e já abre o arquivo principal; criar projeto corrigido (subpastas, aviso do que instalar, sem o erro ENOENT ao abrir o projeto novo) e botão "Salvar sozinho" no editor do Dev; atualizar não tira mais o Cortex da barra de tarefas; lente Dev como o VS Code: árvore que abre para baixo, arrastar arquivos do Explorer para dentro de uma pasta, mover arrastando, renomear (F2), excluir para a Lixeira, foto e PDF abertos no app, fechar o arquivo aberto, código colorido (tema Min), editor ampliável, scripts no projeto em que se está e o projeto recém-criado já aberto, Novo projeto todo em cascata, Google Agenda de duas vias, que também puxa os seus outros calendários (um calendário "Cortex" na conta Google), paleta de comandos no Ctrl+K, Configurações em abas, Pomodoro nos
-Estudos, acontecimentos na Agenda, clonar repositório do GitHub na lente Dev e
-um conector MCP para o Claude Code consultar o vault. A 2.3.0 trouxe o redesign
+`v2.6.21` — a lente **Dev** virou um editor de verdade, no espírito do VS Code:
+pasta de projetos dentro do próprio Cortex, árvore que abre para baixo, abas
+dos projetos abertos (com bolinha de quem está rodando), código colorido no
+tema Min, Ctrl+F, salvar sozinho, arrastar arquivos do Explorer para dentro de
+uma pasta, mover, renomear (F2), excluir para a Lixeira, foto e PDF abertos no
+app, editor ampliável e o menu lateral que se esconde no Ctrl+B. Criar projeto
+confere antes se a ferramenta está instalada e ajuda a instalar (link e comando
+do winget), e o projeto novo abre pronto para trabalhar. O conector do Claude
+tem um botão **Conectar** e mostra quando já está conectado. As áreas trancadas
+ganharam tela nova.
+
+Antes disso: Google Agenda de duas vias, que também puxa os seus outros
+calendários (um calendário "Cortex" na conta Google), paleta de comandos no
+Ctrl+K, Configurações em abas, Pomodoro nos Estudos, acontecimentos na Agenda,
+clonar repositório do GitHub na lente Dev e um conector MCP para o Claude Code
+consultar o vault. A 2.3.0 trouxe o redesign
 do app de computador: tema escuro próprio, sidebar única, página Hoje em duas
 trilhas e barra de título integrada (F11 para tela cheia). A 2.0.0 foi a
 primeira versão para outras pessoas usarem. Funciona, é usado todo
