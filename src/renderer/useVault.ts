@@ -253,6 +253,17 @@ export function useVault() {
     } catch (e) { falhou(e) }
   }, [recarregar, aberta, fechar])
 
+  /** Várias de uma vez (as cópias repetidas do calendário): um recarregar só no fim. */
+  const excluirVarias = useCallback(async (paths: string[]): Promise<void> => {
+    try {
+      for (const path of paths) {
+        await window.vaultApi.invoke('note:delete', { path })
+        if (aberta === path) fechar()
+      }
+      setErro(null)
+    } catch (e) { falhou(e) } finally { await recarregar() }
+  }, [recarregar, aberta, fechar])
+
   const mover = useCallback(async (de: string, paraPasta: string): Promise<void> => {
     const nome = de.slice(de.lastIndexOf('/') + 1)
     const para = paraPasta ? `${paraPasta}/${nome}` : nome
@@ -443,7 +454,7 @@ export function useVault() {
     // lista antiga até alguém trocar de lente.
     recarregar,
     abrir, abrirPorNome, abrirLink, fechar, salvar,
-    criar, alterar, excluir, mover, criarPasta, lancar, marcarNoDia,
+    criar, alterar, excluir, excluirVarias, mover, criarPasta, lancar, marcarNoDia,
     autorizarPasta, autorizarArrastadas, removerPasta,
     arvoreDev, lerArquivo, gravarArquivo, abrirTerminal, revelar, novoProjeto, clonarRepo,
     erro, limparErro: () => setErro(null)

@@ -107,6 +107,22 @@ export type EstadoAtualizacao = {
   ultimaVerificacao: string | null
 }
 
+/**
+ * Um feriado lido dos calendários de feriados da conta Google de quem usa.
+ *
+ * Quando existe, ele substitui a lista embutida do Cortex: cada pessoa vê os
+ * feriados do calendário que ela mesma escolheu no Google.
+ */
+export type FeriadoDaAgenda = {
+  /** ISO `AAAA-MM-DD`. */
+  data: string
+  nome: string
+  /** `feriado` quando o Google diz que é feriado; o resto (observância, facultativo) é `facultativo`. */
+  especie: 'feriado' | 'facultativo'
+  /** O que o próprio Google escreve sobre o dia ("Feriado", "Observância"…), ou o nome do calendário. */
+  descricao: string
+}
+
 /** O que a tela sabe da conexão com o Google Agenda. Nunca o token nem o segredo. */
 export type EstadoGoogle = {
   temCliente: boolean
@@ -150,6 +166,8 @@ declare global {
         conectar(): Promise<EstadoGoogle>
         sincronizar(): Promise<EstadoGoogle>
         desconectar(): Promise<EstadoGoogle>
+        /** Os feriados dos calendários de feriados da conta. Vazio sem conexão. */
+        feriados(): Promise<FeriadoDaAgenda[]>
       }
       /** Pinta a barra de título (os botões da janela) no tema do app. */
       temaDaJanela(tema: 'claro' | 'escuro'): Promise<void>

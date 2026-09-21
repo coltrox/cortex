@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { NoteComCampos } from '../tipos'
 import { feriadosDoAno, type Feriado } from '../../shared/feriados'
+import type { FeriadoDaAgenda } from '../../shared/types'
+import { aniversarioNoCalendario } from '../../shared/aniversario'
+import { repetidos, copiasDoGoogle } from './duplicados'
 import { diasNoMes as diasDoMesNoAno } from '../../shared/datas'
 import { Linha, txt } from './base'
 
@@ -59,6 +62,45 @@ function legenda(f: Feriado): string {
   return `${ONDE[f.abrangencia]} · ${f.especie === 'feriado' ? 'feriado' : 'ponto facultativo'}`
 }
 
+/** O feriado como a grade desenha — venha do Google ou da lista embutida. */
+type FeriadoNaTela = { nome: string; especie: 'feriado' | 'facultativo'; legenda: string; lei?: string }
+
+/**
+ * Os feriados de um ano na grade.
+ *
+ * Com o Google Agenda ligado, valem os do calendário de feriados da própria
+ * pessoa (pedido do dono: o app não precisa impor os feriados dele). Sem
+ * isso, só os nacionais da lista embutida — os de SP e de Campinas só fazem
+ * sentido para quem mora lá.
+ */
+export function feriadosNaTela(ano: number, doGoogle: FeriadoDaAgenda[]): Map<string, FeriadoNaTela[]> {
+  const m = new Map<string, FeriadoNaTela[]>()
+  const por = (data: string, f: FeriadoNaTela): void => {
+    const l = m.get(data)
+    if (l) l.push(f)
+    else m.set(data, [f])
+  }
+  const doAno = doGoogle.filter(f => f.data.startsWith(`${ano}-`))
+  if (doAno.length) {
+    for (const f of doAno) por(f.data, { nome: f.nome, especie: f.especie, legenda: `${f.descricao} · Google Agenda` })
+    return m
+  }
+  for (const [data, lista] of feriadosDoAno(ano)) {
+    for (const f of lista) {
+      if (f.abrangencia !== 'nacional') continue
+      por(data, { nome: f.nome, especie: f.especie, legenda: legenda(f), lei: f.lei })
+    }
+  }
+  return m
+}
+
+/** "2026-09-22" → "ter, 22 de setembro de 2026"; "--10-03" → "3 de outubro, todo ano". */
+function rotuloDoGrupo(quando: string): string {
+  if (!quando.startsWith('--')) return rotulo(quando)
+  const [m, d] = quando.slice(2).split('-').map(Number)
+  return `${d} de ${MESES[m - 1]}, todo ano`
+}
+
 /** O que se lê no calendário: o aniversário diz de quem é. */
 function tituloNoCalendario(n: NoteComCampos): string {
   return n.tipo === 'pessoa' ? `Aniversário de ${n.title}` : n.title
@@ -88,6 +130,10 @@ export function porDiaDoCalendario(notas: NoteComCampos[], ano: number): Map<str
     else m.set(data, [n])
   }
   for (const n of notas) {
+    // Compromisso apagado no Google fica no vault como `cancelado`, mas não
+    // tem mais o que fazer no calendário.
+    if (n.campos.cancelado === true) continue
+    if (n.tipo === 'pessoa' && !aniversarioNoCalendario(n.campos)) continue
     const diaMes = n.tipo === 'data-comemorativa'
       ? [n.campos.dia, n.campos.mes]
       : n.tipo === 'pessoa'
@@ -112,20 +158,32 @@ export function porDiaDoCalendario(notas: NoteComCampos[], ano: number): Map<str
  * e os botões para marcar mais uma coisa ali.
  */
 export function Calendario({
-  notas, hoje, aoAbrir, aoAdicionar, aoExcluir
+  notas, hoje, aoAbrir, aoAdicionar, aoExcluir, aoExcluirVarias
 }: {
   notas: NoteComCampos[]
   hoje: string
   aoAbrir: (p: string) => void
   aoAdicionar: (tipo: string, inicial?: Record<string, unknown>) => void
   aoExcluir: (n: NoteComCampos) => void
+  /** Apaga várias de uma vez, com uma confirmação só (as cópias do Google). */
+  aoExcluirVarias?: (notas: NoteComCampos[]) => void
 }) {
   const [ano, setAno] = useState(() => Number(hoje.slice(0, 4)))
   const [mes, setMes] = useState(() => Number(hoje.slice(5, 7)) - 1)
   const [dia, setDia] = useState<string | null>(null)
+  const [verRepetidos, setVerRepetidos] = useState(false)
+  const [doGoogle, setDoGoogle] = useState<FeriadoDaAgenda[]>([])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setDia(null) }
+    let vivo = true
+    window.vaultApi.google.feriados()
+      .then(f => { if (vivo) setDoGoogle(f) })
+      .catch(() => {})
+    return () => { vivo = false }
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') { setDia(null); setVerRepetidos(false) } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
@@ -139,7 +197,9 @@ export function Calendario({
    * mostrar dias do ano seguinte na última linha? Não: a grade só habilita
    * dias do próprio mês, então um ano por vez basta.
    */
-  const feriados = useMemo(() => feriadosDoAno(ano), [ano])
+  const feriados = useMemo(() => feriadosNaTela(ano, doGoogle), [ano, doGoogle])
+  const grupos = useMemo(() => repetidos(notas), [notas])
+  const copias = useMemo(() => copiasDoGoogle(grupos), [grupos])
 
   const celulas = useMemo(() => {
     const primeiroDiaSemana = new Date(ano, mes, 1).getDay()
@@ -183,6 +243,14 @@ export function Calendario({
         <h2 className="cal-mes">{MESES[mes]} <span>{ano}</span></h2>
         <div className="cal-nav">
           <span className="cal-conta">{noMes} {noMes === 1 ? 'registro' : 'registros'}</span>
+          <button
+            className="btn-fantasma cal-repetidos"
+            data-tem={grupos.length > 0}
+            title="Procurar compromissos marcados duas vezes no mesmo dia"
+            onClick={() => setVerRepetidos(true)}
+          >
+            {grupos.length > 0 ? `${grupos.length} repetido${grupos.length === 1 ? '' : 's'}` : 'Repetidos'}
+          </button>
           <button className="btn-fantasma" onClick={irParaHoje}>Hoje</button>
           <button className="cal-seta" onClick={() => mover(-1)} title="Mês anterior">‹</button>
           <button className="cal-seta" onClick={() => mover(1)} title="Próximo mês">›</button>
@@ -210,7 +278,7 @@ export function Calendario({
               data-sel={c.data !== null && c.data === dia}
               data-feriado={feriado?.especie}
               disabled={c.foraDoMes}
-              title={feriado ? `${feriado.nome} — ${legenda(feriado)}` : c.data ? 'Clique para ver e marcar' : undefined}
+              title={feriado ? `${feriado.nome} — ${feriado.legenda}` : c.data ? 'Clique para ver e marcar' : undefined}
               onClick={() => c.data && setDia(c.data)}
             >
               <span className="cal-num">{c.dia}</span>
@@ -227,6 +295,60 @@ export function Calendario({
           )
         })}
       </div>
+
+      {verRepetidos && (
+        <div className="paleta-fundo" onClick={() => setVerRepetidos(false)}>
+          <div className="popup-dia popup-repetidos" onClick={e => e.stopPropagation()}>
+            <div className="popup-topo">
+              <strong>Compromissos repetidos</strong>
+              <button className="btn-icone" title="Fechar" onClick={() => setVerRepetidos(false)}>×</button>
+            </div>
+            <div className="popup-corpo">
+              {grupos.length === 0 ? (
+                <div className="vazio">Nada repetido. Cada compromisso está marcado uma vez só.</div>
+              ) : (
+                <>
+                  <p className="repetidos-dica">
+                    Mesmo dia e mesmo nome. Fique com um e exclua o resto.
+                  </p>
+                  {copias.length > 0 && aoExcluirVarias && (
+                    <div className="repetidos-lote">
+                      <span>
+                        {copias.length === 1 ? '1 cópia idêntica veio' : `${copias.length} cópias idênticas vieram`} do
+                        Google Agenda (a agenda foi importada duas vezes). Fica uma de cada.
+                      </span>
+                      <button className="btn" onClick={() => aoExcluirVarias(copias)}>
+                        Apagar {copias.length === 1 ? 'a cópia' : `as ${copias.length} cópias`}
+                      </button>
+                    </div>
+                  )}
+                  {grupos.map(g => (
+                    <div key={`${g.quando}|${g.notas.map(n => n.path).join('|')}`} className="repetidos-grupo">
+                      <div className="repetidos-quando">{rotuloDoGrupo(g.quando)}</div>
+                      <div className="lista-notas">
+                        {g.notas.map(n => (
+                          <Linha
+                            key={n.path}
+                            titulo={n.path}
+                            aoAbrir={() => { aoAbrir(n.path); setVerRepetidos(false) }}
+                            aoExcluir={n.tipo === 'pessoa' ? undefined : () => aoExcluir(n)}
+                          >
+                            {txt(n.campos.hora) && <span className="linha-data">{txt(n.campos.hora)}</span>}
+                            <span className="linha-titulo">{tituloNoCalendario(n)}</span>
+                            <span className="tipo" data-t={n.tipo}>
+                              {n.campos.origem === 'google' ? 'do Google' : n.tipo === 'pessoa' ? 'aniversário' : n.tipo}
+                            </span>
+                          </Linha>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {dia && (
         <div className="paleta-fundo" onClick={() => setDia(null)}>
@@ -245,8 +367,8 @@ export function Calendario({
               {feriadosDoDia.map(f => (
                 <div key={f.nome} className="popup-feriado" data-e={f.especie}>
                   <strong>{f.nome}</strong>
-                  <span>{legenda(f)}</span>
-                  <span className="popup-feriado-lei">{f.lei}</span>
+                  <span>{f.legenda}</span>
+                  {f.lei && <span className="popup-feriado-lei">{f.lei}</span>}
                 </div>
               ))}
               {doDia.length === 0 ? (

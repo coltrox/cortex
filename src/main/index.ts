@@ -308,6 +308,7 @@ ipcMain.handle('google:importar-cliente', async () => {
 ipcMain.handle('google:conectar', async () => agenda.conectar())
 ipcMain.handle('google:sincronizar', async () => agenda.sincronizar())
 ipcMain.handle('google:desconectar', async () => agenda.desconectar())
+ipcMain.handle('google:feriados', async () => agenda.feriados())
 
 /*
  * O conector do Claude (MCP) é um script que o próprio executável do Cortex

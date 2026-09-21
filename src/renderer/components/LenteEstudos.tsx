@@ -170,11 +170,15 @@ export function LenteEstudos({
               {futuras.map(p => {
                 const revisada = p.campos.revisada === true
                 return (
-                  <Linha key={p.path} aoAbrir={() => aoAbrir(p.path)}
+                  // `linha-quebra`: numa coluna estreita, as etiquetas descem
+                  // para a linha de baixo em vez de espremer o nome da prova
+                  // até sumir (era o que acontecia com a janela menor).
+                  <Linha key={p.path} classe="linha-quebra" titulo={p.title} aoAbrir={() => aoAbrir(p.path)}
                     aoEditar={() => aoEditar(p)} aoExcluir={() => aoExcluir(p)}>
-                    <span className="linha-data">{p.date}</span>
+                    <span className="linha-data">{dataCurta(p.date, hoje)}</span>
                     <span className="linha-titulo">{p.title}</span>
-                    {txt(p.campos.materia) && <span className="tipo">{txt(p.campos.materia)}</span>}
+                    <span className="linha-meta">
+                    {txt(p.campos.materia) && <span className="tipo" title={txt(p.campos.materia)}>{txt(p.campos.materia)}</span>}
                     <Prazo data={p.date as string} hoje={hoje} feito={revisada} />
                     <button
                       className={revisada ? 'btn-mini ativo' : 'btn-mini'}
@@ -186,6 +190,7 @@ export function LenteEstudos({
                     >
                       {revisada ? 'revisada' : 'revisei'}
                     </button>
+                    </span>
                   </Linha>
                 )
               })}

@@ -23,7 +23,7 @@ type Props = {
 
 const vazioDe = (c: Campo, hoje: string): unknown => {
   if (c.tipo === 'data') return hoje
-  if (c.tipo === 'bool') return false
+  if (c.tipo === 'bool') return c.marcadoPorPadrao === true
   if (c.tipo === 'select') return c.opcoes?.[0] ?? ''
   if (c.tipo === 'dias') return [...DIAS_SEMANA.map(d => d.id)]
   if (c.tipo === 'itens') return []
@@ -50,6 +50,9 @@ export function ModalFormulario({ nome, campos, hoje, inicial, acao, aoSalvar, a
 
   const set = (k: string, valor: unknown): void => setV(o => ({ ...o, [k]: valor }))
 
+  const preenchido = (k: string): boolean => String(v[k] ?? '').trim() !== ''
+  /** O campo aparece agora? (`soCom`: só depois de preencher os campos de que ele depende.) */
+  const visivel = (c: Campo): boolean => !c.soCom || c.soCom.every(preenchido)
   const faltando = campos.filter(c => c.obrigatorio && !String(v[c.k] ?? '').trim())
   const podeSalvar = faltando.length === 0 && !salvando
 
@@ -64,6 +67,12 @@ export function ModalFormulario({ nome, campos, hoje, inicial, acao, aoSalvar, a
     for (const c of campos) {
       const bruto = v[c.k]
 
+      if (c.tipo === 'bool' && c.marcadoPorPadrao) {
+        // Marcada é o normal e não precisa ficar escrito na nota; só o
+        // "não" fica. Escondida (faltam os campos de que depende), sai.
+        limpo[c.k] = visivel(c) && bruto !== true ? false : (inicial ? null : undefined)
+        continue
+      }
       if (c.tipo === 'bool') { limpo[c.k] = bruto === true ? true : (inicial ? null : undefined); continue }
 
       if (c.tipo === 'dias' || c.tipo === 'itens') {
@@ -94,7 +103,7 @@ export function ModalFormulario({ nome, campos, hoje, inicial, acao, aoSalvar, a
         <div className="form-topo">{nome}</div>
 
         <div className="form-corpo">
-          {campos.map(c => (
+          {campos.filter(visivel).map(c => (
             <label key={c.k} className="form-campo" data-largo={c.tipo === 'itens' || c.tipo === 'longo'}>
               <span className="form-rotulo">
                 {c.rotulo}{c.obrigatorio && <i> obrigatório</i>}

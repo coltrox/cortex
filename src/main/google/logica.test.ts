@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   corpoDoCortex, hashDoCorpo, planejarSincronia, quandoDoGoogle, camposDoGoogle, itemDepoisDoGoogle,
+  feriadosDoGoogle, planejarImportacao,
   type ItemCortex, type EventoGoogle, type Mapa
 } from './logica'
 
@@ -245,5 +246,89 @@ describe('planejarImportacao — a agenda do Google puxada para o Cortex', () =>
       { acao: 'cancelar', chave: 'pedro@gmail.com|b', path: 'Agenda/B.md' }
     ])
     expect(r.desligar.sort()).toEqual(['pedro@gmail.com|a', 'pedro@gmail.com|b', 'pedro@gmail.com|c'])
+  })
+})
+
+describe('feriadosDoGoogle — os feriados do calendário da pessoa', () => {
+  const f = (p: Partial<EventoGoogle> & { id: string }): EventoGoogle => ({
+    status: 'confirmed', summary: 'Tiradentes', description: 'Feriado', start: { date: '2026-04-21' }, ...p
+  })
+
+  it('lê nome, data e espécie; observância não garante folga', () => {
+    const r = feriadosDoGoogle([
+      f({ id: 'a' }),
+      f({ id: 'b', summary: 'Dia dos Namorados', description: 'Observância', start: { date: '2026-06-12' } }),
+      f({ id: 'c', summary: 'Carnaval', description: 'Ponto facultativo', start: { date: '2026-02-16' } })
+    ])
+    expect(r).toEqual([
+      { data: '2026-02-16', nome: 'Carnaval', especie: 'facultativo', descricao: 'Ponto facultativo' },
+      { data: '2026-04-21', nome: 'Tiradentes', especie: 'feriado', descricao: 'Feriado' },
+      { data: '2026-06-12', nome: 'Dia dos Namorados', especie: 'facultativo', descricao: 'Observância' }
+    ])
+  })
+
+  it('ignora cancelado, evento com hora e sem nome; repete o feriado uma vez só', () => {
+    const r = feriadosDoGoogle([
+      f({ id: 'a' }),
+      f({ id: 'b' }),
+      f({ id: 'c', status: 'cancelled', summary: 'Outro' }),
+      f({ id: 'd', summary: 'Com hora', start: { dateTime: '2026-04-21T10:00:00-03:00' } }),
+      f({ id: 'e', summary: '   ' })
+    ])
+    expect(r.map(x => x.nome)).toEqual(['Tiradentes'])
+  })
+
+  it('sem descrição vale o nome do calendário, e conta como feriado', () => {
+    const r = feriadosDoGoogle([{ ...f({ id: 'a', description: undefined }), nomeCalendario: 'Feriados no Brasil' }])
+    expect(r[0]).toMatchObject({ especie: 'feriado', descricao: 'Feriados no Brasil' })
+  })
+})
+
+describe('planejarImportacao — reconectar o Google nao duplica a agenda', () => {
+  const ev = (p: Partial<EventoGoogle> & { id: string; calendario?: string }) => ({
+    status: 'confirmed', summary: 'redação', updated: '2026-09-19T12:00:00.000Z',
+    start: { dateTime: '2026-09-23T20:00:00-03:00' }, calendario: 'pedro@gmail.com', ...p
+  })
+  const janela = { de: '2026-09-12', ate: '2026-12-18' }
+
+  it('evento igual a uma nota solta religa a nota em vez de criar outra', () => {
+    const r = planejarImportacao({
+      ...janela, eventos: [ev({ id: 'a' }), ev({ id: 'b', summary: 'lição inglês' })], importados: {},
+      soltas: [{ path: 'Agenda/redação.md', titulo: 'redação', date: '2026-09-23', hora: '20:00' }]
+    })
+    expect(r.ops.map(o => [o.acao, 'path' in o ? o.path : null])).toEqual([
+      ['atualizar', 'Agenda/redação.md'],
+      ['criar', null]
+    ])
+  })
+
+  it('a mesma nota solta nao serve para dois eventos', () => {
+    const r = planejarImportacao({
+      ...janela, eventos: [ev({ id: 'a' }), ev({ id: 'b', calendario: 'outro@gmail.com' })], importados: {},
+      soltas: [{ path: 'Agenda/redação.md', titulo: 'redação', date: '2026-09-23', hora: '20:00' }]
+    })
+    expect(r.ops.map(o => o.acao)).toEqual(['atualizar', 'criar'])
+  })
+
+  it('ligacao para arquivo apagado religa a copia que sobrou', () => {
+    const r = planejarImportacao({
+      ...janela, eventos: [ev({ id: 'a' })],
+      importados: { 'pedro@gmail.com|a': { path: 'Agenda/redação (15).md', atualizado: '2026-09-19T12:00:00.000Z', date: '2026-09-23' } },
+      soltas: [{ path: 'Agenda/redação.md', titulo: 'redação', date: '2026-09-23', hora: '20:00' }],
+      semArquivo: new Set(['Agenda/redação (15).md'])
+    })
+    expect(r.ops).toEqual([{
+      acao: 'atualizar', chave: 'pedro@gmail.com|a', path: 'Agenda/redação.md',
+      campos: { titulo: 'redação', date: '2026-09-23', hora: '20:00', local: null },
+      atualizado: '2026-09-19T12:00:00.000Z'
+    }])
+  })
+
+  it('hora diferente nao e a mesma nota', () => {
+    const r = planejarImportacao({
+      ...janela, eventos: [ev({ id: 'a' })], importados: {},
+      soltas: [{ path: 'Agenda/redação.md', titulo: 'redação', date: '2026-09-23', hora: '19:00' }]
+    })
+    expect(r.ops.map(o => o.acao)).toEqual(['criar'])
   })
 })

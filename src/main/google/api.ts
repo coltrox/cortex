@@ -301,6 +301,21 @@ export class ApiAgenda {
     return out
   }
 
+  /**
+   * Os calendários de feriados que a conta assina ("Feriados no Brasil" e
+   * afins), marcados ou não na tela do Google. Sem nenhum, o de feriados
+   * brasileiros público do Google — é o que a conta brasileira ganha por padrão.
+   */
+  async listarCalendariosDeFeriado(): Promise<{ id: string; nome: string }[]> {
+    const r = await this.chamar<{ items?: unknown }>('GET', '/users/me/calendarList?minAccessRole=reader&maxResults=250')
+    const out: { id: string; nome: string }[] = []
+    for (const c of Array.isArray(r.items) ? r.items as Record<string, unknown>[] : []) {
+      if (!c || typeof c.id !== 'string' || !c.id.includes('#holiday@')) continue
+      out.push({ id: c.id, nome: typeof c.summary === 'string' ? c.summary.slice(0, 80) : '' })
+    }
+    return out.length ? out : [{ id: 'pt-br.brazilian#holiday@group.v.calendar.google.com', nome: 'Feriados no Brasil' }]
+  }
+
   /** Os eventos de um calendário numa janela de datas, ocorrências de repetição abertas. */
   async listarDoCalendario(calendario: string, de: string, ate: string): Promise<EventoGoogle[]> {
     const out: EventoGoogle[] = []

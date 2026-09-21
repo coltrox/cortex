@@ -1,4 +1,5 @@
 import { OQUE_COMEMORATIVA } from '../shared/datas'
+import { CAMPO_ANIVERSARIO } from '../shared/aniversario'
 
 /**
  * Schemas dos formulários.
@@ -26,6 +27,13 @@ export type Campo = {
   placeholder?: string
   obrigatorio?: boolean
   dica?: string
+  /**
+   * Só para `bool`: a caixinha já vem marcada, e a nota só guarda o campo
+   * quando alguém DESMARCA (`false`). Nota antiga, sem o campo, fica marcada.
+   */
+  marcadoPorPadrao?: boolean
+  /** O campo só aparece quando todos estes outros estão preenchidos. */
+  soCom?: string[]
 }
 
 export type Formulario = {
@@ -342,7 +350,12 @@ export const FORMULARIOS: Record<string, Formulario> = {
       { k: 'nascimento_dia', rotulo: 'Nasceu — dia', tipo: 'numero' },
       { k: 'nascimento_mes', rotulo: 'Nasceu — mês', tipo: 'numero' },
       { k: 'nascimento_ano', rotulo: 'Nasceu — ano', tipo: 'numero',
-        dica: 'Opcional. Com ele aparece quantos anos a pessoa faz.' }
+        dica: 'Opcional. Com ele aparece quantos anos a pessoa faz.' },
+      // Pedido do dono: com a data preenchida, a caixinha logo abaixo decide
+      // se o aniversário entra no calendário (e no Google Agenda, se ligado).
+      { k: CAMPO_ANIVERSARIO, rotulo: 'Marcar o aniversário no calendário', tipo: 'bool',
+        marcadoPorPadrao: true, soCom: ['nascimento_dia', 'nascimento_mes'],
+        dica: 'Todo ano, no dia. Com o Google Agenda ligado, vai para lá também.' }
     ]
   },
   documento: {

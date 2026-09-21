@@ -232,16 +232,18 @@ export function Titulo({ nome, sub, saudacao }: { nome: string; sub?: string; sa
  * editar e excluir dentro — botão dentro de botão é HTML inválido e o
  * navegador desmonta a árvore de um jeito imprevisível.
  */
-export function Linha({ children, aoAbrir, aoEditar, aoExcluir, titulo }: {
+export function Linha({ children, aoAbrir, aoEditar, aoExcluir, titulo, classe }: {
   children: ReactNode
   aoAbrir?: () => void
   aoEditar?: () => void
   aoExcluir?: () => void
   titulo?: string
+  /** Classe a mais, para a linha que precisa de outro arranjo (ex.: `linha-quebra`). */
+  classe?: string
 }) {
   return (
     <div
-      className="linha"
+      className={classe ? `linha ${classe}` : 'linha'}
       role={aoAbrir ? 'button' : undefined}
       tabIndex={aoAbrir ? 0 : undefined}
       title={titulo}

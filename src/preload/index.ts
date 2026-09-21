@@ -40,7 +40,8 @@ const api = {
     importarCliente: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:importar-cliente'),
     conectar: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:conectar'),
     sincronizar: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:sincronizar'),
-    desconectar: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:desconectar')
+    desconectar: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:desconectar'),
+    feriados: (): Promise<import('../shared/types').FeriadoDaAgenda[]> => ipcRenderer.invoke('google:feriados')
   },
 
   /** O comando que registra o conector do Cortex no Claude Code. */

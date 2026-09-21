@@ -101,6 +101,7 @@ export function App() {
   const [lancando, setLancando] = useState<{ item: string; dia: string } | null>(null)
   const [modal, setModal] = useState<{ id: string; ctx?: Record<string, unknown> } | null>(null)
   const [excluindo, setExcluindo] = useState<NoteComCampos | null>(null)
+  const [excluindoVarias, setExcluindoVarias] = useState<NoteComCampos[] | null>(null)
   const [configurando, setConfigurando] = useState(false)
   const [nuvem, setNuvem] = useState(false)
   /**
@@ -308,6 +309,7 @@ export function App() {
           <Calendario
             notas={v.notas} hoje={hoje}
             aoAbrir={acoes.aoAbrir} aoAdicionar={acoes.aoAdicionar} aoExcluir={acoes.aoExcluir}
+            aoExcluirVarias={setExcluindoVarias}
           />
         )
       case 'dev':
@@ -579,6 +581,17 @@ export function App() {
           aoFechar={() => setConfigurando(false)}
           aoTrocarVault={v.trocarVault}
           sincronizacaoFalhando={falhasSincSeguidas >= LIMIAR_ALERTA_SYNC}
+        />
+      )}
+
+      {excluindoVarias && (
+        <Confirmar
+          titulo={`Apagar ${excluindoVarias.length} cópias?`}
+          texto={`São cópias idênticas de compromissos que vieram do Google Agenda — de cada um fica uma nota, e o evento no Google não muda. Os arquivos somem de vez: isto não tem desfazer.`}
+          rotulo="Apagar as cópias"
+          perigo
+          aoConfirmar={() => { void v.excluirVarias(excluindoVarias.map(n => n.path)); setExcluindoVarias(null) }}
+          aoFechar={() => setExcluindoVarias(null)}
         />
       )}
 

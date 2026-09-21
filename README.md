@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**69 arquivos, 1219 testes**, rodando em ~23 s.
+**70 arquivos, 1238 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -406,6 +406,12 @@ row a second time". A dedup tem que acontecer antes, no payload.
 ---
 
 ## Estado
+
+`v2.6.22` — a Agenda ganhou um verificador de **compromissos repetidos** (e o
+Google não importa mais a agenda em dobro ao reconectar), os feriados passaram
+a vir do calendário de feriados da própria conta Google, e a ficha de uma pessoa
+tem a caixinha "Marcar o aniversário no calendário". A lista de provas não
+espreme mais o nome numa janela estreita.
 
 `v2.6.21` — a lente **Dev** virou um editor de verdade, no espírito do VS Code:
 pasta de projetos dentro do próprio Cortex, árvore que abre para baixo, abas

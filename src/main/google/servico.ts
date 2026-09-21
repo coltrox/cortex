@@ -4,10 +4,13 @@ import { patchFrontmatter } from '../vault/patch'
 import { pastasProtegidas } from '../config'
 import { ApiAgenda, autorizar, ESCOPO_LEITURA, lerArquivoCliente, clienteDoBuild, ErroDeLogin, CalendarioSumiu, type Cliente } from './api'
 import type { Guarda, DadosGoogle } from './guarda'
+import type { FeriadoDaAgenda } from '../../shared/types'
+import { aniversarioNoCalendario } from '../../shared/aniversario'
 import {
   planejarSincronia, corpoDoCortex, hashDoCorpo, itemDepoisDoGoogle, somarDias,
-  planejarImportacao,
-  type ItemCortex, type Mapa, type CamposDoGoogle, type EventoGoogle, type Importados, type EventoDeFora
+  planejarImportacao, feriadosDoGoogle,
+  type ItemCortex, type Mapa, type CamposDoGoogle, type EventoGoogle, type Importados, type EventoDeFora,
+  type NotaSolta
 } from './logica'
 
 /**
@@ -113,8 +116,14 @@ export class ServicoAgenda {
     const d = await this.guarda.ler()
     const cliente = this.clienteDe(d)
     if (cliente && d.refreshToken) await new ApiAgenda(cliente, d.refreshToken).revogar()
-    await this.guarda.gravar({ ...d, refreshToken: undefined, vaults: {}, erro: undefined, ultima: undefined })
+    await this.guarda.gravar({ ...d, refreshToken: undefined, vaults: {}, erro: undefined, ultima: undefined, feriados: undefined })
     return this.estado()
+  }
+
+  /** Os feriados da conta Google, guardados na última rodada. Vazio sem conexão. */
+  async feriados(): Promise<FeriadoDaAgenda[]> {
+    const d = await this.guarda.ler()
+    return d.refreshToken && Array.isArray(d.feriados) ? d.feriados : []
   }
 
   sincronizar(): Promise<EstadoGoogle> {
@@ -221,11 +230,13 @@ export class ServicoAgenda {
       }
 
       // A agenda do Google para dentro do Cortex — só quando o login autorizou ler.
+      let feriados: FeriadoDaAgenda[] | undefined
       if ((d.escopos ?? '').split(' ').includes(ESCOPO_LEITURA)) {
         await this.puxarAgenda(api, cal, importados, hoje)
+        feriados = await this.puxarFeriados(api, hoje)
       }
 
-      await salvar({ ultima: new Date().toISOString(), erro: undefined })
+      await salvar({ ultima: new Date().toISOString(), erro: undefined, ...(feriados ? { feriados } : {}) })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       // O que já foi feito fica no mapa: a próxima rodada não repete.
@@ -253,7 +264,17 @@ export class ServicoAgenda {
         eventos.push({ ...ev, calendario: c.id })
       }
     }
-    const { ops, desligar } = planejarImportacao({ eventos, importados, de, ate })
+    // As notas do Google que já existem aqui: as soltas (sem ligação) podem
+    // ser religadas, e a ligação para arquivo apagado é refeita.
+    const doGoogle = listNotesWithFields(this.session.db, { tipo: 'evento' })
+      .filter(n => n.campos.origem === 'google' && n.campos.cancelado !== true)
+    const existentes = new Set(listNotesWithFields(this.session.db, { tipo: 'evento' }).map(n => n.path))
+    const ligadas = new Set(Object.values(importados).map(i => i.path))
+    const soltas: NotaSolta[] = doGoogle
+      .filter(n => !ligadas.has(n.path) && n.date)
+      .map(n => ({ path: n.path, titulo: n.title, date: n.date as string, hora: texto(n.campos.hora) || null }))
+    const semArquivo = new Set([...ligadas].filter(p => !existentes.has(p)))
+    const { ops, desligar } = planejarImportacao({ eventos, importados, de, ate, soltas, semArquivo })
     for (const op of ops) {
       if (op.acao === 'criar') {
         const path = await this.criarNota(op.campos, { origem: 'google' })
@@ -271,6 +292,28 @@ export class ServicoAgenda {
       }
     }
     for (const chave of desligar) delete importados[chave]
+  }
+
+  /**
+   * Os feriados dos calendários de feriados da conta, do começo do ano
+   * passado ao fim do próximo.
+   *
+   * Falhar aqui não derruba a rodada: sem feriado novo, fica o da rodada
+   * anterior (ou a lista embutida do Cortex).
+   */
+  private async puxarFeriados(api: ApiAgenda, hoje: string): Promise<FeriadoDaAgenda[] | undefined> {
+    const ano = Number(hoje.slice(0, 4))
+    try {
+      const eventos: (EventoGoogle & { nomeCalendario?: string })[] = []
+      for (const c of await api.listarCalendariosDeFeriado()) {
+        const doCal = await api.listarDoCalendario(c.id, `${ano - 1}-01-01`, `${ano + 1}-12-31`).catch(() => [])
+        for (const ev of doCal) eventos.push({ ...ev, nomeCalendario: c.nome })
+      }
+      const r = feriadosDoGoogle(eventos)
+      return r.length ? r : undefined
+    } catch {
+      return undefined
+    }
   }
 
   /**
@@ -301,6 +344,20 @@ export class ServicoAgenda {
           mtime: n.mtime
         })
       }
+    }
+    // O aniversário de quem está em Pessoas sobe como data que se repete todo
+    // ano — só o nome e a data, nada mais da ficha. Desmarcar a caixinha
+    // "Marcar o aniversário no calendário" tira do calendário (e do Google).
+    for (const n of listNotesWithFields(this.session.db, { tipo: 'pessoa' })) {
+      if (!livre(n) || !aniversarioNoCalendario(n.campos)) continue
+      const dia = numero(n.campos.nascimento_dia)
+      const mes = numero(n.campos.nascimento_mes)
+      if (!dia || !mes) continue
+      out.push({
+        path: n.path, tipo: 'data-comemorativa', titulo: `Aniversário de ${n.title}`,
+        date: null, hora: null, local: null,
+        dia, mes, ano: numero(n.campos.nascimento_ano), mtime: n.mtime
+      })
     }
     return out
   }

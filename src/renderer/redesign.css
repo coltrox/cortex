@@ -1478,3 +1478,39 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tranca-cartao[data-tremer="true"], .tranca-girando { animation: none; }
 }
+
+/* Calendário: o verificador de compromissos repetidos (2.6.22). */
+.cal-repetidos[data-tem="true"] { color: var(--pale-yel); border-color: color-mix(in srgb, var(--pale-yel) 40%, transparent); }
+.popup-repetidos { width: min(560px, calc(100vw - 32px)); }
+.popup-repetidos .popup-corpo { max-height: min(62vh, 560px); overflow-y: auto; }
+.repetidos-dica { margin: 0 0 12px; font-size: 12.5px; line-height: 1.5; color: var(--text-3); }
+.repetidos-grupo + .repetidos-grupo { margin-top: 14px; }
+.repetidos-quando { margin-bottom: 4px; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+
+/* Linha que quebra em vez de espremer (provas marcadas, 2.6.22).
+   Uma grade: data | nome | etiquetas | editar/excluir. Com a lista estreita
+   (medida pela própria lista, não pela janela), as etiquetas descem para
+   baixo do nome — antes elas espremiam o nome da prova até ele sumir. */
+.lista-notas:has(> .linha-quebra) { container-type: inline-size; }
+.linha.linha-quebra {
+  display: grid; align-items: center; column-gap: 12px; row-gap: 6px;
+  grid-template-columns: 52px minmax(0, 1fr) auto auto;
+}
+.linha-quebra .linha-data { width: auto; }
+.linha-quebra .linha-titulo { min-width: 0; }
+.linha-quebra .linha-meta { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.linha-quebra .linha-meta > * { flex: none; }
+.linha-quebra .linha-meta > .tipo { flex: 0 1 auto; min-width: 0; max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linha-quebra .linha-acoes { margin-left: 0; }
+@container (max-width: 540px) {
+  .linha.linha-quebra { grid-template-columns: 52px minmax(0, 1fr) auto; }
+  .linha-quebra .linha-meta { grid-column: 2 / 4; grid-row: 2; justify-content: flex-start; }
+  .linha-quebra .linha-acoes { grid-column: 3; grid-row: 1; }
+}
+.repetidos-lote {
+  display: flex; align-items: center; gap: 14px; margin: 0 0 16px; padding: 12px 14px;
+  border-radius: var(--raio-1); font-size: 12.5px; line-height: 1.45; color: var(--text-2);
+  background: color-mix(in srgb, var(--pale-yel) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pale-yel) 25%, transparent);
+}
+.repetidos-lote .btn { flex: none; }

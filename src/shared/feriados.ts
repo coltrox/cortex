@@ -1,6 +1,11 @@
 /**
  * Os feriados — calculados, não baixados.
  *
+ * Desde a 2.6.22 esta lista é só o plano B: com o Google Agenda ligado, o
+ * calendário mostra os feriados do calendário de feriados da própria pessoa
+ * (pedido do dono — ver `feriadosNaTela` em `Calendario.tsx`). Sem Google,
+ * valem só os nacionais daqui; os de SP e Campinas ficam para quem mora lá.
+ *
  * ## Por que não uma API
  *
  * O plano antigo era consultar uma API de feriados. Três problemas mataram a

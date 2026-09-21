@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { porDiaDoCalendario } from './Calendario'
+import { porDiaDoCalendario, feriadosNaTela } from './Calendario'
 import type { NoteComCampos } from '../tipos'
 
 const nota = (n: Partial<NoteComCampos> & { path: string; tipo: string }): NoteComCampos =>
@@ -46,5 +46,40 @@ describe('o que o calendario mostra', () => {
     // Pessoa sem aniversário cadastrado não aparece em dia nenhum.
     const semData = nota({ path: 'Vida/Daniel.md', tipo: 'pessoa', campos: { papel: 'ortopedista' } })
     expect([...porDiaDoCalendario([semData], 2026).keys()]).toEqual([])
+  })
+})
+
+describe('cancelados, aniversario desmarcado e feriados', () => {
+  it('compromisso cancelado sai do calendario', () => {
+    const m = porDiaDoCalendario([
+      nota({ path: 'Agenda/A.md', tipo: 'evento', date: '2026-09-22' }),
+      nota({ path: 'Agenda/B.md', tipo: 'evento', date: '2026-09-22', campos: { cancelado: true } })
+    ], 2026)
+    expect(m.get('2026-09-22')?.map(n => n.path)).toEqual(['Agenda/A.md'])
+  })
+
+  it('pessoa com a caixinha desmarcada nao aparece; sem o campo, aparece', () => {
+    const m = porDiaDoCalendario([
+      nota({ path: 'Vida/Ana.md', tipo: 'pessoa', campos: { nascimento_dia: 3, nascimento_mes: 10 } }),
+      nota({ path: 'Vida/Bia.md', tipo: 'pessoa', campos: { nascimento_dia: 3, nascimento_mes: 10, aniversario_no_calendario: false } })
+    ], 2026)
+    expect(m.get('2026-10-03')?.map(n => n.path)).toEqual(['Vida/Ana.md'])
+  })
+
+  it('com feriados do Google, valem so eles', () => {
+    const m = feriadosNaTela(2026, [
+      { data: '2026-04-21', nome: 'Tiradentes', especie: 'feriado', descricao: 'Feriado' },
+      { data: '2027-01-01', nome: 'Ano Novo', especie: 'feriado', descricao: 'Feriado' }
+    ])
+    expect([...m.keys()]).toEqual(['2026-04-21'])
+    expect(m.get('2026-04-21')?.[0].legenda).toBe('Feriado · Google Agenda')
+  })
+
+  it('sem Google, so os nacionais da lista embutida', () => {
+    const m = feriadosNaTela(2026, [])
+    expect(m.get('2026-04-21')?.[0].nome).toBe('Tiradentes')
+    // 9 de julho (SP) e 8 de dezembro (Campinas) so valem para quem mora la
+    expect(m.has('2026-07-09')).toBe(false)
+    expect(m.has('2026-12-08')).toBe(false)
   })
 })

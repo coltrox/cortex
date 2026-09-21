@@ -2,6 +2,7 @@ import { safeStorage } from 'electron'
 import { readFile, writeFile, rename } from 'node:fs/promises'
 import type { Cliente } from './api'
 import type { Mapa, Importados } from './logica'
+import type { FeriadoDaAgenda } from '../../shared/types'
 
 /**
  * Onde a conexão com o Google fica guardada: `userData/google-agenda.dat`.
@@ -21,6 +22,11 @@ export type DadosGoogle = {
   vaults: Record<string, { calendarioId?: string; mapa: Mapa; importados?: Importados }>
   ultima?: string
   erro?: string
+  /**
+   * Os feriados dos calendários de feriados da conta, do ano passado ao
+   * próximo. Da conta, não do vault: são os mesmos em qualquer vault.
+   */
+  feriados?: FeriadoDaAgenda[]
 }
 
 export interface Guarda {
