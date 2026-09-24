@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import type { NoteComCampos } from '../tipos'
-import { DIAS_SEMANA } from '../formularios'
+import { DIAS_SEMANA, REFEICOES_PLANO } from '../formularios'
+import { CartaoRefeicao } from './CartaoRefeicao'
+import { ModalFormulario } from './ModalFormulario'
 import {
   Cartao, Serie, Secao, Check, Titulo, Linha, ListaNotas, Vazio, Progresso,
   nf, num, txt, lista, textos, porData, type PropsLente
@@ -8,6 +11,13 @@ import {
   suplementosDoDia, seriePeso, serieAgua, litros, totaisDoDia,
   fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia
 } from '../dados'
+
+/** Onde esta refeição está na lista do plano — a do dia é um recorte dela. */
+function indiceDaRefeicao(plano: NoteComCampos, r: Record<string, unknown>): number {
+  const todas = lista(plano.campos.refeicoes)
+  const i = todas.indexOf(r)
+  return i >= 0 ? i : todas.findIndex(x => txt(x.nome) === txt(r.nome))
+}
 
 /**
  * Saúde.
@@ -485,6 +495,35 @@ function Dieta({
     }
   }
 
+  /**
+   * Qual refeição do plano está aberta para editar — o índice dela na lista do
+   * plano, ou o tamanho da lista quando é uma nova.
+   *
+   * Editar por aqui grava de volta no `refeicoes` do plano ativo. Antes era
+   * preciso abrir o formulário do plano e mexer na lista inteira para trocar
+   * uma palavra do almoço.
+   */
+  const [editandoRefeicao, setEditandoRefeicao] = useState<number | null>(null)
+
+  const salvarRefeicao = (valores: Record<string, unknown>): void => {
+    if (!planoAtivo || editandoRefeicao === null) return
+    const nova = [...lista(planoAtivo.campos.refeicoes)]
+    // Parte do que já estava, e não de uma refeição em branco: a refeição pode
+    // ter campo que este formulário não mostra — o `dias` do pré-treino, que
+    // é o que faz ele sumir no fim de semana — e trocar o objeto inteiro
+    // apagaria isso sem ninguém pedir.
+    const atual = nova[editandoRefeicao] ?? {}
+    const junto: Record<string, unknown> = { ...atual }
+    for (const [k, v] of Object.entries(valores)) {
+      // `null` é como o formulário diz "apague este campo".
+      if (v === null || v === '') delete junto[k]
+      else junto[k] = v
+    }
+    nova[editandoRefeicao] = junto
+    aoAlterar(planoAtivo.path, { refeicoes: nova.filter(r => Object.keys(r).length > 0) })
+    setEditandoRefeicao(null)
+  }
+
   const anteriores = [...diarios].reverse()
     .filter(d => d.date !== hoje && textos(d.campos.dieta_feitas).length > 0)
 
@@ -525,7 +564,7 @@ function Dieta({
             />
           )}
 
-          <div className="lista-notas">
+          <div className="refeicoes">
             {refeicoes.map((r, i) => {
               const nome = txt(r.nome) || `Refeição ${i + 1}`
               const feito = feitas.includes(nome)
@@ -533,33 +572,32 @@ function Dieta({
               // lugar. Só aparece quando há resposta — "comi tudo" é o caso
               // normal e não precisa de etiqueta para se anunciar.
               const fator = feito ? fatorDaRefeicao(diarioHoje, nome) : 1
-              const troca = feito ? trocaDaRefeicao(diarioHoje, nome) : ''
               return (
-                <Linha key={i}>
-                  <Check
-                    feito={feito}
-                    rotulo={nome}
-                    aoAlternar={() => aoMarcarDia(hoje, {
-                      dieta_feitas: feito ? feitas.filter(f => f !== nome) : [...feitas, nome]
-                    })}
-                  />
-                  <span className="linha-data">{txt(r.hora)}</span>
-                  <span className="linha-titulo" data-feito={feito}>
-                    {nome}
-                    {fator < 1 && <strong className="dieta-nivel">
-                      {fator === 0.5 ? 'metade' : 'pouco'}
-                    </strong>}
-                    {troca
-                      ? <em> — no lugar: {troca}</em>
-                      : txt(r.itens) && <em> — {txt(r.itens)}</em>}
-                  </span>
-                  <span className="linha-valor">
-                    {Math.round(num(r.kcal) * fator)} kcal · {Math.round(num(r.prot) * fator)} g
-                  </span>
-                </Linha>
+                <CartaoRefeicao
+                  key={i}
+                  nome={nome}
+                  hora={txt(r.hora)}
+                  itens={txt(r.itens)}
+                  kcal={num(r.kcal)}
+                  prot={num(r.prot)}
+                  feito={feito}
+                  fator={fator}
+                  troca={feito ? trocaDaRefeicao(diarioHoje, nome) : ''}
+                  aoAlternar={() => aoMarcarDia(hoje, {
+                    dieta_feitas: feito ? feitas.filter(f => f !== nome) : [...feitas, nome]
+                  })}
+                  aoEditar={() => setEditandoRefeicao(indiceDaRefeicao(planoAtivo, r))}
+                />
               )
             })}
-            {refeicoes.length === 0 && <Vazio>O plano ativo não tem refeições. Edite-o para adicionar.</Vazio>}
+            {refeicoes.length === 0 && <Vazio>O plano ativo não tem refeições. Use "+ Refeição" para começar.</Vazio>}
+          </div>
+
+          <div className="refeicoes-rodape">
+            <button className="btn-mini" onClick={() => setEditandoRefeicao(lista(planoAtivo.campos.refeicoes).length)}>
+              + Refeição
+            </button>
+            <button className="btn-mini" onClick={() => aoEditar(planoAtivo)}>Editar o plano inteiro</button>
           </div>
 
           {extras.length > 0 && (
@@ -599,6 +637,18 @@ function Dieta({
             </Linha>
           ))}
         </div>
+      )}
+
+      {editandoRefeicao !== null && planoAtivo && (
+        <ModalFormulario
+          nome={lista(planoAtivo.campos.refeicoes)[editandoRefeicao] ? 'Refeição' : 'Refeição nova'}
+          campos={REFEICOES_PLANO}
+          hoje={hoje}
+          inicial={lista(planoAtivo.campos.refeicoes)[editandoRefeicao] ?? {}}
+          acao="Salvar"
+          aoSalvar={salvarRefeicao}
+          aoFechar={() => setEditandoRefeicao(null)}
+        />
       )}
 
       <h3 className="secao">Dias anteriores</h3>

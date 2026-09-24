@@ -65,7 +65,7 @@ const EXERCICIOS: Campo[] = [
   { k: 'reps', rotulo: 'Reps', tipo: 'texto', placeholder: '8-10' }
 ]
 
-const REFEICOES_PLANO: Campo[] = [
+export const REFEICOES_PLANO: Campo[] = [
   { k: 'nome', rotulo: 'Refeição', tipo: 'texto', placeholder: 'Café da manhã' },
   { k: 'hora', rotulo: 'Hora', tipo: 'hora' },
   // `longo`: numa conduta de nutricionista o que se come é um parágrafo, com

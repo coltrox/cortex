@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**73 arquivos, 1257 testes**, rodando em ~23 s.
+**75 arquivos, 1267 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -406,6 +406,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 ---
 
 ## Estado
+
+`v2.6.24` — a aba **Dieta** virou cartões: cada refeição abre, mostra as
+opções em caixinhas separadas por um "ou", e o lápis edita só aquela refeição
+sem mexer no resto do plano.
 
 `v2.6.23` — o treino registrado virou tela de verdade na nota (séries de
 peso × repetições e o volume), o celular ganhou o **histórico de treinos e

@@ -1584,3 +1584,81 @@ body {
 /* Com o editor ampliado a lateral sai de cena: o Reduzir (ou Esc) traz tudo
    de volta — a lateral, a barra de cima e a árvore no lugar de sempre. */
 .shell:has(.dev-corpo[data-amplo="true"]) > .sidebar-app { display: none; }
+
+/* ---------- Dieta: cada refeição é um cartão (2.6.24) ----------
+   Era uma linha por refeição, com a conduta da nutricionista cortada com
+   reticências. Agora abre, mostra as opções uma por linha, e o lápis edita
+   só aquela refeição. */
+.refeicoes { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+
+.refeicao {
+  border: 1px solid var(--border); border-radius: var(--raio-1);
+  background: var(--surface);
+  transition: border-color var(--dur) var(--curva), background var(--dur) var(--curva);
+}
+.refeicao:hover { border-color: color-mix(in srgb, var(--text) 16%, transparent); }
+.refeicao[data-aberta="true"] { background: var(--surface-sunk); }
+.refeicao[data-feito="true"] .refeicao-nome { color: var(--text-3); text-decoration: line-through; }
+
+.refeicao-topo {
+  display: flex; align-items: center; gap: 12px; padding: 11px 12px 11px 14px;
+  cursor: pointer; user-select: none;
+}
+.refeicao-hora {
+  flex: none; min-width: 42px; font-size: 12px; color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.refeicao-nome { flex: 1; min-width: 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.refeicao-macros { flex: none; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.refeicao-topo .btn-icone { flex: none; opacity: .55; }
+.refeicao-topo:hover .btn-icone { opacity: 1; }
+.refeicao-seta {
+  flex: none; color: var(--text-3); font-size: 15px; line-height: 1;
+  transition: transform var(--dur) var(--curva);
+}
+.refeicao[data-aberta="true"] .refeicao-seta { transform: rotate(90deg); }
+
+/* Fechado: a primeira opção e quantas mais existem. */
+.refeicao-resumo {
+  padding: 0 14px 11px 98px; margin-top: -4px;
+  font-size: 12.5px; line-height: 1.45; color: var(--text-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.refeicao-troca { padding: 0 14px 10px 98px; font-size: 12.5px; color: var(--pale-yel); }
+
+/* Aberto: cada opção numa linha, com o "ou" à esquerda. */
+/* 64 + (26 do "ou" + 8 de respiro) = 98, que é onde o nome começa lá em cima. */
+.refeicao-corpo { padding: 2px 16px 14px 64px; }
+.refeicao-intro { margin: 0 0 8px 34px; font-size: 12.5px; color: var(--text-3); }
+/* Cada alternativa numa caixinha, com o "ou" no meio (pedido do dono:
+   "coloca tipo opcoes dentro das refeicoes, x ou y … e separadinho"). */
+.refeicao-opcoes { display: flex; flex-direction: column; }
+.refeicao-opcao {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 10px 12px; border-radius: var(--raio-1);
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 13.5px; line-height: 1.5; color: var(--text-2);
+}
+.refeicao-opcao-n {
+  flex: none; width: 18px; height: 18px; display: grid; place-items: center; align-self: flex-start;
+  margin-top: 1px; border-radius: 50%; font-size: 10px; font-variant-numeric: tabular-nums;
+  color: var(--text-3); background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.refeicao-opcao-texto { min-width: 0; }
+/* Uma opção só não precisa de caixa: é o que a refeição é. */
+.refeicao-opcoes[data-uma="true"] .refeicao-opcao { border: 0; background: transparent; padding: 0; }
+
+.refeicao-ou {
+  display: flex; align-items: center; gap: 10px;
+  margin: 7px 2px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.refeicao-ou::before, .refeicao-ou::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+.refeicoes-rodape { display: flex; gap: 8px; margin-top: 10px; }
+
+/* O campo longo guarda a conduta inteira da nutricionista: quatro linhas com
+   barra de rolagem não dá para reler o que se está editando. */
+.form-campo textarea { min-height: 150px; }
