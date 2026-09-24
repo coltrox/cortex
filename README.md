@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**70 arquivos, 1238 testes**, rodando em ~23 s.
+**73 arquivos, 1257 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -406,6 +406,13 @@ row a second time". A dedup tem que acontecer antes, no payload.
 ---
 
 ## Estado
+
+`v2.6.23` — o treino registrado virou tela de verdade na nota (séries de
+peso × repetições e o volume), o celular ganhou o **histórico de treinos e
+cardio** — e o botão de registrar cardio, que existia sem porta de entrada. No
+computador, editar e excluir aparecem sempre (e não só com o mouse em cima), o
+editor ampliado do Dev vira a tela inteira, e quem liga só a área Dev fica com
+um app de Dev: Rede neural e Dev.
 
 `v2.6.22` — a Agenda ganhou um verificador de **compromissos repetidos** (e o
 Google não importa mais a agenda em dobro ao reconectar), os feriados passaram

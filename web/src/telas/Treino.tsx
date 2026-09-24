@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { diaLocal, eventoSessao, type ExercicioFeito, type SerieFeita } from '../montar'
-import { treinos, exerciciosDoTreino } from '../cardapio'
+import {
+  treinos, exerciciosDoTreino, sessoesFeitas, cardios, dataCurta,
+  type SessaoFeita, type Cardio
+} from '../cardapio'
 import { guardadoDoNavegador } from '../guardado'
-import { Cabecalho, Botao, Aviso } from '../componentes'
+import { Cabecalho, Botao, Aviso, Secao } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
 import { SubNavSaude } from './Saude'
@@ -132,6 +135,9 @@ export function Treino(p: {
   /* ---------- etapa 1: escolher ---------- */
 
   if (!sessao) {
+    const hoje = diaLocal()
+    const feitos = sessoesFeitas(p.cardapio.cardapio)
+    const corridas = cardios(p.cardapio.cardapio)
     return (
       <div className="tema-treino">
         <Cabecalho titulo="Treino" />
@@ -165,8 +171,22 @@ export function Treino(p: {
                 </button>
               )
             })}
+            {/* O cardio mora aqui, junto dos treinos: a tela dele existia e
+                nenhuma outra levava até ela (pedido do dono, 23/09/2026). */}
+            <button className="cartao cartao-cardio" type="button" onClick={() => p.irPara('cardio')}>
+              <span className="cartao-corpo">
+                <span className="cartao-topo">
+                  <span className="cartao-nome">Cardio</span>
+                  <span className="etiqueta">esteira, escada, rua…</span>
+                </span>
+                <span className="cartao-meta">minutos, distância e pace</span>
+              </span>
+              <span className="mais-cardio" aria-hidden="true">+</span>
+            </button>
           </div>
         </div>
+
+        <Historico feitos={feitos} corridas={corridas} hoje={hoje} />
       </div>
     )
   }
@@ -427,5 +447,95 @@ export function Treino(p: {
         </Botao>
       </div>
     </div>
+  )
+}
+
+/* ---------- o que já foi feito ---------- */
+
+/** "47×12 · 61×10 · 68×8" — as séries de um exercício numa linha. */
+export function linhaDeSeries(e: SessaoFeita['exercicios'][number]): string {
+  const feitas = e.feitas
+    .map(s => [s.carga !== null ? String(s.carga) : '', s.reps !== null ? String(s.reps) : '']
+      .filter(Boolean).join('×'))
+    .filter(Boolean)
+  if (feitas.length > 0) return feitas.join(' · ')
+  // Sessão antiga, publicada só com o resumo.
+  return [e.series ? `${e.series}×` : '', e.reps, e.carga !== null ? `${e.carga} kg` : '']
+    .filter(Boolean).join(' ')
+}
+
+/**
+ * O histórico: os treinos feitos e os cardios.
+ *
+ * Tocar num treino abre as séries — é o que se consulta na academia para
+ * saber de quanto partir hoje. Fechado por padrão: a lista existe para achar
+ * a última vez, não para ler tudo de uma vez.
+ */
+function Historico(p: { feitos: SessaoFeita[]; corridas: Cardio[]; hoje: string }) {
+  const [aberto, setAberto] = useState<string | null>(null)
+  if (p.feitos.length === 0 && p.corridas.length === 0) return null
+
+  return (
+    <>
+      {p.feitos.length > 0 && (
+        <div className="bloco">
+          <Secao nome="Treinos feitos" contagem={String(p.feitos.length)} />
+          <div className="lista">
+            {p.feitos.map(s => {
+              const chave = `${s.data}|${s.modelo}`
+              const series = s.exercicios.reduce((n, e) => n + (e.feitas.length || e.series || 0), 0)
+              return (
+                <div className="feito" key={chave}>
+                  <button className="cartao" type="button"
+                    aria-expanded={aberto === chave}
+                    onClick={() => setAberto(a => (a === chave ? null : chave))}>
+                    <span className="cartao-corpo">
+                      <span className="cartao-topo">
+                        <span className="cartao-nome">{s.modelo}</span>
+                        <span className="etiqueta">{dataCurta(s.data, p.hoje)}</span>
+                      </span>
+                      <span className="cartao-meta">
+                        {s.exercicios.length} {s.exercicios.length === 1 ? 'exercício' : 'exercícios'}
+                        {series > 0 && ` · ${series} ${series === 1 ? 'série' : 'séries'}`}
+                      </span>
+                    </span>
+                    <span className="seta-abre" data-aberto={aberto === chave} aria-hidden="true">›</span>
+                  </button>
+                  {aberto === chave && (
+                    <div className="feito-detalhe">
+                      {s.exercicios.map((e, i) => (
+                        <div className="feito-ex" key={`${i}-${e.nome}`}>
+                          <span className="feito-ex-nome">{e.nome}</span>
+                          <span className="feito-ex-series">{linhaDeSeries(e)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {p.corridas.length > 0 && (
+        <div className="bloco">
+          <Secao nome="Cardio" contagem={String(p.corridas.length)} />
+          <div className="lista">
+            {p.corridas.map(c => (
+              <div className="feito-cardio" key={`${c.data}|${c.aparelho}`}>
+                <span className="feito-cardio-dia">{dataCurta(c.data, p.hoje)}</span>
+                <span className="feito-cardio-nome">{c.aparelho || 'cardio'}</span>
+                <span className="feito-cardio-meta">
+                  {c.minutos > 0 && `${c.minutos} min`}
+                  {c.distancia !== null && ` · ${c.distancia} km`}
+                  {c.pace && ` · ${c.pace}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   )
 }

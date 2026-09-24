@@ -3,6 +3,7 @@ import { diaLocal, eventoCardio } from '../montar'
 import { Cabecalho, Botao, Campo, CampoNumero, Aviso, Selecao } from '../componentes'
 import type { useEnvio } from '../envio'
 import type { Tela } from '../App'
+import { SubNavSaude } from './Saude'
 
 const APARELHOS = ['esteira', 'bicicleta', 'elíptico', 'escada', 'rua', 'outro']
 
@@ -21,7 +22,7 @@ export function Cardio(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela
         pace: pace || undefined,
         nivel: nivel ? Number(nivel) : undefined
       }, diaLocal()))
-      p.irPara('hoje')
+      p.irPara('treino')
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'não deu para registrar')
     }
@@ -29,9 +30,10 @@ export function Cardio(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela
 
   return (
     <div className="tema-treino">
-      <Cabecalho titulo="Cardio" />
+      <Cabecalho titulo="Cardio" aoVoltar={() => p.irPara('treino')} />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
       <div className="bloco">
+        <SubNavSaude atual="treino" irPara={p.irPara} />
         <Selecao rotulo="Aparelho" opcoes={APARELHOS} valor={aparelho} aoMudar={setAparelho} />
         <CampoNumero rotulo="Minutos" valor={minutos} aoMudar={setMinutos} dica="30" />
         <CampoNumero rotulo="Distância (km)" valor={distancia} aoMudar={setDistancia} dica="5" />

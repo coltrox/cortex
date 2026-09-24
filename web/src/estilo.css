@@ -1981,3 +1981,21 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 .ajuste-numeros .troca-campo{ min-width:0; width:100%; }
 .ajuste-botoes{ display:flex; gap:var(--e2); justify-content:flex-end; }
 .ajuste-botoes .btn{ width:auto; flex:1; }
+
+/* ---------- Cardio e histórico na tela de Treino (2.6.23) ---------- */
+.cartao-cardio .etiqueta { text-transform: none; }
+.mais-cardio { flex: none; font-size: 20px; line-height: 1; color: var(--texto-3); }
+.seta-abre { flex: none; font-size: 18px; color: var(--texto-3); transition: transform .18s ease; }
+.seta-abre[data-aberto="true"] { transform: rotate(90deg); }
+
+.feito + .feito { margin-top: 2px; }
+.feito-detalhe { padding: 2px 14px 12px; display: flex; flex-direction: column; gap: 8px; }
+.feito-ex { display: flex; flex-direction: column; gap: 2px; }
+.feito-ex-nome { font-size: 13.5px; }
+.feito-ex-series { font-size: 12.5px; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+
+.feito-cardio { display: flex; align-items: baseline; gap: 10px; padding: 11px 14px; }
+.feito-cardio + .feito-cardio { box-shadow: inset 0 1px 0 var(--linha); }
+.feito-cardio-dia { min-width: 54px; font-size: 12px; color: var(--texto-3); font-variant-numeric: tabular-nums; }
+.feito-cardio-nome { flex: 1; font-size: 13.5px; }
+.feito-cardio-meta { font-size: 12.5px; color: var(--texto-2); font-variant-numeric: tabular-nums; }

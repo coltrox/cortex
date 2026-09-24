@@ -66,7 +66,7 @@ describe('montarCardapio', () => {
 
   it('ignora tipos que nao sao cardapio', () => {
     const c = montar([
-      nota({ path: 'x.md', tipo: 'sessao', campos: { modelo: 'Push A' } }),
+      nota({ path: 'x.md', tipo: 'conta', campos: { usuario: 'pedro@mail' } }),
       nota({ path: 'y.md', tipo: 'diario', campos: { transacoes: [{ item: 'Almoço', valor: 32 }] } })
     ])
     expect(c).toEqual([])
@@ -366,6 +366,54 @@ describe('o que esta chegando', () => {
   })
 })
 
+describe('o historico de treino que sobe para o celular', () => {
+  const HOJE = '2026-09-23'
+
+  it('publica a sessao com modelo, data e as series de cada exercicio', () => {
+    const treino = nota({
+      path: 'Saude/Treinos/Pull - 2026-09-21.md', title: 'Pull', tipo: 'sessao', date: '2026-09-21',
+      campos: {
+        modelo: 'Pull',
+        exercicios: [{
+          nome: 'Puxada alta', series: 3, reps: '8-12', carga: 68,
+          feitas: [{ carga: 47, reps: 12 }, { carga: 61, reps: 10 }, { carga: 68, reps: 8 }]
+        }]
+      }
+    })
+    const c = montarCardapio([treino], HOJE, []).filter(i => i.especie === 'sessao')
+    expect(c).toEqual([{
+      especie: 'sessao',
+      nome: '2026-09-21 Pull',
+      detalhe: {
+        data: '2026-09-21', modelo: 'Pull', path: 'Saude/Treinos/Pull - 2026-09-21.md',
+        exercicios: [{
+          nome: 'Puxada alta', series: 3, reps: '8-12', carga: 68,
+          feitas: [{ carga: 47, reps: 12 }, { carga: 61, reps: 10 }, { carga: 68, reps: 8 }]
+        }]
+      }
+    }])
+  })
+
+  it('sessao sem exercicio com nome nao vira item', () => {
+    const vazio = nota({
+      path: 'x.md', title: 'x', tipo: 'sessao', date: '2026-09-21',
+      campos: { modelo: 'Pull', exercicios: [{ feitas: [{ carga: 10 }] }] }
+    })
+    expect(montarCardapio([vazio], HOJE, []).filter(i => i.especie === 'sessao')).toEqual([])
+  })
+
+  it('so as vinte mais novas -- o cardapio inteiro viaja a cada publicacao', () => {
+    const muitas = Array.from({ length: 25 }, (_, i) => nota({
+      path: `t${i}.md`, title: 'T', tipo: 'sessao',
+      date: `2026-09-${String(i + 1).padStart(2, '0')}`,
+      campos: { modelo: 'Pull', exercicios: [{ nome: 'Remada', feitas: [{ carga: 40, reps: 10 }] }] }
+    }))
+    const c = montarCardapio(muitas, HOJE, []).filter(i => i.especie === 'sessao')
+    expect(c).toHaveLength(20)
+    expect(c[0].detalhe.data).toBe('2026-09-25')
+  })
+})
+
 describe('a lista de tipos que alimenta o cardapio', () => {
   it('cobre todo tipo de nota que montarCardapio le', () => {
     // Este teste existe por um defeito real: App.tsx observava so tres destes
@@ -382,11 +430,14 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // vazamento, que continua barrando o resto da ficha.
     // `acontecimento` entrou em 16/09/2026: sobe como compromisso marcado, so
     // titulo e data, para a busca do Calendario no celular.
+    // `sessao`, `cardio` e `medida` entraram em 23/09/2026: o celular passou a
+    // MOSTRAR o historico de treino, e sem eles aqui registrar um treino nao
+    // republicava nada -- ele so aparecia quando outra coisa mudasse no vault.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
       'acontecimento',
-      'anotacao', 'data-comemorativa', 'diario', 'evento', 'hidratacao', 'meta-cofre', 'pessoa',
-      'plano', 'porquinho', 'prova', 'rotina', 'simulado', 'suplemento', 'tarefa',
-      'treino-modelo'
+      'anotacao', 'cardio', 'data-comemorativa', 'diario', 'evento', 'hidratacao', 'medida',
+      'meta-cofre', 'pessoa', 'plano', 'porquinho', 'prova', 'rotina', 'sessao', 'simulado',
+      'suplemento', 'tarefa', 'treino-modelo'
     ])
   })
 

@@ -5,6 +5,7 @@ import type { NoteComCampos } from './tipos'
 import { hojeISO } from './tipos'
 import { SUBS } from './subnav'
 import { subAreaDaAba } from '../shared/subareas'
+import { lentesVisiveis, lenteDeAbertura } from './lentes'
 import { FORMULARIOS, ITENS } from './formularios'
 import {
   IconeHoje, IconeVida, IconeSaude, IconeDev,
@@ -94,6 +95,27 @@ export function App() {
   }, [])
   const alternarArea = (id: string): void =>
     setAbertas(a => (a.includes(id) ? a.filter(x => x !== id) : [...a, id]))
+
+  /*
+   * A altura da barra de cima, medida e publicada como `--topo-h`.
+   *
+   * O editor ampliado do Dev é uma camada fixa. Ele subia até 12 px do topo
+   * e cobria o caminho, o botão de esconder o menu e os botões da janela —
+   * era a "parte de cima bugada". Agora ele começa embaixo da barra, e a
+   * conta se refaz sozinha quando a janela muda de largura (o respiro da
+   * barra cresce com a tela).
+   */
+  useEffect(() => {
+    const el = document.querySelector<HTMLElement>('.topo')
+    if (!el) return
+    const medir = (): void =>
+      document.documentElement.style.setProperty('--topo-h', `${Math.round(el.getBoundingClientRect().bottom)}px`)
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(el)
+    window.addEventListener('resize', medir)
+    return () => { ro.disconnect(); window.removeEventListener('resize', medir) }
+  })
 
   const [paleta, setPaleta] = useState(false)
   const [criando, setCriando] = useState<{ tipo: string; inicial?: Record<string, unknown> } | null>(null)
@@ -236,14 +258,14 @@ export function App() {
     )
   }
 
-  // `cerebro` e `hoje` não são áreas: não se ligam nem se desligam na
-  // abertura, e por isso não passam pelo filtro de `config.areas` — o cérebro
-  // mostra a rede toda, e o que ele desenha já obedece ao que existe no vault.
-  const visiveis = LENTES.filter(
-    l => l.id === 'hoje' || l.id === 'cerebro' || v.config.areas.includes(l.id)
-  )
-  const lenteAtual = visiveis.find(l => l.id === v.lente) ?? visiveis[0]
-  const subs = SUBS[v.lente]
+  // Quem decide é `lentes.ts`: `cerebro` e `hoje` não são áreas e vêm
+  // sempre — menos no app só de Dev, onde o Hoje não teria o que mostrar.
+  const visiveis = lentesVisiveis(LENTES, v.config.areas)
+  const lenteAtual = lenteDeAbertura(visiveis, v.lente, v.config.areas) ?? visiveis[0]
+  /* A lente da vez pode ter sumido (o dono desligou a área, ou passou a usar
+     só o Dev): quem manda na tela é `lenteAtual`, e não o `v.lente` guardado. */
+  const lente = lenteAtual?.id ?? v.lente
+  const subs = SUBS[lente]
 
   const acoes = {
     aoAbrir: (p: string) => void v.abrir(p),
@@ -289,7 +311,7 @@ export function App() {
     }
 
     const comuns = { notas: v.notas, sub: v.sub, hoje, areas: v.config.areas, ...acoes }
-    switch (v.lente) {
+    switch (lente) {
       // Fora de `comuns` de propósito: o cérebro não lê `v.notas`, porque
       // precisa das LIGAÇÕES, e essas não estão ali — vêm do índice pelo
       // canal `vault:grafo`.

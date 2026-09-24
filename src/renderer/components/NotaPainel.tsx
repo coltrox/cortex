@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { NoteComCampos } from '../tipos'
 import type { Link, Backlink } from '../useVault'
 import { Markdown } from './Markdown'
+import { NotaTreino, NotaCardio } from './NotaTreino'
 import { corpoAlinhado, semDependenciasDaRede, camposExibiveis, textoDoCampo, type CampoExibido } from '../dados'
 
 /**
@@ -173,6 +174,10 @@ export function NotaPainel({
               texto cru, e a mesma coisa duas vezes na tela confunde qual das
               duas é a que vale. */}
           {nota && !editando && (() => {
+            // Treino e cardio têm desenho próprio: o genérico enfileirava as
+            // séries como uma lista de números sem rótulo.
+            if (nota.tipo === 'sessao') return <NotaTreino campos={nota.campos ?? {}} />
+            if (nota.tipo === 'cardio') return <NotaCardio campos={nota.campos ?? {}} />
             const campos = camposExibiveis(nota)
             if (campos.length === 0) return null
             return (

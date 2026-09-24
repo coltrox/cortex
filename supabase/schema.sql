@@ -142,6 +142,9 @@ begin
                                -- celular mostra o conjunto, e o Hoje corta
                                -- pelo dia. Quem corta e a tela, nao o banco.
                                'anotacao',
+                               -- O treino feito, com as series de cada
+                               -- exercicio: o celular mostra os ultimos.
+                               'sessao',
                                -- O HISTORICO, para o celular desenhar
                                -- evolucao em vez de so registrar: peso e
                                -- medidas, sessoes de cardio, e os

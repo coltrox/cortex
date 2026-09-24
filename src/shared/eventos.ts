@@ -97,6 +97,11 @@ export const TIPOS_NOTA_CARDAPIO = [
   // A meta de água do dia e o tamanho da garrafa. O TOTAL bebido não vem
   // daqui: vem do diário, como todo registro do dia.
   'hidratacao',
+  // O histórico que o celular mostra de volta: treino feito, cardio e as
+  // medidas. Sem estes três aqui, registrar um treino no celular não
+  // republicava nada, e ele só aparecia no histórico quando outra coisa
+  // qualquer mudasse no vault.
+  'sessao', 'cardio', 'medida',
   // O que aconteceu num dia passado: sobe como compromisso marcado, para o
   // celular achar na busca do Calendário. Só título e data.
   'acontecimento',
@@ -160,6 +165,14 @@ export const ESPECIES_CARDAPIO = [
 
   /** Peso e medidas de uma data. Um item por nota `medida`. */
   'medida',
+  /**
+   * Um treino feito: modelo, data e os exercícios com as séries.
+   *
+   * O celular sabia registrar o treino e nunca mais o via. Agora a tela de
+   * Treino mostra os últimos, com o peso de cada série — que é o que se
+   * consulta na academia para saber de quanto partir hoje.
+   */
+  'sessao',
   /** Uma sessão de cardio: aparelho, minutos, distância. */
   'cardio',
   /** Uma transação do diário: item, valor, categoria, entrada ou saída. */

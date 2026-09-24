@@ -475,6 +475,9 @@ const numOu = (v: unknown, padrao: number): number =>
 const numOuNulo = (v: unknown): number | null =>
   typeof v === 'number' && Number.isFinite(v) ? v : null
 const texto = (v: unknown): string => (typeof v === 'string' ? v : '')
+/** Lista de objetos vinda do banco: o que não for objeto fica de fora. */
+const listaDe = (v: unknown): Record<string, unknown>[] =>
+  Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object') : []
 
 export type Medida = {
   data: string
@@ -588,4 +591,47 @@ export function totaisDoMes(ts: Transacao[], mes: string): { saiu: number; entro
   // Ao centavo: somar float acumula 0.30000000000000004, e esse número
   // chegaria à tela do jeito que está.
   return { saiu: Math.round(saiu * 100) / 100, entrou: Math.round(entrou * 100) / 100 }
+}
+
+export type SerieDoTreino = { carga: number | null; reps: number | null }
+export type ExercicioDoTreino = {
+  nome: string
+  series: number | null
+  reps: string
+  carga: number | null
+  feitas: SerieDoTreino[]
+}
+
+/** Um treino já feito, como ele veio do Cortex. */
+export type SessaoFeita = {
+  data: string
+  modelo: string
+  exercicios: ExercicioDoTreino[]
+}
+
+/**
+ * Os treinos feitos, do mais NOVO para o mais velho.
+ *
+ * O celular registrava o treino e nunca mais o via: para lembrar de quanto
+ * partir no supino era preciso abrir o computador. O Cortex publica as vinte
+ * últimas sessões (ver `montarCardapio`), e a tela de Treino as mostra.
+ */
+export function sessoesFeitas(c: Cardapio): SessaoFeita[] {
+  return c.itens
+    .filter(i => i.especie === 'sessao' && texto(i.detalhe.data) !== '')
+    .map(i => ({
+      data: texto(i.detalhe.data),
+      modelo: texto(i.detalhe.modelo) || 'Treino',
+      exercicios: listaDe(i.detalhe.exercicios).map(e => ({
+        nome: texto(e.nome),
+        series: numOuNulo(e.series),
+        reps: texto(e.reps),
+        carga: numOuNulo(e.carga),
+        feitas: listaDe(e.feitas).map(s => ({
+          carga: numOuNulo(s.carga),
+          reps: numOuNulo(s.reps)
+        }))
+      })).filter(e => e.nome !== '')
+    }))
+    .sort((a, b) => b.data.localeCompare(a.data))
 }

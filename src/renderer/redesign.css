@@ -737,7 +737,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pessoa-card .linha-acoes { opacity: 0; transition: opacity var(--dur) var(--curva); }
+.pessoa-card .linha-acoes { opacity: .55; transition: opacity var(--dur) var(--curva); }
 .pessoa-card:hover .linha-acoes,
 .pessoa-card:focus-within .linha-acoes { opacity: 1; }
 .pessoa-papel { margin-top: 10px; font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
@@ -1134,13 +1134,25 @@ body {
 .dev-corpo[data-sem-arvore="true"] .dev-arvore { display: none; }
 /* Ampliado: o painel cobre a janela (Esc volta). Fica abaixo do terminal
    flutuante, que continua à mão para ver o npm run dev. */
+/* Ampliado, o editor VIRA a tela (2.6.23, pedido do dono: "faz o ampliar
+   substituir a tela do dev"). Não é mais um cartão flutuante com a lateral e
+   a barra do app aparecendo pelas beiradas — some tudo, e ficam só os botões
+   da janela, o Reduzir e o fechar do arquivo. Reduzir devolve a tela normal. */
 .dev-corpo[data-amplo="true"] {
-  position: fixed; inset: 12px; z-index: 35; height: auto;
-  /* Abaixo dos botões da janela (minimizar, fechar): a barra de título do
-     Windows ocupa 40 px no topo. Em tela cheia (F11) ela some e a variável zera. */
-  top: max(12px, calc(env(titlebar-area-height, 0px) + 6px));
-  box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+  position: fixed; inset: 0; z-index: 35; height: auto;
+  border: 0; border-radius: 0; box-shadow: none;
 }
+/* A barra do editor passa a ser o topo da janela: abre espaço para os botões
+   de minimizar, restaurar e fechar, e arrasta a janela como a barra do app. */
+.dev-corpo[data-amplo="true"] .dev-editor-topo {
+  -webkit-app-region: drag;
+  padding-right: max(10px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 14px));
+  min-height: max(38px, env(titlebar-area-height, 0px));
+}
+.dev-corpo[data-amplo="true"] .dev-editor-topo button { -webkit-app-region: no-drag; }
+/* A árvore do projeto também é topo da janela nesse modo. */
+.dev-corpo[data-amplo="true"] .dev-arvore-topo { -webkit-app-region: drag; }
+.dev-corpo[data-amplo="true"] .dev-arvore-topo button { -webkit-app-region: no-drag; }
 
 /* ---------- Soltar arquivos do Explorer numa pasta da árvore (2.6.8) ----------
    Com o arquivo na mão, a pasta embaixo do cursor abre a tampa e balança, e o
@@ -1514,3 +1526,61 @@ body {
   border: 1px solid color-mix(in srgb, var(--pale-yel) 25%, transparent);
 }
 .repetidos-lote .btn { flex: none; }
+
+/* ---------- Treino e cardio na nota aberta (2.6.23) ----------
+   A sessão saía pelo desenhador genérico de campos: "Puxada alta fechada ·
+   47-68 · 12 · 47 · 12 · 61 · 10". Aqui cada série volta a ser peso × reps. */
+.treino-nota { margin: 18px 0 24px; }
+.treino-resumo {
+  display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 12px 16px; margin-bottom: 12px;
+  border-radius: var(--raio-1); font-size: 12.5px; color: var(--text-3);
+  background: var(--surface-sunk); border: 1px solid var(--border);
+}
+.treino-resumo strong { font-size: 14px; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.treino-ex { padding: 12px 16px; border-radius: var(--raio-1); }
+.treino-ex + .treino-ex { box-shadow: inset 0 1px 0 var(--border); }
+.treino-ex-topo { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.treino-ex-nome { font-size: 14px; color: var(--text); }
+.treino-ex-meta { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.treino-series { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.treino-serie {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  padding: 4px 10px 4px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--acento, var(--accent)) 7%, var(--surface-sunk));
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+/* O número da série, discreto: ele ordena, não informa. */
+.treino-serie i {
+  width: 16px; height: 16px; display: grid; place-items: center; align-self: center;
+  border-radius: 50%; font-style: normal; font-size: 9.5px; color: var(--text-3);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.treino-serie b { font-size: 13px; font-weight: 500; color: var(--text); }
+.treino-serie em { margin-left: 2px; font-style: normal; font-size: 9.5px; color: var(--text-3); }
+.treino-x { font-size: 10px; color: var(--text-3); }
+
+.cardio-nota {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 14px;
+  padding: 14px 16px; border-radius: var(--raio-1);
+  background: var(--surface-sunk); border: 1px solid var(--border);
+}
+.cardio-aparelho {
+  font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3);
+}
+.cardio-tempo { font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.cardio-extras { display: inline-flex; gap: 14px; font-size: 12.5px; color: var(--text-2); }
+
+/* Editor ampliado: o que fica atrás dele some (2.6.23).
+   A fileira de projetos e a barra dos scripts apareciam numa tirinha entre a
+   barra de cima e o painel — e o painel não as cobre mais, porque agora ele
+   começa embaixo da barra de cima. */
+/* O que ficava atrás sai de cena enquanto o editor está ampliado. */
+:has(> .dev-corpo[data-amplo="true"]) > *:not(.dev-corpo) { display: none; }
+.lente:has(.dev-corpo[data-amplo="true"]) > .lente-titulo { display: none; }
+.main:has(.dev-corpo[data-amplo="true"]) > .topo { display: none; }
+/* Com o editor ampliado a lateral sai de cena: o Reduzir (ou Esc) traz tudo
+   de volta — a lateral, a barra de cima e a árvore no lugar de sempre. */
+.shell:has(.dev-corpo[data-amplo="true"]) > .sidebar-app { display: none; }

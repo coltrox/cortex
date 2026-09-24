@@ -639,6 +639,49 @@ export function montarCardapio(
   }
 
   /*
+   * Treinos feitos: os últimos vinte, com as séries.
+   *
+   * O celular registrava o treino e nunca mais o via — para saber de quanto
+   * partir no supino, era preciso abrir o computador. Vinte cobre mais de um
+   * mês de quem treina quatro vezes por semana.
+   *
+   * Cada exercício vai com o resumo e as séries (carga e reps). É a parte
+   * mais pesada do cardápio, e por isso o corte é curto: vinte sessões de
+   * seis exercícios dão cerca de 120 linhas.
+   */
+  const sessoes = notas
+    .filter(x => x.tipo === 'sessao' && txt(x.date) !== '')
+    .sort((a, b) => txt(b.date).localeCompare(txt(a.date)))
+    .slice(0, 20)
+
+  for (const n of sessoes) {
+    const exercicios = lista(n.campos.exercicios)
+      .map(e => comValor({
+        nome: txt(e.nome),
+        series: num(e.series),
+        reps: txt(e.reps),
+        carga: num(e.carga),
+        feitas: lista(e.feitas)
+          .map(s => comValor({ carga: num(s.carga), reps: num(s.reps) }))
+          .filter(s => Object.keys(s).length > 0)
+      }))
+      .filter(e => txt(e.nome) !== '')
+    if (exercicios.length === 0) continue
+    out.push({
+      especie: 'sessao',
+      // Data mais modelo: dois treinos no mesmo dia (manhã e noite) são duas
+      // sessões, e só a data as fundiria numa linha só.
+      nome: `${txt(n.date)} ${txt(n.campos.modelo) || 'treino'}`.trim(),
+      detalhe: comValor({
+        data: txt(n.date),
+        modelo: txt(n.campos.modelo),
+        path: n.path,
+        exercicios
+      })
+    })
+  }
+
+  /*
    * Cardio: as últimas vinte sessões.
    *
    * A tela mostra a semana, mas vinte cobre também quem treina pouco e ainda

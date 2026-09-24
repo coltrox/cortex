@@ -4,7 +4,8 @@ import {
   lerCardapio, gravarCardapio, diaDaSemana,
   suplementosDoDia, refeicoesDoPlano, treinos, exerciciosDoTreino,
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, haQuantoTempo,
-  hidratacao, litros, anotacoesDoDia, momentoDe, todasAnotacoes, areasLigadas, areaLigada
+  hidratacao, litros, anotacoesDoDia, momentoDe, todasAnotacoes, areasLigadas, areaLigada,
+  sessoesFeitas
 } from './cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from './feitos'
 import type { ItemCardapio } from '@compartilhado/eventos'
@@ -537,5 +538,36 @@ describe('todas as notas, e as de hoje', () => {
       anot('Velha urgente', { data: '2026-01-01', prioridade: true })
     ])
     expect(todasAnotacoes(c).map(a => a.titulo)).toEqual(['Velha urgente', 'Nova comum'])
+  })
+})
+
+describe('sessoesFeitas — o historico de treinos no celular', () => {
+  const comItens = (itens: { especie: string; nome: string; detalhe: Record<string, unknown> }[]) =>
+    ({ vaultId: 'v', atualizado: '', itens } as unknown as Parameters<typeof sessoesFeitas>[0])
+
+  it('le modelo, data e as series de cada exercicio, do mais novo para o mais velho', () => {
+    const s = sessoesFeitas(comItens([
+      { especie: 'sessao', nome: '2026-09-21 Pull', detalhe: { data: '2026-09-21', modelo: 'Pull',
+        exercicios: [{ nome: 'Puxada alta', series: 3, reps: '8-12', carga: 68,
+          feitas: [{ carga: 47, reps: 12 }, { carga: 61, reps: 10 }, { carga: 68, reps: 8 }] }] } },
+      { especie: 'sessao', nome: '2026-09-22 Legs', detalhe: { data: '2026-09-22', modelo: 'Legs',
+        exercicios: [{ nome: 'Extensora', feitas: [{ carga: 54, reps: 15 }] }] } },
+      { especie: 'cardio', nome: '2026-09-22 escada', detalhe: { data: '2026-09-22', aparelho: 'escada', minutos: 20 } }
+    ]))
+    expect(s.map(x => x.modelo)).toEqual(['Legs', 'Pull'])
+    expect(s[1].exercicios[0]).toEqual({
+      nome: 'Puxada alta', series: 3, reps: '8-12', carga: 68,
+      feitas: [{ carga: 47, reps: 12 }, { carga: 61, reps: 10 }, { carga: 68, reps: 8 }]
+    })
+  })
+
+  it('sessao sem data fica de fora, e exercicio sem nome tambem', () => {
+    const s = sessoesFeitas(comItens([
+      { especie: 'sessao', nome: 'sem data', detalhe: { modelo: 'Pull' } },
+      { especie: 'sessao', nome: '2026-09-21', detalhe: { data: '2026-09-21', exercicios: [{ nome: '' }, { nome: 'Remada' }] } }
+    ]))
+    expect(s).toHaveLength(1)
+    expect(s[0].modelo).toBe('Treino')
+    expect(s[0].exercicios.map(e => e.nome)).toEqual(['Remada'])
   })
 })
