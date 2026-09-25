@@ -1662,3 +1662,64 @@ body {
 /* O campo longo guarda a conduta inteira da nutricionista: quatro linhas com
    barra de rolagem não dá para reler o que se está editando. */
 .form-campo textarea { min-height: 150px; }
+
+/* A opção escolhida do dia (2.6.25): clicar na caixa é dizer "comi esta". */
+button.refeicao-opcao {
+  width: 100%; text-align: left; cursor: pointer; font: inherit;
+  transition: border-color var(--dur) var(--curva), background var(--dur) var(--curva);
+}
+button.refeicao-opcao:hover { border-color: color-mix(in srgb, var(--text) 20%, transparent); }
+button.refeicao-opcao[data-escolhida="true"] {
+  border-color: color-mix(in srgb, var(--pale-grn) 45%, transparent);
+  background: color-mix(in srgb, var(--pale-grn) 8%, var(--surface));
+  color: var(--text);
+}
+button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
+  color: var(--pale-grn); background: color-mix(in srgb, var(--pale-grn) 16%, transparent);
+}
+.refeicao-escolhido {
+  padding: 0 14px 11px 98px; margin-top: -4px;
+  font-size: 12.5px; color: var(--pale-grn);
+}
+
+/* O balão de caminho do editor (2.6.25): aparece ao digitar ./ ou ../ */
+.codigo-sugestoes {
+  position: absolute; z-index: 6; margin: 0; padding: 4px; list-style: none;
+  min-width: 180px; max-width: 320px; max-height: 232px; overflow-y: auto;
+  border-radius: var(--raio-1); background: var(--surface);
+  border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+}
+.codigo-sugestoes button {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; border: 0; border-radius: 5px; background: transparent;
+  color: var(--text-2); font-family: var(--mono); font-size: 12px; text-align: left;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.codigo-sugestoes button[data-escolhido="true"] { background: var(--surface-hover); color: var(--text); }
+.codigo-sugestoes button[data-pasta="true"] { color: var(--pale-yel); }
+.codigo-sugestoes .sug-icone { flex: none; width: 10px; color: var(--text-3); }
+
+/* ---------- O GitHub do projeto, na lente Dev (2.6.25) ----------
+   Colar o link, commitar e empurrar. Três gestos, uma faixa. */
+.git-painel {
+  margin: 10px 0 0; padding: 12px 14px; border-radius: var(--raio-1);
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.git-topo { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.git-resumo { flex: 1; min-width: 0; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.git-linha { display: flex; align-items: center; gap: 8px; }
+.git-linha input {
+  flex: 1; min-width: 0; padding: 7px 10px; border-radius: var(--raio-1);
+  background: var(--surface-sunk); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--mono); font-size: 12px; outline: none;
+}
+.git-linha input:focus { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.git-linha .btn, .git-linha .btn-fantasma { flex: none; }
+.git-recado {
+  margin: 0; max-height: 140px; overflow: auto; padding: 8px 10px;
+  border-radius: var(--raio-1); background: var(--surface-sunk);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.5; color: var(--text-2);
+  white-space: pre-wrap;
+}
+.git-recado[data-erro="true"] { color: var(--pale-red); background: var(--pale-red-bg); }

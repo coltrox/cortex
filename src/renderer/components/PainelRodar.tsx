@@ -30,6 +30,14 @@ const mesmas = (a: string[], b: string[]): boolean =>
  */
 export function SaidaProcesso({ proc }: { proc: ProcessoInfo }) {
   const [linhas, setLinhas] = useState<string[]>([])
+  /**
+   * A saída encolhida, sobrando só a barra com o endereço (pedido do dono:
+   * "opção de minimizar esse terminal ficando só o link à mostra").
+   *
+   * O processo continua rodando e as linhas continuam chegando — some só a
+   * leitura delas. Encolher não é parar.
+   */
+  const [encolhido, setEncolhido] = useState(false)
   const caixa = useRef<HTMLPreElement>(null)
   /** O fim está à vista? Só aí a tela acompanha as linhas novas. */
   const colado = useRef(true)
@@ -78,17 +86,25 @@ export function SaidaProcesso({ proc }: { proc: ProcessoInfo }) {
             Parar
           </button>
         )}
+        <button
+          className="btn-icone"
+          aria-expanded={!encolhido}
+          title={encolhido ? 'Mostrar o que o terminal escreve' : 'Esconder o texto e deixar só o endereço'}
+          onClick={() => setEncolhido(e => !e)}
+        >{encolhido ? '▾' : '▴'}</button>
       </div>
-      <pre
-        ref={caixa}
-        className="rodar-linhas"
-        onScroll={e => {
-          const el = e.currentTarget
-          colado.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
-        }}
-      >
-        {linhas.join('\n') || 'esperando a primeira linha…'}
-      </pre>
+      {!encolhido && (
+        <pre
+          ref={caixa}
+          className="rodar-linhas"
+          onScroll={e => {
+            const el = e.currentTarget
+            colado.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+          }}
+        >
+          {linhas.join('\n') || 'esperando a primeira linha…'}
+        </pre>
+      )}
     </div>
   )
 }

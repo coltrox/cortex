@@ -26,7 +26,10 @@ const SEGMENTOS: { id: Tela; nome: string }[] = [
   { id: 'saude',  nome: 'Dia' },
   { id: 'dieta',  nome: 'Dieta' },
   { id: 'corpo',  nome: 'Corpo' },
-  { id: 'treino', nome: 'Treino' }
+  { id: 'treino', nome: 'Treino' },
+  // O que já foi treinado fica numa aba à parte: junto da lista de começar um
+  // treino, vinte sessões empurravam o botão de hoje para fora da tela.
+  { id: 'historico', nome: 'Histórico' }
 ]
 
 /**

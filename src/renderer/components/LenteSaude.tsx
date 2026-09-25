@@ -9,7 +9,7 @@ import {
 } from './base'
 import {
   suplementosDoDia, seriePeso, serieAgua, litros, totaisDoDia,
-  fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia
+  fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia, opcaoDaRefeicao, comOpcaoEscolhida
 } from '../dados'
 
 /** Onde esta refeição está na lista do plano — a do dia é um recorte dela. */
@@ -583,9 +583,23 @@ function Dieta({
                   feito={feito}
                   fator={fator}
                   troca={feito ? trocaDaRefeicao(diarioHoje, nome) : ''}
+                  opcao={opcaoDaRefeicao(diarioHoje, nome)}
                   aoAlternar={() => aoMarcarDia(hoje, {
                     dieta_feitas: feito ? feitas.filter(f => f !== nome) : [...feitas, nome]
                   })}
+                  aoEscolher={texto => {
+                    // Escolher a mesma opção de novo desfaz: a refeição volta a
+                    // não estar marcada, e o diário perde a escolha.
+                    const desfazendo = opcaoDaRefeicao(diarioHoje, nome) === texto
+                    aoMarcarDia(hoje, {
+                      dieta_feitas: desfazendo
+                        ? feitas.filter(f => f !== nome)
+                        : (feitas.includes(nome) ? feitas : [...feitas, nome]),
+                      dieta_detalhes: comOpcaoEscolhida(
+                        lista(diarioHoje?.campos.dieta_detalhes), nome, desfazendo ? '' : texto
+                      )
+                    })
+                  }}
                   aoEditar={() => setEditandoRefeicao(indiceDaRefeicao(planoAtivo, r))}
                 />
               )

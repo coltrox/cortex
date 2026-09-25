@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**75 arquivos, 1267 testes**, rodando em ~23 s.
+**79 arquivos, 1297 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -406,6 +406,12 @@ row a second time". A dedup tem que acontecer antes, no payload.
 ---
 
 ## Estado
+
+`v2.6.25` — a lente **Dev** ganhou o painel do **GitHub** (colar o link,
+commit e push), sugestão de caminho ao digitar `./` no editor, volta para a
+mesma linha ao reabrir um arquivo e terminal que encolhe deixando só o
+endereço. Na Dieta dá para marcar **qual opção** da refeição foi comida, e no
+celular o histórico de treinos virou aba própria, separado por data.
 
 `v2.6.24` — a aba **Dieta** virou cartões: cada refeição abre, mostra as
 opções em caixinhas separadas por um "ou", e o lápis edita só aquela refeição

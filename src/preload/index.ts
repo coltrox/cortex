@@ -35,6 +35,17 @@ const api = {
   },
 
   /** Google Agenda: só ordens sem parâmetro; o main escolhe arquivo e abre o login. */
+  /** O git do projeto aberto na lente Dev: ligar ao GitHub, commitar, empurrar. */
+  git: {
+    estado: (raiz: string, sub: string): Promise<import('../shared/types').EstadoGit> =>
+      ipcRenderer.invoke('git:estado', { raiz, sub }),
+    remoto: (raiz: string, sub: string, url: string): Promise<import('../shared/types').RodadaGit> =>
+      ipcRenderer.invoke('git:remoto', { raiz, sub, url }),
+    commit: (raiz: string, sub: string, mensagem: string): Promise<import('../shared/types').RodadaGit> =>
+      ipcRenderer.invoke('git:commit', { raiz, sub, mensagem }),
+    push: (raiz: string, sub: string): Promise<import('../shared/types').RodadaGit> =>
+      ipcRenderer.invoke('git:push', { raiz, sub })
+  },
   google: {
     estado: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:estado'),
     importarCliente: (): Promise<import('../shared/types').EstadoGoogle> => ipcRenderer.invoke('google:importar-cliente'),

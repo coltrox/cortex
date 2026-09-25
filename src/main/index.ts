@@ -7,6 +7,9 @@ import { registerIpc, sincronizadorDe } from './ipc/handlers'
 import { ligarCampainha, desligarCampainha } from './nuvem/campainha'
 import { Processos, scriptsDoProjeto } from './dev/processos'
 import {
+  estadoGit, iniciarRepo, definirRemoto, commitar, empurrar, urlDeRepositorio, mensagemDeCommit
+} from './dev/git'
+import {
   etapasNovoProjeto, arquivosNovoProjeto, escreverArquivosIniciais, comandosExternos, comandoInstalado, avisoDeFalta, atualizarPathDoWindows, rodarCurto, nomeDeProjetoValido, MODELOS_PROJETO, LINGUAGENS_PROJETO,
   NOME_MODELO, repoDoGithub
 } from './dev/novoProjeto'
@@ -483,6 +486,58 @@ ipcMain.handle('vault:create', async () => {
   const alvo = await nomeDeVaultLivre('Cortex')
   await mkdir(alvo, { recursive: true })
   return abrirVault(alvo)
+})
+
+/**
+ * O git do projeto aberto: estado, remoto, commit e push.
+ *
+ * A tela nunca manda comando — ela escolhe qual dos quatro gestos, e os
+ * argumentos saem de `dev/git.ts`. A pasta passa pelo confinamento de
+ * `PastasDev`, como todo o resto da lente Dev.
+ */
+const pastaDoProjeto = (payload: unknown): string => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { raiz?: unknown; sub?: unknown }
+  if (typeof p.raiz !== 'string') throw new Error('pasta inválida')
+  return session.pastasDev.resolver(p.raiz, typeof p.sub === 'string' ? p.sub : '')
+}
+
+ipcMain.handle('git:estado', async (_e, payload: unknown) => estadoGit(pastaDoProjeto(payload)))
+
+ipcMain.handle('git:remoto', async (_e, payload: unknown) => {
+  const cwd = pastaDoProjeto(payload)
+  const p = (payload ?? {}) as { url?: unknown }
+  const url = urlDeRepositorio(typeof p.url === 'string' ? p.url : '')
+  if (!url) {
+    return { ok: false, saida: 'Endereço inválido. Cole o link do repositório, como https://github.com/voce/projeto' }
+  }
+  const est = await estadoGit(cwd)
+  if (!est.repo) {
+    const ini = await iniciarRepo(cwd)
+    if (!ini.ok) return ini
+  }
+  return definirRemoto(cwd, url)
+})
+
+ipcMain.handle('git:commit', async (_e, payload: unknown) => {
+  const cwd = pastaDoProjeto(payload)
+  const p = (payload ?? {}) as { mensagem?: unknown }
+  const est = await estadoGit(cwd)
+  if (!est.repo) {
+    const ini = await iniciarRepo(cwd)
+    if (!ini.ok) return ini
+  }
+  return commitar(cwd, mensagemDeCommit(typeof p.mensagem === 'string' ? p.mensagem : ''))
+})
+
+ipcMain.handle('git:push', async (_e, payload: unknown) => {
+  const cwd = pastaDoProjeto(payload)
+  const est = await estadoGit(cwd)
+  if (!est.remoto) {
+    return { ok: false, saida: 'Este projeto ainda não tem um repositório no GitHub. Cole o link primeiro.' }
+  }
+  if (est.semCommit) return { ok: false, saida: 'Faça o primeiro commit antes de enviar.' }
+  return empurrar(cwd, est.ramo)
 })
 
 ipcMain.handle('dev:add-folder', async () => {

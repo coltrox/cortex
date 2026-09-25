@@ -5,7 +5,7 @@ import {
   suplementosDoDia, refeicoesDoPlano, treinos, exerciciosDoTreino,
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, haQuantoTempo,
   hidratacao, litros, anotacoesDoDia, momentoDe, todasAnotacoes, areasLigadas, areaLigada,
-  sessoesFeitas
+  sessoesFeitas, historicoPorData
 } from './cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from './feitos'
 import type { ItemCardapio } from '@compartilhado/eventos'
@@ -569,5 +569,32 @@ describe('sessoesFeitas — o historico de treinos no celular', () => {
     expect(s).toHaveLength(1)
     expect(s[0].modelo).toBe('Treino')
     expect(s[0].exercicios.map(e => e.nome)).toEqual(['Remada'])
+  })
+})
+
+describe('historicoPorData — o dia inteiro junto', () => {
+  const s = (data: string, modelo: string) => ({ data, modelo, exercicios: [] })
+  const c = (data: string, aparelho: string) =>
+    ({ data, aparelho, minutos: 20, distancia: null, pace: '' })
+
+  it('junta treino e cardio do mesmo dia, do mais novo para o mais velho', () => {
+    const r = historicoPorData(
+      [s('2026-09-21', 'Pull'), s('2026-09-22', 'Legs')],
+      [c('2026-09-22', 'escada'), c('2026-09-19', 'esteira')]
+    )
+    expect(r.map(d => d.data)).toEqual(['2026-09-22', '2026-09-21', '2026-09-19'])
+    expect(r[0].sessoes.map(x => x.modelo)).toEqual(['Legs'])
+    expect(r[0].cardios.map(x => x.aparelho)).toEqual(['escada'])
+    expect(r[2].sessoes).toEqual([])
+  })
+
+  it('dois treinos no mesmo dia ficam no mesmo dia', () => {
+    const r = historicoPorData([s('2026-09-22', 'Legs'), s('2026-09-22', 'Upper')], [])
+    expect(r).toHaveLength(1)
+    expect(r[0].sessoes).toHaveLength(2)
+  })
+
+  it('sem nada, sem dias', () => {
+    expect(historicoPorData([], [])).toEqual([])
   })
 })

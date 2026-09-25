@@ -1,6 +1,8 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { PainelRodar } from './PainelRodar'
 import { EditorCodigo } from './EditorCodigo'
+import { PainelGit } from './PainelGit'
+import { resolverRelativo } from './caminhoSugestao'
 import { NovoProjeto, AvisoErro } from './NovoProjeto'
 import { projetoDoFoco, lerEstadoDev, processoEhDoProjeto, type Foco, type EstadoDev, type ProjetoAberto } from './projetoAtual'
 import type { ProcessoInfo } from '../../shared/types'
@@ -421,6 +423,16 @@ function Codigo({
   const [abertos, setAbertos] = useState<ProjetoAberto[]>([])
   /** O que cada aba tinha aberto (pastas e arquivo), para voltar a ela igual. */
   const memoria = useRef(new Map<string, { abertas: string[]; arquivo: string | null }>())
+  /**
+   * Onde cada arquivo estava: rolagem e cursor, por raiz|caminho.
+   *
+   * Pedido do dono: sair de um arquivo na linha 310 e voltar na linha 310, e
+   * não no começo. Vive enquanto a lente vive — é estado de tela, não dado.
+   */
+  const posicoes = useRef(new Map<string, { scroll: number; cursor: number }>())
+  /** O painel do GitHub, aberto pelo botão da barra do projeto. */
+  const [verGit, setVerGit] = useState(false)
+
   /** Os processos rodando, para a bolinha verde nas abas. */
   const [procs, setProcs] = useState<ProcessoInfo[]>([])
   useEffect(() => {
@@ -1179,11 +1191,22 @@ function Codigo({
             aoTerminar={recarregar}
             extras={
               <>
+                {/* O GitHub do projeto: colar o link, commitar e empurrar.
+                    Fica junto dos outros atalhos do projeto aberto. */}
+                <button
+                  className="btn-fantasma pequeno"
+                  aria-pressed={verGit}
+                  onClick={() => setVerGit(v => !v)}
+                >GitHub</button>
                 <button className="btn-fantasma pequeno" onClick={() => aoTerminal(raiz, projeto)}>Terminal</button>
                 <button className="btn-fantasma pequeno" onClick={() => aoRevelar(raiz, projeto)}>Explorer</button>
               </>
             }
           />
+
+          {verGit && (
+            <PainelGit raiz={raiz} sub={projeto} aoFechar={() => setVerGit(false)} />
+          )}
 
           <div className="dev-corpo" data-amplo={amplo} data-sem-arvore={semArvore && (!!arquivo || !!visor)}>
             <div
@@ -1308,6 +1331,15 @@ function Codigo({
                   <EditorCodigo
                     valor={texto}
                     ext={extensao(arquivo)}
+                    chave={`${raiz}|${arquivo}`}
+                    posicao={posicoes.current.get(`${raiz}|${arquivo}`)}
+                    aoPosicao={p => posicoes.current.set(`${raiz}|${arquivo}`, p)}
+                    listarPasta={async rel => {
+                      if (!raiz || !arquivo) return []
+                      const alvo = resolverRelativo(paiDe(arquivo), rel)
+                      const itens = await arvore(raiz, alvo).catch(() => [])
+                      return itens.map(i => ({ nome: i.nome, pasta: i.pasta }))
+                    }}
                     aoMudar={setTexto}
                     aoSalvar={() => void salvar()}
                   />

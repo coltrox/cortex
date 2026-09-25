@@ -13,6 +13,7 @@ import { Hoje } from './telas/Hoje'
 import { Treino, haTreinoEmAndamento } from './telas/Treino'
 import { segmentoVizinho } from './telas/Saude'
 import { Cardio } from './telas/Cardio'
+import { Historico } from './telas/Historico'
 import { Medidas } from './telas/Medidas'
 import { Gasto } from './telas/Gasto'
 import { Anotacao } from './telas/Anotacao'
@@ -42,7 +43,7 @@ import { Corpo } from './telas/Corpo'
 const LerQr = lazy(() => import('./telas/LerQr').then(m => ({ default: m.LerQr })))
 
 export type Tela =
-  | 'hoje' | 'agenda' | 'compromisso' | 'treino' | 'cardio'
+  | 'hoje' | 'agenda' | 'compromisso' | 'treino' | 'cardio' | 'historico'
   | 'medidas' | 'gasto' | 'porquinho' | 'anotacao' | 'ajustes' | 'lerqr' | 'novo'
   // A sessão de estudo, e a lista de todas as notas. `anotacao` continua
   // sendo a tela de ESCREVER uma; `notas` é a de LER as que existem.
@@ -87,7 +88,7 @@ const ABAS: { id: Tela; nome: string; area: string | null; forma: string }[] = [
  */
 const ABA_DE: Partial<Record<Tela, Tela>> = {
   novo: 'agenda', compromisso: 'agenda',
-  treino: 'saude', cardio: 'saude', medidas: 'saude',
+  treino: 'saude', cardio: 'saude', medidas: 'saude', historico: 'saude',
   dieta: 'saude', corpo: 'saude',
   gasto: 'dinheiro', porquinho: 'dinheiro',
   anotacao: 'notas', estudo: 'hoje',
@@ -285,6 +286,7 @@ export function App() {
       )}
       {tela === 'treino' && <Treino envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'cardio' && <Cardio envio={envio} irPara={setTela} />}
+      {tela === 'historico' && <Historico cardapio={cardapio} irPara={setTela} />}
       {/* As abas novas do desenho ainda apontam para as telas que já existiam
           e cobrem o mesmo assunto. É degrau, não destino: cada uma será
           trocada pela tela do desenho, uma por vez, para o app nunca ficar

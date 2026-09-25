@@ -4,7 +4,8 @@ import {
   corpoAlinhado, extrairTransacoes, porCategoria, saldoPorquinho,
   suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia,
   fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia,
-  seriePeso, serieAgua, litros, textos, camposExibiveis, textoDoCampo
+  seriePeso, serieAgua, litros, textos, camposExibiveis, textoDoCampo,
+  opcaoDaRefeicao, comOpcaoEscolhida, lista
 } from './dados'
 import { FORMULARIOS, type Campo } from './formularios'
 
@@ -597,5 +598,34 @@ describe('refeicoesDoDia', () => {
 
   it('sem plano, lista vazia', () => {
     expect(refeicoesDoDia(undefined, '2026-09-14')).toEqual([])
+  })
+})
+
+describe('qual opcao da refeicao foi comida', () => {
+  const diario = {
+    campos: { dieta_detalhes: [{ nome: 'Jantar', opcao: 'sopa de legumes', nivel: 'metade' }] }
+  } as unknown as NoteComCampos
+
+  it('le a opcao escolhida', () => {
+    expect(opcaoDaRefeicao(diario, 'Jantar')).toBe('sopa de legumes')
+    expect(opcaoDaRefeicao(diario, 'Almoço')).toBe('')
+    expect(opcaoDaRefeicao(undefined, 'Jantar')).toBe('')
+  })
+
+  it('escolher preserva o que o celular ja tinha respondido', () => {
+    const r = comOpcaoEscolhida(lista(diario.campos.dieta_detalhes), 'Jantar', '2 fatias de pizza')
+    expect(r).toEqual([{ nome: 'Jantar', opcao: '2 fatias de pizza', nivel: 'metade' }])
+  })
+
+  it('desescolher tira so a opcao; sem nada mais, a linha some', () => {
+    expect(comOpcaoEscolhida([{ nome: 'Jantar', opcao: 'sopa' }], 'Jantar', ''))
+      .toEqual([])
+    expect(comOpcaoEscolhida([{ nome: 'Jantar', opcao: 'sopa', nivel: 'pouco' }], 'Jantar', ''))
+      .toEqual([{ nome: 'Jantar', nivel: 'pouco' }])
+  })
+
+  it('a refeicao que ainda nao tinha detalhe ganha uma linha', () => {
+    expect(comOpcaoEscolhida([], 'Café', '2 ovos'))
+      .toEqual([{ nome: 'Café', opcao: '2 ovos' }])
   })
 })

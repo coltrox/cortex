@@ -15,7 +15,7 @@ import { opcoesDaRefeicao, resumoDaRefeicao } from './refeicao'
  * linha, com o "ou" entre elas; o lápis edita só aquela refeição.
  */
 export function CartaoRefeicao({
-  nome, hora, itens, kcal, prot, feito, fator, troca, aoAlternar, aoEditar
+  nome, hora, itens, kcal, prot, feito, fator, troca, opcao, aoAlternar, aoEscolher, aoEditar
 }: {
   nome: string
   hora: string
@@ -27,7 +27,11 @@ export function CartaoRefeicao({
   fator: number
   /** O que comeu no lugar, quando trocou. */
   troca: string
+  /** Qual das opções foi comida hoje — vazio quando não se escolheu nenhuma. */
+  opcao: string
   aoAlternar: () => void
+  /** Escolher uma opção marca a refeição; escolher a mesma de novo desmarca. */
+  aoEscolher: (texto: string) => void
   aoEditar: () => void
 }) {
   const [aberta, setAberta] = useState(false)
@@ -68,7 +72,9 @@ export function CartaoRefeicao({
 
       {/* Trocou: o que comeu no lugar vale mais que o plano, e fica à vista
           mesmo com o cartão fechado. */}
-      {troca && <div className="refeicao-troca">No lugar: {troca}</div>}
+      {troca
+        ? <div className="refeicao-troca">No lugar: {troca}</div>
+        : opcao && !aberta && <div className="refeicao-escolhido">Comeu: {opcao}</div>}
 
       {aberta ? (
         <div className="refeicao-corpo">
@@ -82,10 +88,21 @@ export function CartaoRefeicao({
                   {/* O "ou" entre as caixas: elas são alternativas, e não uma
                       receita em etapas — a separação é o que diz isso. */}
                   {i > 0 && <div className="refeicao-ou"><span>ou</span></div>}
-                  <div className="refeicao-opcao">
-                    {opcoes.length > 1 && <span className="refeicao-opcao-n">{i + 1}</span>}
+                  {/* Clicar na caixa diz "foi esta que eu comi": marca a
+                      refeição e guarda a opção no diário do dia. */}
+                  <button
+                    type="button"
+                    className="refeicao-opcao"
+                    aria-pressed={opcao === o.texto}
+                    data-escolhida={opcao === o.texto}
+                    title={opcao === o.texto ? 'Desmarcar' : 'Foi esta que eu comi'}
+                    onClick={() => aoEscolher(o.texto)}
+                  >
+                    <span className="refeicao-opcao-n">
+                      {opcao === o.texto ? '✓' : opcoes.length > 1 ? i + 1 : ''}
+                    </span>
                     <span className="refeicao-opcao-texto">{o.texto}</span>
-                  </div>
+                  </button>
                 </Fragment>
               ))}
             </div>

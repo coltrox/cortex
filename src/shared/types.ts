@@ -123,6 +123,19 @@ export type FeriadoDaAgenda = {
   descricao: string
 }
 
+/** O estado do git de um projeto, como a lente Dev o desenha. */
+export type EstadoGit = {
+  repo: boolean
+  ramo: string
+  remoto: string
+  alterados: number
+  aFrente: number
+  semCommit: boolean
+}
+
+/** O resultado de um comando git: deu certo, e o que ele escreveu. */
+export type RodadaGit = { ok: boolean; saida: string }
+
 /** O que a tela sabe da conexão com o Google Agenda. Nunca o token nem o segredo. */
 export type EstadoGoogle = {
   temCliente: boolean
@@ -159,6 +172,12 @@ declare global {
         estado(): Promise<EstadoAtualizacao>
         procurar(): Promise<EstadoAtualizacao>
         reiniciar(): Promise<EstadoAtualizacao>
+      }
+      git: {
+        estado(raiz: string, sub: string): Promise<EstadoGit>
+        remoto(raiz: string, sub: string, url: string): Promise<RodadaGit>
+        commit(raiz: string, sub: string, mensagem: string): Promise<RodadaGit>
+        push(raiz: string, sub: string): Promise<RodadaGit>
       }
       google: {
         estado(): Promise<EstadoGoogle>

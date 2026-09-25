@@ -503,3 +503,35 @@ export function seriePeso(notas: NoteComCampos[]): { x: string; y: number }[] {
     .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
     .map(n => ({ x: n.date as string, y: num(n.campos.peso) }))
 }
+
+/**
+ * Qual das opções da refeição foi comida — "a sopa" ou "a pizza".
+ *
+ * O plano oferece alternativas ("2 ovos OU 30 g de whey"), e marcar a refeição
+ * como feita não dizia qual delas foi. Guardamos o TEXTO da opção, e não o
+ * número: mudar o plano reordena as opções, e um número passaria a apontar
+ * para outra comida no diário de ontem.
+ */
+export function opcaoDaRefeicao(diario: NoteComCampos | undefined, nome: string): string {
+  return txt(lista(diario?.campos.dieta_detalhes).find(x => txt(x.nome) === nome)?.opcao)
+}
+
+/**
+ * A lista de detalhes do dia com a opção escolhida desta refeição.
+ *
+ * Preserva o que já havia na linha (o `nivel` e a `troca` que vêm do celular),
+ * e tira a linha inteira quando ela fica sem nada — diário limpo é diário que
+ * dá para ler à mão.
+ */
+export function comOpcaoEscolhida(
+  detalhes: Record<string, unknown>[], nome: string, opcao: string
+): Record<string, unknown>[] {
+  const out = detalhes.filter(d => txt(d.nome) !== nome)
+  const atual = detalhes.find(d => txt(d.nome) === nome) ?? {}
+  const linha: Record<string, unknown> = { ...atual, nome }
+  if (opcao) linha.opcao = opcao
+  else delete linha.opcao
+  // `nome` sozinho não é detalhe nenhum.
+  if (Object.keys(linha).length > 1) out.push(linha)
+  return out
+}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type UIEvent } from 'react'
 import { colorir } from './colorir'
 import { ocorrencias, linhaEColuna } from './buscaTexto'
+import { trechoDeCaminho, filtrarSugestoes, aplicarSugestao, type TrechoDeCaminho } from './caminhoSugestao'
 
 /** Um nível de indentação. Dois espaços é o que o resto deste projeto usa. */
 const PASSO = '  '
@@ -24,12 +25,22 @@ const PASSO = '  '
  * O Ctrl+F (pedido do dono) é mais uma camada, embaixo de todas: um `pre` de
  * letra invisível em que só as ocorrências aparecem, como fundo marcado.
  */
-export function EditorCodigo({ valor, ext = '', aoMudar, aoSalvar }: {
+export function EditorCodigo({
+  valor, ext = '', chave = '', posicao, aoMudar, aoSalvar, aoPosicao, listarPasta
+}: {
   valor: string
   /** A extensão do arquivo, que decide as cores. */
   ext?: string
+  /** Qual arquivo está aberto: mudou a chave, a posição guardada é outra. */
+  chave?: string
+  /** Onde este arquivo estava da última vez (rolagem e cursor). */
+  posicao?: { scroll: number; cursor: number }
   aoMudar: (v: string) => void
   aoSalvar: () => void
+  /** Avisa onde o texto está, para voltar aqui quando o arquivo reabrir. */
+  aoPosicao?: (p: { scroll: number; cursor: number }) => void
+  /** Lista uma pasta relativa ao arquivo aberto, para sugerir caminho no `./`. */
+  listarPasta?: (rel: string) => Promise<{ nome: string; pasta: boolean }[]>
 }) {
   const area = useRef<HTMLTextAreaElement>(null)
   const calha = useRef<HTMLDivElement>(null)
@@ -45,6 +56,109 @@ export function EditorCodigo({ valor, ext = '', aoMudar, aoSalvar }: {
   const achados = useMemo(() => (buscando ? ocorrencias(valor, termo) : []), [buscando, valor, termo])
 
   const linhas = valor.split('\n').length
+
+  /*
+   * A posição guardada por arquivo (pedido do dono: "to com a tela la na
+   * linha 310, sai e voltei, nao voltar no inicio e sim onde eu estava").
+   *
+   * A restauração espera o repintar: antes dele o `textarea` ainda tem o
+   * texto do arquivo anterior, e rolar para a linha 310 de outro arquivo não
+   * quer dizer nada.
+   */
+  useEffect(() => {
+    const el = area.current
+    if (!el) return
+    const p = posicao
+    requestAnimationFrame(() => {
+      el.scrollTop = p?.scroll ?? 0
+      el.scrollLeft = 0
+      if (p) el.setSelectionRange(p.cursor, p.cursor)
+      // As camadas de cor e de marcas não rolam sozinhas.
+      if (calha.current) calha.current.scrollTop = el.scrollTop
+      for (const camada of [cor.current, marcas.current]) {
+        if (camada) { camada.scrollTop = el.scrollTop; camada.scrollLeft = 0 }
+      }
+    })
+    // Só quando o arquivo muda: dentro do mesmo arquivo quem manda é quem digita.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chave])
+
+  const anotarPosicao = (): void => {
+    const el = area.current
+    if (el && aoPosicao) aoPosicao({ scroll: el.scrollTop, cursor: el.selectionStart })
+  }
+
+  /* ---------- sugestão de caminho ao digitar ./ ---------- */
+
+  const [sug, setSug] = useState<{
+    trecho: TrechoDeCaminho
+    itens: { nome: string; pasta: boolean }[]
+    escolhido: number
+    x: number
+    y: number
+  } | null>(null)
+  /** O que já foi lido de cada pasta nesta sessão de edição. */
+  const pastasLidas = useRef(new Map<string, { nome: string; pasta: boolean }[]>())
+
+  /** Onde desenhar o balão: na letra do cursor, uma linha abaixo. */
+  const pontoDoCursor = (pos: number): { x: number; y: number } => {
+    const el = area.current
+    if (!el) return { x: 0, y: 0 }
+    const estilo = getComputedStyle(el)
+    const alturaLinha = parseFloat(estilo.lineHeight) || 20
+    const ctx = document.createElement('canvas').getContext('2d')
+    if (ctx) ctx.font = `${estilo.fontSize} ${estilo.fontFamily}`
+    const larguraLetra = ctx?.measureText('M').width || 8
+    const { linha, coluna } = linhaEColuna(valor, pos)
+    return {
+      x: coluna * larguraLetra - el.scrollLeft + 8,
+      y: (linha + 1) * alturaLinha - el.scrollTop + 4
+    }
+  }
+
+  const repensarSugestao = async (texto: string, cursor: number): Promise<void> => {
+    if (!listarPasta) return
+    const trecho = trechoDeCaminho(texto, cursor)
+    if (!trecho) { setSug(null); return }
+    const lidas = pastasLidas.current
+    let nomes = lidas.get(trecho.pasta)
+    if (!nomes) {
+      nomes = await listarPasta(trecho.pasta).catch(() => [])
+      lidas.set(trecho.pasta, nomes)
+    }
+    const itens = filtrarSugestoes(nomes, trecho.parcial)
+    if (itens.length === 0) { setSug(null); return }
+    setSug({ trecho, itens, escolhido: 0, ...pontoDoCursor(cursor) })
+  }
+
+  /**
+   * Onde reabrir o balão depois que o texto novo chegar.
+   *
+   * Escolher uma pasta tem que mostrar o que tem dentro dela — mas o texto
+   * ainda é o antigo neste instante: `substituir` avisa o pai, e o valor novo
+   * só volta no próximo render. Por isso a reabertura espera o `valor` mudar,
+   * em vez de acontecer aqui.
+   */
+  const reabrirEm = useRef<number | null>(null)
+
+  useEffect(() => {
+    const pos = reabrirEm.current
+    if (pos === null) return
+    reabrirEm.current = null
+    void repensarSugestao(valor, pos)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valor])
+
+  const aceitarSugestao = (i: number): void => {
+    if (!sug) return
+    const escolha = sug.itens[i]
+    if (!escolha) return
+    const r = aplicarSugestao(valor, sug.trecho, escolha)
+    setSug(null)
+    substituir(r.texto, r.cursor)
+    // Pasta escolhida: já mostra o que tem dentro dela.
+    if (escolha.pasta) reabrirEm.current = r.cursor
+  }
 
   /**
    * Troca o conteúdo e recoloca o cursor.
@@ -122,6 +236,18 @@ export function EditorCodigo({ valor, ext = '', aoMudar, aoSalvar }: {
     const ini = el.selectionStart
     const fim = el.selectionEnd
 
+    // Com o balão de caminho aberto, as setas e o Enter são dele.
+    if (sug) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        const passo = e.key === 'ArrowDown' ? 1 : -1
+        setSug(s => (s ? { ...s, escolhido: (s.escolhido + passo + s.itens.length) % s.itens.length } : s))
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); aceitarSugestao(sug.escolhido); return }
+      if (e.key === 'Escape') { e.preventDefault(); setSug(null); return }
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
       e.preventDefault()
       aoSalvar()
@@ -169,6 +295,7 @@ export function EditorCodigo({ valor, ext = '', aoMudar, aoSalvar }: {
   // acompanham a do texto.
   const aoRolar = (e: UIEvent<HTMLTextAreaElement>): void => {
     const { scrollTop, scrollLeft } = e.currentTarget
+    if (aoPosicao) aoPosicao({ scroll: scrollTop, cursor: e.currentTarget.selectionStart })
     if (calha.current) calha.current.scrollTop = scrollTop
     for (const camada of [cor.current, marcas.current]) {
       if (camada) { camada.scrollTop = scrollTop; camada.scrollLeft = scrollLeft }
@@ -211,10 +338,36 @@ export function EditorCodigo({ valor, ext = '', aoMudar, aoSalvar }: {
           value={valor}
           wrap="off"
           spellCheck={false}
-          onChange={e => aoMudar(e.target.value)}
+          onChange={e => {
+            aoMudar(e.target.value)
+            void repensarSugestao(e.target.value, e.target.selectionStart)
+          }}
           onKeyDown={aoTeclar}
+          onKeyUp={anotarPosicao}
+          onClick={() => { anotarPosicao(); setSug(null) }}
+          onBlur={() => { anotarPosicao(); setSug(null) }}
           onScroll={aoRolar}
         />
+
+        {/* O balão de caminho: a pasta do arquivo aberto, filtrada pelo que já
+            foi digitado. Setas escolhem, Enter ou Tab aceita, Esc fecha. */}
+        {sug && (
+          <ul className="codigo-sugestoes" style={{ left: sug.x, top: sug.y }} role="listbox">
+            {sug.itens.map((it, i) => (
+              <li key={it.nome}>
+                <button
+                  type="button"
+                  data-escolhido={i === sug.escolhido}
+                  data-pasta={it.pasta}
+                  onMouseDown={e => { e.preventDefault(); aceitarSugestao(i) }}
+                >
+                  <span className="sug-icone" aria-hidden="true">{it.pasta ? '▸' : '·'}</span>
+                  {it.nome}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         {buscando && (
           <div className="codigo-busca" role="search">
             <input

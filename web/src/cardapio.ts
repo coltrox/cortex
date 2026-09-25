@@ -635,3 +635,24 @@ export function sessoesFeitas(c: Cardapio): SessaoFeita[] {
     }))
     .sort((a, b) => b.data.localeCompare(a.data))
 }
+
+export type DiaDeTreino = { data: string; sessoes: SessaoFeita[]; cardios: Cardio[] }
+
+/**
+ * O histórico junto, dia a dia, do mais novo para o mais velho.
+ *
+ * Treino e cardio do mesmo dia aparecem lado a lado — foi assim que o dia
+ * aconteceu, e é assim que se lembra dele. Uma lista de treinos e outra de
+ * cardios obrigava a cruzar datas com o dedo.
+ */
+export function historicoPorData(sessoes: SessaoFeita[], corridas: Cardio[]): DiaDeTreino[] {
+  const dias = new Map<string, DiaDeTreino>()
+  const dia = (data: string): DiaDeTreino => {
+    const d = dias.get(data) ?? { data, sessoes: [], cardios: [] }
+    dias.set(data, d)
+    return d
+  }
+  for (const s of sessoes) if (s.data) dia(s.data).sessoes.push(s)
+  for (const c of corridas) if (c.data) dia(c.data).cardios.push(c)
+  return [...dias.values()].sort((a, b) => b.data.localeCompare(a.data))
+}
