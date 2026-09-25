@@ -128,8 +128,11 @@ export function App() {
   useEffect(() => window.vaultApi.onAbrirArquivo(e => {
     v.trocarConfig(c => ({ ...c, pastasDev: e.pastasDev }))
     v.setLente('dev')
+    // `setLente` volta para a primeira aba (Projetos); quem abre um arquivo
+    // quer o editor, que é a aba Código.
+    v.setSub('codigo')
     setDoWindows(a => ({ raiz: e.raiz, rel: e.rel, n: (a?.n ?? 0) + 1 }))
-  }), [v.trocarConfig, v.setLente])
+  }), [v.trocarConfig, v.setLente, v.setSub])
 
   const [paleta, setPaleta] = useState(false)
   const [criando, setCriando] = useState<{ tipo: string; inicial?: Record<string, unknown> } | null>(null)

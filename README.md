@@ -407,6 +407,9 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.28` — o arquivo aberto pelo Windows cai direto na aba **Código** do
+Dev, e não mais na lista de projetos.
+
 `v2.6.27` — o instalador deixou de tomar o programa **padrão** das extensões:
 o Cortex entra no "Abrir com" e mais nada. Quem quiser abrir `.md` nele
 escolhe no Windows, uma vez.
