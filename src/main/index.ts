@@ -20,6 +20,8 @@ import {
 } from './atualizador'
 import { instrucoesParaClaude, gravarSeMudou } from './instrucoesClaude'
 import { lerEstadoDoConector } from './estadoConector'
+import { arquivoDosArgumentos, pastaEArquivo } from './abrirComCortex'
+import { existsSync } from 'node:fs'
 import { ServicoAgenda } from './google/servico'
 import { GuardaCifrada } from './google/guarda'
 
@@ -911,6 +913,68 @@ ipcMain.handle('dev:reveal', async (_e, payload: unknown) => {
 // pelo gerenciador de tarefas.
 app.on('before-quit', () => processos.pararTudo())
 
+/**
+ * Abre no Cortex um arquivo que o Windows mandou ("Abrir com", duplo clique).
+ *
+ * A pasta dele entra na lista de autorização — é o modelo da lente Dev, que
+ * trabalha com pasta autorizada mais caminho relativo. Como isso é acesso de
+ * leitura e escrita a uma pasta inteira, a primeira vez pergunta, com o
+ * caminho na tela, igual ao arrastar uma pasta para a janela.
+ *
+ * Sem vault aberto o pedido fica guardado e acontece assim que ele abrir: o
+ * duplo clique não pode se perder porque o app ainda estava carregando.
+ */
+let arquivoPendente: string | null = null
+
+async function abrirArquivoDeFora(abs: string): Promise<void> {
+  if (!session.isOpen) { arquivoPendente = abs; return }
+  const info = await stat(abs).catch(() => null)
+  if (!info?.isFile()) return
+
+  const { pasta, nome } = pastaEArquivo(abs)
+  const atuais = session.config.pastasDev
+  if (!atuais.some(p => resolve(p) === resolve(pasta))) {
+    const r = await dialog.showMessageBox({
+      type: 'question',
+      title: 'Abrir no Cortex',
+      message: 'Abrir este arquivo no editor do Cortex?',
+      detail: `${abs}\n\nPara isso o Cortex precisa de acesso de leitura e escrita à pasta:\n${pasta}`,
+      buttons: ['Abrir', 'Cancelar'],
+      defaultId: 0,
+      cancelId: 1
+    })
+    if (r.response !== 0) return
+    await session.salvarConfig({ pastasDev: [...atuais, resolve(pasta)] })
+  }
+
+  if (win?.isMinimized()) win.restore()
+  win?.focus()
+  win?.webContents.send('dev:abrir-externo', {
+    raiz: resolve(pasta),
+    rel: nome,
+    pastasDev: session.config.pastasDev
+  })
+}
+
+/*
+ * Uma instância só.
+ *
+ * Sem isto, cada duplo clique num arquivo abriria OUTRO Cortex — com o mesmo
+ * vault aberto duas vezes, dois relógios de sincronia e dois donos do mesmo
+ * índice. Quem chega depois entrega o caminho para quem já está aberto.
+ */
+const souOPrimeiro = app.requestSingleInstanceLock()
+if (!souOPrimeiro) {
+  app.quit()
+} else {
+  app.on('second-instance', (_e, argv) => {
+    const alvo = arquivoDosArgumentos(argv, app.isPackaged, c => existsSync(c))
+    if (win?.isMinimized()) win.restore()
+    win?.focus()
+    if (alvo) void abrirArquivoDeFora(alvo)
+  })
+}
+
 app.whenReady().then(async () => {
   // A checagem acontece no processo main, e não no renderer: a CSP logo
   // abaixo põe `connect-src 'none'` na janela, e uma busca de rede feita de
@@ -946,6 +1010,10 @@ app.whenReady().then(async () => {
 
   // Reabre o último vault sozinho. A tela de abertura só aparece de verdade
   // no primeiro uso — ou se a pasta lembrada sumiu.
+  // O arquivo do duplo clique, se veio junto com a abertura do app.
+  const daLinhaDeComando = arquivoDosArgumentos(process.argv, app.isPackaged, c => existsSync(c))
+  if (daLinhaDeComando) arquivoPendente = daLinhaDeComando
+
   const lembrado = await vaultLembrado()
   if (lembrado) {
     try {
@@ -955,6 +1023,12 @@ app.whenReady().then(async () => {
       // reabrindo sozinho no vault de sempre.
       const aberto = await abrirVault(lembrado)
       win?.webContents.send('vault:aberto', aberto)
+      // O duplo clique que abriu o app esperou o vault; agora dá para atender.
+      if (arquivoPendente) {
+        const alvo = arquivoPendente
+        arquivoPendente = null
+        void abrirArquivoDeFora(alvo)
+      }
     } catch {
       // Pasta apagada, drive desconectado, permissão negada: cai na abertura.
     }

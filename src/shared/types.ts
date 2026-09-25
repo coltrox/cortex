@@ -173,6 +173,7 @@ declare global {
         procurar(): Promise<EstadoAtualizacao>
         reiniciar(): Promise<EstadoAtualizacao>
       }
+      onAbrirArquivo(cb: (e: { raiz: string; rel: string; pastasDev: string[] }) => void): () => void
       git: {
         estado(raiz: string, sub: string): Promise<EstadoGit>
         remoto(raiz: string, sub: string, url: string): Promise<RodadaGit>

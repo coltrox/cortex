@@ -117,6 +117,20 @@ export function App() {
     return () => { ro.disconnect(); window.removeEventListener('resize', medir) }
   })
 
+  /*
+   * O arquivo que o Windows mandou abrir ("Abrir com o Cortex").
+   *
+   * Chega do processo principal com a pasta já autorizada. Guarda um número
+   * junto: abrir DUAS vezes o mesmo arquivo tem que valer duas vezes, e sem
+   * ele o segundo pedido pareceria o mesmo estado de antes.
+   */
+  const [doWindows, setDoWindows] = useState<{ raiz: string; rel: string; n: number } | null>(null)
+  useEffect(() => window.vaultApi.onAbrirArquivo(e => {
+    v.trocarConfig(c => ({ ...c, pastasDev: e.pastasDev }))
+    v.setLente('dev')
+    setDoWindows(a => ({ raiz: e.raiz, rel: e.rel, n: (a?.n ?? 0) + 1 }))
+  }), [v.trocarConfig, v.setLente])
+
   const [paleta, setPaleta] = useState(false)
   const [criando, setCriando] = useState<{ tipo: string; inicial?: Record<string, unknown> } | null>(null)
   const [alterando, setAlterando] = useState<NoteComCampos | null>(null)
@@ -348,6 +362,7 @@ export function App() {
             aoTerminal={(raiz, sub) => void v.abrirTerminal(raiz, sub)}
             aoNovoProjeto={(modelo, linguagem, nome) => v.novoProjeto(modelo, linguagem, nome)}
             aoClonarRepo={url => v.clonarRepo(url)}
+            abrirExterno={doWindows}
             aoRevelar={(raiz, sub) => void v.revelar(raiz, sub)}
             aoCriarPasta={p => void v.criarPasta(p)}
             aoMoverNota={(de, para) => void v.mover(de, para)}

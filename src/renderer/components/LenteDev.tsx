@@ -39,6 +39,13 @@ type PropsDev = PropsLente & {
   aoCriarPasta: (pasta: string) => void
   aoMoverNota: (de: string, paraPasta: string) => void
   aoSoltarPastas: (arquivos: FileList) => void
+  /**
+   * Um arquivo que o Windows mandou abrir ("Abrir com o Cortex").
+   *
+   * O `n` cresce a cada pedido: abrir o mesmo arquivo duas vezes tem que
+   * valer duas vezes.
+   */
+  abrirExterno?: { raiz: string; rel: string; n: number } | null
   /** Cria um projeto na pasta de projetos do Cortex; `{ erro }` com o motivo se não deu. */
   aoNovoProjeto: (
     modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
@@ -329,7 +336,7 @@ const ARQUIVOS_INICIAIS = [
 
 function Codigo({
   pastasDev, aoAutorizar, aoRemoverPastaDev, arvore, lerArquivo, gravarArquivo,
-  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo
+  aoTerminal, aoRevelar, aoSoltarPastas, aoNovoProjeto, aoClonarRepo, abrirExterno
 }: PropsDev) {
   const [sobrevoando, setSobrevoando] = useState(false)
   const [raiz, setRaiz] = useState<string | null>(pastasDev[0] ?? null)
@@ -513,6 +520,25 @@ function Codigo({
       }
     }
   }
+
+  /*
+   * O arquivo que o Windows mandou abrir.
+   *
+   * A pasta dele já entrou na lista de autorização lá no processo principal,
+   * então aqui é só ir até ela e abrir o arquivo — o mesmo caminho de quem
+   * clica na árvore.
+   */
+  useEffect(() => {
+    if (!abrirExterno) return
+    void (async () => {
+      const { raiz: r, rel } = abrirExterno
+      if (r !== raiz || base !== '') await irPara(r, '')
+      setFoco({ rel, pasta: false })
+      await abrirArquivo(rel, r)
+    })()
+    // Só quando chega um pedido NOVO (o `n` cresce a cada um).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirExterno?.n])
 
   /** Fecha a aba. O que está rodando nela continua (o terminal para, se quiser). */
   const fecharProjeto = async (a: ProjetoAberto): Promise<void> => {

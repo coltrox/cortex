@@ -69,6 +69,72 @@ win:
     - target: nsis
       arch: [x64]
 
+# Os tipos de arquivo que o Cortex sabe abrir (pedido do dono, 25/09/2026:
+# "arquivos reconhecerem e dar para abrir com cortex").
+#
+# Isto põe o Cortex no "Abrir com" do Windows — ele NÃO vira o programa padrão
+# de nada: trocar o padrão é decisão de quem usa, no próprio Windows, e um
+# instalador que sequestra a extensão de outro editor é exatamente o que
+# ninguém quer.
+#
+# Texto e código, nada de binário: abrir um `.png` no editor mostraria lixo.
+# Quem abre um arquivo daqui cai na lente Dev, com a pasta dele autorizada
+# depois de confirmar (ver `abrirArquivoDeFora` no processo principal).
+fileAssociations:
+  - ext: md
+    name: Markdown
+    description: Documento Markdown
+    role: Editor
+  - ext: txt
+    name: Texto
+    description: Arquivo de texto
+    role: Editor
+  - ext: json
+    name: JSON
+    role: Editor
+  - ext: yml
+    name: YAML
+    role: Editor
+  - ext: yaml
+    name: YAML
+    role: Editor
+  - ext: csv
+    name: CSV
+    role: Editor
+  - ext: log
+    name: Log
+    role: Editor
+  - ext: js
+    name: JavaScript
+    role: Editor
+  - ext: jsx
+    name: JavaScript
+    role: Editor
+  - ext: ts
+    name: TypeScript
+    role: Editor
+  - ext: tsx
+    name: TypeScript
+    role: Editor
+  - ext: css
+    name: CSS
+    role: Editor
+  - ext: html
+    name: HTML
+    role: Editor
+  - ext: py
+    name: Python
+    role: Editor
+  - ext: sql
+    name: SQL
+    role: Editor
+  - ext: sh
+    name: Shell
+    role: Editor
+  - ext: env
+    name: Variáveis de ambiente
+    role: Editor
+
 nsis:
   # Instalação por usuário, em %LOCALAPPDATA% — não pede senha de
   # administrador, que é o que permite instalar num PC de escola.

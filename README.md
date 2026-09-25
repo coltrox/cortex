@@ -322,7 +322,7 @@ celular: crie um projeto, cole `supabase/schema.sql` no SQL Editor, e ponha URL
 
 ## Testes
 
-**79 arquivos, 1297 testes**, rodando em ~23 s.
+**80 arquivos, 1302 testes**, rodando em ~23 s.
 
 ```bash
 npm test
@@ -406,6 +406,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 ---
 
 ## Estado
+
+`v2.6.26` — o Cortex entrou no **"Abrir com" do Windows**: dar duplo clique
+num `.md`, `.txt`, `.json` ou num arquivo de código abre ele no editor da
+lente Dev, com a pasta autorizada depois de confirmar. Uma janela só — o
+segundo duplo clique vai para a que já está aberta.
 
 `v2.6.25` — a lente **Dev** ganhou o painel do **GitHub** (colar o link,
 commit e push), sugestão de caminho ao digitar `./` no editor, volta para a

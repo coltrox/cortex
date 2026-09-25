@@ -35,6 +35,16 @@ const api = {
   },
 
   /** Google Agenda: só ordens sem parâmetro; o main escolhe arquivo e abre o login. */
+  /**
+   * O Windows mandou abrir um arquivo no Cortex ("Abrir com", duplo clique).
+   * Vem com a lista de pastas autorizadas já atualizada.
+   */
+  onAbrirArquivo(cb: (e: { raiz: string; rel: string; pastasDev: string[] }) => void): () => void {
+    const h = (_: unknown, e: { raiz: string; rel: string; pastasDev: string[] }): void => cb(e)
+    ipcRenderer.on('dev:abrir-externo', h)
+    return () => { ipcRenderer.off('dev:abrir-externo', h) }
+  },
+
   /** O git do projeto aberto na lente Dev: ligar ao GitHub, commitar, empurrar. */
   git: {
     estado: (raiz: string, sub: string): Promise<import('../shared/types').EstadoGit> =>
