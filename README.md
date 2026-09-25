@@ -407,6 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.29` — o arquivo do duplo clique manda mais que a tela de ontem: a
+lente Dev deixa de restaurar o último projeto quando o Cortex foi aberto por
+um arquivo.
+
 `v2.6.28` — o arquivo aberto pelo Windows cai direto na aba **Código** do
 Dev, e não mais na lista de projetos.
 

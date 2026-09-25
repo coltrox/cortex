@@ -606,7 +606,9 @@ function Codigo({
     if (restaurado.current || lembrado === undefined || pastasDev.length === 0) return
     restaurado.current = true
     const e = lembrado
-    if (!e || !pastasDev.includes(e.raiz) || querRaiz) return
+    // Duplo clique num arquivo manda mais que a tela de ontem: quem abriu o
+    // Cortex por um arquivo quer aquele arquivo, e não o projeto de antes.
+    if (!e || !pastasDev.includes(e.raiz) || querRaiz || abrirExterno) return
     void (async () => {
       setRaiz(e.raiz)
       setFilhos({})
