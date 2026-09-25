@@ -30,6 +30,43 @@
 !endif
 
 ; ---------------------------------------------------------------------------
+; Associações de arquivo sem sequestrar o padrão.
+;
+; O electron-builder registra cada extensão de `fileAssociations` de dois
+; jeitos ao mesmo tempo: põe o Cortex na lista "Abrir com" (OpenWithProgids)
+; E grava o programa PADRÃO da extensão. O segundo ninguém pediu — na
+; primeira instalação com associações (2.6.26) isso fez os `.md` da máquina
+; do dono passarem a abrir no Cortex, no lugar do VS Code.
+;
+; Aqui o valor padrão é apagado logo depois de escrito, deixando só o "Abrir
+; com". Quem quiser o Cortex como padrão escolhe no Windows, uma vez — e essa
+; escolha (UserChoice) manda em tudo isto.
+;
+; SHCTX é HKCU nesta instalação (`perMachine: false`).
+; ---------------------------------------------------------------------------
+!macro customInstall
+  DeleteRegValue SHCTX "Software\Classes\.md" ""
+  DeleteRegValue SHCTX "Software\Classes\.txt" ""
+  DeleteRegValue SHCTX "Software\Classes\.json" ""
+  DeleteRegValue SHCTX "Software\Classes\.yml" ""
+  DeleteRegValue SHCTX "Software\Classes\.yaml" ""
+  DeleteRegValue SHCTX "Software\Classes\.csv" ""
+  DeleteRegValue SHCTX "Software\Classes\.log" ""
+  DeleteRegValue SHCTX "Software\Classes\.js" ""
+  DeleteRegValue SHCTX "Software\Classes\.jsx" ""
+  DeleteRegValue SHCTX "Software\Classes\.ts" ""
+  DeleteRegValue SHCTX "Software\Classes\.tsx" ""
+  DeleteRegValue SHCTX "Software\Classes\.css" ""
+  DeleteRegValue SHCTX "Software\Classes\.html" ""
+  DeleteRegValue SHCTX "Software\Classes\.py" ""
+  DeleteRegValue SHCTX "Software\Classes\.sql" ""
+  DeleteRegValue SHCTX "Software\Classes\.sh" ""
+  DeleteRegValue SHCTX "Software\Classes\.env" ""
+  ; Avisa o Explorer para reler as associações.
+  System::Call 'shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
+!macroend
+
+; ---------------------------------------------------------------------------
 ; Fechar o Cortex antes de instalar por cima.
 ;
 ; O padrão do electron-builder desistia rápido e pedia para "fechar a janela" —

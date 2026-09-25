@@ -407,6 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.27` — o instalador deixou de tomar o programa **padrão** das extensões:
+o Cortex entra no "Abrir com" e mais nada. Quem quiser abrir `.md` nele
+escolhe no Windows, uma vez.
+
 `v2.6.26` — o Cortex entrou no **"Abrir com" do Windows**: dar duplo clique
 num `.md`, `.txt`, `.json` ou num arquivo de código abre ele no editor da
 lente Dev, com a pasta autorizada depois de confirmar. Uma janela só — o
