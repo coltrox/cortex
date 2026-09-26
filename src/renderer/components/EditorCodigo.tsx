@@ -155,7 +155,12 @@ export function EditorCodigo({
     if (!escolha) return
     const r = aplicarSugestao(valor, sug.trecho, escolha)
     setSug(null)
-    substituir(r.texto, r.cursor)
+    // Só o pedaço do caminho é reescrito — e pelo caminho que mantém o Ctrl+Z.
+    escrever(
+      sug.trecho.inicio,
+      sug.trecho.inicio + sug.trecho.texto.length,
+      r.texto.slice(sug.trecho.inicio, r.cursor)
+    )
     // Pasta escolhida: já mostra o que tem dentro dela.
     if (escolha.pasta) reabrirEm.current = r.cursor
   }
@@ -171,6 +176,30 @@ export function EditorCodigo({
     requestAnimationFrame(() => {
       area.current?.setSelectionRange(cursor, cursor)
     })
+  }
+
+  /**
+   * Escreve no lugar da seleção SEM quebrar o Ctrl+Z.
+   *
+   * O navegador guarda o histórico de desfazer do próprio campo, e ele só
+   * enxerga o que foi digitado ou inserido por comando de edição. Trocar o
+   * texto inteiro por código (o `substituir` acima) apaga esse histórico —
+   * era isso que fazia o Ctrl+Z parar de funcionar depois de um Tab, de um
+   * Enter com indentação ou de aceitar um caminho.
+   *
+   * `insertText` é o mesmo comando que o navegador usa ao colar: entra na
+   * pilha de desfazer, com seleção e tudo. Se ele recusar (retorna `false`),
+   * cai no caminho antigo — melhor perder o desfazer do que o texto.
+   */
+  const escrever = (inicio: number, fim: number, texto: string): void => {
+    const el = area.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(inicio, fim)
+    // O React não vê o `execCommand` direto: o evento de input dispara
+    // sozinho e o `onChange` leva o valor novo ao pai.
+    if (document.execCommand('insertText', false, texto)) return
+    substituir(el.value.slice(0, inicio) + texto + el.value.slice(fim), inicio + texto.length)
   }
 
   /**
@@ -266,7 +295,7 @@ export function EditorCodigo({
       // navegador, correto para formulário e errado para código.
       e.preventDefault()
       if (ini === fim) {
-        substituir(valor.slice(0, ini) + PASSO + valor.slice(fim), ini + PASSO.length)
+        escrever(ini, fim, PASSO)
         return
       }
       // Com seleção, indenta (ou desindenta, com Shift) o bloco inteiro.
@@ -275,7 +304,7 @@ export function EditorCodigo({
       const novo = e.shiftKey
         ? bloco.split('\n').map(l => (l.startsWith(PASSO) ? l.slice(PASSO.length) : l)).join('\n')
         : bloco.split('\n').map(l => PASSO + l).join('\n')
-      substituir(valor.slice(0, antes) + novo + valor.slice(fim), antes + novo.length)
+      escrever(antes, fim, novo)
       return
     }
 
@@ -286,8 +315,7 @@ export function EditorCodigo({
       const recuo = /^[ \t]*/.exec(valor.slice(inicioDaLinha, ini))?.[0] ?? ''
       if (recuo === '') return
       e.preventDefault()
-      const inserido = '\n' + recuo
-      substituir(valor.slice(0, ini) + inserido + valor.slice(fim), ini + inserido.length)
+      escrever(ini, fim, '\n' + recuo)
     }
   }
 

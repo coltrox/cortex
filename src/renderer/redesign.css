@@ -1723,3 +1723,34 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
   white-space: pre-wrap;
 }
 .git-recado[data-erro="true"] { color: var(--pale-red); background: var(--pale-red-bg); }
+
+/* A barra do terminal: endereço à esquerda; encolher, Parar e fechar no canto
+   direito (pedido do dono, 25/09/2026). */
+.rodar-saida-espaco { flex: 1; }
+.rodar-saida-topo .btn-fantasma.pequeno { flex: none; }
+
+/* A caixinha de instalar as dependências, na janela de clonar. */
+.clonar-instalar {
+  display: flex; align-items: center; gap: 10px; margin: 2px 0 4px;
+  font-size: 12.5px; color: var(--text-2); cursor: pointer;
+}
+.clonar-instalar code { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); }
+
+/* ---------- O terminal de dentro do Cortex (2.6.30) ----------
+   Uma linha de comando na pasta do projeto, para não precisar abrir o console
+   do Windows. A saída sai na lista de terminais, logo acima. */
+.terminal-embutido {
+  margin: 10px 0 0; padding: 10px 14px 12px; border-radius: var(--raio-1);
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.terminal-linha { display: flex; align-items: center; gap: 8px; }
+.terminal-prompt { flex: none; font-family: var(--mono); color: var(--accent); font-size: 14px; }
+.terminal-campo {
+  flex: 1; min-width: 0; padding: 7px 10px; border-radius: var(--raio-1);
+  background: var(--surface-sunk); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--mono); font-size: 12.5px; outline: none;
+}
+.terminal-campo:focus { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.terminal-linha .btn-fantasma { flex: none; }
+.terminal-embutido .form-dica { margin: 0; font-size: 11.5px; }

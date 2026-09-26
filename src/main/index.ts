@@ -645,6 +645,23 @@ ipcMain.handle('dev:rodar', async (_e, payload: unknown) => {
   return processos.iniciar(p.raiz, cwd, p.script)
 })
 
+/**
+ * Roda uma linha digitada no terminal do Cortex, dentro da pasta do projeto.
+ *
+ * É a única porta que aceita comando livre — e é deliberado: o botão Terminal
+ * já abria o console do Windows nessa mesma pasta, com o mesmo poder. O que
+ * muda aqui é só onde a janela fica. A pasta continua passando pela lista de
+ * autorizadas, então o comando não escapa para fora do que o dono liberou.
+ */
+ipcMain.handle('dev:executar', async (_e, payload: unknown) => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { raiz?: unknown; sub?: unknown; linha?: unknown }
+  if (typeof p.raiz !== 'string') throw new Error('raiz inválida')
+  if (typeof p.linha !== 'string' || p.linha.trim() === '') throw new Error('comando vazio')
+  const cwd = session.pastasDev.resolver(p.raiz, typeof p.sub === 'string' ? p.sub : '')
+  return processos.iniciarComando(p.raiz, cwd, p.linha)
+})
+
 /** Tira da lista um processo que já terminou (o terminal do "Conectar", que fecha sozinho). */
 ipcMain.handle('dev:esquecer', async (_e, payload: unknown) => {
   const p = (payload ?? {}) as { id?: unknown }
@@ -767,10 +784,23 @@ ipcMain.handle('dev:clonar-repo', async (_e, payload: unknown) => {
   // `--` antes da URL: nada depois dele é lido como opção do git.
   // GIT_TERMINAL_PROMPT=0: repositório privado sem login falha na hora, em vez
   // de esperar uma senha num terminal que não existe.
-  const processo = processos.iniciarEtapas(raiz, `clonar ${repo.nome}`, [{
-    comando: 'git', args: ['clone', '--', repo.url, repo.nome], cwd: base,
-    env: { GIT_TERMINAL_PROMPT: '0' }
-  }])
+  // Instalar as dependências entra como segunda etapa, na mesma saída (pedido
+  // do dono: "quando eu der git clone, opção de dar npm install, antes dos
+  // botões run dev aparecerem"). Sem `package.json` no repositório, a etapa se
+  // pula sozinha — ver `seTiver`.
+  const instalar = (payload as { instalar?: unknown } | null)?.instalar !== false
+  const processo = processos.iniciarEtapas(raiz, `clonar ${repo.nome}`, [
+    {
+      comando: 'git', args: ['clone', '--', repo.url, repo.nome], cwd: base,
+      env: { GIT_TERMINAL_PROMPT: '0' }
+    },
+    ...(instalar
+      ? [{
+          comando: 'npm', args: ['install'], cwd: join(base, repo.nome),
+          seTiver: 'package.json', env: { CI: '1' }
+        }]
+      : [])
+  ])
   return { processo, raiz, pasta: repo.nome, pastasDev }
 })
 

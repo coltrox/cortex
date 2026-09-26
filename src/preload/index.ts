@@ -119,6 +119,13 @@ const api = {
   autorizarPastaArrastada(caminho: string): Promise<string[]> {
     return ipcRenderer.invoke('dev:add-dropped', { caminho })
   },
+  /**
+   * Roda uma linha no terminal de dentro do Cortex (pedido do dono: não abrir
+   * o console do Windows para dar um comando na pasta do projeto).
+   */
+  executarComando(raiz: string, linha: string, sub = ''): Promise<ProcessoInfo> {
+    return ipcRenderer.invoke('dev:executar', { raiz, sub, linha })
+  },
   abrirTerminal(raiz: string, sub = ''): Promise<{ cwd: string }> {
     return ipcRenderer.invoke('dev:terminal', { raiz, sub })
   },
@@ -191,8 +198,8 @@ const api = {
     return ipcRenderer.invoke('dev:novo-projeto', { modelo, linguagem, nome })
   },
   /** Clona um repositório do GitHub em Área de Trabalho\projetos. */
-  clonarRepo(url: string): Promise<import('../shared/types').ProjetoCriado> {
-    return ipcRenderer.invoke('dev:clonar-repo', { url })
+  clonarRepo(url: string, instalar = true): Promise<import('../shared/types').ProjetoCriado> {
+    return ipcRenderer.invoke('dev:clonar-repo', { url, instalar })
   },
 
   /*

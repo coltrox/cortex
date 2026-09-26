@@ -28,7 +28,16 @@ const mesmas = (a: string[], b: string[]): boolean =>
  * Usada no painel da lente Dev e no terminal flutuante — a mesma tela nos
  * dois lugares.
  */
-export function SaidaProcesso({ proc }: { proc: ProcessoInfo }) {
+export function SaidaProcesso({ proc, aoFechar }: {
+  proc: ProcessoInfo
+  /**
+   * Fechar este terminal — só aparece quando há mais de um na tela.
+   *
+   * Com um só, fechar seria esconder a única coisa que o painel mostra; com
+   * vários, é o que tira da frente o que já acabou (pedido do dono).
+   */
+  aoFechar?: (p: ProcessoInfo) => void
+}) {
   const [linhas, setLinhas] = useState<string[]>([])
   /**
    * A saída encolhida, sobrando só a barra com o endereço (pedido do dono:
@@ -81,17 +90,27 @@ export function SaidaProcesso({ proc }: { proc: ProcessoInfo }) {
         ) : (
           <span className="rodar-saida-nome">{proc.script}</span>
         )}
-        {proc.saiu === null && (
-          <button className="btn-fantasma" onClick={() => void window.vaultApi.pararProcesso(proc.id)}>
-            Parar
-          </button>
-        )}
+        {/* O canto direito da barra: encolher, parar e fechar, nesta ordem —
+            do gesto mais leve para o que não tem volta. */}
+        <span className="rodar-saida-espaco" />
         <button
           className="btn-icone"
           aria-expanded={!encolhido}
           title={encolhido ? 'Mostrar o que o terminal escreve' : 'Esconder o texto e deixar só o endereço'}
           onClick={() => setEncolhido(e => !e)}
         >{encolhido ? '▾' : '▴'}</button>
+        {proc.saiu === null && (
+          <button className="btn-fantasma pequeno" onClick={() => void window.vaultApi.pararProcesso(proc.id)}>
+            Parar
+          </button>
+        )}
+        {aoFechar && (
+          <button
+            className="btn-icone"
+            title={proc.saiu === null ? 'Parar e fechar este terminal' : 'Fechar este terminal'}
+            onClick={() => aoFechar(proc)}
+          >×</button>
+        )}
       </div>
       {!encolhido && (
         <pre
@@ -139,6 +158,13 @@ export function PainelRodar({ raiz, sub, titulo, aoTerminar, extras }: {
   /** Muda quando algo termina, para os scripts serem lidos de novo. */
   const [versao, setVersao] = useState(0)
   const estados = useRef(new Map<string, number | null>())
+  /**
+   * A primeira leitura da lista só anota o que já existia.
+   *
+   * Sem isto, entrar na lente abriria a saída de um processo antigo da pasta
+   * — para a tela, na primeira volta tudo é novidade.
+   */
+  const primeiraLeitura = useRef(true)
   const aoTerminarRef = useRef(aoTerminar)
   aoTerminarRef.current = aoTerminar
 
@@ -166,13 +192,17 @@ export function PainelRodar({ raiz, sub, titulo, aoTerminar, extras }: {
         const daqui = r.processos.filter(p => p.raiz === raiz)
         // Um processo que começou agora (criar outro projeto, por exemplo) passa
         // a ser o que aparece — antes a tela ficava na saída do anterior.
-        const novo = daqui.find(p => p.saiu === null && !estados.current.has(p.id))
+        // Qualquer processo que a tela ainda não conhecia, vivo ou já
+        // encerrado: um comando curto do terminal morre antes da primeira
+        // conferida, e antes disto a saída dele nunca chegava a aparecer.
+        const novo = primeiraLeitura.current ? undefined : daqui.find(p => !estados.current.has(p.id))
         let terminou = false
         for (const p of daqui) {
           if (estados.current.get(p.id) === null && p.saiu !== null) terminou = true
           estados.current.set(p.id, p.saiu)
         }
         setRodando(daqui)
+        primeiraLeitura.current = false
         // Sem aba aberta, abre a do que está rodando agora.
         setAberto(a => novo ? novo.id : (a && daqui.some(p => p.id === a))
           ? a
@@ -270,7 +300,24 @@ export function PainelRodar({ raiz, sub, titulo, aoTerminar, extras }: {
         </div>
       )}
 
-      {proc && <SaidaProcesso key={proc.id} proc={proc} />}
+      {proc && (
+        <SaidaProcesso
+          key={proc.id}
+          proc={proc}
+          // O × só faz sentido com mais de um terminal na tela: com um só,
+          // fechar seria esconder a única coisa que o painel mostra.
+          aoFechar={rodando.length > 1
+            ? async p => {
+                if (p.saiu === null) await window.vaultApi.pararProcesso(p.id)
+                await window.vaultApi.esquecerProcesso(p.id)
+                const r = await window.vaultApi.listarProcessos()
+                const meus = r.processos.filter(x => x.raiz === raiz)
+                setRodando(meus)
+                setAberto(meus[0]?.id ?? null)
+              }
+            : undefined}
+        />
+      )}
     </div>
   )
 }

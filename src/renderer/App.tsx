@@ -364,7 +364,7 @@ export function App() {
             gravarArquivo={v.gravarArquivo}
             aoTerminal={(raiz, sub) => void v.abrirTerminal(raiz, sub)}
             aoNovoProjeto={(modelo, linguagem, nome) => v.novoProjeto(modelo, linguagem, nome)}
-            aoClonarRepo={url => v.clonarRepo(url)}
+            aoClonarRepo={(url, instalar) => v.clonarRepo(url, instalar)}
             abrirExterno={doWindows}
             aoRevelar={(raiz, sub) => void v.revelar(raiz, sub)}
             aoCriarPasta={p => void v.criarPasta(p)}

@@ -407,6 +407,13 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.30` — a lente **Dev** ganhou **terminal próprio**: dá para digitar um
+comando na pasta do projeto sem abrir o console do Windows (o console do
+sistema continua a um botão de distância, para comandos que fazem perguntas).
+No clone do GitHub veio a caixinha de rodar o `npm install` antes de os botões
+de rodar aparecerem, a barra de cada terminal ficou com **Parar** e **×** no
+canto direito, e o × fecha mesmo um terminal que ainda estava rodando.
+
 `v2.6.29` — o arquivo do duplo clique manda mais que a tela de ontem: a
 lente Dev deixa de restaurar o último projeto quando o Cortex foi aberto por
 um arquivo.

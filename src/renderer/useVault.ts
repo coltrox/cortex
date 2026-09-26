@@ -407,10 +407,10 @@ export function useVault() {
   }, [])
 
   const clonarRepo = useCallback(async (
-    url: string
+    url: string, instalar = true
   ): Promise<import('../shared/types').ProjetoCriado | { erro: string }> => {
     try {
-      const r = await window.vaultApi.clonarRepo(url)
+      const r = await window.vaultApi.clonarRepo(url, instalar)
       setConfig(c => ({ ...c, pastasDev: r.pastasDev }))
       setErro(null)
       return r

@@ -199,6 +199,8 @@ declare global {
       caminhoArrastado(f: File): string
       autorizarPastaArrastada(caminho: string): Promise<string[]>
       abrirTerminal(raiz: string, sub?: string): Promise<{ cwd: string }>
+      /** Roda uma linha no terminal de dentro do Cortex, na pasta do projeto. */
+      executarComando(raiz: string, linha: string, sub?: string): Promise<ProcessoInfo>
       abrirNoExplorador(raiz: string, sub?: string): Promise<{ ok: true }>
 
       /* Rodar o projeto de dentro do app. Ver main/dev/processos.ts. */
@@ -217,7 +219,7 @@ declare global {
       lerMidia(raiz: string, rel: string): Promise<{ tipo: string; base64: string }>
       abrirNoPadrao(raiz: string, rel: string): Promise<{ ok: boolean; motivo?: string }>
       novoProjeto(modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string): Promise<ProjetoCriado>
-      clonarRepo(url: string): Promise<ProjetoCriado>
+      clonarRepo(url: string, instalar?: boolean): Promise<ProjetoCriado>
 
       /*
        * Preferências de tela, gravadas em disco pelo processo principal.

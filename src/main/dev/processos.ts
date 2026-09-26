@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 
@@ -86,6 +87,22 @@ export type Etapa = {
   cwd: string
   /** Variáveis a mais só para esta etapa — `CI=1` tira as perguntas dos criadores. */
   env?: Record<string, string>
+  /**
+   * Só roda se este arquivo existir na `cwd`.
+   *
+   * É o que deixa o `npm install` entrar na fila depois de um `git clone` sem
+   * saber de antemão o que o repositório tem dentro: sem `package.json`, a
+   * etapa é pulada em silêncio em vez de imprimir um erro que não é erro.
+   */
+  seTiver?: string
+  /**
+   * A linha inteira vai para o shell, em vez de comando mais argumentos.
+   *
+   * Só o terminal do Cortex usa isto (ver `iniciarComando`): é o que faz
+   * `npm i && npm run build` se comportar como num terminal de verdade. As
+   * outras etapas continuam com a lista de argumentos separada.
+   */
+  comShell?: boolean
 }
 
 type Processo = ProcessoInfo & {
@@ -93,6 +110,14 @@ type Processo = ProcessoInfo & {
   filho: ChildProcess | null
   /** Parado pelo botão: a próxima etapa da sequência não começa. */
   parado: boolean
+  /**
+   * Fechado pelo × enquanto ainda rodava: some da lista assim que encerrar.
+   *
+   * Parar um processo é um pedido, não um fato — o fim chega depois. Sem esta
+   * marca, o × parava e tentava esquecer no mesmo instante, quando 'saiu'
+   * ainda era nulo, e a aba continuava na tela.
+   */
+  sumirAoSair?: boolean
 }
 
 /** Os scripts declarados no package.json do projeto, ou lista vazia. */
@@ -112,6 +137,27 @@ export async function scriptsDoProjeto(cwd: string): Promise<string[]> {
 
 export class Processos {
   private mapa = new Map<string, Processo>()
+
+  /**
+   * Roda uma linha de comando na pasta — o terminal do Cortex.
+   *
+   * Isto é a exceção deliberada à regra de cima ("nada de comando livre"), e
+   * vale a pena dizer por quê: o botão Terminal sempre abriu o terminal do
+   * Windows NA MESMA PASTA, com o mesmo poder e sem confinamento nenhum.
+   * Trazer isso para dentro do app não amplia o que dá para fazer; muda só
+   * onde a saída aparece — o pedido do dono foi exatamente esse, "dando para
+   * dar comandos dentro do próprio Cortex".
+   *
+   * O que continua valendo: a pasta vem de `PastasDev.resolver`, então só
+   * pasta autorizada; e nada aqui roda sozinho — cada linha é digitada.
+   */
+  iniciarComando(raiz: string, cwd: string, linha: string): ProcessoInfo {
+    // A linha inteira vai como comando, com shell: é o que faz `npm i && npm
+    // run build` funcionar como funciona num terminal de verdade.
+    return this.iniciarEtapas(raiz, linha.trim().slice(0, 500), [
+      { comando: linha.trim(), args: [], cwd, env: { FORCE_COLOR: '0' }, comShell: true }
+    ])
+  }
 
   /**
    * Roda `npm run <script>` na pasta do projeto.
@@ -161,6 +207,9 @@ export class Processos {
     const rodar = (i: number): void => {
       const etapa = etapas[i]
       if (!etapa) { p.saiu = 0; return }
+      // Etapa condicional: sem o arquivo que ela pede, segue para a próxima.
+      // É o `npm install` de um repositório clonado que não tem package.json.
+      if (etapa.seTiver && !existsSync(join(etapa.cwd, etapa.seTiver))) { rodar(i + 1); return }
       // Numa sequência, cada comando se anuncia: sem isto a saída do `npm
       // install` pareceria continuação do criador do projeto.
       if (etapas.length > 1) engolir(`[cortex] ${etapa.comando} ${etapa.args.join(' ')}`)
@@ -171,7 +220,7 @@ export class Processos {
       // de comando montada a partir de entrada do renderer.
       const filho = spawn(etapa.comando, etapa.args, {
         cwd: etapa.cwd,
-        shell: process.platform === 'win32',
+        shell: etapa.comShell === true || process.platform === 'win32',
         windowsHide: true,
         env: { ...process.env, FORCE_COLOR: '0', ...etapa.env }
       })
@@ -234,6 +283,10 @@ export class Processos {
 
   /** Tudo que está rodando, sem as linhas de saída (elas saem por `saida`). */
   listar(): ProcessoInfo[] {
+    // O enterro de quem foi fechado pelo × e só agora terminou. Fica aqui, e
+    // não em cada ponto que marca a saída, porque a tela confere esta lista a
+    // cada segundo e meio — um lugar só para varrer.
+    for (const [id, p] of this.mapa) if (p.sumirAoSair && p.saiu !== null) this.mapa.delete(id)
     return [...this.mapa.values()].map(p => this.publico(p))
   }
 
@@ -254,7 +307,9 @@ export class Processos {
   /** Esquece um processo que já terminou. Um que ainda roda fica — só o "parar" o tira. */
   esquecer(id: string): void {
     const p = this.mapa.get(id)
-    if (p && p.saiu !== null) this.mapa.delete(id)
+    if (!p) return
+    if (p.saiu !== null) this.mapa.delete(id)
+    else p.sumirAoSair = true
   }
 
   /** Esquece processos já encerrados, para a lista não crescer para sempre. */

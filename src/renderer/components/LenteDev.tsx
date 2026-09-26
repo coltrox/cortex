@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useRef, useState, type DragEvent, typ
 import { PainelRodar } from './PainelRodar'
 import { EditorCodigo } from './EditorCodigo'
 import { PainelGit } from './PainelGit'
+import { PainelTerminal } from './PainelTerminal'
 import { resolverRelativo } from './caminhoSugestao'
 import { NovoProjeto, AvisoErro } from './NovoProjeto'
 import { projetoDoFoco, lerEstadoDev, processoEhDoProjeto, type Foco, type EstadoDev, type ProjetoAberto } from './projetoAtual'
@@ -51,7 +52,7 @@ type PropsDev = PropsLente & {
     modelo: ModeloProjeto, linguagem: LinguagemProjeto, nome: string
   ) => Promise<{ raiz: string; pasta: string } | { erro: string }>
   /** Clona um repositório do GitHub na pasta de projetos do Cortex. */
-  aoClonarRepo: (url: string) => Promise<{ raiz: string; pasta: string } | { erro: string }>
+  aoClonarRepo: (url: string, instalar: boolean) => Promise<{ raiz: string; pasta: string } | { erro: string }>
 }
 
 const nomeBase = (p: string): string => p.slice(p.lastIndexOf('/') + 1).replace(/\.md$/i, '')
@@ -227,10 +228,18 @@ const PARECE_REPO =
 
 function ClonarRepo({ aoClonar, aoFechar }: {
   /** `true` se começou; texto com o motivo se não. */
-  aoClonar: (url: string) => Promise<true | string>
+  aoClonar: (url: string, instalar: boolean) => Promise<true | string>
   aoFechar: () => void
 }) {
   const [url, setUrl] = useState('')
+  /**
+   * Instalar as dependências logo depois de clonar (pedido do dono).
+   *
+   * Marcado por padrão: um repositório recém-clonado sem `node_modules` tem
+   * os botões de script na tela e nenhum deles funciona — o primeiro clique
+   * vira um erro de módulo faltando.
+   */
+  const [instalar, setInstalar] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const valido = PARECE_REPO.test(url.trim())
@@ -247,7 +256,7 @@ function ClonarRepo({ aoClonar, aoFechar }: {
     setEnviando(true)
     setErro(null)
     try {
-      const r = await aoClonar(url.trim())
+      const r = await aoClonar(url.trim(), instalar)
       if (r === true) aoFechar()
       else setErro(r)
     } finally {
@@ -276,6 +285,10 @@ function ClonarRepo({ aoClonar, aoFechar }: {
             ? `Vai para a pasta de projetos do Cortex, em projetos\\${nome}. Repositório privado usa o login do Git deste computador.`
             : 'Cole o link do repositório, ou escreva dono/repositório.'}
         </p>
+        <label className="clonar-instalar">
+          <input type="checkbox" checked={instalar} onChange={e => setInstalar(e.target.checked)} />
+          <span>Instalar as dependências (<code>npm install</code>) depois de clonar</span>
+        </label>
         {erro && <AvisoErro erro={erro} />}
         <div className="novo-projeto-rodape">
           <button className="btn-fantasma" onClick={aoFechar}>Cancelar</button>
@@ -439,6 +452,8 @@ function Codigo({
   const posicoes = useRef(new Map<string, { scroll: number; cursor: number }>())
   /** O painel do GitHub, aberto pelo botão da barra do projeto. */
   const [verGit, setVerGit] = useState(false)
+  /** O terminal de dentro do Cortex, aberto pelo botão Terminal. */
+  const [verTerminal, setVerTerminal] = useState(false)
 
   /** Os processos rodando, para a bolinha verde nas abas. */
   const [procs, setProcs] = useState<ProcessoInfo[]>([])
@@ -1000,8 +1015,8 @@ function Codigo({
     }
   }
 
-  const clonarRepo = async (url: string): Promise<true | string> => {
-    const r = await aoClonarRepo(url)
+  const clonarRepo = async (url: string, instalar: boolean): Promise<true | string> => {
+    const r = await aoClonarRepo(url, instalar)
     if ('erro' in r) return r.erro
     setQuerRaiz({ raiz: r.raiz, pasta: r.pasta })
     return true
@@ -1226,11 +1241,24 @@ function Codigo({
                   aria-pressed={verGit}
                   onClick={() => setVerGit(v => !v)}
                 >GitHub</button>
-                <button className="btn-fantasma pequeno" onClick={() => aoTerminal(raiz, projeto)}>Terminal</button>
+                <button
+                  className="btn-fantasma pequeno"
+                  aria-pressed={verTerminal}
+                  title="Dar comandos nesta pasta sem sair do Cortex"
+                  onClick={() => setVerTerminal(v => !v)}
+                >Terminal</button>
                 <button className="btn-fantasma pequeno" onClick={() => aoRevelar(raiz, projeto)}>Explorer</button>
               </>
             }
           />
+
+          {verTerminal && (
+            <PainelTerminal
+              raiz={raiz}
+              sub={projeto}
+              aoSistema={() => aoTerminal(raiz, projeto)}
+            />
+          )}
 
           {verGit && (
             <PainelGit raiz={raiz} sub={projeto} aoFechar={() => setVerGit(false)} />
