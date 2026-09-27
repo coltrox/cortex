@@ -418,8 +418,13 @@ function Codigo({
 
   const [criandoProjeto, setCriandoProjeto] = useState(false)
   const [clonando, setClonando] = useState(false)
-  /** A janela de "Abrir projeto", com a lista da pasta de projetos. */
-  const [escolhendo, setEscolhendo] = useState(false)
+  /**
+   * A janela de "Abrir projeto": `null` fechada, ou a lista de pastas lida.
+   *
+   * A lista vem sempre da pasta de projetos, e não da raiz em que a tela está
+   * — dá para pedir "Abrir projeto" de dentro de uma pasta de código solta.
+   */
+  const [escolhendo, setEscolhendo] = useState<string[] | null>(null)
   /**
    * A pasta `projetos` de um projeto recém-criado, esperando a lista de
    * pastas autorizadas chegar com ela. Selecionar antes faria o efeito abaixo
@@ -520,20 +525,34 @@ function Codigo({
   }
 
   /**
+   * Lê a pasta de projetos e abre a janela de escolha.
+   *
+   * A leitura é aqui, e não na janela, porque é a lente que sabe falar com o
+   * processo principal — a janela só mostra nomes.
+   */
+  const escolherProjeto = async (): Promise<void> => {
+    // A pasta de projetos chega do processo principal na abertura da lente;
+    // antes disso não há o que listar.
+    if (!pastaProjetos) return
+    const itens = await arvore(pastaProjetos, '').catch(() => [])
+    setEscolhendo(itens.filter(e => e.pasta).map(e => e.nome))
+  }
+
+  /**
    * Abre os projetos escolhidos na janela de "Abrir projeto".
    *
    * Todos ganham aba; a tela vai para o primeiro — é o que tira da frente a
    * lista de pastas, que era o incômodo do dono.
    */
   const abrirProjetos = (escolhidos: string[]): void => {
-    if (!raiz || escolhidos.length === 0) return
+    if (!pastaProjetos || escolhidos.length === 0) return
     setAbertos(l => [
       ...l,
       ...escolhidos
-        .filter(rel => !l.some(a => a.raiz === raiz && a.base === rel))
-        .map(rel => ({ raiz, base: rel }))
+        .filter(rel => !l.some(a => a.raiz === pastaProjetos && a.base === rel))
+        .map(rel => ({ raiz: pastaProjetos, base: rel }))
     ])
-    void irPara(raiz, escolhidos[0])
+    void irPara(pastaProjetos, escolhidos[0])
   }
 
   const chaveDe = (r: string, b: string): string => `${r}|${b}`
@@ -1043,6 +1062,14 @@ function Codigo({
    * projetos, como `Desktop\projetos` —, clicar num projeto entra nele.
    */
   const raizEhProjeto = (filhos[''] ?? []).some(e => !e.pasta && MARCAS_DE_PROJETO.has(e.nome))
+  /**
+   * Parado na pasta de projetos, sem projeto aberto.
+   *
+   * Aqui a árvore não lista as pastas: ela convida a abrir um projeto. A lista
+   * de `projetos` ficou só dentro da janela "Abrir projeto" — as outras pastas
+   * autorizadas (pasta de código solta) continuam navegáveis como sempre.
+   */
+  const semProjetoAberto = raiz === pastaProjetos && base === ''
   const nomeRaiz = raiz ? raiz.split(/[\\/]/).filter(Boolean).pop() ?? raiz : ''
 
   // Arrastar do explorador de arquivos é o atalho para o mesmo diálogo: o
@@ -1070,12 +1097,12 @@ function Codigo({
       {clonando && <ClonarRepo aoClonar={clonarRepo} aoFechar={() => setClonando(false)} />}
       {escolhendo && (
         <EscolherProjetos
-          nomes={(filhos[''] ?? []).filter(e => e.pasta).map(e => e.nome)}
-          jaAbertos={abertos.filter(a => a.raiz === raiz).map(a => a.base)}
-          aoFechar={() => setEscolhendo(false)}
+          nomes={escolhendo}
+          jaAbertos={abertos.filter(a => a.raiz === pastaProjetos).map(a => a.base)}
+          aoFechar={() => setEscolhendo(null)}
           aoAbrir={escolhidos => {
-            setEscolhendo(false)
-            abrirProjetos(escolhidos)
+            setEscolhendo(null)
+            void abrirProjetos(escolhidos)
           }}
         />
       )}
@@ -1237,7 +1264,7 @@ function Codigo({
               <button
                 className="btn-fantasma pequeno"
                 title="Escolher quais projetos abrir"
-                onClick={() => setEscolhendo(true)}
+                onClick={() => void escolherProjeto()}
               >Abrir projeto</button>
             )}
             <button className="btn-fantasma pequeno" onClick={() => setClonando(true)}>Clonar do GitHub</button>
@@ -1250,8 +1277,17 @@ function Codigo({
         {pastasDev.map(p => (
           <Fragment key={p}>
             <span className="chip-raiz" aria-pressed={raiz === p && !base} title={p}>
-              {/* Clicar na pasta volta para a lista de projetos dela. */}
-              <button onClick={() => void irPara(p, '')}>
+              {/*
+                Numa pasta de código solta, clicar volta para a raiz dela. Na
+                pasta de projetos do Cortex não há para onde voltar — ela não é
+                mais uma tela —, então o clique abre a escolha de projeto.
+              */}
+              <button
+                onClick={() => {
+                  if (p === pastaProjetos) { void escolherProjeto(); return }
+                  void irPara(p, '')
+                }}
+              >
                 {rotuloDaPasta(p, pastaProjetos)}
               </button>
               {/* A pasta de projetos do Cortex não sai: é onde os projetos novos nascem. */}
@@ -1291,7 +1327,9 @@ function Codigo({
             que seja o arquivo aberto: é onde está o package.json. Pedido do
             dono — antes entrar numa subpasta sumia com o npm run dev.
           */}
-          <PainelRodar
+          {/* Sem projeto aberto não há script para rodar nem pasta em que dar
+              comando: a barra inteira só apareceria vazia. */}
+          {!semProjetoAberto && <PainelRodar
             raiz={raiz}
             sub={projeto}
             titulo={projeto ? projeto.split('/').pop() : nomeRaiz}
@@ -1314,9 +1352,9 @@ function Codigo({
                 <button className="btn-fantasma pequeno" onClick={() => aoRevelar(raiz, projeto)}>Explorer</button>
               </>
             }
-          />
+          />}
 
-          {verTerminal && (
+          {verTerminal && !semProjetoAberto && (
             <PainelTerminal
               raiz={raiz}
               // A pasta clicada, e não o projeto: clicar numa pasta da árvore
@@ -1363,7 +1401,21 @@ function Codigo({
               {avisoArvore && (
                 <div className="dev-arvore-aviso" role="alert" onClick={() => setAvisoArvore(null)}>{avisoArvore}</div>
               )}
-              {linhas(base, 0)}
+              {semProjetoAberto
+                ? (
+                  /*
+                   * A pasta de projetos não é mais uma tela para navegar: ela
+                   * vive dentro do "Abrir projeto". Pedido do dono — a lista
+                   * de pastas tinha de sair da frente.
+                   */
+                  <div className="dev-comecar">
+                    <span>Escolha o projeto em que vai trabalhar.</span>
+                    <button className="btn pequeno" onClick={() => void escolherProjeto()}>Abrir projeto</button>
+                    <button className="btn-fantasma pequeno" onClick={() => setCriandoProjeto(true)}>+ Novo</button>
+                    <button className="btn-fantasma pequeno" onClick={() => setClonando(true)}>Clonar do GitHub</button>
+                  </div>
+                )
+                : linhas(base, 0)}
               {soltarEm === base && <div className="dev-item-vazio">Soltar em {base ? nomeBase : nomeRaiz}</div>}
             </div>
 

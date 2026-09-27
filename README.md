@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.34` — a pasta de projetos deixou de ser uma tela: a árvore não lista
+mais todas as pastas de `projetos`. No lugar dela, o convite para **abrir um
+projeto** — a lista vive dentro dessa janela, e depois de escolher a tela fica
+só com o projeto aberto.
+
 `v2.6.33` — o botão **Abrir projeto** na lente Dev: ele mostra a lista da
 pasta de projetos com caixinhas, você marca os que quer (um ou vários) e a
 lista sai da frente — a tela abre já dentro do primeiro, com a aba de cada um
