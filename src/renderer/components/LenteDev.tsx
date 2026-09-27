@@ -504,6 +504,18 @@ function Codigo({
     void irPara(raiz, rel)
   }
 
+  /**
+   * Põe o projeto na fila de abas, ao lado de "projetos", sem sair daqui.
+   *
+   * É a metade calma do clique: a pasta abre na árvore e a aba fica à mão
+   * para quando a pessoa quiser mesmo entrar. Antes o clique já levava para
+   * dentro, e o dono pediu o contrário.
+   */
+  const abrirAba = (rel: string): void => {
+    if (!raiz) return
+    setAbertos(l => (l.some(a => a.raiz === raiz && a.base === rel) ? l : [...l, { raiz, base: rel }]))
+  }
+
   const chaveDe = (r: string, b: string): string => `${r}|${b}`
 
   /**
@@ -1123,11 +1135,12 @@ function Codigo({
           }}
           onClick={async () => {
             if (it.pasta) {
-              // Na pasta de projetos, clicar num projeto ENTRA nele (a árvore
-              // vira o projeto, o ‹ volta). Dentro dele, as pastas abrem para
-              // baixo, como no VS Code. Pedido do dono.
-              if (nivel === 0 && !base && !raizEhProjeto) abrirComoBase(it.rel)
-              else alternarPasta(it.rel)
+              // Clicar numa pasta ABRE a pasta — só isso. Na pasta de
+              // projetos, o projeto clicado também ganha a aba ao lado de
+              // "projetos", mas a tela fica onde está: ir para ele é clicar
+              // na aba. Pedido do dono, que antes entrava direto.
+              if (nivel === 0 && !base && !raizEhProjeto) abrirAba(it.rel)
+              alternarPasta(it.rel)
             }
             else if (it.rel === arquivo || it.rel === visor?.rel) return
             else if (it.editavel) {

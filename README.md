@@ -407,6 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.32` — clicar numa pasta na árvore do **Dev** agora só **abre** a pasta:
+o projeto ganha a aba ao lado de "projetos", e a tela fica onde está. Ir para
+ele é clicar na aba.
+
 `v2.6.31` — o terminal da lente **Dev** virou **sessão de verdade**: os
 comandos seguem no mesmo terminal, um atrás do outro, e o `cd` de um ainda
 vale no seguinte. Quem quiser outro aperta **+ Terminal**, e cada um ganha sua
