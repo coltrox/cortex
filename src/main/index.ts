@@ -646,20 +646,49 @@ ipcMain.handle('dev:rodar', async (_e, payload: unknown) => {
 })
 
 /**
- * Roda uma linha digitada no terminal do Cortex, dentro da pasta do projeto.
+ * Abre um terminal do Cortex na pasta do projeto.
  *
  * É a única porta que aceita comando livre — e é deliberado: o botão Terminal
  * já abria o console do Windows nessa mesma pasta, com o mesmo poder. O que
  * muda aqui é só onde a janela fica. A pasta continua passando pela lista de
- * autorizadas, então o comando não escapa para fora do que o dono liberou.
+ * autorizadas, então o terminal não nasce fora do que o dono liberou.
  */
-ipcMain.handle('dev:executar', async (_e, payload: unknown) => {
+ipcMain.handle('dev:abrir-terminal', async (_e, payload: unknown) => {
   if (!session.isOpen) throw new Error('nenhum vault aberto')
-  const p = (payload ?? {}) as { raiz?: unknown; sub?: unknown; linha?: unknown }
+  const p = (payload ?? {}) as { raiz?: unknown; sub?: unknown }
   if (typeof p.raiz !== 'string') throw new Error('raiz inválida')
-  if (typeof p.linha !== 'string' || p.linha.trim() === '') throw new Error('comando vazio')
   const cwd = session.pastasDev.resolver(p.raiz, typeof p.sub === 'string' ? p.sub : '')
-  return processos.iniciarComando(p.raiz, cwd, p.linha)
+  return processos.abrirShell(p.raiz, cwd)
+})
+
+/**
+ * Manda uma linha para um terminal já aberto.
+ *
+ * Não recebe pasta: o terminal é que sabe onde está, e é isso que faz o `cd`
+ * de um comando ainda valer no seguinte — como num terminal de verdade.
+ */
+ipcMain.handle('dev:enviar', async (_e, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown; linha?: unknown }
+  if (typeof p.id !== 'string') throw new Error('id inválido')
+  if (typeof p.linha !== 'string' || p.linha.trim() === '') throw new Error('comando vazio')
+  processos.enviar(p.id, p.linha)
+  return { ok: true }
+})
+
+/**
+ * Leva um terminal aberto para outra pasta — a que foi clicada na árvore.
+ *
+ * O caminho é resolvido aqui, pela lista de pastas autorizadas, e não montado
+ * na tela: o terminal só anda para onde o dono já liberou.
+ */
+ipcMain.handle('dev:terminal-pasta', async (_e, payload: unknown) => {
+  if (!session.isOpen) throw new Error('nenhum vault aberto')
+  const p = (payload ?? {}) as { id?: unknown; raiz?: unknown; sub?: unknown }
+  if (typeof p.id !== 'string') throw new Error('id inválido')
+  if (typeof p.raiz !== 'string') throw new Error('raiz inválida')
+  const cwd = session.pastasDev.resolver(p.raiz, typeof p.sub === 'string' ? p.sub : '')
+  processos.entrarNaPasta(p.id, cwd)
+  return { ok: true }
 })
 
 /** Tira da lista um processo que já terminou (o terminal do "Conectar", que fecha sozinho). */

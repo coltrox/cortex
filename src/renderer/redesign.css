@@ -1754,3 +1754,8 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
 .terminal-campo:focus { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .terminal-linha .btn-fantasma { flex: none; }
 .terminal-embutido .form-dica { margin: 0; font-size: 11.5px; }
+
+/* As abas do terminal embutido: uma por sessão, mais o "+ Terminal" (2.6.31). */
+.terminal-abas { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.terminal-abas .btn-fantasma { flex: none; }
+.terminal-embutido .rodar-saida { margin: 0; }

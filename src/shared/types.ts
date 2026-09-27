@@ -83,6 +83,13 @@ export type ProcessoInfo = {
   saiu: number | null
   /** A pasta onde roda (a do projeto) — é o que acende a bolinha na aba do projeto. */
   cwd: string
+  /**
+   * É um terminal do Cortex, que fica vivo esperando a próxima linha.
+   *
+   * A tela usa para separar os dois: terminal tem campo de comando e painel
+   * próprio; `npm run dev` só tem saída.
+   */
+  ehShell?: boolean
 }
 
 /** Criar projeto pela lente Dev. Ver main/dev/novoProjeto.ts. */
@@ -199,8 +206,12 @@ declare global {
       caminhoArrastado(f: File): string
       autorizarPastaArrastada(caminho: string): Promise<string[]>
       abrirTerminal(raiz: string, sub?: string): Promise<{ cwd: string }>
-      /** Roda uma linha no terminal de dentro do Cortex, na pasta do projeto. */
-      executarComando(raiz: string, linha: string, sub?: string): Promise<ProcessoInfo>
+      /** Abre um terminal de dentro do Cortex, na pasta do projeto. */
+      abrirTerminalNoCortex(raiz: string, sub?: string): Promise<ProcessoInfo>
+      /** Manda uma linha para um terminal já aberto. */
+      enviarNoTerminal(id: string, linha: string): Promise<{ ok: true }>
+      /** Leva um terminal aberto para a pasta clicada na árvore. */
+      terminalNaPasta(id: string, raiz: string, sub?: string): Promise<{ ok: true }>
       abrirNoExplorador(raiz: string, sub?: string): Promise<{ ok: true }>
 
       /* Rodar o projeto de dentro do app. Ver main/dev/processos.ts. */

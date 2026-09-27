@@ -99,7 +99,9 @@ export function SaidaProcesso({ proc, aoFechar }: {
           title={encolhido ? 'Mostrar o que o terminal escreve' : 'Esconder o texto e deixar só o endereço'}
           onClick={() => setEncolhido(e => !e)}
         >{encolhido ? '▾' : '▴'}</button>
-        {proc.saiu === null && (
+        {/* Num terminal não há o que parar: o que se encerra é o terminal
+            inteiro, e isso é o × ao lado. */}
+        {proc.saiu === null && !proc.ehShell && (
           <button className="btn-fantasma pequeno" onClick={() => void window.vaultApi.pararProcesso(proc.id)}>
             Parar
           </button>
@@ -189,7 +191,9 @@ export function PainelRodar({ raiz, sub, titulo, aoTerminar, extras }: {
       try {
         const r = await window.vaultApi.listarProcessos()
         if (!vivo) return
-        const daqui = r.processos.filter(p => p.raiz === raiz)
+        // Os terminais do Cortex ficam de fora: eles têm painel próprio, e
+        // apareceriam duas vezes na tela.
+        const daqui = r.processos.filter(p => p.raiz === raiz && !p.ehShell)
         // Um processo que começou agora (criar outro projeto, por exemplo) passa
         // a ser o que aparece — antes a tela ficava na saída do anterior.
         // Qualquer processo que a tela ainda não conhecia, vivo ou já

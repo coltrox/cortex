@@ -68,6 +68,13 @@ export type ProcessoInfo = {
   script: string
   pid: number | null
   url: string | null
+  /**
+   * É um terminal vivo, que aceita linha nova (ver `abrirShell`).
+   *
+   * A tela precisa saber: num terminal o campo de comando fica aberto; num
+   * `npm run dev` não há para onde digitar.
+   */
+  ehShell?: boolean
   /** `null` enquanto está rodando; o código de saída depois que termina. */
   saiu: number | null
   /** A pasta onde roda (a do projeto) — é o que acende a bolinha na aba do projeto. */
@@ -95,14 +102,6 @@ export type Etapa = {
    * etapa é pulada em silêncio em vez de imprimir um erro que não é erro.
    */
   seTiver?: string
-  /**
-   * A linha inteira vai para o shell, em vez de comando mais argumentos.
-   *
-   * Só o terminal do Cortex usa isto (ver `iniciarComando`): é o que faz
-   * `npm i && npm run build` se comportar como num terminal de verdade. As
-   * outras etapas continuam com a lista de argumentos separada.
-   */
-  comShell?: boolean
 }
 
 type Processo = ProcessoInfo & {
@@ -151,12 +150,56 @@ export class Processos {
    * O que continua valendo: a pasta vem de `PastasDev.resolver`, então só
    * pasta autorizada; e nada aqui roda sozinho — cada linha é digitada.
    */
-  iniciarComando(raiz: string, cwd: string, linha: string): ProcessoInfo {
-    // A linha inteira vai como comando, com shell: é o que faz `npm i && npm
-    // run build` funcionar como funciona num terminal de verdade.
-    return this.iniciarEtapas(raiz, linha.trim().slice(0, 500), [
-      { comando: linha.trim(), args: [], cwd, env: { FORCE_COLOR: '0' }, comShell: true }
-    ])
+  abrirShell(raiz: string, cwd: string): ProcessoInfo {
+    const p: Processo = {
+      id: randomUUID(), raiz, script: 'terminal', pid: null, url: null, saiu: null, cwd,
+      linhas: [], filho: null, parado: false, ehShell: true
+    }
+    // O shell da máquina, lendo do stdin: é o que faz o `cd` da linha anterior
+    // ainda valer na próxima. No Windows o `/q` desliga o eco, porque quem
+    // ecoa o comando é o `enviar` — assim a linha aparece igual em todo
+    // sistema.
+    const comando = process.platform === 'win32'
+      ? (process.env.ComSpec ?? 'cmd.exe')
+      : (process.env.SHELL ?? '/bin/sh')
+    const args = process.platform === 'win32' ? ['/q'] : []
+    const filho = spawn(comando, args, {
+      cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, FORCE_COLOR: '0' }
+    })
+    p.filho = filho
+    p.pid = filho.pid ?? null
+    const anotar = this.anotador(p)
+    filho.stdout?.on('data', anotar)
+    filho.stderr?.on('data', anotar)
+    filho.on('error', e => {
+      anotar('[cortex] não deu para abrir o terminal: ' + e.message)
+      p.filho = null
+      if (p.saiu === null) p.saiu = 1
+    })
+    filho.on('close', codigo => { p.filho = null; p.saiu = codigo ?? 0 })
+    this.mapa.set(p.id, p)
+    return this.publico(p)
+  }
+
+  /**
+   * Manda uma linha para um terminal aberto.
+   *
+   * O comando é ecoado antes de ir, com o `›` na frente, para a saída ficar
+   * legível quando vários comandos se sucedem na mesma janela — sem isso
+   * seria um amontoado de respostas sem pergunta.
+   */
+  enviar(id: string, linha: string): void {
+    const p = this.mapa.get(id)
+    if (!p || !p.ehShell || !p.filho?.stdin || p.saiu !== null) {
+      throw new Error('este terminal não está mais aberto')
+    }
+    // Uma linha é uma linha: quebra colada de fora vira espaço, senão o que
+    // foi colado viraria vários comandos de uma vez.
+    const texto = linha.replace(/\s*[\r\n]+\s*/g, ' ').trim()
+    if (texto === '') return
+    this.anotador(p)('› ' + texto)
+    p.filho.stdin.write(texto + (process.platform === 'win32' ? '\r\n' : '\n'))
   }
 
   /**
@@ -187,22 +230,7 @@ export class Processos {
       linhas: [], filho: null, parado: false
     }
 
-    const engolir = (b: Buffer | string): void => {
-      for (const bruta of String(b).split(/\r?\n/)) {
-        // Limpa ANTES de guardar e antes de procurar o endereço: o painel
-        // mostra estas mesmas linhas, e a busca do link lê o mesmo texto.
-        const linha = semCores(bruta).replace(/\r/g, '').trimEnd()
-        if (linha === '') continue
-        p.linhas.push(linha)
-        // Anel: um servidor de desenvolvimento rodando o dia inteiro imprime
-        // sem parar, e guardar tudo comeria a memória do processo principal.
-        if (p.linhas.length > TETO_LINHAS) p.linhas.shift()
-        if (!p.url) {
-          const m = RE_URL.exec(linha)
-          if (m) p.url = m[0]
-        }
-      }
-    }
+    const engolir = this.anotador(p)
 
     const rodar = (i: number): void => {
       const etapa = etapas[i]
@@ -220,7 +248,7 @@ export class Processos {
       // de comando montada a partir de entrada do renderer.
       const filho = spawn(etapa.comando, etapa.args, {
         cwd: etapa.cwd,
-        shell: etapa.comShell === true || process.platform === 'win32',
+        shell: process.platform === 'win32',
         windowsHide: true,
         env: { ...process.env, FORCE_COLOR: '0', ...etapa.env }
       })
@@ -260,6 +288,20 @@ export class Processos {
    * só o `npm` deixaria a porta ocupada por um órfão, e a próxima tentativa
    * de rodar falharia com "porta em uso" sem explicação nenhuma.
    */
+  /**
+   * Leva um terminal aberto para outra pasta.
+   *
+   * É o que faz clicar numa pasta da árvore "ir" para ela: o terminal anda
+   * junto, em vez de ficar preso onde nasceu. O `/d` do Windows é o que
+   * permite trocar de unidade (de `C:` para `D:`) no mesmo comando.
+   */
+  entrarNaPasta(id: string, caminho: string): void {
+    const cd = process.platform === 'win32' ? `cd /d "${caminho}"` : `cd "${caminho}"`
+    this.enviar(id, cd)
+    const p = this.mapa.get(id)
+    if (p) p.cwd = caminho
+  }
+
   parar(id: string): void {
     const p = this.mapa.get(id)
     if (!p) return
@@ -317,7 +359,30 @@ export class Processos {
     for (const [id, p] of this.mapa) if (p.saiu !== null) this.mapa.delete(id)
   }
 
+  /**
+   * Guarda o que o processo escreveu, linha a linha.
+   *
+   * Limpa as cores ANTES de guardar e antes de procurar o endereço: o painel
+   * mostra estas mesmas linhas, e a busca do link lê o mesmo texto. As linhas
+   * ficam num anel — um servidor rodando o dia inteiro imprime sem parar, e
+   * guardar tudo comeria a memória do processo principal.
+   */
+  private anotador(p: Processo): (b: Buffer | string) => void {
+    return b => {
+      for (const bruta of String(b).split(/\r?\n/)) {
+        const linha = semCores(bruta).replace(/\r/g, '').trimEnd()
+        if (linha === '') continue
+        p.linhas.push(linha)
+        if (p.linhas.length > TETO_LINHAS) p.linhas.shift()
+        if (!p.url) {
+          const m = RE_URL.exec(linha)
+          if (m) p.url = m[0]
+        }
+      }
+    }
+  }
+
   private publico(p: Processo): ProcessoInfo {
-    return { id: p.id, raiz: p.raiz, script: p.script, pid: p.pid, url: p.url, saiu: p.saiu, cwd: p.cwd }
+    return { id: p.id, raiz: p.raiz, script: p.script, pid: p.pid, url: p.url, saiu: p.saiu, cwd: p.cwd, ehShell: p.ehShell }
   }
 }

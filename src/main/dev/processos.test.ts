@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { tmpdir } from 'node:os'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Processos, type ProcessoInfo } from './processos'
 
@@ -43,29 +43,75 @@ describe('Processos.iniciarEtapas', () => {
   }, 30_000)
 })
 
-// O terminal de dentro do Cortex (2.6.30) e o × que fecha um terminal vivo.
-describe('Processos.iniciarComando', () => {
-  it('roda a linha digitada na pasta pedida', async () => {
+// O terminal de dentro do Cortex: um shell que fica vivo esperando linhas.
+describe('Processos.abrirShell', () => {
+  /** Espera uma linha aparecer na saída do terminal. */
+  const esperarLinha = async (ps: Processos, id: string, texto: string): Promise<boolean> => {
+    for (let i = 0; i < 200; i++) {
+      if (ps.saida(id).some(l => l.includes(texto))) return true
+      await new Promise(r => setTimeout(r, 50))
+    }
+    return false
+  }
+
+  it('os comandos seguem no MESMO terminal, e o cd continua valendo', async () => {
     const ps = new Processos()
-    const p = ps.iniciarComando('raiz', tmpdir(), 'node -e console.log(7*6)')
-    const fim = await esperar(ps, p.id)
-    expect(fim.saiu).toBe(0)
-    expect(ps.saida(p.id)).toContain('42')
+    const pasta = mkdtempSync(join(tmpdir(), 'cortex-shell-'))
+    mkdirSync(join(pasta, 'dentro'))
+    const p = ps.abrirShell('raiz', pasta)
+    expect(p.ehShell).toBe(true)
+
+    ps.enviar(p.id, 'node -e "console.log(7*6)"')
+    expect(await esperarLinha(ps, p.id, '42')).toBe(true)
+
+    // O cd de um comando vale no seguinte: é isso que separa uma sessão de
+    // comandos soltos.
+    ps.enviar(p.id, 'cd dentro')
+    ps.enviar(p.id, 'node -e "console.log(process.cwd())"')
+    expect(await esperarLinha(ps, p.id, 'dentro')).toBe(true)
+
+    // E tudo isso num processo só: a tela não ganhou aba nenhuma.
+    expect(ps.listar().filter(x => x.ehShell).length).toBe(1)
+    ps.parar(p.id)
   }, 30_000)
 
-  it('a linha inteira vira o nome do terminal, para dar para reconhecer', () => {
+  it('o comando aparece na saída com o sinal na frente', async () => {
     const ps = new Processos()
-    const p = ps.iniciarComando('raiz', tmpdir(), '  node -e console.log(1)  ')
-    expect(p.script).toBe('node -e console.log(1)')
+    const p = ps.abrirShell('raiz', tmpdir())
+    ps.enviar(p.id, 'node -e "console.log(1)"')
+    expect(await esperarLinha(ps, p.id, '› node -e')).toBe(true)
     ps.parar(p.id)
-  })
+  }, 30_000)
+
+  it('recusa mandar linha para um terminal que já fechou', async () => {
+    const ps = new Processos()
+    const p = ps.abrirShell('raiz', tmpdir())
+    ps.parar(p.id)
+    for (let i = 0; i < 200 && ps.listar().find(x => x.id === p.id)?.saiu === null; i++) {
+      await new Promise(r => setTimeout(r, 50))
+    }
+    expect(() => ps.enviar(p.id, 'node -e "console.log(1)"')).toThrow(/não está mais aberto/)
+  }, 30_000)
+
+  it('entrarNaPasta leva o terminal para a pasta clicada', async () => {
+    const ps = new Processos()
+    const pasta = mkdtempSync(join(tmpdir(), 'cortex-shell-'))
+    const dentro = join(pasta, 'sub')
+    mkdirSync(dentro)
+    const p = ps.abrirShell('raiz', pasta)
+    ps.entrarNaPasta(p.id, dentro)
+    ps.enviar(p.id, 'node -e "console.log(process.cwd())"')
+    expect(await esperarLinha(ps, p.id, 'sub')).toBe(true)
+    expect(ps.listar().find(x => x.id === p.id)?.cwd).toBe(dentro)
+    ps.parar(p.id)
+  }, 30_000)
 })
 
 describe('Processos.esquecer', () => {
   it('um terminal fechado enquanto rodava some da lista quando termina', async () => {
     const ps = new Processos()
-    // Um processo que não acaba sozinho: é o caso do × no `npm run dev`.
-    const p = ps.iniciarComando('raiz', tmpdir(), 'node -e setInterval(Object,1000)')
+    // Um terminal vivo, que não acaba sozinho: é o caso do × no terminal.
+    const p = ps.abrirShell('raiz', tmpdir())
     ps.parar(p.id)
     // Esquecer ANTES de o processo terminar — era aqui que a aba ficava presa.
     ps.esquecer(p.id)
@@ -76,7 +122,6 @@ describe('Processos.esquecer', () => {
   }, 30_000)
 })
 
-// A etapa condicional do clone: o 'npm install' só roda se houver package.json.
 describe('Etapa.seTiver', () => {
   it('pula a etapa quando o arquivo pedido não existe na pasta', async () => {
     const ps = new Processos()

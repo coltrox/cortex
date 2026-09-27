@@ -994,6 +994,16 @@ function Codigo({
   }
   // Sem nada clicado, o projeto é a pasta aberta na árvore.
   const projeto = projetoDoFoco(foco ?? (base ? { rel: base, pasta: true } : null), filhos)
+  /**
+   * A pasta em que a pessoa está — a clicada na árvore, ou a que contém o
+   * arquivo aberto. É onde o terminal fica.
+   *
+   * Diferente do `projeto`, que sobe até o `package.json`: os scripts rodam na
+   * raiz do projeto, mas um comando digitado é para rodar ali onde se está.
+   */
+  const pastaEmFoco = foco
+    ? (foco.pasta ? foco.rel : foco.rel.slice(0, Math.max(0, foco.rel.lastIndexOf('/'))))
+    : (base || projeto)
   const nomeBase = base ? base.slice(base.lastIndexOf('/') + 1) : ''
   /**
    * A pasta autorizada é ela mesma um projeto (tem package.json, go.mod…)?
@@ -1255,8 +1265,11 @@ function Codigo({
           {verTerminal && (
             <PainelTerminal
               raiz={raiz}
-              sub={projeto}
-              aoSistema={() => aoTerminal(raiz, projeto)}
+              // A pasta clicada, e não o projeto: clicar numa pasta da árvore
+              // leva o terminal para dentro dela (pedido do dono). Os scripts
+              // continuam rodando na raiz do projeto, que é onde eles moram.
+              sub={pastaEmFoco}
+              aoSistema={() => aoTerminal(raiz, pastaEmFoco)}
             />
           )}
 

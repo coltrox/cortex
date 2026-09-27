@@ -120,11 +120,19 @@ const api = {
     return ipcRenderer.invoke('dev:add-dropped', { caminho })
   },
   /**
-   * Roda uma linha no terminal de dentro do Cortex (pedido do dono: não abrir
-   * o console do Windows para dar um comando na pasta do projeto).
+   * Abre um terminal de dentro do Cortex na pasta do projeto (pedido do dono:
+   * não abrir o console do Windows para dar um comando ali).
    */
-  executarComando(raiz: string, linha: string, sub = ''): Promise<ProcessoInfo> {
-    return ipcRenderer.invoke('dev:executar', { raiz, sub, linha })
+  abrirTerminalNoCortex(raiz: string, sub = ''): Promise<ProcessoInfo> {
+    return ipcRenderer.invoke('dev:abrir-terminal', { raiz, sub })
+  },
+  /** Manda uma linha para um terminal já aberto — o mesmo de antes. */
+  enviarNoTerminal(id: string, linha: string): Promise<{ ok: true }> {
+    return ipcRenderer.invoke('dev:enviar', { id, linha })
+  },
+  /** Leva um terminal aberto para a pasta clicada na árvore. */
+  terminalNaPasta(id: string, raiz: string, sub = ''): Promise<{ ok: true }> {
+    return ipcRenderer.invoke('dev:terminal-pasta', { id, raiz, sub })
   },
   abrirTerminal(raiz: string, sub = ''): Promise<{ cwd: string }> {
     return ipcRenderer.invoke('dev:terminal', { raiz, sub })

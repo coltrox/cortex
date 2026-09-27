@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.31` — o terminal da lente **Dev** virou **sessão de verdade**: os
+comandos seguem no mesmo terminal, um atrás do outro, e o `cd` de um ainda
+vale no seguinte. Quem quiser outro aperta **+ Terminal**, e cada um ganha sua
+aba. Clicar numa pasta da árvore leva o terminal para dentro dela.
+
 `v2.6.30` — a lente **Dev** ganhou **terminal próprio**: dá para digitar um
 comando na pasta do projeto sem abrir o console do Windows (o console do
 sistema continua a um botão de distância, para comandos que fazem perguntas).
