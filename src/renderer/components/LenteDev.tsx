@@ -5,6 +5,7 @@ import { PainelGit } from './PainelGit'
 import { PainelTerminal } from './PainelTerminal'
 import { resolverRelativo } from './caminhoSugestao'
 import { NovoProjeto, AvisoErro } from './NovoProjeto'
+import { EscolherProjetos } from './EscolherProjetos'
 import { projetoDoFoco, lerEstadoDev, processoEhDoProjeto, type Foco, type EstadoDev, type ProjetoAberto } from './projetoAtual'
 import type { ProcessoInfo } from '../../shared/types'
 import type { EntradaDev } from '../useVault'
@@ -417,6 +418,8 @@ function Codigo({
 
   const [criandoProjeto, setCriandoProjeto] = useState(false)
   const [clonando, setClonando] = useState(false)
+  /** A janela de "Abrir projeto", com a lista da pasta de projetos. */
+  const [escolhendo, setEscolhendo] = useState(false)
   /**
    * A pasta `projetos` de um projeto recém-criado, esperando a lista de
    * pastas autorizadas chegar com ela. Selecionar antes faria o efeito abaixo
@@ -514,6 +517,23 @@ function Codigo({
   const abrirAba = (rel: string): void => {
     if (!raiz) return
     setAbertos(l => (l.some(a => a.raiz === raiz && a.base === rel) ? l : [...l, { raiz, base: rel }]))
+  }
+
+  /**
+   * Abre os projetos escolhidos na janela de "Abrir projeto".
+   *
+   * Todos ganham aba; a tela vai para o primeiro — é o que tira da frente a
+   * lista de pastas, que era o incômodo do dono.
+   */
+  const abrirProjetos = (escolhidos: string[]): void => {
+    if (!raiz || escolhidos.length === 0) return
+    setAbertos(l => [
+      ...l,
+      ...escolhidos
+        .filter(rel => !l.some(a => a.raiz === raiz && a.base === rel))
+        .map(rel => ({ raiz, base: rel }))
+    ])
+    void irPara(raiz, escolhidos[0])
   }
 
   const chaveDe = (r: string, b: string): string => `${r}|${b}`
@@ -1048,6 +1068,17 @@ function Codigo({
     <>
       {criandoProjeto && <NovoProjeto aoCriar={criarProjeto} aoFechar={() => setCriandoProjeto(false)} />}
       {clonando && <ClonarRepo aoClonar={clonarRepo} aoFechar={() => setClonando(false)} />}
+      {escolhendo && (
+        <EscolherProjetos
+          nomes={(filhos[''] ?? []).filter(e => e.pasta).map(e => e.nome)}
+          jaAbertos={abertos.filter(a => a.raiz === raiz).map(a => a.base)}
+          aoFechar={() => setEscolhendo(false)}
+          aoAbrir={escolhidos => {
+            setEscolhendo(false)
+            abrirProjetos(escolhidos)
+          }}
+        />
+      )}
     </>
   )
 
@@ -1199,6 +1230,16 @@ function Codigo({
         direita={
           <span className="dev-secao-botoes">
             <button className="btn-fantasma pequeno" onClick={() => setCriandoProjeto(true)}>+ Novo projeto</button>
+            {/* O caminho normal para começar a trabalhar: escolher na lista e
+                sair dela. Só aparece na pasta de projetos do Cortex — numa
+                pasta de código qualquer não há "projetos" para listar. */}
+            {raiz === pastaProjetos && (
+              <button
+                className="btn-fantasma pequeno"
+                title="Escolher quais projetos abrir"
+                onClick={() => setEscolhendo(true)}
+              >Abrir projeto</button>
+            )}
             <button className="btn-fantasma pequeno" onClick={() => setClonando(true)}>Clonar do GitHub</button>
             <button className="btn-fantasma pequeno" title="Abrir outra pasta de código do computador" onClick={aoAutorizar}>Abrir pasta</button>
           </span>

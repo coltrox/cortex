@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.33` — o botão **Abrir projeto** na lente Dev: ele mostra a lista da
+pasta de projetos com caixinhas, você marca os que quer (um ou vários) e a
+lista sai da frente — a tela abre já dentro do primeiro, com a aba de cada um
+ao lado de "projetos".
+
 `v2.6.32` — clicar numa pasta na árvore do **Dev** agora só **abre** a pasta:
 o projeto ganha a aba ao lado de "projetos", e a tela fica onde está. Ir para
 ele é clicar na aba.

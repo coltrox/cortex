@@ -1759,3 +1759,17 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
 .terminal-abas { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .terminal-abas .btn-fantasma { flex: none; }
 .terminal-embutido .rodar-saida { margin: 0; }
+
+/* A lista de "Abrir projeto": caixinhas, uma por pasta (2.6.33). */
+.escolher-projetos {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 320px; overflow: auto; margin: 4px 0;
+  padding: 6px; border-radius: var(--raio-1);
+  background: var(--surface-sunk); border: 1px solid var(--border);
+}
+.escolher-projeto {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 7px 8px; border-radius: var(--raio-1); font-size: 13px; color: var(--text);
+}
+.escolher-projeto:hover { background: var(--surface-alta, rgba(255, 255, 255, .04)); }
+.escolher-projeto em { margin-left: auto; font-size: 11px; color: var(--text-3); font-style: normal; }
