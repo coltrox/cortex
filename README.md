@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.35` — cada terminal ganhou um **×** ao lado do nome, que fecha e
+encerra o que estivesse rodando nele. E abrir um projeto não inicia mais
+terminal nenhum: trocar de projeto fecha o painel, e os terminais dele são
+encerrados junto — antes ficavam vivos em pastas que ninguém via.
+
 `v2.6.34` — a pasta de projetos deixou de ser uma tela: a árvore não lista
 mais todas as pastas de `projetos`. No lugar dela, o convite para **abrir um
 projeto** — a lista vive dentro dessa janela, e depois de escolher a tela fica

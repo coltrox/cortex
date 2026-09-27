@@ -53,6 +53,22 @@ export function PainelTerminal({ raiz, sub, aoSistema }: {
   }, [])
 
   /*
+   * Fechou o painel? Os terminais dele fecham junto.
+   *
+   * Antes eles continuavam vivos sem janela nenhuma: o dono trocava de
+   * projeto e ficavam shells rodando em pastas que ele nem via mais, contados
+   * no balão de "rodando".
+   */
+  const vivos = useRef<ProcessoInfo[]>([])
+  vivos.current = terminais
+  useEffect(() => () => {
+    for (const t of vivos.current) {
+      void window.vaultApi.pararProcesso(t.id).catch(() => {})
+      void window.vaultApi.esquecerProcesso(t.id).catch(() => {})
+    }
+  }, [])
+
+  /*
    * Clicou noutra pasta na árvore? O terminal vai junto.
    *
    * Pedido do dono: "quando clica em uma pasta, abre ela mas não vai para
@@ -105,14 +121,19 @@ export function PainelTerminal({ raiz, sub, aoSistema }: {
     <div className="terminal-embutido">
       <div className="terminal-abas">
         {terminais.map((t, i) => (
-          <button
-            key={t.id}
-            className={'rodar-aba ' + (t.id === atual ? 'ativa' : '')}
-            onClick={() => { setAtual(t.id); campo.current?.focus() }}
-          >
-            <span className="rodar-ponto vivo" />
-            terminal {i + 1}
-          </button>
+          <span key={t.id} className={'terminal-aba ' + (t.id === atual ? 'ativa' : '')}>
+            <button onClick={() => { setAtual(t.id); campo.current?.focus() }}>
+              <span className="rodar-ponto vivo" />
+              terminal {i + 1}
+            </button>
+            {/* Fechar é encerrar: o shell é parado antes de a aba sumir —
+                senão ficaria um processo vivo sem janela nenhuma. */}
+            <button
+              className="btn-icone"
+              title="Fechar este terminal (encerra o que estiver rodando nele)"
+              onClick={() => void fechar(t)}
+            >×</button>
+          </span>
         ))}
         <button className="btn-fantasma pequeno" onClick={() => void abrir()}>+ Terminal</button>
         <span className="rodar-saida-espaco" />
@@ -123,9 +144,15 @@ export function PainelTerminal({ raiz, sub, aoSistema }: {
         >No sistema</button>
       </div>
 
-      {proc && <SaidaProcesso key={proc.id} proc={proc} aoFechar={terminais.length > 1 ? fechar : undefined} />}
+      {/* O × de fechar mora na aba, ao lado do nome; aqui ele seria o mesmo
+          botão duas vezes na mesma tela. */}
+      {proc && <SaidaProcesso key={proc.id} proc={proc} />}
 
-      <div className="terminal-linha">
+      {terminais.length === 0 && (
+        <p className="form-dica">Nenhum terminal aberto. Aperte <strong>+ Terminal</strong>.</p>
+      )}
+
+      {proc && <div className="terminal-linha">
         <span className="terminal-prompt" aria-hidden="true">›</span>
         <input
           ref={campo}
@@ -143,7 +170,7 @@ export function PainelTerminal({ raiz, sub, aoSistema }: {
           }}
         />
         <button className="btn-fantasma pequeno" onClick={() => void mandar()}>Rodar</button>
-      </div>
+      </div>}
       {aviso && <div className="aviso">{aviso}</div>}
     </div>
   )

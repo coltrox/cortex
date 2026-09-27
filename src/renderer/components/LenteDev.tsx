@@ -569,6 +569,10 @@ function Codigo({
     const m = memoria.current.get(chaveDe(r, b))
     if (r !== raiz) { setRaiz(r); setFilhos({}) }
     setBase(b)
+    // Trocar de projeto fecha o terminal: ele pertence à pasta onde foi
+    // aberto. Sem isto, só de abrir um projeto já nascia um shell — o painel
+    // continuava ligado do projeto anterior.
+    setVerTerminal(false)
     setVisor(null)
     setArquivo(null); setTexto(''); setGravado('')
     setAbertas(new Set(m?.abertas ?? []))
