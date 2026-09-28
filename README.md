@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.37` — na dieta do celular, a refeição aberta virou **um cartão só**:
+o painel encosta no cabeçalho em vez de flutuar como caixa separada. E tocar
+de novo na opção já escolhida desfaz tudo — antes saía a escolha e o check
+ficava marcado.
+
 `v2.6.36` — a dieta do **celular** ficou como a do computador: ao abrir a
 refeição, as opções do plano aparecem uma por linha, com o "ou" no meio, e
 tocar numa diz qual foi comida. Saíram o "comi tudo, metade ou pouco", o

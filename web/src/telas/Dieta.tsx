@@ -279,9 +279,14 @@ export function Dieta(p: {
                               type="button"
                               className={`refeicao-opcao ${feito && d.opcao === o.texto ? 'refeicao-opcao-feita' : ''}`}
                               aria-pressed={feito && d.opcao === o.texto}
-                              onClick={() => detalhar(r.nome, {
-                                opcao: feito && d.opcao === o.texto ? '' : o.texto
-                              })}
+                              onClick={() => {
+                                // Tocar de novo na mesma opção desfaz tudo: a
+                                // refeição volta a não estar marcada. Antes
+                                // saía só a escolha e o check ficava lá, do
+                                // mesmo jeito que no computador não fica.
+                                if (feito && d.opcao === o.texto) alternar(r.nome, true)
+                                else detalhar(r.nome, { opcao: o.texto })
+                              }}
                             >
                               {opcoes.length > 1 && <span className="refeicao-numero">{i + 1}</span>}
                               <span>{o.texto}</span>
