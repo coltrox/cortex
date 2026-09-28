@@ -407,6 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.38` — a refeição aberta juntou de verdade: a moldura do cabeçalho
+mora no cartão de fora (o que tem a seta), e era nele que os cantos de baixo
+tinham de sumir — a regra anterior mirava o botão de dentro e não pegava.
+
 `v2.6.37` — na dieta do celular, a refeição aberta virou **um cartão só**:
 o painel encosta no cabeçalho em vez de flutuar como caixa separada. E tocar
 de novo na opção já escolhida desfaz tudo — antes saía a escolha e o check

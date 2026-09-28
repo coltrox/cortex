@@ -1706,7 +1706,10 @@ textarea.entrada{ padding:var(--e3) var(--e4); resize:none; line-height:1.5; }
 /* Aberta, a refeição é UM cartão só: o cabeçalho perde o canto de baixo, o
    painel perde o de cima, e a linha entre os dois vira um fio de separação.
    Antes eram duas caixas soltas, uma embaixo da outra. */
-.refeicao-aberta > .item{
+/* A moldura do cabeçalho mora no `.item-par` (o cartão que tem a seta), e não
+   no `.item` de dentro — ver a regra do `.item-par` lá em cima. É nele que os
+   cantos de baixo somem. */
+.refeicao-aberta > .item-par{
   border-bottom-left-radius:0; border-bottom-right-radius:0;
   border-bottom-color:transparent;
 }
