@@ -1999,3 +1999,33 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 .feito-cardio-dia { min-width: 54px; font-size: 12px; color: var(--texto-3); font-variant-numeric: tabular-nums; }
 .feito-cardio-nome { flex: 1; font-size: 13.5px; }
 .feito-cardio-meta { font-size: 12.5px; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+
+/* ═══════════ OPÇÕES DA REFEIÇÃO (2.6.36) ═══════════
+   A refeição aberta mostra as alternativas do plano como no computador: uma
+   por linha, com o "ou" no meio, e a comida marcada. */
+.refeicao-intro{
+  margin:0 0 var(--e3); font-size:13px; line-height:1.45; color:var(--txt-2);
+}
+.refeicao-opcoes{ list-style:none; margin:0 0 var(--e4); padding:0; }
+.refeicao-opcoes li{ display:flex; flex-direction:column; }
+.refeicao-ou{
+  align-self:center; padding:4px 0;
+  font-family:var(--fonte-num); font-size:10px; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--txt-3);
+}
+.refeicao-opcao{
+  display:flex; align-items:center; gap:var(--e3); width:100%;
+  min-height:var(--toque); padding:11px var(--e4); text-align:left;
+  background:var(--painel-alto); border:1px solid var(--borda); border-radius:var(--r2);
+  color:var(--txt); font:500 14px/1.4 var(--fonte); cursor:pointer;
+}
+.refeicao-opcao:active{ border-color:var(--acento); }
+.refeicao-numero{
+  flex:none; display:grid; place-items:center; width:20px; height:20px;
+  border-radius:999px; background:var(--painel); color:var(--txt-3);
+  font-family:var(--fonte-num); font-size:11px; font-weight:700;
+}
+/* A que foi comida: a marca fica no número, e não numa cor no texto inteiro —
+   a lista continua legível quando uma delas está escolhida. */
+.refeicao-opcao-feita{ border-color:var(--ok); background:rgba(74,222,128,.07); }
+.refeicao-opcao-feita .refeicao-numero{ background:var(--ok); color:#0b1b10; }

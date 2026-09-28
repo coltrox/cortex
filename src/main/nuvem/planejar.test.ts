@@ -496,6 +496,27 @@ describe('planejar — detalhe da refeicao', () => {
     })))?.item).toEqual({ nome: 'Janta', nivel: 'pouco', troca: 'pizza' })
   })
 
+  it('a opcao escolhida no celular vira item de dieta_detalhes', () => {
+    // O texto da alternativa, e nao o numero dela: mexer no plano nao pode
+    // trocar o que ficou escrito no diario.
+    expect(detalhe(planejar(ev('refeicao_plano', {
+      nome: 'Almoço', opcao: '150 g de frango'
+    })))?.item).toEqual({ nome: 'Almoço', opcao: '150 g de frango' })
+  })
+
+  it('a opcao tem teto de 300 caracteres', () => {
+    const item = detalhe(planejar(ev('refeicao_plano', {
+      nome: 'Almoço', opcao: 'x'.repeat(900)
+    })))?.item as { opcao: string }
+    expect(item.opcao).toHaveLength(300)
+  })
+
+  it('desmarcar apaga a opcao junto', () => {
+    expect(detalhe(planejar(ev('refeicao_plano', {
+      nome: 'Almoço', feito: false, opcao: '150 g de frango'
+    })))?.item).toBe(null)
+  })
+
   it('nivel que a tela nao conhece e descartado', () => {
     // `dados` vem do banco como registro livre. Um "nivel: 3" viraria um
     // valor que nenhuma das duas telas sabe desenhar, escrito no vault.

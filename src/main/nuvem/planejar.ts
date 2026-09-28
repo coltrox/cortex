@@ -222,6 +222,8 @@ export function planejar(evento: Evento): Operacao[] {
       const nivelBruto = txt(dados.nivel)
       const nivel = nivelBruto === 'metade' || nivelBruto === 'pouco' ? nivelBruto : undefined
       const troca = txt(dados.troca).slice(0, 120)
+      // A alternativa escolhida, quando a refeição tem mais de uma.
+      const opcao = txt(dados.opcao).trim().slice(0, 300) || undefined
       // O que a refeição foi hoje, quando mudou do plano. Números fora de uma
       // faixa possível são descartados: `dados` é registro livre.
       const itens = txt(dados.itens).trim().slice(0, 300) || undefined
@@ -232,12 +234,12 @@ export function planejar(evento: Evento): Operacao[] {
       const kcal = noLimite(dados.kcal, 5000)
       const prot = noLimite(dados.prot, 1000)
 
-      if (desmarcou || (!nivel && !troca && !itens && kcal === undefined && prot === undefined)) {
+      if (desmarcou || (!nivel && !troca && !itens && !opcao && kcal === undefined && prot === undefined)) {
         ops.push({ acao: 'diario-item', dia, campo: 'dieta_detalhes', chave: 'nome', valor: nome, item: null })
       } else {
         ops.push({
           acao: 'diario-item', dia, campo: 'dieta_detalhes', chave: 'nome', valor: nome,
-          item: comValor({ nome, nivel, troca, itens, kcal, prot })
+          item: comValor({ nome, nivel, troca, itens, kcal, prot, opcao })
         })
       }
       return ops

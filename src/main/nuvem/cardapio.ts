@@ -185,7 +185,9 @@ export function montarCardapio(
    * `nivel` só passa se for um dos dois valores que a tela entende. Um texto
    * qualquer viraria um botão que não existe no celular.
    */
-  const detalhesRefeicao = new Map<string, { nivel?: string; troca?: string; itens?: string; kcal?: number; prot?: number }>()
+  const detalhesRefeicao = new Map<string, {
+    nivel?: string; troca?: string; itens?: string; kcal?: number; prot?: number; opcao?: string
+  }>()
   for (const d of lista(diario?.campos.dieta_detalhes)) {
     const nome = txt(d.nome)
     if (!nome) continue
@@ -193,6 +195,10 @@ export function montarCardapio(
     detalhesRefeicao.set(nome, {
       nivel: nivel === 'metade' || nivel === 'pouco' ? nivel : undefined,
       troca: txt(d.troca).slice(0, 120) || undefined,
+      // Qual das alternativas da refeição foi comida ("2 ovos mexidos", de
+      // "2 ovos mexidos OU 30 g de whey"). O texto da opção, e não o número:
+      // mexer no plano não pode trocar o que ficou escrito no diário.
+      opcao: txt(d.opcao).slice(0, 300) || undefined,
       // A refeição ajustada só hoje: itens e números do dia, sem mexer no plano.
       itens: txt(d.itens).slice(0, 300) || undefined,
       kcal: num(d.kcal),
@@ -305,6 +311,7 @@ export function montarCardapio(
         feito: feitosHoje.refeicao.has(nome) ? true : undefined,
         nivel: detalheDoDia?.nivel,
         troca: detalheDoDia?.troca,
+        opcao: detalheDoDia?.opcao,
         itensDia: detalheDoDia?.itens,
         kcalDia: detalheDoDia?.kcal,
         protDia: detalheDoDia?.prot

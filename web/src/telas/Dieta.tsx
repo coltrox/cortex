@@ -3,9 +3,8 @@ import type { Tela } from '../App'
 import { SubNavSaude } from './Saude'
 import type { useEnvio, useCardapio } from '../envio'
 import { refeicoesDoPlano, areaLigada } from '../cardapio'
-import {
-  eventoRefeicaoPlano, diaLocal, NIVEIS_REFEICAO, FATOR_NIVEL, type NivelRefeicao
-} from '../montar'
+import { eventoRefeicaoPlano, diaLocal } from '../montar'
+import { opcoesDaRefeicao, resumoDaRefeicao } from '@compartilhado/refeicao'
 import { guardadoDoNavegador } from '../guardado'
 import { jaFeitos, marcarFeito, desmarcarFeito } from '../feitos'
 import { Cabecalho, Check, Detalhe, Aviso } from '../componentes'
@@ -23,11 +22,6 @@ import { Cabecalho, Check, Detalhe, Aviso } from '../componentes'
  * cada refeição tem dentro.
  */
 
-/** Como cada nível se chama na tela. */
-const ROTULO_NIVEL: Record<NivelRefeicao, string> = {
-  tudo: 'tudo', metade: 'metade', pouco: 'pouco'
-}
-
 /** Um número só quando é número de verdade e maior que zero. */
 function num(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0
@@ -37,9 +31,9 @@ function txt(v: unknown): string {
   return typeof v === 'string' ? v : ''
 }
 
-/** Número do dia: `null` quando não foi ajustado (vale o do plano). */
-function numDia(v: unknown): number | null {
-  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null
+/** O começo dos itens do plano, para a linha fechada da refeição. */
+function resumo(itens: string): string {
+  return resumoDaRefeicao(itens, 70)
 }
 
 /**
@@ -47,8 +41,8 @@ function numDia(v: unknown): number | null {
  * e — quando a refeição mudou do plano — os itens e os números do dia.
  * `itens` vazio e números `null` querem dizer "igual ao plano".
  */
-type DetalheDia = { nivel: NivelRefeicao; troca: string; itens: string; kcal: number | null; prot: number | null }
-const SEM_DETALHE: DetalheDia = { nivel: 'tudo', troca: '', itens: '', kcal: null, prot: null }
+type DetalheDia = { troca: string; opcao: string }
+const SEM_DETALHE: DetalheDia = { troca: '', opcao: '' }
 
 export function Dieta(p: {
   envio: ReturnType<typeof useEnvio>
@@ -98,10 +92,7 @@ export function Dieta(p: {
       const out: typeof atual = {}
       for (const [nome, r] of Object.entries(atual)) {
         const doCardapio = refeicoes.find(x => x.nome === nome)?.detalhe
-        const nivel = txt(doCardapio?.nivel) || 'tudo'
-        const troca = txt(doCardapio?.troca)
-        if (nivel === r.nivel && troca === r.troca && txt(doCardapio?.itensDia) === r.itens &&
-          numDia(doCardapio?.kcalDia) === r.kcal && numDia(doCardapio?.protDia) === r.prot) continue
+        if (txt(doCardapio?.troca) === r.troca && txt(doCardapio?.opcao) === r.opcao) continue
         out[nome] = r
       }
       return out
@@ -121,19 +112,12 @@ export function Dieta(p: {
   const detalheDe = (nome: string): DetalheDia => {
     if (rascunho[nome]) return rascunho[nome]
     const d = refeicoes.find(x => x.nome === nome)?.detalhe
-    const nivel = txt(d?.nivel)
-    return {
-      nivel: nivel === 'metade' || nivel === 'pouco' ? nivel : 'tudo',
-      troca: txt(d?.troca),
-      itens: txt(d?.itensDia),
-      kcal: numDia(d?.kcalDia),
-      prot: numDia(d?.protDia)
-    }
+    return { troca: txt(d?.troca), opcao: txt(d?.opcao) }
   }
 
   /** Manda o evento com o detalhe que vale agora. Marcar e detalhar são o mesmo. */
   const registrar = (nome: string, feito: boolean, d: DetalheDia): void => {
-    p.envio.registrar(eventoRefeicaoPlano(nome, dia, feito, d.nivel, d.troca, { itens: d.itens, kcal: d.kcal, prot: d.prot }))
+    p.envio.registrar(eventoRefeicaoPlano(nome, dia, feito, undefined, d.troca, undefined, d.opcao))
   }
 
   /** Responder no painel marca a refeição junto: dizer quanto comeu é comer. */
@@ -177,23 +161,17 @@ export function Dieta(p: {
     estaFeito(`refeicao:${nome}`, doCardapio)
 
   /*
-   * Comer metade conta metade.
+   * A caloria é a do plano, sem desconto.
    *
-   * É o que faz "comi quanto" valer a pena responder: sem isto, marcar meio
-   * prato somaria a caloria do prato inteiro, e o número do topo — que existe
-   * para ser confiável — passaria a mentir a favor de quem responde.
+   * Havia "comi tudo, metade ou pouco", e a conta multiplicava por isso. O
+   * dono mandou tirar: responder quanto comeu era trabalho demais para o que
+   * o número melhorava.
    */
   const planejadas = refeicoes.reduce((a, r) => a + num(r.detalhe.kcal), 0)
-  const fatorDe = (nome: string): number => FATOR_NIVEL[detalheDe(nome).nivel]
-  /** Calorias e proteína desta refeição hoje: as do dia quando ajustadas, senão as do plano. */
-  const kcalDe = (r: { nome: string; detalhe: Record<string, unknown> }): number => detalheDe(r.nome).kcal ?? num(r.detalhe.kcal)
-  const protDe = (r: { nome: string; detalhe: Record<string, unknown> }): number => detalheDe(r.nome).prot ?? num(r.detalhe.prot)
   const comidas = Math.round(refeicoes.reduce(
-    (a, r) => a + (marcada(r.nome, r.detalhe.feito === true)
-      ? kcalDe(r) * fatorDe(r.nome) : 0), 0))
+    (a, r) => a + (marcada(r.nome, r.detalhe.feito === true) ? num(r.detalhe.kcal) : 0), 0))
   const proteina = Math.round(refeicoes.reduce(
-    (a, r) => a + (marcada(r.nome, r.detalhe.feito === true)
-      ? protDe(r) * fatorDe(r.nome) : 0), 0))
+    (a, r) => a + (marcada(r.nome, r.detalhe.feito === true) ? num(r.detalhe.prot) : 0), 0))
   const marcadas = refeicoes.filter(r => marcada(r.nome, r.detalhe.feito === true)).length
   const fracao = planejadas > 0 ? Math.min(1, comidas / planejadas) : 0
 
@@ -257,13 +235,10 @@ export function Dieta(p: {
                 rotulo={r.nome}
                 detalhe={<Detalhe partes={[
                   txt(r.detalhe.hora),
-                  // O que foi respondido vem na frente dos itens do plano:
-                  // depois de responder, é isso que a pessoa volta para ver.
-                  feito && d.nivel !== 'tudo' ? `comi ${ROTULO_NIVEL[d.nivel]}` : '',
-                  feito && d.troca ? `troquei por ${d.troca}` : (feito && d.itens) || txt(r.detalhe.itens),
-                  (feito ? kcalDe(r) : num(r.detalhe.kcal)) > 0
-                    ? `${Math.round((feito ? kcalDe(r) : num(r.detalhe.kcal)) * (feito ? FATOR_NIVEL[d.nivel] : 1))} kcal`
-                    : ''
+                  // O que foi respondido vem na frente do plano: depois de
+                  // responder, é isso que a pessoa volta para ver.
+                  (feito && (d.troca || d.opcao)) || resumo(txt(r.detalhe.itens)),
+                  num(r.detalhe.kcal) > 0 ? `${num(r.detalhe.kcal)} kcal` : ''
                 ]} />}
                 feito={feito}
                 aoMarcar={() => alternar(r.nome, feito)}
@@ -285,38 +260,45 @@ export function Dieta(p: {
                 }
               />
 
-              {aberto && (
-                <div className="refeicao-painel">
-                  <span className="refeicao-pergunta">Comi quanto</span>
-                  <div className="chips">
-                    {NIVEIS_REFEICAO.map(n => (
-                      <button
-                        key={n}
-                        type="button"
-                        className={`chip ${d.nivel === n && feito ? 'chip-ligado' : ''}`}
-                        onClick={() => detalhar(r.nome, { nivel: n })}
-                      >
-                        {ROTULO_NIVEL[n]}
-                      </button>
-                    ))}
+              {aberto && (() => {
+                const opcoes = opcoesDaRefeicao(txt(r.detalhe.itens))
+                const intro = opcoes[0]?.intro
+                return (
+                  <div className="refeicao-painel">
+                    {intro && <p className="refeicao-intro">{intro}</p>}
+
+                    {/* As alternativas do plano, uma por linha com o "ou" no
+                        meio — a mesma leitura do computador. Tocar numa diz
+                        qual foi comida; tocar de novo desfaz. */}
+                    {opcoes.length > 0 && (
+                      <ul className="refeicao-opcoes">
+                        {opcoes.map((o, i) => (
+                          <li key={i}>
+                            {i > 0 && <span className="refeicao-ou">ou</span>}
+                            <button
+                              type="button"
+                              className={`refeicao-opcao ${feito && d.opcao === o.texto ? 'refeicao-opcao-feita' : ''}`}
+                              aria-pressed={feito && d.opcao === o.texto}
+                              onClick={() => detalhar(r.nome, {
+                                opcao: feito && d.opcao === o.texto ? '' : o.texto
+                              })}
+                            >
+                              {opcoes.length > 1 && <span className="refeicao-numero">{i + 1}</span>}
+                              <span>{o.texto}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <span className="refeicao-pergunta">Comi outra coisa</span>
+                    <TrocaCampo
+                      valor={d.troca}
+                      aoSalvar={troca => { detalhar(r.nome, { troca }); setAberta(null) }}
+                    />
                   </div>
-
-                  <span className="refeicao-pergunta">Troquei por</span>
-                  <TrocaCampo
-                    valor={d.troca}
-                    aoSalvar={troca => { detalhar(r.nome, { troca }); setAberta(null) }}
-                  />
-
-                  <span className="refeicao-pergunta">Ajustar só hoje</span>
-                  <AjusteDoDia
-                    planoItens={txt(r.detalhe.itens)}
-                    planoKcal={num(r.detalhe.kcal)}
-                    planoProt={num(r.detalhe.prot)}
-                    atual={d}
-                    aoSalvar={aj => { detalhar(r.nome, aj); setAberta(null) }}
-                  />
-                </div>
-              )}
+                )
+              })()}
             </div>
           )
         })}
@@ -361,78 +343,6 @@ function TrocaCampo({ valor, aoSalvar }: { valor: string; aoSalvar: (t: string) 
       <button className="troca-salvar" type="button" disabled={!mudou} onClick={salvar}>
         Salvar
       </button>
-    </div>
-  )
-}
-
-/**
- * A refeição de hoje, quando ela não foi como o plano manda.
- *
- * Edita os itens e os números SÓ do dia: vai para o diário, e o plano da
- * nutricionista continua igual amanhã. Estado próprio, pelo mesmo motivo do
- * campo de troca — cada letra não pode virar um evento na fila.
- */
-function AjusteDoDia({ planoItens, planoKcal, planoProt, atual, aoSalvar }: {
-  planoItens: string
-  planoKcal: number
-  planoProt: number
-  atual: DetalheDia
-  aoSalvar: (aj: Pick<DetalheDia, 'itens' | 'kcal' | 'prot'>) => void
-}) {
-  const [itens, setItens] = useState(atual.itens || planoItens)
-  const [kcal, setKcal] = useState(String(atual.kcal ?? (planoKcal || '')))
-  const [prot, setProt] = useState(String(atual.prot ?? (planoProt || '')))
-  const ajustado = atual.itens !== '' || atual.kcal !== null || atual.prot !== null
-
-  const numero = (t: string): number | null => {
-    const n = Number(t.replace(',', '.'))
-    return t.trim() === '' || !Number.isFinite(n) || n < 0 ? null : Math.round(n)
-  }
-
-  const salvar = (): void => {
-    const k = numero(kcal)
-    const pr = numero(prot)
-    aoSalvar({
-      // Igual ao plano não é ajuste: não viaja, e a refeição segue o plano.
-      itens: itens.trim() === planoItens.trim() ? '' : itens.trim(),
-      kcal: k === planoKcal ? null : k,
-      prot: pr === planoProt ? null : pr
-    })
-  }
-
-  return (
-    <div className="refeicao-ajuste">
-      <textarea
-        className="troca-campo ajuste-itens"
-        rows={3}
-        maxLength={300}
-        value={itens}
-        placeholder="o que teve nesta refeição hoje"
-        onChange={e => setItens(e.target.value)}
-      />
-      <div className="ajuste-numeros">
-        <label>
-          <input className="troca-campo" inputMode="numeric" value={kcal}
-            onChange={e => setKcal(e.target.value)} />
-          <span>kcal</span>
-        </label>
-        <label>
-          <input className="troca-campo" inputMode="numeric" value={prot}
-            onChange={e => setProt(e.target.value)} />
-          <span>g prot</span>
-        </label>
-      </div>
-      <div className="ajuste-botoes">
-        {ajustado && (
-          <button type="button" className="btn"
-            onClick={() => aoSalvar({ itens: '', kcal: null, prot: null })}>
-            Voltar ao plano
-          </button>
-        )}
-        <button type="button" className="btn btn-principal" onClick={salvar}>
-          Salvar hoje
-        </button>
-      </div>
     </div>
   )
 }

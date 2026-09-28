@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { Check } from './base'
-import { opcoesDaRefeicao, resumoDaRefeicao } from './refeicao'
+import { opcoesDaRefeicao, resumoDaRefeicao } from '../../shared/refeicao'
 
 /**
  * Uma refeição do plano, na aba Dieta.

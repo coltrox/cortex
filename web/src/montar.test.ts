@@ -387,6 +387,15 @@ describe('desmarcar o check', () => {
   it('desmarcar continua exigindo um nome', () => {
     expect(() => eventoSuplemento('  ', DIA3, false)).toThrow()
   })
+
+  it('a opcao escolhida viaja junto, e some ao desmarcar', () => {
+    expect(eventoRefeicaoPlano('Almoço', DIA3, true, undefined, '', undefined, '150 g de frango').dados)
+      .toEqual({ nome: 'Almoço', opcao: '150 g de frango' })
+    // Desmarcou: dizer "comi frango" numa refeicao que nao foi comida seria
+    // contradicao dentro do proprio diario.
+    expect(eventoRefeicaoPlano('Almoço', DIA3, false, undefined, '', undefined, '150 g de frango').dados)
+      .toEqual({ nome: 'Almoço', feito: false })
+  })
 })
 
 describe('tarefa diaria', () => {

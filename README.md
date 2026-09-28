@@ -407,6 +407,12 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.36` — a dieta do **celular** ficou como a do computador: ao abrir a
+refeição, as opções do plano aparecem uma por linha, com o "ou" no meio, e
+tocar numa diz qual foi comida. Saíram o "comi tudo, metade ou pouco", o
+"ajustar só hoje" e os campos de caloria e proteína — para escrever o que
+comeu fora do plano ficou só o campo de sempre.
+
 `v2.6.35` — cada terminal ganhou um **×** ao lado do nome, que fecha e
 encerra o que estivesse rodando nele. E abrir um projeto não inicia mais
 terminal nenhum: trocar de projeto fecha o painel, e os terminais dele são

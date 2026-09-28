@@ -122,7 +122,9 @@ export function eventoRefeicaoPlano(
    * O que a refeição foi HOJE, quando mudou do plano: os itens, e as calorias e
    * a proteína do dia. Fica no diário — o plano da nutricionista não muda.
    */
-  ajuste?: { itens?: string; kcal?: number | null; prot?: number | null }
+  ajuste?: { itens?: string; kcal?: number | null; prot?: number | null },
+  /** Qual das alternativas da refeição foi comida, quando há mais de uma. */
+  opcao?: string
 ): Evento {
   const numeroDoDia = (v: number | null | undefined, teto: number): number | undefined =>
     typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= teto ? Math.round(v) : undefined
@@ -138,7 +140,8 @@ export function eventoRefeicaoPlano(
       // refeição que a pessoa acabou de dizer que não comeu é contradição
       // dentro do próprio diário.
       nivel: feito && nivel && nivel !== 'tudo' ? nivel : undefined,
-      troca: feito && troca ? troca.trim().slice(0, 120) : undefined
+      troca: feito && troca ? troca.trim().slice(0, 120) : undefined,
+      opcao: feito && opcao ? opcao.trim().slice(0, 300) : undefined
     })
   })
 }
