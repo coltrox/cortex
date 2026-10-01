@@ -2095,6 +2095,36 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 }
 /* Arrastando, o dedo manda em todos: nenhum cartão rola a página por baixo. */
 .lista-treino:has([data-puxado="true"]) .cartao-exercicio{ touch-action:none; }
+/* A fenda: o espaço que abre ENTRE dois exercícios enquanto o dedo passa
+   por ali. É onde o cartão vai cair quando for solto. */
+.solta-aqui{
+  height:52px; margin:2px 0; border-radius:var(--r2);
+  border:2px dashed var(--acento);
+  background:color-mix(in srgb, var(--acento) 12%, transparent);
+}
+.cartao-exercicio[data-fechado="true"] .exercicio-presc{ display:none; }
+
+/* A linha de ações quebra quando não cabe: era o "concluir" voando para fora
+   do cartão quando o exercício tinha nome comprido (pedido do dono). */
+.lista-treino .cartao-exercicio > .linha-acoes{ flex-wrap:wrap; row-gap:var(--e2); }
+/* "Tirar" é o terceiro botão da linha, e o menor: não disputa espaço com os
+   dois que se usam a cada série. Sem `flex:1` ele cabe ao lado deles em vez
+   de ser empurrado para uma linha só sua. */
+.btn-mini-perigo{ flex:none; padding:0 var(--e4); color:var(--perigo, #f87171); }
+/* Aberto, o nome comprido quebra em vez de cortar: é lá que se confere se o
+   exercício é o do plano ou o que foi trocado. */
+.cartao-exercicio[data-fechado='false'] .exercicio-nome{ white-space:normal; overflow:visible; }
+
+/* "Corrigir este treino": abre a sessão registrada na tela do treino (2.6.39). */
+.feito-corrigir{ width:100%; margin-top:var(--e2); }
+
+/* O cartão arrastado anda com o dedo e some a transição: com ela, o cartão
+   chegava atrasado na mão (2.6.41). */
+.cartao-exercicio[data-puxado="true"]{
+  position:relative; z-index:5; touch-action:none; transition:none;
+}
+/* Arrastando, o dedo manda em todos: nenhum cartão rola a página por baixo. */
+.lista-treino:has([data-puxado="true"]) .cartao-exercicio{ touch-action:none; }
 /* Onde ele vai cair: uma faixa na posição que está cedendo o lugar. */
 .cartao-exercicio[data-cedendo="true"]{
   border-color:var(--acento); background:color-mix(in srgb, var(--acento) 10%, var(--painel));

@@ -407,6 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.43` — arrastando um exercício, abre um **espaço entre os outros dois**
+mostrando onde ele vai cair — e é ali que ele entra, em vez de em cima de
+alguém. Soltar abaixo de todos põe no fim da lista.
+
 `v2.6.42` — o arraste do exercício funciona de verdade: a captura do dedo
 falhava e o começo do arraste morria no meio, e aí a página rolava no lugar.
 Agora rolar a lista não pega o cartão (deslizou antes de pegar, é rolagem),

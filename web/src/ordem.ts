@@ -20,17 +20,30 @@ export function mover<T>(lista: T[], de: number, para: number): T[] {
 export type Caixa = { topo: number; altura: number }
 
 /**
- * Sobre qual posição o dedo está.
+ * Em qual FENDA o dedo está — o espaço ENTRE dois itens.
  *
- * Compara com o MEIO de cada item: o item só cede o lugar quando o dedo passa
- * da metade dele, que é o instante em que a troca parece certa para quem
- * arrasta. Acima do primeiro vira 0; abaixo do último, o fim da lista.
+ * Fenda, e não "sobre qual item": o exercício cai no meio de outros dois, e
+ * não por cima de um (pedido do dono). Numa lista de quatro há cinco fendas,
+ * de 0 (antes do primeiro) a 4 (depois do último) — é esse número que a tela
+ * desenha como o espaço aberto esperando o cartão.
  */
-export function alvoDoArrasto(y: number, caixas: Caixa[]): number {
-  if (caixas.length === 0) return 0
+export function fendaDoArrasto(y: number, caixas: Caixa[]): number {
   for (let i = 0; i < caixas.length; i++) {
     const meio = caixas[i].topo + caixas[i].altura / 2
     if (y < meio) return i
   }
-  return caixas.length - 1
+  return caixas.length
+}
+
+/**
+ * A lista com o item de `de` solto na fenda `fenda`.
+ *
+ * Tirar o item antes de recolocá-lo desloca tudo que vem depois dele: soltar
+ * na fenda 3 quem saiu da posição 1 é parar na posição 2. É a conta que erra
+ * quando feita de cabeça na hora de desenhar a tela.
+ */
+export function moverParaFenda<T>(lista: T[], de: number, fenda: number): T[] {
+  if (de < 0 || de >= lista.length) return lista
+  const destino = fenda > de ? fenda - 1 : fenda
+  return mover(lista, de, Math.min(Math.max(destino, 0), lista.length - 1))
 }

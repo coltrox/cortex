@@ -1,11 +1,11 @@
 import {
-  useEffect, useRef, useState,
+  Fragment, useEffect, useRef, useState,
   type KeyboardEvent, type PointerEvent as ReactPointerEvent
 } from 'react'
 import { diaLocal, eventoSessao, type ExercicioFeito, type SerieFeita } from '../montar'
 import { treinos, exerciciosDoTreino } from '../cardapio'
 import { guardadoDoNavegador } from '../guardado'
-import { mover, alvoDoArrasto, type Caixa } from '../ordem'
+import { fendaDoArrasto, moverParaFenda, type Caixa } from '../ordem'
 import { guardarSessaoLocal } from '../sessoesLocais'
 import { Cabecalho, Botao, Aviso } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
@@ -175,7 +175,7 @@ export function Treino(p: {
    * O arraste em andamento: de onde saiu, sobre qual posição está, e quanto o
    * dedo já andou — é o `quanto` que faz o cartão acompanhar a mão.
    */
-  const [arrastando, setArrastando] = useState<{ de: number; sobre: number; y0: number; y: number } | null>(null)
+  const [arrastando, setArrastando] = useState<{ de: number; fenda: number; y0: number; y: number } | null>(null)
   /** Os cartões na tela, para saber sobre qual posição o dedo passou. */
   const cartoes = useRef<(HTMLDivElement | null)[]>([])
   const pressionando = useRef<number | null>(null)
@@ -358,7 +358,7 @@ export function Treino(p: {
       // Uma batidinha no aparelho avisa que pegou — sem ela, o dedo parado
       // não tem como saber que o arraste começou.
       navigator.vibrate?.(15)
-      setArrastando({ de: i, sobre: i, y0: y, y })
+      setArrastando({ de: i, fenda: i, y0: y, y })
     }, 250)
   }
 
@@ -385,18 +385,20 @@ export function Treino(p: {
         const r = el.getBoundingClientRect()
         return { topo: r.top, altura: r.height }
       })
-    setArrastando(a => (a ? { ...a, y, sobre: alvoDoArrasto(y, caixas) } : a))
+    setArrastando(a => (a ? { ...a, y, fenda: fendaDoArrasto(y, caixas) } : a))
   }
 
   const terminarArrasto = (): void => {
     soltarPressao()
     if (!arrastando) return
-    const { de, sobre } = arrastando
+    const { de, fenda } = arrastando
     setArrastando(null)
-    if (de !== sobre) {
-      setSessao(st => (st ? { ...st, itens: mover(st.itens, de, sobre) } : st))
-      navigator.vibrate?.(10)
-    }
+    setSessao(st => {
+      if (!st) return st
+      const novos = moverParaFenda(st.itens, de, fenda)
+      if (novos !== st.itens) navigator.vibrate?.(10)
+      return novos === st.itens ? st : { ...st, itens: novos }
+    })
   }
 
   const concluidos = sessao.itens.filter(e => e.feito === true)
@@ -480,18 +482,19 @@ export function Treino(p: {
             // para ver para onde o exercício está indo.
             const fechado = arrastando !== null || encolhido(e.nome)
             const puxado = arrastando?.de === i
-            const cedendo = arrastando !== null && arrastando.sobre === i && !puxado
             return (
+              <Fragment key={`${i}-${e.nome}`}>
+              {/* O espaço aberto esperando o cartão: ele cai ENTRE dois
+                  exercícios, e não por cima de um (pedido do dono). */}
+              {arrastando !== null && arrastando.fenda === i && <div className="solta-aqui" />}
               <div
                 className={`cartao-exercicio ${feito ? 'exercicio-feito' : ''}`}
                 data-fechado={fechado}
                 data-puxado={puxado}
-                data-cedendo={cedendo}
                 // O cartão puxado anda com o dedo — é o que faz parecer que a
                 // mão está segurando ele, e não a lista piscando embaixo.
                 style={puxado && arrastando ? { transform: `translateY(${arrastando.y - arrastando.y0}px)` } : undefined}
                 ref={el => { cartoes.current[i] = el }}
-                key={`${i}-${e.nome}`}
                 // Segurar QUALQUER lugar do cartão pega o exercício (pedido do
                 // dono); campo e botão continuam seus, ver `comecarArrasto`.
                 onPointerDown={ev => comecarArrasto(i, ev)}
@@ -642,6 +645,11 @@ export function Treino(p: {
                 </div>
                 </>}
               </div>
+              {/* A fenda do fim: soltar abaixo de todos põe o exercício
+                  DEPOIS do último, e não em cima dele. */}
+              {arrastando !== null && arrastando.fenda === sessao.itens.length
+                && i === sessao.itens.length - 1 && <div className="solta-aqui" />}
+              </Fragment>
             )
           })}
 
