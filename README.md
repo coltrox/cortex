@@ -407,6 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.40` — a dieta do **computador** ficou igual à do celular: cada
+refeição aberta tem o campo **Comi outra coisa**, para registrar o que foi
+comido fora do plano. Escrever ali marca a refeição; apagar tira só a troca.
+
 `v2.6.39` — o **treino no celular** ganhou: cada exercício **encolhe e
 expande** (fechado, diz só se foi feito e o peso); dá para **mudar a ordem**
 segurando o exercício e arrastando; e o treino registrado **aparece na hora no

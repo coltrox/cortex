@@ -1788,3 +1788,16 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
 .terminal-aba.ativa { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .terminal-aba.ativa > button:first-child { color: var(--text); }
 .terminal-aba .btn-icone { padding: 2px 7px 2px 3px; font-size: 13px; }
+
+/* "Comi outra coisa" no cartão da refeição — o mesmo campo do celular (2.6.40). */
+.refeicao-outra { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.refeicao-outra > span {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.refeicao-outra input {
+  padding: 8px 11px; border-radius: var(--raio-1);
+  background: var(--surface-sunk); border: 1px solid var(--border); color: var(--text);
+  font-size: 13px; outline: none;
+}
+.refeicao-outra input:focus { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }

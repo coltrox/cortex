@@ -15,7 +15,8 @@ import { opcoesDaRefeicao, resumoDaRefeicao } from '../../shared/refeicao'
  * linha, com o "ou" entre elas; o lápis edita só aquela refeição.
  */
 export function CartaoRefeicao({
-  nome, hora, itens, kcal, prot, feito, fator, troca, opcao, aoAlternar, aoEscolher, aoEditar
+  nome, hora, itens, kcal, prot, feito, fator, troca, opcao,
+  aoAlternar, aoEscolher, aoTrocar, aoEditar
 }: {
   nome: string
   hora: string
@@ -32,9 +33,19 @@ export function CartaoRefeicao({
   aoAlternar: () => void
   /** Escolher uma opção marca a refeição; escolher a mesma de novo desmarca. */
   aoEscolher: (texto: string) => void
+  /** O que comeu fora do plano — o mesmo campo do celular. Texto vazio apaga. */
+  aoTrocar: (texto: string) => void
   aoEditar: () => void
 }) {
   const [aberta, setAberta] = useState(false)
+  /**
+   * O texto da troca enquanto se digita.
+   *
+   * Próprio, e não ligado ao diário: cada letra gravaria o arquivo do dia no
+   * disco, e uma nota do vault não é lugar de receber vinte escritas para
+   * escrever "pizza". Sobe ao sair do campo ou no Enter.
+   */
+  const [trocando, setTrocando] = useState(troca)
   const opcoes = opcoesDaRefeicao(itens)
   const resumo = resumoDaRefeicao(itens)
 
@@ -107,6 +118,20 @@ export function CartaoRefeicao({
               ))}
             </div>
           )}
+          <label className="refeicao-outra">
+            <span>Comi outra coisa</span>
+            <input
+              value={trocando}
+              maxLength={300}
+              placeholder="o que comi no lugar"
+              onChange={e => setTrocando(e.target.value)}
+              onBlur={() => { if (trocando.trim() !== troca.trim()) aoTrocar(trocando) }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') e.currentTarget.blur()
+                if (e.key === 'Escape') { setTrocando(troca); e.currentTarget.blur() }
+              }}
+            />
+          </label>
         </div>
       ) : (
         resumo && <div className="refeicao-resumo">{resumo}</div>

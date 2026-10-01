@@ -9,7 +9,8 @@ import {
 } from './base'
 import {
   suplementosDoDia, seriePeso, serieAgua, litros, totaisDoDia,
-  fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia, opcaoDaRefeicao, comOpcaoEscolhida
+  fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia, opcaoDaRefeicao, comOpcaoEscolhida,
+  comTrocaEscrita
 } from '../dados'
 
 /** Onde esta refeição está na lista do plano — a do dia é um recorte dela. */
@@ -597,6 +598,18 @@ function Dieta({
                         : (feitas.includes(nome) ? feitas : [...feitas, nome]),
                       dieta_detalhes: comOpcaoEscolhida(
                         lista(diarioHoje?.campos.dieta_detalhes), nome, desfazendo ? '' : texto
+                      )
+                    })
+                  }}
+                  aoTrocar={texto => {
+                    // Escrever o que comeu no lugar também marca a refeição:
+                    // dizer o que comeu É ter comido. Apagar o texto só tira
+                    // a troca, e deixa a marca como estava.
+                    const limpo = texto.trim()
+                    aoMarcarDia(hoje, {
+                      dieta_feitas: limpo && !feitas.includes(nome) ? [...feitas, nome] : feitas,
+                      dieta_detalhes: comTrocaEscrita(
+                        lista(diarioHoje?.campos.dieta_detalhes), nome, limpo
                       )
                     })
                   }}

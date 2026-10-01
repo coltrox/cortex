@@ -5,7 +5,7 @@ import {
   suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia,
   fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia,
   seriePeso, serieAgua, litros, textos, camposExibiveis, textoDoCampo,
-  opcaoDaRefeicao, comOpcaoEscolhida, lista
+  opcaoDaRefeicao, comOpcaoEscolhida, comTrocaEscrita, lista
 } from './dados'
 import { FORMULARIOS, type Campo } from './formularios'
 
@@ -622,6 +622,17 @@ describe('qual opcao da refeicao foi comida', () => {
       .toEqual([])
     expect(comOpcaoEscolhida([{ nome: 'Jantar', opcao: 'sopa', nivel: 'pouco' }], 'Jantar', ''))
       .toEqual([{ nome: 'Jantar', nivel: 'pouco' }])
+  })
+
+  it('escrever o que comeu no lugar nao apaga a opcao nem o nivel', () => {
+    const r = comTrocaEscrita([{ nome: 'Jantar', opcao: 'sopa', nivel: 'metade' }], 'Jantar', '  pizza  ')
+    expect(r).toEqual([{ nome: 'Jantar', opcao: 'sopa', nivel: 'metade', troca: 'pizza' }])
+  })
+
+  it('apagar a troca tira so ela', () => {
+    expect(comTrocaEscrita([{ nome: 'Jantar', troca: 'pizza', opcao: 'sopa' }], 'Jantar', ''))
+      .toEqual([{ nome: 'Jantar', opcao: 'sopa' }])
+    expect(comTrocaEscrita([{ nome: 'Jantar', troca: 'pizza' }], 'Jantar', '   ')).toEqual([])
   })
 
   it('a refeicao que ainda nao tinha detalhe ganha uma linha', () => {

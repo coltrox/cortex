@@ -526,11 +526,39 @@ export function opcaoDaRefeicao(diario: NoteComCampos | undefined, nome: string)
 export function comOpcaoEscolhida(
   detalhes: Record<string, unknown>[], nome: string, opcao: string
 ): Record<string, unknown>[] {
+  return comCampoDaRefeicao(detalhes, nome, 'opcao', opcao)
+}
+
+/**
+ * A lista de detalhes com o que foi comido FORA do plano nesta refeição.
+ *
+ * É o "comi outra coisa" do celular, agora também no computador: o dono pediu
+ * para registrar a dieta dos dois lados do mesmo jeito. Texto vazio apaga o
+ * campo — quem corrige para o que o plano manda não deixa rastro de uma troca
+ * que não houve.
+ */
+export function comTrocaEscrita(
+  detalhes: Record<string, unknown>[], nome: string, troca: string
+): Record<string, unknown>[] {
+  return comCampoDaRefeicao(detalhes, nome, 'troca', troca.trim().slice(0, 300))
+}
+
+/**
+ * Um campo do detalhe desta refeição, preservando o resto da linha.
+ *
+ * O resto importa: o nível, a troca e a opção podem vir de lugares diferentes
+ * — celular e computador — e escrever um não pode apagar o outro. A linha
+ * inteira sai quando fica só com o nome, porque diário limpo é diário que dá
+ * para ler à mão.
+ */
+function comCampoDaRefeicao(
+  detalhes: Record<string, unknown>[], nome: string, campo: string, valor: string
+): Record<string, unknown>[] {
   const out = detalhes.filter(d => txt(d.nome) !== nome)
   const atual = detalhes.find(d => txt(d.nome) === nome) ?? {}
   const linha: Record<string, unknown> = { ...atual, nome }
-  if (opcao) linha.opcao = opcao
-  else delete linha.opcao
+  if (valor) linha[campo] = valor
+  else delete linha[campo]
   // `nome` sozinho não é detalhe nenhum.
   if (Object.keys(linha).length > 1) out.push(linha)
   return out
