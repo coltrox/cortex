@@ -1,11 +1,11 @@
 import {
-  Fragment, useEffect, useRef, useState,
+  Fragment, useEffect, useLayoutEffect, useRef, useState,
   type KeyboardEvent, type PointerEvent as ReactPointerEvent
 } from 'react'
 import { diaLocal, eventoSessao, type ExercicioFeito, type SerieFeita } from '../montar'
 import { treinos, exerciciosDoTreino } from '../cardapio'
 import { guardadoDoNavegador } from '../guardado'
-import { fendaDoArrasto, moverParaFenda, type Caixa } from '../ordem'
+import { fendaDoArrasto, soltarEm, type Caixa } from '../ordem'
 import { guardarSessaoLocal } from '../sessoesLocais'
 import { Cabecalho, Botao, Aviso } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
@@ -175,7 +175,22 @@ export function Treino(p: {
    * O arraste em andamento: de onde saiu, sobre qual posição está, e quanto o
    * dedo já andou — é o `quanto` que faz o cartão acompanhar a mão.
    */
-  const [arrastando, setArrastando] = useState<{ de: number; fenda: number; y0: number; y: number } | null>(null)
+  const [arrastando, setArrastando] = useState<
+    {
+      de: number; fenda: number; y0: number; y: number
+      /**
+       * Onde cada cartão estava QUANDO O ARRASTE COMEÇOU, do primeiro ao
+       * último.
+       *
+       * Medido uma vez, e nunca mais: enquanto eu remedia a cada movimento, o
+       * espaço aberto empurrava os cartões, a medida nova via outro lugar e a
+       * fenda pulava sozinha — para baixo, o exercício ia parar no fim.
+       */
+      caixas: Caixa[]
+      /** De um cartão ao seguinte, com o respiro entre eles. */
+      passo: number
+    } | null
+  >(null)
   /** Os cartões na tela, para saber sobre qual posição o dedo passou. */
   const cartoes = useRef<(HTMLDivElement | null)[]>([])
   const pressionando = useRef<number | null>(null)
@@ -214,6 +229,26 @@ export function Treino(p: {
       document.removeEventListener('touchmove', segurar)
       document.body.style.overflow = overflowAntes
     }
+  }, [arrastando])
+
+  /*
+   * Onde cada cartão está, medido com a lista JÁ encolhida.
+   *
+   * `useLayoutEffect` porque isto roda entre o DOM mudar e a tela pintar: no
+   * mesmo quadro em que os cartões encolhem, as medidas já saem certas, e o
+   * primeiro movimento do dedo encontra as posições de verdade.
+   */
+  useLayoutEffect(() => {
+    if (!arrastando || arrastando.caixas.length > 0) return
+    const caixas: Caixa[] = cartoes.current
+      .filter((el): el is HTMLDivElement => el !== null)
+      .map(el => {
+        const r = el.getBoundingClientRect()
+        return { topo: r.top, altura: r.height }
+      })
+    if (caixas.length === 0) return
+    const passo = caixas.length > 1 ? caixas[1].topo - caixas[0].topo : caixas[0].altura
+    setArrastando(a => (a && a.caixas.length === 0 ? { ...a, caixas, passo } : a))
   }, [arrastando])
 
   const comecar = (nome: string): void => {
@@ -358,7 +393,11 @@ export function Treino(p: {
       // Uma batidinha no aparelho avisa que pegou — sem ela, o dedo parado
       // não tem como saber que o arraste começou.
       navigator.vibrate?.(15)
-      setArrastando({ de: i, fenda: i, y0: y, y })
+      // Sem medidas ainda: os cartões encolhem no render seguinte, e medir
+      // agora guardaria as posições da lista aberta — foi o que fazia o
+      // exercício parar em qualquer lugar menos onde o dedo estava. Quem mede
+      // é o efeito abaixo, com a lista já do tamanho do arraste.
+      setArrastando({ de: i, fenda: i, y0: y, y, caixas: [], passo: 0 })
     }, 250)
   }
 
@@ -379,13 +418,35 @@ export function Treino(p: {
     }
     ev.preventDefault()
     const y = ev.clientY
-    const caixas: Caixa[] = cartoes.current
-      .filter((el): el is HTMLDivElement => el !== null)
-      .map(el => {
-        const r = el.getBoundingClientRect()
-        return { topo: r.top, altura: r.height }
-      })
-    setArrastando(a => (a ? { ...a, y, fenda: fendaDoArrasto(y, caixas) } : a))
+    // Só quem FICOU entra na conta: o cartão na mão anda com o dedo, e
+    // enquanto ele era medido junto a caixa dele descia também — para baixo o
+    // dedo nunca passava do meio de ninguém.
+    setArrastando(a => {
+      if (!a) return a
+      // Antes da medida, o dedo anda mas a fenda não muda: é um quadro só.
+      if (a.caixas.length === 0) return { ...a, y }
+      const queFicaram = a.caixas.filter((_, k) => k !== a.de)
+      return { ...a, y, fenda: fendaDoArrasto(y, queFicaram) }
+    })
+  }
+
+  /**
+   * Quanto este cartão anda na tela durante o arraste.
+   *
+   * O da mão segue o dedo. Os outros abrem o espaço: quem está entre a
+   * posição de origem e o destino sobe um degrau (quando o exercício desce)
+   * ou desce um (quando ele sobe). É o que faz o espaço aparecer ENTRE dois
+   * cartões, sem mexer no fluxo da lista.
+   */
+  const deslocamentoDoCartao = (i: number): { transform: string } | undefined => {
+    if (!arrastando) return undefined
+    const { de, fenda, y, y0, passo } = arrastando
+    if (i === de) return { transform: `translateY(${y - y0}px)` }
+    // A posição deste cartão na lista sem o que está na mão.
+    const posicao = i > de ? i - 1 : i
+    if (i > de && posicao < fenda) return { transform: `translateY(${-passo}px)` }
+    if (i < de && posicao >= fenda) return { transform: `translateY(${passo}px)` }
+    return undefined
   }
 
   const terminarArrasto = (): void => {
@@ -395,7 +456,7 @@ export function Treino(p: {
     setArrastando(null)
     setSessao(st => {
       if (!st) return st
-      const novos = moverParaFenda(st.itens, de, fenda)
+      const novos = soltarEm(st.itens, de, fenda)
       if (novos !== st.itens) navigator.vibrate?.(10)
       return novos === st.itens ? st : { ...st, itens: novos }
     })
@@ -486,14 +547,17 @@ export function Treino(p: {
               <Fragment key={`${i}-${e.nome}`}>
               {/* O espaço aberto esperando o cartão: ele cai ENTRE dois
                   exercícios, e não por cima de um (pedido do dono). */}
-              {arrastando !== null && arrastando.fenda === i && <div className="solta-aqui" />}
               <div
                 className={`cartao-exercicio ${feito ? 'exercicio-feito' : ''}`}
                 data-fechado={fechado}
                 data-puxado={puxado}
                 // O cartão puxado anda com o dedo — é o que faz parecer que a
                 // mão está segurando ele, e não a lista piscando embaixo.
-                style={puxado && arrastando ? { transform: `translateY(${arrastando.y - arrastando.y0}px)` } : undefined}
+                // O cartão na mão anda com o dedo; os outros abrem espaço
+                // para ele. Tudo por transformação: o fluxo da lista não muda
+                // durante o arraste, e por isso as medidas do começo
+                // continuam valendo até soltar.
+                style={deslocamentoDoCartao(i)}
                 ref={el => { cartoes.current[i] = el }}
                 // Segurar QUALQUER lugar do cartão pega o exercício (pedido do
                 // dono); campo e botão continuam seus, ver `comecarArrasto`.
@@ -645,10 +709,6 @@ export function Treino(p: {
                 </div>
                 </>}
               </div>
-              {/* A fenda do fim: soltar abaixo de todos põe o exercício
-                  DEPOIS do último, e não em cima dele. */}
-              {arrastando !== null && arrastando.fenda === sessao.itens.length
-                && i === sessao.itens.length - 1 && <div className="solta-aqui" />}
               </Fragment>
             )
           })}

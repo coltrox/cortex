@@ -2067,11 +2067,7 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 
 /* Arrastando: o cartão puxado sobe um degrau e o que vai ceder o lugar abre
    espaço, para o dedo ver onde vai soltar. */
-.cartao-exercicio[data-puxado="true"]{
-  border-color:var(--acento); box-shadow:0 10px 28px rgba(0,0,0,.35);
-  transform:scale(1.015); opacity:.97;
-}
-.cartao-exercicio[data-cedendo="true"]{ border-color:var(--acento); }
+.cartao-exercicio[data-puxado="true"]{ border-color:var(--acento); }
 .cartao-exercicio[data-fechado="true"] .exercicio-presc{ display:none; }
 
 /* A linha de ações quebra quando não cabe: era o "concluir" voando para fora
@@ -2091,17 +2087,18 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 /* O cartão arrastado anda com o dedo e some a transição: com ela, o cartão
    chegava atrasado na mão (2.6.41). */
 .cartao-exercicio[data-puxado="true"]{
-  position:relative; z-index:5; touch-action:none; transition:none;
+  /* A posição vem do próprio elemento, que o React desenha fixo seguindo o
+     dedo; aqui fica só o que o faz parecer levantado da lista. */
+  z-index:50; touch-action:none; transition:none;
+  box-shadow:0 18px 40px rgba(0,0,0,.5); opacity:.97;
 }
 /* Arrastando, o dedo manda em todos: nenhum cartão rola a página por baixo. */
 .lista-treino:has([data-puxado="true"]) .cartao-exercicio{ touch-action:none; }
 /* A fenda: o espaço que abre ENTRE dois exercícios enquanto o dedo passa
    por ali. É onde o cartão vai cair quando for solto. */
-.solta-aqui{
-  height:52px; margin:2px 0; border-radius:var(--r2);
-  border:2px dashed var(--acento);
-  background:color-mix(in srgb, var(--acento) 12%, transparent);
-}
+/* Os cartões abrem espaço deslizando: o movimento mostra para onde o
+   exercício está indo melhor do que um tracejado parado. */
+.cartao-exercicio{ transition:transform .16s ease; }
 .cartao-exercicio[data-fechado="true"] .exercicio-presc{ display:none; }
 
 /* A linha de ações quebra quando não cabe: era o "concluir" voando para fora

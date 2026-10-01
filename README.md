@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.44` — arrastar exercício **para baixo** funciona: as posições passaram
+a ser medidas uma vez, com a lista já encolhida, e o espaço abre deslizando os
+cartões em vez de inserir um bloco no meio da lista — que empurrava tudo e
+fazia a conta errar justamente na descida.
+
 `v2.6.43` — arrastando um exercício, abre um **espaço entre os outros dois**
 mostrando onde ele vai cair — e é ali que ele entra, em vez de em cima de
 alguém. Soltar abaixo de todos põe no fim da lista.

@@ -23,9 +23,13 @@ export type Caixa = { topo: number; altura: number }
  * Em qual FENDA o dedo está — o espaço ENTRE dois itens.
  *
  * Fenda, e não "sobre qual item": o exercício cai no meio de outros dois, e
- * não por cima de um (pedido do dono). Numa lista de quatro há cinco fendas,
- * de 0 (antes do primeiro) a 4 (depois do último) — é esse número que a tela
- * desenha como o espaço aberto esperando o cartão.
+ * não por cima de um (pedido do dono).
+ *
+ * As caixas aqui são as dos itens QUE FICARAM, sem o que está na mão. Isso
+ * importa: o cartão arrastado anda com o dedo, e enquanto ele estava na conta
+ * a caixa dele viajava junto — descendo, o dedo nunca passava do meio de
+ * ninguém, e o exercício só sabia subir. Numa lista de quatro, tirando o
+ * arrastado sobram três itens e quatro fendas: de 0 (antes de todos) a 3.
  */
 export function fendaDoArrasto(y: number, caixas: Caixa[]): number {
   for (let i = 0; i < caixas.length; i++) {
@@ -36,14 +40,17 @@ export function fendaDoArrasto(y: number, caixas: Caixa[]): number {
 }
 
 /**
- * A lista com o item de `de` solto na fenda `fenda`.
+ * A lista com o item de `de` solto na posição `posicao`.
  *
- * Tirar o item antes de recolocá-lo desloca tudo que vem depois dele: soltar
- * na fenda 3 quem saiu da posição 1 é parar na posição 2. É a conta que erra
- * quando feita de cabeça na hora de desenhar a tela.
+ * `posicao` é contada na lista SEM o item — é o que a fenda devolve, e é o
+ * que o `splice` espera depois de tirá-lo. Assim não existe a conta de
+ * "desconta um se for para baixo", que é onde esse tipo de lista erra em
+ * silêncio. Devolve a MESMA lista quando nada mudou de lugar.
  */
-export function moverParaFenda<T>(lista: T[], de: number, fenda: number): T[] {
+export function soltarEm<T>(lista: T[], de: number, posicao: number): T[] {
   if (de < 0 || de >= lista.length) return lista
-  const destino = fenda > de ? fenda - 1 : fenda
-  return mover(lista, de, Math.min(Math.max(destino, 0), lista.length - 1))
+  const out = [...lista]
+  const [item] = out.splice(de, 1)
+  out.splice(Math.min(Math.max(posicao, 0), out.length), 0, item)
+  return out.every((x, i) => x === lista[i]) ? lista : out
 }
