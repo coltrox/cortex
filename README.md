@@ -407,6 +407,12 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.42` — o arraste do exercício funciona de verdade: a captura do dedo
+falhava e o começo do arraste morria no meio, e aí a página rolava no lugar.
+Agora rolar a lista não pega o cartão (deslizou antes de pegar, é rolagem),
+e enquanto arrasta a página fica parada. A barra de **Registrar treino** some
+mesmo com o teclado aberto — o `hidden` perdia para o estilo da classe.
+
 `v2.6.41` — o **arrastar exercício** virou arrastar de verdade: segura
 qualquer ponto do cartão (250 ms), o cartão anda com o dedo e cai onde for
 solto. A barra de **Cancelar / Registrar treino** some enquanto o teclado está

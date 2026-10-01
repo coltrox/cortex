@@ -27,12 +27,22 @@ const CHAVE = 'cortex.treino'
  * pixels a menos que a janela é teclado — barra de endereço indo e vindo mexe
  * bem menos que isso.
  */
+/**
+ * O teclado está na frente, dada a janela e a parte dela que sobrou à vista.
+ *
+ * Cem pixels: a barra de endereço do Safari indo e vindo mexe bem menos que
+ * isso, e nenhum teclado de celular é menor.
+ */
+export function tecladoNaFrente(alturaDaJanela: number, alturaVisivel: number): boolean {
+  return alturaDaJanela - alturaVisivel > 100
+}
+
 function useTecladoAberto(): boolean {
   const [aberto, setAberto] = useState(false)
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-    const medir = (): void => setAberto(window.innerHeight - vv.height > 100)
+    const medir = (): void => setAberto(tecladoNaFrente(window.innerHeight, vv.height))
     medir()
     vv.addEventListener('resize', medir)
     return () => vv.removeEventListener('resize', medir)
@@ -169,6 +179,8 @@ export function Treino(p: {
   /** Os cartões na tela, para saber sobre qual posição o dedo passou. */
   const cartoes = useRef<(HTMLDivElement | null)[]>([])
   const pressionando = useRef<number | null>(null)
+  /** Onde o dedo encostou, enquanto o arraste ainda não pegou. */
+  const comecouEm = useRef<number | null>(null)
   const [nomeExercicio, setNomeExercicio] = useState('')
   /** Depois de adicionar um exercício, o foco vai para o kg da primeira série dele. */
   const focarExercicio = useRef<number | null>(null)
@@ -183,6 +195,26 @@ export function Treino(p: {
     focarExercicio.current = null
     document.querySelector<HTMLInputElement>(`input[data-campo-treino="${i}-0-carga"]`)?.focus()
   })
+
+  /*
+   * Enquanto arrasta, a página fica parada.
+   *
+   * No iPhone, `touch-action` e o `preventDefault` do pointermove não bastam:
+   * quem decide rolar é o gesto de toque, e só um `touchmove` registrado como
+   * NÃO passivo consegue recusá-lo. React registra os dele como passivos, por
+   * isso este vai na mão, no documento, e só existe durante o arraste.
+   */
+  useEffect(() => {
+    if (!arrastando) return
+    const segurar = (e: TouchEvent): void => e.preventDefault()
+    document.addEventListener('touchmove', segurar, { passive: false })
+    const overflowAntes = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('touchmove', segurar)
+      document.body.style.overflow = overflowAntes
+    }
+  }, [arrastando])
 
   const comecar = (nome: string): void => {
     const m = modelos.find(x => x.nome === nome)
@@ -314,9 +346,15 @@ export function Treino(p: {
     if (onde.closest('input, button, textarea')) return
     const alvo = ev.currentTarget
     const y = ev.clientY
+    // Onde o dedo encostou: se ele deslizar antes de o arraste pegar, era
+    // rolagem — e rolar a lista não pode virar mudar a ordem do treino.
+    comecouEm.current = y
     pressionando.current = window.setTimeout(() => {
       pressionando.current = null
-      alvo.setPointerCapture?.(ev.pointerId)
+      // Em try: o dedo pode ter saído antes do fim da espera, e aí o
+      // navegador recusa a captura -- recusa que mataria o resto do começo
+      // do arraste.
+      try { alvo.setPointerCapture?.(ev.pointerId) } catch { /* segue sem captura */ }
       // Uma batidinha no aparelho avisa que pegou — sem ela, o dedo parado
       // não tem como saber que o arraste começou.
       navigator.vibrate?.(15)
@@ -329,10 +367,16 @@ export function Treino(p: {
       clearTimeout(pressionando.current)
       pressionando.current = null
     }
+    comecouEm.current = null
   }
 
   const arrastarAte = (ev: ReactPointerEvent<HTMLElement>): void => {
-    if (!arrastando) { soltarPressao(); return }
+    if (!arrastando) {
+      // Ainda esperando o arraste pegar: um deslize de mais de 8 px é a
+      // pessoa rolando a lista, e aí a espera morre aqui.
+      if (comecouEm.current !== null && Math.abs(ev.clientY - comecouEm.current) > 8) soltarPressao()
+      return
+    }
     ev.preventDefault()
     const y = ev.clientY
     const caixas: Caixa[] = cartoes.current
@@ -635,14 +679,17 @@ export function Treino(p: {
         </div>
       </div>
 
-      <div className="acao-fixa acao-fixa-par" hidden={tecladoAberto}>
+      {/* Fora da árvore, e não `hidden`: o atributo perde para o
+          `display:flex` da classe, e a barra continuava na frente dos botões
+          de adicionar exercício. */}
+      {!tecladoAberto && <div className="acao-fixa acao-fixa-par">
         {/* Cancelar mora aqui, ao lado de registrar: as duas saídas da sessão
             ficam juntas, que é onde a pessoa olha ao terminar. */}
         <Botao tipo="perigo" aoClicar={cancelar}>Cancelar</Botao>
         <Botao tipo="principal" aoClicar={enviar} desligado={!temDado}>
           Registrar treino
         </Botao>
-      </div>
+      </div>}
     </div>
   )
 }
