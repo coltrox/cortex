@@ -15,6 +15,32 @@ import { SubNavSaude } from './Saude'
 const CHAVE = 'cortex.treino'
 
 /**
+ * O teclado do celular está aberto?
+ *
+ * A barra de "Cancelar / Registrar treino" é fixa no rodapé, e com o teclado
+ * aberto o iPhone a reposiciona no meio da tela — ela ficava por cima dos
+ * botões de adicionar exercício ("esses botões ficam aí voando", nas palavras
+ * do dono). Com o teclado na frente, a barra sai; quem está digitando não
+ * está registrando o treino.
+ *
+ * A medida é a do `visualViewport`: a parte da página que sobra à vista. Cem
+ * pixels a menos que a janela é teclado — barra de endereço indo e vindo mexe
+ * bem menos que isso.
+ */
+function useTecladoAberto(): boolean {
+  const [aberto, setAberto] = useState(false)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const medir = (): void => setAberto(window.innerHeight - vv.height > 100)
+    medir()
+    vv.addEventListener('resize', medir)
+    return () => vv.removeEventListener('resize', medir)
+  }, [])
+  return aberto
+}
+
+/**
  * `feito` é o botão de concluir, e não uma dedução do que foi digitado.
  *
  * Antes ele era `feitas.some(...)`: digitar as repetições da PRIMEIRA série
@@ -126,6 +152,7 @@ export function Treino(p: {
   const [renomeando, setRenomeando] = useState<number | null>(null)
   const [nomeNovo, setNomeNovo] = useState('')
   const [adicionando, setAdicionando] = useState(false)
+  const tecladoAberto = useTecladoAberto()
   /**
    * Os exercícios encolhidos, pelo nome.
    *
@@ -134,8 +161,11 @@ export function Treino(p: {
    * dele. Concluir encolhe sozinho — o que acabou sai da frente do que falta.
    */
   const [encolhidos, setEncolhidos] = useState<Set<string>>(() => new Set())
-  /** Qual exercício o dedo está segurando, e sobre qual posição ele está. */
-  const [arrastando, setArrastando] = useState<{ de: number; sobre: number } | null>(null)
+  /**
+   * O arraste em andamento: de onde saiu, sobre qual posição está, e quanto o
+   * dedo já andou — é o `quanto` que faz o cartão acompanhar a mão.
+   */
+  const [arrastando, setArrastando] = useState<{ de: number; sobre: number; y0: number; y: number } | null>(null)
   /** Os cartões na tela, para saber sobre qual posição o dedo passou. */
   const cartoes = useRef<(HTMLDivElement | null)[]>([])
   const pressionando = useRef<number | null>(null)
@@ -278,15 +308,20 @@ export function Treino(p: {
    * tela e dá para ver para onde o exercício está indo.
    */
   const comecarArrasto = (i: number, ev: ReactPointerEvent<HTMLElement>): void => {
+    // Campo e botão continuam sendo campo e botão: digitar o peso não pode
+    // pegar o exercício no colo.
+    const onde = ev.target as HTMLElement
+    if (onde.closest('input, button, textarea')) return
     const alvo = ev.currentTarget
+    const y = ev.clientY
     pressionando.current = window.setTimeout(() => {
       pressionando.current = null
       alvo.setPointerCapture?.(ev.pointerId)
       // Uma batidinha no aparelho avisa que pegou — sem ela, o dedo parado
       // não tem como saber que o arraste começou.
       navigator.vibrate?.(15)
-      setArrastando({ de: i, sobre: i })
-    }, 500)
+      setArrastando({ de: i, sobre: i, y0: y, y })
+    }, 250)
   }
 
   const soltarPressao = (): void => {
@@ -299,13 +334,14 @@ export function Treino(p: {
   const arrastarAte = (ev: ReactPointerEvent<HTMLElement>): void => {
     if (!arrastando) { soltarPressao(); return }
     ev.preventDefault()
+    const y = ev.clientY
     const caixas: Caixa[] = cartoes.current
       .filter((el): el is HTMLDivElement => el !== null)
       .map(el => {
         const r = el.getBoundingClientRect()
         return { topo: r.top, altura: r.height }
       })
-    setArrastando(a => (a ? { ...a, sobre: alvoDoArrasto(ev.clientY, caixas) } : a))
+    setArrastando(a => (a ? { ...a, y, sobre: alvoDoArrasto(y, caixas) } : a))
   }
 
   const terminarArrasto = (): void => {
@@ -407,18 +443,19 @@ export function Treino(p: {
                 data-fechado={fechado}
                 data-puxado={puxado}
                 data-cedendo={cedendo}
+                // O cartão puxado anda com o dedo — é o que faz parecer que a
+                // mão está segurando ele, e não a lista piscando embaixo.
+                style={puxado && arrastando ? { transform: `translateY(${arrastando.y - arrastando.y0}px)` } : undefined}
                 ref={el => { cartoes.current[i] = el }}
                 key={`${i}-${e.nome}`}
+                // Segurar QUALQUER lugar do cartão pega o exercício (pedido do
+                // dono); campo e botão continuam seus, ver `comecarArrasto`.
+                onPointerDown={ev => comecarArrasto(i, ev)}
+                onPointerMove={arrastarAte}
+                onPointerUp={terminarArrasto}
+                onPointerCancel={terminarArrasto}
               >
-                <div
-                  className="exercicio-cabeca"
-                  onPointerDown={ev => comecarArrasto(i, ev)}
-                  onPointerMove={arrastarAte}
-                  onPointerUp={terminarArrasto}
-                  onPointerCancel={terminarArrasto}
-                >
-                  {/* Segurar aqui pega o exercício para mudar de lugar; o
-                      punho é só o aviso de que dá. */}
+                <div className="exercicio-cabeca">
                   <span className="exercicio-punho" aria-hidden="true">⠿</span>
                   <span className="marcador">{feito ? '✓' : i + 1}</span>
                   <div className="exercicio-titulo">
@@ -598,7 +635,7 @@ export function Treino(p: {
         </div>
       </div>
 
-      <div className="acao-fixa acao-fixa-par">
+      <div className="acao-fixa acao-fixa-par" hidden={tecladoAberto}>
         {/* Cancelar mora aqui, ao lado de registrar: as duas saídas da sessão
             ficam juntas, que é onde a pessoa olha ao terminar. */}
         <Botao tipo="perigo" aoClicar={cancelar}>Cancelar</Botao>

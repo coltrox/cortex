@@ -2087,3 +2087,15 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 
 /* "Corrigir este treino": abre a sessão registrada na tela do treino (2.6.39). */
 .feito-corrigir{ width:100%; margin-top:var(--e2); }
+
+/* O cartão arrastado anda com o dedo e some a transição: com ela, o cartão
+   chegava atrasado na mão (2.6.41). */
+.cartao-exercicio[data-puxado="true"]{
+  position:relative; z-index:5; touch-action:none; transition:none;
+}
+/* Arrastando, o dedo manda em todos: nenhum cartão rola a página por baixo. */
+.lista-treino:has([data-puxado="true"]) .cartao-exercicio{ touch-action:none; }
+/* Onde ele vai cair: uma faixa na posição que está cedendo o lugar. */
+.cartao-exercicio[data-cedendo="true"]{
+  border-color:var(--acento); background:color-mix(in srgb, var(--acento) 10%, var(--painel));
+}

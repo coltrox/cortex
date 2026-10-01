@@ -55,10 +55,24 @@ const CAMPOS_DO_DIA = ['feito', 'ml', 'nivel', 'troca', 'opcao', 'itensDia', 'kc
  * o dia anterior sem ninguém notar.
  */
 export function soDeHoje(c: Cardapio, dia: string): Cardapio {
-  if (estadoDoDiaVale(c, dia)) return c
+  /*
+   * Quem diz o dia é o CORTEX, item por item (`diaDoEstado`), e não o relógio
+   * do aparelho: `atualizadoEm` é a hora em que o celular BAIXOU, e baixar de
+   * manhã o cardápio de ontem carimbaria "hoje" num estado que é de ontem.
+   *
+   * O `atualizadoEm` fica como rede de segurança para o Cortex que ainda não
+   * manda o carimbo — melhor do que nada enquanto a versão nova não chega.
+   */
+  const peloRelogio = estadoDoDiaVale(c, dia)
+  const vale = (detalhe: Record<string, unknown>): boolean => {
+    const carimbo = detalhe.diaDoEstado
+    return typeof carimbo === 'string' ? carimbo === dia : peloRelogio
+  }
+  if (c.itens.every(i => vale(i.detalhe))) return c
   return {
     ...c,
     itens: c.itens.map(i => {
+      if (vale(i.detalhe)) return i
       const limpo: Record<string, unknown> = { ...i.detalhe }
       let mexeu = false
       for (const campo of CAMPOS_DO_DIA) {

@@ -407,6 +407,14 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.41` — o **arrastar exercício** virou arrastar de verdade: segura
+qualquer ponto do cartão (250 ms), o cartão anda com o dedo e cai onde for
+solto. A barra de **Cancelar / Registrar treino** some enquanto o teclado está
+aberto — era ela por cima dos botões de adicionar exercício. E o **reset do
+dia** passou a usar o carimbo do Cortex (`diaDoEstado`) em vez da hora do
+download: baixar de manhã o cardápio de ontem carimbava "hoje" e deixava os
+checks de ontem passarem.
+
 `v2.6.40` — a dieta do **computador** ficou igual à do celular: cada
 refeição aberta tem o campo **Comi outra coisa**, para registrar o que foi
 comido fora do plano. Escrever ali marca a refeição; apagar tira só a troca.

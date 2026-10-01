@@ -241,7 +241,8 @@ export function montarCardapio(
         // Só quando é verdade; `comValor` tira o `undefined`. O celular usa
         // isto para desenhar o check já marcado — e para desmarcá-lo quando
         // some daqui.
-        feito: feitosHoje.suplemento.has(txt(n.title)) ? true : undefined
+        feito: feitosHoje.suplemento.has(txt(n.title)) ? true : undefined,
+        diaDoEstado: hoje
       })
     })
   }
@@ -257,6 +258,7 @@ export function montarCardapio(
         quando: txt(n.campos.quando),
         dias: listaDeTexto(n.campos.dias),
         feito: feitosHoje.rotina.has(txt(n.title)) ? true : undefined,
+        diaDoEstado: hoje,
         // O corpo da tarefa: passo a passo, links, o que for. Antes ele
         // ficava preso no computador e o celular mostrava só o nome — o
         // que não basta para quem escreveu instruções ali para seguir.
@@ -281,7 +283,8 @@ export function montarCardapio(
       detalhe: comValor({
         meta: num(hidratacao.campos.meta),
         copo: num(hidratacao.campos.copo),
-        ml: num(diario?.campos.agua_ml)
+        ml: num(diario?.campos.agua_ml),
+        diaDoEstado: hoje
       })
     })
   }
@@ -309,6 +312,7 @@ export function montarCardapio(
         // treino. Item a item, como nos suplementos: sem lista, é todo dia.
         dias: listaDeTexto(r.dias).length > 0 ? listaDeTexto(r.dias) : undefined,
         feito: feitosHoje.refeicao.has(nome) ? true : undefined,
+        diaDoEstado: hoje,
         nivel: detalheDoDia?.nivel,
         troca: detalheDoDia?.troca,
         opcao: detalheDoDia?.opcao,

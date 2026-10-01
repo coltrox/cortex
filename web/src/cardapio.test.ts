@@ -630,3 +630,35 @@ describe('soDeHoje', () => {
     expect(soDeHoje(comDia(null), '2026-09-28').itens[0].detalhe).toEqual({ hora: '12:30', kcal: 365 })
   })
 })
+
+// O furo que o atualizadoEm sozinho deixava: o celular baixa HOJE um cardapio
+// que o Cortex publicou ONTEM, e a hora do download dizia "e de hoje".
+describe('soDeHoje — o carimbo vem do Cortex', () => {
+  const comCarimbo = (diaDoEstado: string): Cardapio => ({
+    // Baixado agora: pelo relogio do aparelho, seria "de hoje".
+    atualizadoEm: '2026-10-01T07:30:00',
+    itens: [
+      { especie: 'refeicao', nome: 'Almoço', detalhe: { kcal: 365, feito: true, diaDoEstado } },
+      { especie: 'hidratacao', nome: 'Água', detalhe: { meta: 3000, ml: 2500, diaDoEstado } }
+    ]
+  })
+
+  it('o carimbo de ontem manda mais que a hora do download', () => {
+    const c = soDeHoje(comCarimbo('2026-09-30'), '2026-10-01')
+    expect(c.itens[0].detalhe).toEqual({ kcal: 365, diaDoEstado: '2026-09-30' })
+    expect(c.itens[1].detalhe).toEqual({ meta: 3000, diaDoEstado: '2026-09-30' })
+  })
+
+  it('carimbo de hoje passa inteiro', () => {
+    const c = comCarimbo('2026-10-01')
+    expect(soDeHoje(c, '2026-10-01')).toBe(c)
+  })
+
+  it('Cortex antigo, sem carimbo, ainda cai na data do download', () => {
+    const antigo: Cardapio = {
+      atualizadoEm: '2026-09-30T23:00:00',
+      itens: [{ especie: 'refeicao', nome: 'Almoço', detalhe: { kcal: 365, feito: true } }]
+    }
+    expect(soDeHoje(antigo, '2026-10-01').itens[0].detalhe).toEqual({ kcal: 365 })
+  })
+})
