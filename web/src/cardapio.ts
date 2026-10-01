@@ -22,6 +22,54 @@ export type Cardapio = { itens: ItemCardapio[]; atualizadoEm: string | null }
 const VAZIO: Cardapio = { itens: [], atualizadoEm: null }
 
 /**
+ * O que o cardápio diz do DIA — refeição comida, suplemento tomado, água
+ * bebida — ainda vale?
+ *
+ * O Cortex preenche esses campos lendo o diário do dia em que publicou. Com o
+ * computador desligado de uma noite para a outra, o cardápio que o celular
+ * tem é o de ontem: sem esta conferência, a dieta amanhecia com tudo marcado
+ * e a água começava o dia onde parou. O plano em si — refeições, metas,
+ * suplementos — continua valendo; o que expira é só o que foi feito.
+ */
+export function estadoDoDiaVale(c: Cardapio, dia: string): boolean {
+  if (!c.atualizadoEm) return false
+  const d = new Date(c.atualizadoEm)
+  if (Number.isNaN(d.getTime())) return false
+  const dois = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}` === dia
+}
+
+/**
+ * Os campos que contam o que foi FEITO, e por isso viram o dia com ele.
+ *
+ * O resto do `detalhe` é plano — hora, itens, meta, calorias — e continua
+ * valendo de ontem, de semana passada, de quando o Cortex publicou.
+ */
+const CAMPOS_DO_DIA = ['feito', 'ml', 'nivel', 'troca', 'opcao', 'itensDia', 'kcalDia', 'protDia']
+
+/**
+ * O cardápio com o estado do dia apagado quando ele é de outro dia.
+ *
+ * Preferi limpar aqui, uma vez, a conferir a data em cada tela: são quatro
+ * telas lendo `detalhe.feito` em treze lugares, e a que esquecesse mostraria
+ * o dia anterior sem ninguém notar.
+ */
+export function soDeHoje(c: Cardapio, dia: string): Cardapio {
+  if (estadoDoDiaVale(c, dia)) return c
+  return {
+    ...c,
+    itens: c.itens.map(i => {
+      const limpo: Record<string, unknown> = { ...i.detalhe }
+      let mexeu = false
+      for (const campo of CAMPOS_DO_DIA) {
+        if (campo in limpo) { delete limpo[campo]; mexeu = true }
+      }
+      return mexeu ? { ...i, detalhe: limpo } : i
+    })
+  }
+}
+
+/**
  * O cardápio fica guardado no aparelho.
  *
  * Não é cache por desempenho: é o que faz o app abrir com os suplementos e as

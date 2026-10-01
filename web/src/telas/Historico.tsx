@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { diaLocal } from '../montar'
 import { historicoPorData, sessoesFeitas, cardios, dataCurta, type SessaoFeita } from '../cardapio'
 import { Cabecalho, Aviso, Secao } from '../componentes'
+import { guardadoDoNavegador } from '../guardado'
+import { sessoesComLocais, sessoesLocais, conciliarSessoes } from '../sessoesLocais'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
 import { SubNavSaude } from './Saude'
@@ -32,9 +34,42 @@ export function linhaDeSeries(e: SessaoFeita['exercicios'][number]): string {
 
 export function Historico(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => void }) {
   const hoje = diaLocal()
-  const dias = historicoPorData(sessoesFeitas(p.cardapio.cardapio), cardios(p.cardapio.cardapio))
+  const doCortex = sessoesFeitas(p.cardapio.cardapio)
+  /** As registradas aqui que o Cortex ainda não devolveu. */
+  const [locais, setLocais] = useState(() => sessoesLocais(guardadoDoNavegador))
+  useEffect(() => {
+    if (conciliarSessoes(guardadoDoNavegador, doCortex)) {
+      setLocais(sessoesLocais(guardadoDoNavegador))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.cardapio.cardapio])
+  const dias = historicoPorData(sessoesComLocais(doCortex, locais), cardios(p.cardapio.cardapio))
   /** Qual treino está aberto mostrando as séries — um de cada vez. */
   const [aberto, setAberto] = useState<string | null>(null)
+
+  /**
+   * Abre o treino registrado para corrigir, na tela do treino.
+   *
+   * Reaproveita a sessão em andamento — é a mesma tela, com os mesmos campos
+   * de carga e repetição, e aí dá para mexer em tudo: nome do exercício,
+   * séries, pesos. Registrar de novo reescreve a nota daquele dia, porque o
+   * evento vai com a data dele.
+   */
+  const corrigir = (s: typeof doCortex[number]): void => {
+    guardadoDoNavegador.gravar('cortex.treino', JSON.stringify({
+      modelo: s.modelo,
+      dia: s.data,
+      itens: s.exercicios.map(e => ({
+        nome: e.nome,
+        presc: [e.series ? String(e.series) : '', e.reps].filter(Boolean).join(' × '),
+        feitas: e.feitas.length > 0
+          ? e.feitas.map(x => ({ carga: x.carga ?? undefined, reps: x.reps ?? undefined }))
+          : [{ carga: e.carga ?? undefined, reps: undefined }],
+        feito: true
+      }))
+    }))
+    p.irPara('treino')
+  }
 
   return (
     <div className="tema-treino">
@@ -80,6 +115,9 @@ export function Historico(p: { cardapio: UsoDoCardapio; irPara: (t: Tela) => voi
                           <span className="feito-ex-series">{linhaDeSeries(e)}</span>
                         </div>
                       ))}
+                      <button className="btn-mini feito-corrigir" type="button" onClick={() => corrigir(s)}>
+                        corrigir este treino
+                      </button>
                     </div>
                   )}
                 </div>

@@ -5,7 +5,7 @@ import {
   suplementosDoDia, refeicoesDoPlano, treinos, exerciciosDoTreino,
   provas, compromissos, tarefas, caminhoDe, dataDe, faltam, dataCurta, haQuantoTempo,
   hidratacao, litros, anotacoesDoDia, momentoDe, todasAnotacoes, areasLigadas, areaLigada,
-  sessoesFeitas, historicoPorData
+  sessoesFeitas, historicoPorData, soDeHoje, estadoDoDiaVale, type Cardapio
 } from './cardapio'
 import { jaFeitos, marcarFeito, desmarcarFeito } from './feitos'
 import type { ItemCardapio } from '@compartilhado/eventos'
@@ -596,5 +596,37 @@ describe('historicoPorData — o dia inteiro junto', () => {
 
   it('sem nada, sem dias', () => {
     expect(historicoPorData([], [])).toEqual([])
+  })
+})
+
+// A virada do dia com o computador desligado: o cardapio que o celular tem e
+// o de ontem, com tudo marcado. Era o que ele via de manha.
+describe('soDeHoje', () => {
+  const comDia = (iso: string | null): Cardapio => ({
+    atualizadoEm: iso,
+    itens: [
+      { especie: 'refeicao', nome: 'Almoço', detalhe: { hora: '12:30', kcal: 365, feito: true, opcao: 'frango' } },
+      { especie: 'suplemento', nome: 'Creatina', detalhe: { dose: '5 g', feito: true } },
+      { especie: 'hidratacao', nome: 'Água', detalhe: { meta: 3000, copo: 500, ml: 2500 } }
+    ]
+  })
+
+  it('o cardapio de ontem perde o que foi feito, e so isso', () => {
+    const c = soDeHoje(comDia('2026-09-27T23:10:00'), '2026-09-28')
+    expect(c.itens[0].detalhe).toEqual({ hora: '12:30', kcal: 365 })
+    expect(c.itens[1].detalhe).toEqual({ dose: '5 g' })
+    // O plano fica: meta e copo nao viram o dia, so o quanto ja foi bebido.
+    expect(c.itens[2].detalhe).toEqual({ meta: 3000, copo: 500 })
+  })
+
+  it('o cardapio de hoje passa inteiro, sem copia desnecessaria', () => {
+    const c = comDia('2026-09-28T07:00:00')
+    expect(soDeHoje(c, '2026-09-28')).toBe(c)
+  })
+
+  it('sem data de publicacao, o estado do dia nao vale', () => {
+    expect(estadoDoDiaVale(comDia(null), '2026-09-28')).toBe(false)
+    expect(estadoDoDiaVale({ itens: [], atualizadoEm: 'isto nao e data' }, '2026-09-28')).toBe(false)
+    expect(soDeHoje(comDia(null), '2026-09-28').itens[0].detalhe).toEqual({ hora: '12:30', kcal: 365 })
   })
 })

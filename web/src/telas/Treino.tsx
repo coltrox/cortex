@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import {
+  useEffect, useRef, useState,
+  type KeyboardEvent, type PointerEvent as ReactPointerEvent
+} from 'react'
 import { diaLocal, eventoSessao, type ExercicioFeito, type SerieFeita } from '../montar'
 import { treinos, exerciciosDoTreino } from '../cardapio'
 import { guardadoDoNavegador } from '../guardado'
+import { mover, alvoDoArrasto, type Caixa } from '../ordem'
+import { guardarSessaoLocal } from '../sessoesLocais'
 import { Cabecalho, Botao, Aviso } from '../componentes'
 import type { useEnvio, UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -20,7 +25,11 @@ const CHAVE = 'cortex.treino'
  * e ausente vale como "não concluído", que é o estado certo para retomar.
  */
 type Exercicio = { nome: string; presc: string; feitas: SerieFeita[]; feito?: boolean }
-type Sessao = { modelo: string; itens: Exercicio[] }
+/**
+ * `dia` só aparece quando a sessão é a edição de um treino já registrado —
+ * ver "corrigir" no histórico. Sem ele, o treino é o de hoje.
+ */
+type Sessao = { modelo: string; itens: Exercicio[]; dia?: string }
 
 /**
  * A sessão em andamento, guardada no aparelho.
@@ -66,6 +75,22 @@ function seriesIniciais(series: number | undefined): SerieFeita[] {
  * "4 × 15-12-10-8" dá 15, 12, 10, 8; "3 × 10" dá 10 em todas. Série a mais
  * que a prescrição repete o último número.
  */
+/**
+ * O que o exercício fechado mostra: se foi feito, e o que já está anotado.
+ *
+ * Fechado, o cartão responde uma pergunta só — "este eu já fiz?" —, que é o
+ * que o dono pediu. O peso vem junto quando existe, porque é o que ele
+ * confere antes de abrir para repetir a carga.
+ */
+export function resumoDoExercicio(e: { feito?: boolean; feitas: SerieFeita[] }): string {
+  const cheias = e.feitas.filter(s => s.reps != null || s.carga != null)
+  const cargas = [...new Set(cheias.map(s => s.carga).filter((c): c is number => c != null))]
+  const peso = cargas.length === 1 ? `${cargas[0]} kg` : cargas.length > 1 ? `até ${Math.max(...cargas)} kg` : ''
+  if (e.feito === true) return ['feito', cheias.length ? `${cheias.length}×` : '', peso].filter(Boolean).join(' · ')
+  if (cheias.length === 0) return 'não feito'
+  return [`${cheias.length} de ${e.feitas.length}`, peso].filter(Boolean).join(' · ')
+}
+
 export function repsAlvo(presc: string, j: number): string {
   const reps = presc.includes('×') ? presc.split('×').pop() ?? '' : ''
   const partes = reps.split(/[-/,]/).map(s => s.trim()).filter(Boolean)
@@ -101,6 +126,19 @@ export function Treino(p: {
   const [renomeando, setRenomeando] = useState<number | null>(null)
   const [nomeNovo, setNomeNovo] = useState('')
   const [adicionando, setAdicionando] = useState(false)
+  /**
+   * Os exercícios encolhidos, pelo nome.
+   *
+   * Pelo nome e não pelo índice porque a lista se reordena: guardado por
+   * índice, arrastar o terceiro para cima encolheria o que ficou no lugar
+   * dele. Concluir encolhe sozinho — o que acabou sai da frente do que falta.
+   */
+  const [encolhidos, setEncolhidos] = useState<Set<string>>(() => new Set())
+  /** Qual exercício o dedo está segurando, e sobre qual posição ele está. */
+  const [arrastando, setArrastando] = useState<{ de: number; sobre: number } | null>(null)
+  /** Os cartões na tela, para saber sobre qual posição o dedo passou. */
+  const cartoes = useRef<(HTMLDivElement | null)[]>([])
+  const pressionando = useRef<number | null>(null)
   const [nomeExercicio, setNomeExercicio] = useState('')
   /** Depois de adicionar um exercício, o foco vai para o kg da primeira série dele. */
   const focarExercicio = useRef<number | null>(null)
@@ -219,6 +257,68 @@ export function Treino(p: {
     setAdicionando(false)
   }
 
+  /* ---------- encolher e arrastar ---------- */
+
+  const encolhido = (nome: string): boolean => encolhidos.has(nome)
+
+  const virarEncolhido = (nome: string): void =>
+    setEncolhidos(atual => {
+      const novo = new Set(atual)
+      if (novo.has(nome)) novo.delete(nome)
+      else novo.add(nome)
+      return novo
+    })
+
+  /**
+   * Segurar um exercício começa o arraste.
+   *
+   * Meio segundo de dedo parado: menos que isso e rolar a lista viraria
+   * arrastar o exercício sem querer, que é o jeito de bagunçar o treino no
+   * meio da série. Enquanto arrasta, todos encolhem — a lista inteira cabe na
+   * tela e dá para ver para onde o exercício está indo.
+   */
+  const comecarArrasto = (i: number, ev: ReactPointerEvent<HTMLElement>): void => {
+    const alvo = ev.currentTarget
+    pressionando.current = window.setTimeout(() => {
+      pressionando.current = null
+      alvo.setPointerCapture?.(ev.pointerId)
+      // Uma batidinha no aparelho avisa que pegou — sem ela, o dedo parado
+      // não tem como saber que o arraste começou.
+      navigator.vibrate?.(15)
+      setArrastando({ de: i, sobre: i })
+    }, 500)
+  }
+
+  const soltarPressao = (): void => {
+    if (pressionando.current !== null) {
+      clearTimeout(pressionando.current)
+      pressionando.current = null
+    }
+  }
+
+  const arrastarAte = (ev: ReactPointerEvent<HTMLElement>): void => {
+    if (!arrastando) { soltarPressao(); return }
+    ev.preventDefault()
+    const caixas: Caixa[] = cartoes.current
+      .filter((el): el is HTMLDivElement => el !== null)
+      .map(el => {
+        const r = el.getBoundingClientRect()
+        return { topo: r.top, altura: r.height }
+      })
+    setArrastando(a => (a ? { ...a, sobre: alvoDoArrasto(ev.clientY, caixas) } : a))
+  }
+
+  const terminarArrasto = (): void => {
+    soltarPressao()
+    if (!arrastando) return
+    const { de, sobre } = arrastando
+    setArrastando(null)
+    if (de !== sobre) {
+      setSessao(st => (st ? { ...st, itens: mover(st.itens, de, sobre) } : st))
+      navigator.vibrate?.(10)
+    }
+  }
+
   const concluidos = sessao.itens.filter(e => e.feito === true)
   // Ter o que registrar é outra pergunta: alguém pode anotar as séries todas e
   // sair sem apertar concluir em nenhum exercício, e esse treino não pode ser
@@ -254,7 +354,22 @@ export function Treino(p: {
   const enviar = (): void => {
     try {
       const lista: ExercicioFeito[] = sessao.itens.map(e => ({ nome: e.nome, feitas: e.feitas }))
-      p.envio.registrar(eventoSessao(sessao.modelo, lista, diaLocal()))
+      // Corrigindo um treino antigo, o evento vai com o dia DELE: reescrever
+      // o de ontem não pode criar um treino de hoje.
+      const dia = sessao.dia ?? diaLocal()
+      p.envio.registrar(eventoSessao(sessao.modelo, lista, dia))
+      // E o histórico mostra na hora, sem esperar o computador acordar.
+      guardarSessaoLocal(guardadoDoNavegador, {
+        data: dia,
+        modelo: sessao.modelo,
+        exercicios: sessao.itens.map(e => ({
+          nome: e.nome,
+          series: null,
+          reps: '',
+          carga: null,
+          feitas: e.feitas.map(x => ({ carga: x.carga ?? null, reps: x.reps ?? null }))
+        }))
+      })
       // A sessão sai do disco só depois que o evento entrou na fila — e a
       // fila já sabe esperar a rede voltar.
       encerrar()
@@ -281,10 +396,30 @@ export function Treino(p: {
         <div className="lista lista-treino">
           {sessao.itens.map((e, i) => {
             const feito = e.feito === true
+            // Arrastando, todos encolhem: a lista inteira cabe na tela e dá
+            // para ver para onde o exercício está indo.
+            const fechado = arrastando !== null || encolhido(e.nome)
+            const puxado = arrastando?.de === i
+            const cedendo = arrastando !== null && arrastando.sobre === i && !puxado
             return (
-              <div className={`cartao-exercicio ${feito ? 'exercicio-feito' : ''}`}
-                key={`${i}-${e.nome}`}>
-                <div className="exercicio-cabeca">
+              <div
+                className={`cartao-exercicio ${feito ? 'exercicio-feito' : ''}`}
+                data-fechado={fechado}
+                data-puxado={puxado}
+                data-cedendo={cedendo}
+                ref={el => { cartoes.current[i] = el }}
+                key={`${i}-${e.nome}`}
+              >
+                <div
+                  className="exercicio-cabeca"
+                  onPointerDown={ev => comecarArrasto(i, ev)}
+                  onPointerMove={arrastarAte}
+                  onPointerUp={terminarArrasto}
+                  onPointerCancel={terminarArrasto}
+                >
+                  {/* Segurar aqui pega o exercício para mudar de lugar; o
+                      punho é só o aviso de que dá. */}
+                  <span className="exercicio-punho" aria-hidden="true">⠿</span>
                   <span className="marcador">{feito ? '✓' : i + 1}</span>
                   <div className="exercicio-titulo">
                     {renomeando === i ? (
@@ -314,19 +449,40 @@ export function Treino(p: {
                     )}
                     {e.presc && <span className="exercicio-presc">{e.presc}</span>}
                   </div>
+                  {/* Encolhido, o cartão diz só se o exercício foi feito —
+                      é o que o dono pediu para ver quando a lista está
+                      fechada. */}
+                  {fechado && <span className="exercicio-resumo">{resumoDoExercicio(e)}</span>}
+                  {/* O lixo só no cartão aberto: fechado, o cabeçalho
+                      responde "fiz ou não fiz", e um lixo ali ao lado do
+                      ponto onde se segura para arrastar é acidente à espera. */}
+                  {!fechado && (
+                    <button
+                      className="sumir" type="button"
+                      aria-label={`tirar ${e.nome} deste treino`}
+                      onClick={() => setSessao(st =>
+                        st ? { ...st, itens: st.itens.filter((_, k) => k !== i) } : st)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                        stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 9h5.6l.7-9" />
+                      </svg>
+                    </button>
+                  )}
                   <button
-                    className="sumir" type="button"
-                    aria-label={`tirar ${e.nome} deste treino`}
-                    onClick={() => setSessao(s =>
-                      s ? { ...s, itens: s.itens.filter((_, k) => k !== i) } : s)}
+                    className="exercicio-abrir" type="button"
+                    aria-expanded={!fechado}
+                    aria-label={`${fechado ? 'Abrir' : 'Fechar'} ${e.nome}`}
+                    onClick={() => virarEncolhido(e.nome)}
                   >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-                      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                      <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 9h5.6l.7-9" />
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5.5 7 9 10.5 12.5 7" />
                     </svg>
                   </button>
                 </div>
 
+                {!fechado && <>
                 <div className="series">
                   <div className="serie serie-rotulos" aria-hidden="true">
                     <span />
@@ -387,11 +543,23 @@ export function Treino(p: {
                     className={`btn-mini ${feito ? 'btn-mini-ligado' : ''}`}
                     type="button"
                     aria-pressed={feito}
-                    onClick={() => mexer(i, x => ({ ...x, feito: !x.feito }))}
+                    onClick={() => {
+                      // Concluir fecha o cartão: o que acabou sai da frente
+                      // do que falta. Desfazer abre de novo, para corrigir.
+                      const virou = !feito
+                      mexer(i, x => ({ ...x, feito: virou }))
+                      setEncolhidos(atual => {
+                        const novo = new Set(atual)
+                        if (virou) novo.add(e.nome)
+                        else novo.delete(e.nome)
+                        return novo
+                      })
+                    }}
                   >
                     {feito ? '✓ concluído' : 'concluir'}
                   </button>
                 </div>
+                </>}
               </div>
             )
           })}

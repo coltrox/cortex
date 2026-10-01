@@ -8,7 +8,7 @@ import { CREDENCIAL, faltaCredencial } from './credencial'
 import {
   ouvirCampainha, tocarCampainha, reavaliarCampainha, acordarCampainha
 } from './campainha'
-import { lerCardapio, gravarCardapio, type Cardapio } from './cardapio'
+import { lerCardapio, gravarCardapio, soDeHoje, type Cardapio } from './cardapio'
 import { guardarEdicao, aplicarEdicoes, EVENTO_EDICAO_LOCAL } from './edicoesLocais'
 import { diaLocal } from './montar'
 
@@ -232,7 +232,7 @@ export function useCardapio(): UsoDoCardapio {
     return () => window.removeEventListener(EVENTO_EDICAO_LOCAL, aoEditar)
   }, [])
   const visivel = useMemo(
-    () => aplicarEdicoes(guardadoDoNavegador, cardapio, diaLocal()),
+    () => aplicarEdicoes(guardadoDoNavegador, soDeHoje(cardapio, diaLocal()), diaLocal()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [cardapio, versaoLocal]
   )

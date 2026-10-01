@@ -2039,3 +2039,51 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
    a lista continua legível quando uma delas está escolhida. */
 .refeicao-opcao-feita{ border-color:var(--ok); background:rgba(74,222,128,.07); }
 .refeicao-opcao-feita .refeicao-numero{ background:var(--ok); color:#0b1b10; }
+
+/* ═══════════ EXERCÍCIO: ENCOLHER E ARRASTAR (2.6.39) ═══════════ */
+
+/* O punho de arrastar, à esquerda do número. Segurar o cabeçalho é o que pega
+   o exercício; o punho só avisa que dá. */
+.exercicio-punho{
+  flex:none; color:var(--txt-3); font-size:13px; line-height:1;
+  letter-spacing:-2px; cursor:grab;
+}
+/* O cabeçalho inteiro é a alça: `pan-y` deixa a lista rolar e entrega o resto
+   dos gestos para o arraste. */
+.cartao-exercicio > .exercicio-cabeca{ touch-action:pan-y; }
+
+/* Fechado: só o cabeçalho, com o resumo no lugar das séries. */
+.exercicio-resumo{
+  margin-left:auto; padding-right:var(--e2);
+  font-family:var(--fonte-num); font-size:11.5px; color:var(--txt-3);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:45%;
+}
+.exercicio-abrir{
+  flex:none; display:grid; place-items:center; width:32px; height:32px;
+  background:none; border:none; color:var(--txt-3); cursor:pointer;
+}
+.exercicio-abrir svg{ transition:transform .18s ease; }
+.exercicio-abrir[aria-expanded="false"] svg{ transform:rotate(-90deg); }
+
+/* Arrastando: o cartão puxado sobe um degrau e o que vai ceder o lugar abre
+   espaço, para o dedo ver onde vai soltar. */
+.cartao-exercicio[data-puxado="true"]{
+  border-color:var(--acento); box-shadow:0 10px 28px rgba(0,0,0,.35);
+  transform:scale(1.015); opacity:.97;
+}
+.cartao-exercicio[data-cedendo="true"]{ border-color:var(--acento); }
+.cartao-exercicio[data-fechado="true"] .exercicio-presc{ display:none; }
+
+/* A linha de ações quebra quando não cabe: era o "concluir" voando para fora
+   do cartão quando o exercício tinha nome comprido (pedido do dono). */
+.lista-treino .cartao-exercicio > .linha-acoes{ flex-wrap:wrap; row-gap:var(--e2); }
+/* "Tirar" é o terceiro botão da linha, e o menor: não disputa espaço com os
+   dois que se usam a cada série. Sem `flex:1` ele cabe ao lado deles em vez
+   de ser empurrado para uma linha só sua. */
+.btn-mini-perigo{ flex:none; padding:0 var(--e4); color:var(--perigo, #f87171); }
+/* Aberto, o nome comprido quebra em vez de cortar: é lá que se confere se o
+   exercício é o do plano ou o que foi trocado. */
+.cartao-exercicio[data-fechado='false'] .exercicio-nome{ white-space:normal; overflow:visible; }
+
+/* "Corrigir este treino": abre a sessão registrada na tela do treino (2.6.39). */
+.feito-corrigir{ width:100%; margin-top:var(--e2); }

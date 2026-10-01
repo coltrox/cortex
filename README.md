@@ -407,6 +407,15 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.6.39` — o **treino no celular** ganhou: cada exercício **encolhe e
+expande** (fechado, diz só se foi feito e o peso); dá para **mudar a ordem**
+segurando o exercício e arrastando; e o treino registrado **aparece na hora no
+histórico**, com "corrigir este treino", que reabre a sessão para mexer em
+tudo — nome, séries e cargas. A linha de botões parou de empurrar o
+**concluir** para fora. E a dieta e a água **viram o dia** mesmo com o
+computador desligado: o que o cardápio diz que foi feito só vale se ele for
+do dia de hoje.
+
 `v2.6.38` — a refeição aberta juntou de verdade: a moldura do cabeçalho
 mora no cartão de fora (o que tem a seta), e era nele que os cantos de baixo
 tinham de sumir — a regra anterior mirava o botão de dentro e não pegava.
