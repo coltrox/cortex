@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.7.2` — as notas de estudo agora aparecem nas telas certas: os dez resumos
+de conteúdo viraram `tipo: materia` (é o que a lente Estudos › Conteúdos lista) e o
+simulado virou `tipo: simulado`, mostrando **a fazer** enquanto não tem acertos
+registrados — antes apareceria como "0 acertos", que parece nota zero.
+
 `v2.7.1` — a estrutura de redação virou **tipo próprio** (`estrutura-redacao`).
 Ela estava usando `redacao`, que é o tipo das redações ESCRITAS: as dez estruturas
 caíram na lista das suas redações, sem nota e sem data, e o campo Gênero aparecia

@@ -236,7 +236,9 @@ export function LenteEstudos({
                     <span className="linha-data">{dataCurta(s.date, hoje)}</span>
                     <span className="linha-titulo">{s.title}</span>
                     {txt(s.campos.materia) && <span className="tipo">{txt(s.campos.materia)}</span>}
-                    <span className="linha-valor">{t ? `${a}/${t}` : `${a} acertos`}</span>
+                    {/* Simulado ainda nao feito nao mostra "0 acertos": o enunciado
+                        entra aqui antes da prova, e um zero ali pareceria nota. */}
+                    <span className="linha-valor">{a || t ? (t ? `${a}/${t}` : `${a} acertos`) : 'a fazer'}</span>
                     {t > 0 && (
                       <span className="nivel" data-n={Math.max(1, Math.ceil(pct / 20))}>{pct}%</span>
                     )}
