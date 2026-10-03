@@ -138,6 +138,11 @@ begin
                                'area',
                                -- A agua do dia: quanto ja foi, a meta e a garrafa.
                                'hidratacao',
+                               -- Redacao: o esqueleto de um genero de texto e
+                               -- o repertorio que sustenta o argumento. Sao
+                               -- duas coisas diferentes -- uma diz COMO
+                               -- organizar, a outra COM O QUE preencher.
+                               'estrutura-redacao','repertorio',
                                -- A anotacao. Sobem TODAS: a tela Notas do
                                -- celular mostra o conjunto, e o Hoje corta
                                -- pelo dia. Quem corta e a tela, nao o banco.

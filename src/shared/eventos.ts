@@ -114,7 +114,11 @@ export const TIPOS_NOTA_CARDAPIO = [
   // `montarCardapio` copia dele quatro campos, nada mais — os três conjuntos
   // de check e o total de água. Ver a lista branca lá, que é o que impede o
   // resto do diário (gastos, peso, anotações do dia) de subir junto.
-  'diario'
+  'diario',
+  // Redação: o modelo de gênero e o material que sustenta o argumento. Os
+  // dois são consulta na hora de escrever, e por isso vão inteiros, com o
+  // corpo.
+  'estrutura-redacao', 'repertorio'
 ] as const
 
 export const ESPECIES_CARDAPIO = [

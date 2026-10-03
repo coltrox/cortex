@@ -435,11 +435,16 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     // `sessao`, `cardio` e `medida` entraram em 23/09/2026: o celular passou a
     // MOSTRAR o historico de treino, e sem eles aqui registrar um treino nao
     // republicava nada -- ele so aparecia quando outra coisa mudasse no vault.
+    // `estrutura-redacao` e `repertorio` entraram em 03/10/2026, e por este
+    // mesmo defeito: eu tinha acrescentado a especie em ESPECIES_CARDAPIO e em
+    // montarCardapio, mas nao aqui — entao a nota nem era LIDA do indice, e as
+    // duas abas de Redacao no celular ficaram vazias com quinze notas no vault.
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
       'acontecimento',
-      'anotacao', 'cardio', 'data-comemorativa', 'diario', 'evento', 'hidratacao', 'medida',
-      'meta-cofre', 'pessoa', 'plano', 'porquinho', 'prova', 'rotina', 'sessao', 'simulado',
-      'suplemento', 'tarefa', 'treino-modelo'
+      'anotacao', 'cardio', 'data-comemorativa', 'diario', 'estrutura-redacao',
+      'evento', 'hidratacao', 'medida',
+      'meta-cofre', 'pessoa', 'plano', 'porquinho', 'prova', 'repertorio', 'rotina',
+      'sessao', 'simulado', 'suplemento', 'tarefa', 'treino-modelo'
     ])
   })
 
@@ -453,6 +458,8 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       evento: nota({ path: 'e.md', title: 'E', tipo: 'evento', date: '2026-09-10' }),
       tarefa: nota({ path: 'f.md', title: 'Ta', tipo: 'tarefa', date: '2026-09-10' }),
       rotina: nota({ path: 'h.md', title: 'Abdomen', tipo: 'rotina' }),
+      'estrutura-redacao': { ...nota({ path: 'er.md', title: 'Carta', tipo: 'estrutura-redacao' }), corpo: 'passo a passo' },
+      repertorio: { ...nota({ path: 'rp.md', title: 'Krenak', tipo: 'repertorio' }), corpo: 'o que diz' },
       hidratacao: nota({ path: 'i.md', title: 'Agua', tipo: 'hidratacao', campos: { meta: 3500 } }),
       'data-comemorativa': nota({
         path: 'k.md', title: 'Aniversario da mae', tipo: 'data-comemorativa',

@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.8.1` — as notas de redação **chegam ao celular**: faltavam dois dos quatro
+lugares onde a lista de espécies existe — o filtro que lê o índice e a lista branca
+do banco. Com eles, as abas ficavam vazias com quinze notas no vault. Precisa rodar
+`supabase/migracoes/2026-10-03-redacao.sql` no SQL Editor.
+
 `v2.8.0` — **Repertórios ganharam área própria**: aba em Estudos, tipo e
 formulário próprios (tema, tipo de fonte) e pasta `Estudos/Repertorios`. No celular,
 a tela de Redação passou a ter duas abas — Estruturas (como organizar o texto) e
