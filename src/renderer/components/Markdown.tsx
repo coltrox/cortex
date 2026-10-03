@@ -36,7 +36,19 @@ const SIMBOLOS: Record<string, string> = {
   Rightarrow: '⇒', to: '→', sum: '∑', prod: '∏', int: '∫', partial: '∂',
   nabla: '∇', angle: '∠', degree: '°', therefore: '∴', ldots: '…',
   emptyset: '∅', log: 'log', ln: 'ln', sen: 'sen', sin: 'sen',
-  cos: 'cos', tan: 'tg', tg: 'tg', lim: 'lim', max: 'max', min: 'min'
+  cos: 'cos', tan: 'tg', tg: 'tg', lim: 'lim', max: 'max', min: 'min',
+  /*
+   * Espaçamento. Sem isto, `qquad` entre duas fórmulas na mesma linha saía
+   * escrito "qquad" no meio da conta — foi assim que o dono viu "S = -b/a
+   * qquad P = c/a" na tela.
+   */
+  quad: ' ', qquad: '  ',
+  /* Funções que se escrevem em letra reta, como log e ln. */
+  det: 'det', exp: 'exp', mod: 'mod', arcsen: 'arcsen', arctg: 'arctg',
+  /* Relações que faltavam. */
+  iff: '⇔', Leftrightarrow: '⇔', implies: '⇒', ne: '≠', le: '≤', ge: '≥',
+  cdots: '⋯', dots: '…', perp: '⊥', parallel: '∥', simeq: '≃',
+  subsetneq: '⊊', supset: '⊃', setminus: '∖', circ: '∘', bullet: '•'
 }
 
 /**
@@ -45,6 +57,17 @@ const SIMBOLOS: Record<string, string> = {
  * uma string aqui é a fonte de erro mais boba possível neste arquivo.
  */
 const CONTRA_BARRA = String.fromCharCode(92)
+
+/**
+ * O caractere de um comando de formula, ou `null` se nao houver.
+ *
+ * Existe separado para o teste poder perguntar "o Cortex entende \qquad?"
+ * sem montar React: comando que falta aqui aparece escrito por extenso no
+ * meio da conta, na cara de quem estuda.
+ */
+export function simboloDe(nome: string): string | null {
+  return GREGAS[nome] ?? SIMBOLOS[nome] ?? null
+}
 
 /** Lê `{...}` equilibrado a partir de `i` (que aponta para a chave de abertura). */
 function grupo(s: string, i: number): { corpo: string; fim: number } {
@@ -106,6 +129,19 @@ function expressao(src: string, chave = 'f'): ReactNode[] {
         )
         continue
       }
+      if (nome === 'bar' || nome === 'overline') {
+        // A média de x. A barra é desenhada pelo CSS, e não por caractere
+        // combinante: combinante desalinha em fonte com largura fixa.
+        const a = grupo(src, i)
+        i = a.fim
+        descarrega()
+        out.push(
+          <span className="sobrelinha" key={`${chave}${n++}`}>
+            {expressao(a.corpo, `${chave}o`)}
+          </span>
+        )
+        continue
+      }
       if (nome === 'text' || nome === 'mathrm') {
         const a = grupo(src, i)
         i = a.fim
@@ -113,7 +149,10 @@ function expressao(src: string, chave = 'f'): ReactNode[] {
         out.push(<span className="mtexto" key={`${chave}${n++}`}>{a.corpo}</span>)
         continue
       }
-      texto += GREGAS[nome] ?? SIMBOLOS[nome] ?? nome
+      // Comando desconhecido cai como o proprio nome: foi assim que um
+      // `qquad` apareceu escrito no meio de uma formula. Quem decide e
+      // `simboloDe`, que o teste cobre.
+      texto += simboloDe(nome) ?? nome
       continue
     }
 

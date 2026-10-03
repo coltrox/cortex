@@ -2691,3 +2691,7 @@ kbd {
   letter-spacing: .04em;
   text-transform: uppercase;
 }
+
+/* A barra de ar{x} — a média. Desenhada pela borda, e não por caractere
+   combinante, que desalinha em fonte de largura fixa. */
+.sobrelinha { border-top: 1px solid currentColor; padding-top: 1px; }

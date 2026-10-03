@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.7.3` — **fórmula com comando desconhecido não sai mais escrita por extenso**.
+`qquad` aparecia como a palavra "qquad" no meio da conta; agora o renderizador
+entende espaçamento, `det`, `iff`, `ar{x}` (a média) e mais vinte símbolos — com
+teste por lista, porque fórmula errada não quebra o app, só ensina errado.
+
 `v2.7.2` — as notas de estudo agora aparecem nas telas certas: os dez resumos
 de conteúdo viraram `tipo: materia` (é o que a lente Estudos › Conteúdos lista) e o
 simulado virou `tipo: simulado`, mostrando **a fazer** enquanto não tem acertos
