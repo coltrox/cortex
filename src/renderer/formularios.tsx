@@ -245,6 +245,25 @@ export const FORMULARIOS: Record<string, Formulario> = {
     corpo: '## Texto\n\n## O que o corretor apontou\n'
   },
   /*
+   * O repertório: o material que sustenta o argumento.
+   *
+   * Separado da estrutura porque são dois gestos diferentes — a estrutura diz
+   * COMO organizar o texto, o repertório diz COM O QUE preenchê-lo. Na mesma
+   * lista, procurar "o que uso para falar de meio ambiente" exigia passar por
+   * dez modelos de carta.
+   */
+  repertorio: {
+    tipo: 'repertorio', nome: 'Repertório', pasta: 'Estudos/Repertorios',
+    nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'Nome', tipo: 'texto', obrigatorio: true, placeholder: 'Krenak — A vida não é útil' },
+      { k: 'tema', rotulo: 'Tema', tipo: 'texto', placeholder: 'meio ambiente, educação…' },
+      { k: 'fonte', rotulo: 'Tipo de fonte', tipo: 'select', opcoes: ['livro', 'lei', 'dado', 'filme', 'música', 'caso', 'pensador', 'outro'] }
+    ],
+    corpo: 'O QUE DIZ\n\n\nCOMO USAR\n\n\nFRASE PRONTA\n'
+  },
+
+  /*
    * A ESTRUTURA de redação — o esqueleto de um gênero.
    *
    * Irmã de `redacao` e deliberadamente separada dela: aquela é o texto que

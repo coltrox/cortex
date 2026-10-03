@@ -2147,3 +2147,16 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 .cartao-redacao .redacao-nome, .cartao-atalho span:first-child{ flex:1; font-weight:600; }
 .cartao-redacao .redacao-quando{ color:var(--txt-3); font-size:13px; }
 .cartao-redacao .seta, .cartao-atalho .seta{ color:var(--txt-3); font-size:20px; }
+
+/* As duas listas da tela de Redação: estrutura (como organizar) e repertório
+   (com o que preencher). Quem escreve alterna entre as duas o tempo todo. */
+.abas-redacao{ display:flex; gap:8px; margin-bottom:14px; }
+.btn-aba{
+  flex:1; padding:10px; border-radius:var(--r2); cursor:pointer;
+  border:1px solid var(--linha); background:transparent; color:var(--txt-2);
+  font-size:15px; font-weight:600;
+}
+.btn-aba[data-ativa='true']{
+  border-color:var(--acento); color:var(--txt-1);
+  background:color-mix(in srgb, var(--acento) 14%, transparent);
+}

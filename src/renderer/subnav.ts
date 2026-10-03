@@ -33,6 +33,10 @@ export const SUBS: Partial<Record<Lente, { id: Sub; nome: string }[]>> = {
     { id: 'provas',      nome: 'Provas' },
     { id: 'simulados',   nome: 'Simulados' },
     { id: 'redacoes',    nome: 'Redações' },
+    // Área própria, e não uma seção dentro de Redações: repertório é o que se
+    // consulta ANTES de escrever, e procurar por tema dentro da lista de
+    // redações já escritas não é o mesmo gesto.
+    { id: 'repertorios', nome: 'Repertórios' },
     { id: 'tarefas',     nome: 'Tarefas' },
     { id: 'livros',      nome: 'Livros' },
     { id: 'pomodoro',    nome: 'Pomodoro' }

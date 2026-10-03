@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.8.0` — **Repertórios ganharam área própria**: aba em Estudos, tipo e
+formulário próprios (tema, tipo de fonte) e pasta `Estudos/Repertorios`. No celular,
+a tela de Redação passou a ter duas abas — Estruturas (como organizar o texto) e
+Repertórios (com o que preenchê-lo), agrupados por tema.
+
 `v2.7.3` — **fórmula com comando desconhecido não sai mais escrita por extenso**.
 `qquad` aparecia como a palavra "qquad" no meio da conta; agora o renderizador
 entende espaçamento, `det`, `iff`, `ar{x}` (a média) e mais vinte símbolos — com

@@ -270,6 +270,20 @@ export function montarCardapio(
     })
   }
 
+  // Os repertórios, agrupados por tema na tela do celular.
+  for (const n of notas.filter(x => x.tipo === 'repertorio')) {
+    out.push({
+      especie: 'repertorio',
+      nome: txt(n.title),
+      detalhe: comValor({
+        path: n.path,
+        tema: txt(n.campos.tema),
+        fonte: txt(n.campos.fonte),
+        corpo: corpoPublicavel(n.corpo)
+      })
+    })
+  }
+
   // A tarefa diária. Mesma forma do suplemento — no celular ela é o mesmo
   // gesto, logo abaixo dele.
   for (const n of notas.filter(x => x.tipo === 'rotina')) {

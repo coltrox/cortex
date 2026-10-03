@@ -19,10 +19,21 @@ export function Redacao(p: {
   cardapio: UsoDoCardapio
   irPara: (t: Tela) => void
 }) {
-  /** Qual estrutura está aberta. `null` é a lista. */
+  /** Qual item está aberto. `null` é a lista. */
   const [aberta, setAberta] = useState<string | null>(null)
+  /*
+   * Duas listas na mesma tela, e não duas telas.
+   *
+   * São o mesmo momento — escrever a redação —, mas respondem a perguntas
+   * diferentes: a estrutura diz COMO organizar o texto, o repertório diz COM
+   * O QUE preenchê-lo. Quem está escrevendo alterna entre as duas o tempo
+   * todo, e separar em telas distantes obrigaria a voltar ao menu a cada
+   * troca.
+   */
+  const [aba, setAba] = useState<'estruturas' | 'repertorios'>('estruturas')
 
-  const estruturas = p.cardapio.cardapio.itens.filter(i => i.especie === 'estrutura-redacao')
+  const especie = aba === 'estruturas' ? 'estrutura-redacao' : 'repertorio'
+  const estruturas = p.cardapio.cardapio.itens.filter(i => i.especie === especie)
 
   /*
    * Agrupadas por gênero.
@@ -33,9 +44,8 @@ export function Redacao(p: {
    */
   const porGenero = new Map<string, typeof estruturas>()
   for (const e of estruturas) {
-    const g = typeof e.detalhe.genero === 'string' && e.detalhe.genero
-      ? e.detalhe.genero
-      : 'Outras'
+    const campo = aba === 'estruturas' ? e.detalhe.genero : e.detalhe.tema
+    const g = typeof campo === 'string' && campo ? campo : 'Outros'
     porGenero.set(g, [...(porGenero.get(g) ?? []), e])
   }
 
@@ -60,12 +70,31 @@ export function Redacao(p: {
 
   return (
     <div>
-      <Cabecalho titulo="Estruturas de redação" aoVoltar={() => p.irPara('estudo')} />
+      <Cabecalho titulo="Redação" aoVoltar={() => p.irPara('estudo')} />
       <div className="bloco">
+        <div className="abas-redacao">
+          <button
+            type="button"
+            className="btn-aba"
+            data-ativa={aba === 'estruturas'}
+            onClick={() => { setAba('estruturas'); setAberta(null) }}
+          >
+            Estruturas
+          </button>
+          <button
+            type="button"
+            className="btn-aba"
+            data-ativa={aba === 'repertorios'}
+            onClick={() => { setAba('repertorios'); setAberta(null) }}
+          >
+            Repertórios
+          </button>
+        </div>
         {estruturas.length === 0 && (
           <p className="vazio">
-            Nenhuma estrutura ainda. Elas são escritas no Cortex, no computador:
-            uma nota com <code>tipo: estrutura-redacao</code> e o passo a passo no corpo.
+            {aba === 'estruturas'
+              ? 'Nenhuma estrutura ainda. Elas são escritas no Cortex, no computador.'
+              : 'Nenhum repertório ainda. Eles são escritos no Cortex, no computador.'}
           </p>
         )}
 

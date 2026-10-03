@@ -45,6 +45,10 @@ export function LenteEstudos({
    * se consulta ANTES de escrever. Na mesma lista, o modelo de carta
    * aparecia como uma redação sem nota e sem data — quebrado.
    */
+  const repertorios = notas
+    .filter(n => n.tipo === 'repertorio')
+    .sort((a, b) => txt(a.title).localeCompare(txt(b.title)))
+
   const estruturas = notas
     .filter(n => n.tipo === 'estrutura-redacao')
     .sort((a, b) => txt(a.title).localeCompare(txt(b.title)))
@@ -327,6 +331,42 @@ export function LenteEstudos({
                 <span key={rep} className="chip">{rep}{n > 1 ? ` · ${n}` : ''}</span>
               ))}
           </div>
+        </>
+      )}
+
+      {sub === 'repertorios' && (
+        <>
+          <Secao
+            nome="Repertórios"
+            acao="Repertório"
+            aoClicar={() => aoAdicionar('repertorio')}
+          />
+          {repertorios.length === 0 ? (
+            <Vazio>
+              Nenhum repertório. É o material que sustenta o argumento — livro,
+              lei, dado, filme, caso. Vai para o celular, para consultar na
+              hora de escrever.
+            </Vazio>
+          ) : (
+            <div className="cards">
+              {repertorios.map(r => (
+                <div key={r.path} className="card">
+                  <div className="card-topo">
+                    <strong>{r.title}</strong>
+                    {txt(r.campos.fonte) && <span className="chip">{txt(r.campos.fonte)}</span>}
+                    <span className="linha-acoes">
+                      <button className="btn-icone" title="Editar" onClick={() => aoEditar(r)}>✎</button>
+                      <button className="btn-icone perigo" title="Excluir" onClick={() => aoExcluir(r)}>×</button>
+                    </span>
+                  </div>
+                  {txt(r.campos.tema) && <div className="card-data">{txt(r.campos.tema)}</div>}
+                  <button className="btn-fantasma largo" onClick={() => aoAbrir(r.path)}>
+                    Abrir o repertório
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 

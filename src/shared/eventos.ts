@@ -194,7 +194,16 @@ export const ESPECIES_CARDAPIO = [
    * O corpo vai junto porque é ele o conteúdo — sem o passo a passo, a
    * estrutura seria um título sozinho.
    */
-  'estrutura-redacao'
+  'estrutura-redacao',
+
+  /*
+   * Um repertório de redação: o material que sustenta o argumento.
+   *
+   * Vai inteiro, com o corpo, porque é consulta: saber que existe uma nota
+   * chamada "Krenak" não ajuda ninguém na hora de escrever — o que ajuda é o
+   * que ele defende e como usar aquilo.
+   */
+  'repertorio'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

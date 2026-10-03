@@ -1143,3 +1143,39 @@ describe('estruturas de redacao', () => {
     expect(i.detalhe).not.toHaveProperty('corpo')
   })
 })
+
+describe('repertorios de redacao', () => {
+  const HOJE_P = '2026-10-03'
+
+  it('sobe com tema, fonte e corpo -- e o corpo e o que serve na hora de escrever', () => {
+    const c = montarCardapio([{
+      ...nota({ path: 'Estudos/Repertorios/Krenak.md', title: 'Krenak', tipo: 'repertorio',
+                campos: { tema: 'meio ambiente', fonte: 'livro' } }),
+      corpo: 'O QUE DIZ\nA natureza nao e recurso.'
+    }], HOJE_P, [])
+    expect(c).toEqual([{
+      especie: 'repertorio', nome: 'Krenak',
+      detalhe: {
+        path: 'Estudos/Repertorios/Krenak.md',
+        tema: 'meio ambiente', fonte: 'livro',
+        corpo: 'O QUE DIZ\nA natureza nao e recurso.'
+      }
+    }])
+  })
+
+  it('repertorio e estrutura sao especies diferentes, e nao se misturam', () => {
+    const c = montarCardapio([
+      { ...nota({ path: 'r.md', title: 'Repertorio', tipo: 'repertorio' }), corpo: 'x' },
+      { ...nota({ path: 'e.md', title: 'Carta', tipo: 'estrutura-redacao' }), corpo: 'y' }
+    ], HOJE_P, [])
+    expect(c.map(i => i.especie).sort()).toEqual(['estrutura-redacao', 'repertorio'])
+  })
+
+  it('sem tema sobe assim mesmo -- a tela agrupa em Outros', () => {
+    const [i] = montarCardapio(
+      [{ ...nota({ path: 's.md', title: 'Solto', tipo: 'repertorio' }), corpo: 'z' }], HOJE_P, []
+    )
+    expect(i.especie).toBe('repertorio')
+    expect(i.detalhe).not.toHaveProperty('tema')
+  })
+})
