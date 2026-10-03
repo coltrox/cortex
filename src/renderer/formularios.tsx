@@ -244,6 +244,24 @@ export const FORMULARIOS: Record<string, Formulario> = {
     ],
     corpo: '## Texto\n\n## O que o corretor apontou\n'
   },
+  /*
+   * A ESTRUTURA de redação — o esqueleto de um gênero.
+   *
+   * Irmã de `redacao` e deliberadamente separada dela: aquela é o texto que
+   * você escreveu, com tema, nota e repertórios; esta é o modelo em branco
+   * que se consulta antes de escrever. Juntas numa lista só, a redação de
+   * ontem e o modelo de carta apareciam como se fossem a mesma coisa.
+   */
+  'estrutura-redacao': {
+    tipo: 'estrutura-redacao', nome: 'Estrutura de redação',
+    pasta: 'Estudos/Redacoes', nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'Nome', tipo: 'texto', obrigatorio: true, placeholder: 'Carta argumentativa' },
+      { k: 'genero', rotulo: 'Gênero', tipo: 'texto', placeholder: 'Carta, E-mail, Dissertativa…' },
+      { k: 'quando', rotulo: 'Cai em', tipo: 'texto', placeholder: 'Unicamp 2ª fase' }
+    ],
+    corpo: 'ESTRUTURA\n1. \n2. \n3. \n\nO QUE A BANCA COBRA\n- \n'
+  },
   tarefa: {
     tipo: 'tarefa', nome: 'Tarefa', pasta: 'Estudos', nomearPor: 'titulo',
     campos: [

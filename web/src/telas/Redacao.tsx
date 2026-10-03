@@ -22,7 +22,7 @@ export function Redacao(p: {
   /** Qual estrutura está aberta. `null` é a lista. */
   const [aberta, setAberta] = useState<string | null>(null)
 
-  const estruturas = p.cardapio.cardapio.itens.filter(i => i.especie === 'redacao')
+  const estruturas = p.cardapio.cardapio.itens.filter(i => i.especie === 'estrutura-redacao')
 
   /*
    * Agrupadas por gênero.
@@ -65,7 +65,7 @@ export function Redacao(p: {
         {estruturas.length === 0 && (
           <p className="vazio">
             Nenhuma estrutura ainda. Elas são escritas no Cortex, no computador:
-            uma nota com <code>tipo: redacao</code> e o passo a passo no corpo.
+            uma nota com <code>tipo: estrutura-redacao</code> e o passo a passo no corpo.
           </p>
         )}
 

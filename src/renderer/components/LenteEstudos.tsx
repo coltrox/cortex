@@ -37,6 +37,17 @@ export function LenteEstudos({
   const provas = notas.filter(n => n.tipo === 'prova' && n.date).sort(porData)
   const simulados = notas.filter(n => n.tipo === 'simulado').sort(porData)
   const redacoes = notas.filter(n => n.tipo === 'redacao').sort(porData)
+  /*
+   * Os modelos de gênero, separados das redações escritas.
+   *
+   * São coisas diferentes com o mesmo assunto: a redação tem tema, nota do
+   * corretor e repertórios usados; a estrutura é o esqueleto em branco que
+   * se consulta ANTES de escrever. Na mesma lista, o modelo de carta
+   * aparecia como uma redação sem nota e sem data — quebrado.
+   */
+  const estruturas = notas
+    .filter(n => n.tipo === 'estrutura-redacao')
+    .sort((a, b) => txt(a.title).localeCompare(txt(b.title)))
   const tarefas = notas.filter(n => n.tipo === 'tarefa').sort(porData)
   const livros = notas.filter(n => n.tipo === 'livro')
 
@@ -260,7 +271,7 @@ export function LenteEstudos({
                         <button className="btn-icone perigo" title="Excluir" onClick={() => aoExcluir(r)}>×</button>
                       </span>
                     </div>
-                    <div className="card-data">{r.date}</div>
+                    {r.date && <div className="card-data">{r.date}</div>}
                     <div className="chips">
                       {reps.length === 0
                         ? <span className="form-dica">Nenhum repertório anotado.</span>
@@ -272,6 +283,37 @@ export function LenteEstudos({
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          <Secao
+            nome="Estruturas de redação"
+            acao="Estrutura"
+            aoClicar={() => aoAdicionar('estrutura-redacao')}
+          />
+          {estruturas.length === 0 ? (
+            <Vazio>
+              Nenhuma estrutura. São os modelos de cada gênero — carta, e-mail,
+              dissertativa — e vão para o celular, para consultar na hora de escrever.
+            </Vazio>
+          ) : (
+            <div className="cards">
+              {estruturas.map(e => (
+                <div key={e.path} className="card">
+                  <div className="card-topo">
+                    <strong>{e.title}</strong>
+                    {txt(e.campos.genero) && <span className="chip">{txt(e.campos.genero)}</span>}
+                    <span className="linha-acoes">
+                      <button className="btn-icone" title="Editar" onClick={() => aoEditar(e)}>✎</button>
+                      <button className="btn-icone perigo" title="Excluir" onClick={() => aoExcluir(e)}>×</button>
+                    </span>
+                  </div>
+                  {txt(e.campos.quando) && <div className="card-data">{txt(e.campos.quando)}</div>}
+                  <button className="btn-fantasma largo" onClick={() => aoAbrir(e.path)}>
+                    Abrir a estrutura
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 

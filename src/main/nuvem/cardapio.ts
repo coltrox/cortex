@@ -255,9 +255,9 @@ export function montarCardapio(
    * serviria para nada. São poucas por natureza (um punhado de gêneros), e
    * por isso não levam teto como as anotações.
    */
-  for (const n of notas.filter(x => x.tipo === 'redacao')) {
+  for (const n of notas.filter(x => x.tipo === 'estrutura-redacao')) {
     out.push({
-      especie: 'redacao',
+      especie: 'estrutura-redacao',
       nome: txt(n.title),
       detalhe: comValor({
         path: n.path,

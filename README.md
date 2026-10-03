@@ -407,6 +407,12 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.7.1` — a estrutura de redação virou **tipo próprio** (`estrutura-redacao`).
+Ela estava usando `redacao`, que é o tipo das redações ESCRITAS: as dez estruturas
+caíram na lista das suas redações, sem nota e sem data, e o campo Gênero aparecia
+com o rótulo cru. Agora tem seção própria na lente de Estudos, formulário próprio
+e nome próprio no celular.
+
 `v2.7.0` — **estruturas de redação**: carta, e-mail, dissertativa, manifesto,
 artigo, relato e mais seis gêneros viram notas do vault (`tipo: redacao`), escritas
 no computador pelo dono ou pela IA, e o celular passa a mostrá-las agrupadas por

@@ -640,3 +640,29 @@ describe('qual opcao da refeicao foi comida', () => {
       .toEqual([{ nome: 'Café', opcao: '2 ovos' }])
   })
 })
+
+describe('estrutura de redacao no painel da nota', () => {
+  /*
+   * O defeito que ele viu: a estrutura foi criada com `tipo: redacao`, que e
+   * o tipo das redacoes ESCRITAS (tema, nota do corretor, repertorios).
+   * `genero` nao existia naquele formulario, caia na lista de sobras e
+   * aparecia com o rotulo cru -- "GENERO", sem acento, solto no topo da nota.
+   */
+  it('o genero aparece com o rotulo do formulario, e nao com a chave crua', () => {
+    const n = nota({
+      path: 'Estudos/Redacoes/Carta.md', tipo: 'estrutura-redacao',
+      campos: { genero: 'Carta', quando: 'Unicamp 2a fase' }
+    })
+    const exibidos = camposExibiveis(n)
+    expect(exibidos.find(c => c.k === 'genero')?.rotulo).toBe('Gênero')
+    expect(exibidos.find(c => c.k === 'quando')?.rotulo).toBe('Cai em')
+  })
+
+  it('a estrutura NAO e uma redacao escrita -- sao tipos diferentes', () => {
+    expect(FORMULARIOS['estrutura-redacao'].tipo).toBe('estrutura-redacao')
+    expect(FORMULARIOS.redacao.tipo).toBe('redacao')
+    // A redacao escrita pergunta nota e repertorios; a estrutura, nao.
+    expect(FORMULARIOS.redacao.campos.map(c => c.k)).toContain('repertorios')
+    expect(FORMULARIOS['estrutura-redacao'].campos.map(c => c.k)).not.toContain('repertorios')
+  })
+})

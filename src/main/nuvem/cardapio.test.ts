@@ -1112,12 +1112,12 @@ describe('estruturas de redacao', () => {
 
   it('sobe com genero e corpo, para o celular consultar na hora de escrever', () => {
     const c = montarCardapio([{
-      ...nota({ path: 'Estudos/Redacoes/E-mail formal.md', title: 'E-mail formal', tipo: 'redacao',
+      ...nota({ path: 'Estudos/Redacoes/E-mail formal.md', title: 'E-mail formal', tipo: 'estrutura-redacao',
                 campos: { genero: 'E-mail', quando: 'Unicamp' } }),
       corpo: '1. Assunto curto\n2. Saudacao formal'
     }], HOJE_R, [])
     expect(c).toEqual([{
-      especie: 'redacao', nome: 'E-mail formal',
+      especie: 'estrutura-redacao', nome: 'E-mail formal',
       detalhe: {
         path: 'Estudos/Redacoes/E-mail formal.md',
         genero: 'E-mail', quando: 'Unicamp',
@@ -1128,16 +1128,16 @@ describe('estruturas de redacao', () => {
 
   it('sem genero sobe assim mesmo -- a tela agrupa em Outras', () => {
     const [i] = montarCardapio([{
-      ...nota({ path: 'r.md', title: 'Resumo', tipo: 'redacao' }),
+      ...nota({ path: 'r.md', title: 'Resumo', tipo: 'estrutura-redacao' }),
       corpo: 'Condensar sem opinar.'
     }], HOJE_R, [])
-    expect(i.especie).toBe('redacao')
+    expect(i.especie).toBe('estrutura-redacao')
     expect(i.detalhe).not.toHaveProperty('genero')
   })
 
   it('a estrutura sem corpo nao quebra -- sobe so o titulo', () => {
     const [i] = montarCardapio(
-      [nota({ path: 'v.md', title: 'Vazia', tipo: 'redacao' })], HOJE_R, []
+      [nota({ path: 'v.md', title: 'Vazia', tipo: 'estrutura-redacao' })], HOJE_R, []
     )
     expect(i.nome).toBe('Vazia')
     expect(i.detalhe).not.toHaveProperty('corpo')

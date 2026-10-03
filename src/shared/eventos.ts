@@ -179,7 +179,11 @@ export const ESPECIES_CARDAPIO = [
   'transacao',
 
   /*
-   * Uma estrutura de redação: o esqueleto de um gênero de texto.
+   * Uma ESTRUTURA de redação: o esqueleto de um gênero de texto.
+   *
+   * Não confundir com `redacao`, que é o tipo de nota das redações que o
+   * dono ESCREVE — aquelas têm tema, nota do corretor e repertórios usados.
+   * Esta é o modelo em branco, material de consulta.
    *
    * Carta, e-mail, artigo de opinião, dissertação, manifesto, resumo — cada
    * um tem a sua forma, e a Unicamp cobra gênero variado na 2ª fase. A
@@ -190,7 +194,7 @@ export const ESPECIES_CARDAPIO = [
    * O corpo vai junto porque é ele o conteúdo — sem o passo a passo, a
    * estrutura seria um título sozinho.
    */
-  'redacao'
+  'estrutura-redacao'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]
