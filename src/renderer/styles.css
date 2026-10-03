@@ -758,7 +758,36 @@ kbd {
   color: var(--text-3);
 }
 
-.linha-titulo { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/*
+ * O nome do item NUNCA pode sumir.
+ *
+ * Com `flex: 1` a base era 0: numa coluna estreita — a grade de duas colunas
+ * do Panorama, por exemplo — o título encolhia até zero enquanto matéria,
+ * domínio e status ficavam inteiros, e a linha virava "BIOLOGIA · domínio 1/5
+ * · revisando" sem dizer de QUE conteúdo se tratava. A base automática e a
+ * largura mínima garantem que ele sempre apareça, nem que seja cortado com
+ * reticências.
+ */
+.linha-titulo {
+  flex: 1 1 auto; min-width: 7rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Os complementos não disputam espaço com o nome: eles têm tamanho fixo e são
+   o que pode faltar, não o contrário. */
+.linha > .tipo,
+.linha > .nivel,
+.linha > .linha-valor,
+.linha > .pin { flex: none; }
+
+/*
+ * Quando nem assim couber, a linha quebra em duas em vez de espremer.
+ * `.linha-titulo` ocupa a primeira sozinho, e os complementos descem.
+ */
+@media (max-width: 760px) {
+  .linha { flex-wrap: wrap; row-gap: 4px; }
+  .linha > .linha-titulo { flex-basis: 100%; min-width: 0; }
+}
 
 .linha-valor {
   font-family: var(--mono);

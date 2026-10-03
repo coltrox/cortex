@@ -407,6 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.8.2` — **o nome do item não some mais** nas listas estreitas. Em coluna
+apertada, como a do Panorama, o título encolhia a zero e a linha virava
+"BIOLOGIA · domínio 1/5 · revisando" sem dizer de que conteúdo se tratava.
+
 `v2.8.1` — as notas de redação **chegam ao celular**: faltavam dois dos quatro
 lugares onde a lista de espécies existe — o filtro que lê o índice e a lista branca
 do banco. Com eles, as abas ficavam vazias com quinze notas no vault. Precisa rodar
