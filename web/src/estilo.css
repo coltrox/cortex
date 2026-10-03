@@ -2126,3 +2126,24 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
 .cartao-exercicio[data-cedendo="true"]{
   border-color:var(--acento); background:color-mix(in srgb, var(--acento) 10%, var(--painel));
 }
+
+/* --- Estruturas de redação ------------------------------------------- */
+
+/* O corpo da estrutura é um passo a passo escrito do outro lado: as quebras
+   de linha são a forma dele, e por isso ficam preservadas. */
+.redacao-corpo{
+  white-space:pre-wrap; font-family:inherit; font-size:15px; line-height:1.65;
+  color:var(--txt-1); margin:0;
+}
+.grupo-redacao{ margin-bottom:18px; }
+.grupo-redacao .titulo-grupo{
+  font-size:13px; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--txt-3); margin:0 0 8px 2px;
+}
+.cartao-redacao, .cartao-atalho{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+  cursor:pointer;
+}
+.cartao-redacao .redacao-nome, .cartao-atalho span:first-child{ flex:1; font-weight:600; }
+.cartao-redacao .redacao-quando{ color:var(--txt-3); font-size:13px; }
+.cartao-redacao .seta, .cartao-atalho .seta{ color:var(--txt-3); font-size:20px; }

@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.7.0` — **estruturas de redação**: carta, e-mail, dissertativa, manifesto,
+artigo, relato e mais seis gêneros viram notas do vault (`tipo: redacao`), escritas
+no computador pelo dono ou pela IA, e o celular passa a mostrá-las agrupadas por
+gênero na tela de Estudo — consulta de bolso na hora de escrever.
+
 `v2.6.44` — arrastar exercício **para baixo** funciona: as posições passaram
 a ser medidas uma vez, com a lista já encolhida, e o espaço abre deslizando os
 cartões em vez de inserir um bloco no meio da lista — que empurrava tudo e

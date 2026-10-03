@@ -59,6 +59,14 @@ export function Estudo(p: { envio: ReturnType<typeof useEnvio>; irPara: (t: Tela
     <div className="tema-estudo">
       <Cabecalho titulo="Estudo" />
       {erro && <Aviso tom="erro" aoFechar={() => setErro(null)}>{erro}</Aviso>}
+      {/* O caminho para as estruturas de redação: elas são consulta, e o
+          lugar de procurá-las é aqui, na tela de estudo. */}
+      <div className="bloco">
+        <button type="button" className="cartao cartao-atalho" onClick={() => p.irPara('redacao')}>
+          <span>Estruturas de redação</span>
+          <span className="seta">›</span>
+        </button>
+      </div>
       <div className="bloco">
         <Selecao rotulo="Matéria" opcoes={MATERIAS} valor={materia} aoMudar={setMateria} />
         {/* Só quando é "Outra": um campo de texto sempre visível convida a

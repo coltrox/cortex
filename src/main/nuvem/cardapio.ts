@@ -247,6 +247,29 @@ export function montarCardapio(
     })
   }
 
+  /*
+   * As estruturas de redação.
+   *
+   * Vão inteiras — título, gênero e corpo —, porque o celular as usa como
+   * consulta na hora de escrever: uma estrutura sem o passo a passo não
+   * serviria para nada. São poucas por natureza (um punhado de gêneros), e
+   * por isso não levam teto como as anotações.
+   */
+  for (const n of notas.filter(x => x.tipo === 'redacao')) {
+    out.push({
+      especie: 'redacao',
+      nome: txt(n.title),
+      detalhe: comValor({
+        path: n.path,
+        // O gênero agrupa na tela: carta, e-mail, dissertativa… Sem ele a
+        // lista é só uma pilha de títulos.
+        genero: txt(n.campos.genero),
+        quando: txt(n.campos.quando),
+        corpo: corpoPublicavel(n.corpo)
+      })
+    })
+  }
+
   // A tarefa diária. Mesma forma do suplemento — no celular ela é o mesmo
   // gesto, logo abaixo dele.
   for (const n of notas.filter(x => x.tipo === 'rotina')) {

@@ -176,7 +176,21 @@ export const ESPECIES_CARDAPIO = [
   /** Uma sessão de cardio: aparelho, minutos, distância. */
   'cardio',
   /** Uma transação do diário: item, valor, categoria, entrada ou saída. */
-  'transacao'
+  'transacao',
+
+  /*
+   * Uma estrutura de redação: o esqueleto de um gênero de texto.
+   *
+   * Carta, e-mail, artigo de opinião, dissertação, manifesto, resumo — cada
+   * um tem a sua forma, e a Unicamp cobra gênero variado na 2ª fase. A
+   * estrutura é escrita como nota no vault (`tipo: redacao`), pelo dono ou
+   * pela IA que fala com o Cortex, e o celular só MOSTRA: é material de
+   * consulta na hora de escrever, não registro de nada.
+   *
+   * O corpo vai junto porque é ele o conteúdo — sem o passo a passo, a
+   * estrutura seria um título sozinho.
+   */
+  'redacao'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

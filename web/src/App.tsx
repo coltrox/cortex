@@ -19,6 +19,7 @@ import { Gasto } from './telas/Gasto'
 import { Anotacao } from './telas/Anotacao'
 import { Notas } from './telas/Notas'
 import { Estudo } from './telas/Estudo'
+import { Redacao } from './telas/Redacao'
 import { Agenda } from './telas/Agenda'
 import { NovoItem, type EdicaoItem, type TipoNovo } from './telas/NovoItem'
 import { Porquinho } from './telas/Porquinho'
@@ -48,6 +49,8 @@ export type Tela =
   // A sessão de estudo, e a lista de todas as notas. `anotacao` continua
   // sendo a tela de ESCREVER uma; `notas` é a de LER as que existem.
   | 'estudo' | 'notas'
+  // As estruturas de redação, escritas no Cortex e só consultadas aqui.
+  | 'redacao'
   // As abas do desenho `Rotina` que ainda não tinham tela própria.
   | 'saude' | 'dieta' | 'corpo' | 'dinheiro'
 
@@ -301,6 +304,7 @@ export function App() {
       {tela === 'saude' && <Saude envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'dieta' && <Dieta envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'estudo' && <Estudo envio={envio} irPara={setTela} />}
+      {tela === 'redacao' && <Redacao cardapio={cardapio} irPara={setTela} />}
       {tela === 'ajustes' && <Ajustes cardapio={cardapio} irPara={setTela} />}
       {tela === 'lerqr' && (
         <Suspense fallback={<Aviso>Abrindo a câmera…</Aviso>}>
