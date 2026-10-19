@@ -143,6 +143,10 @@ begin
                                -- duas coisas diferentes -- uma diz COMO
                                -- organizar, a outra COM O QUE preencher.
                                'estrutura-redacao','repertorio',
+                               -- O cronograma da reta final, o conteudo de
+                               -- estudo e as redacoes escritas: o celular
+                               -- deixou de ser so registro e virou material.
+                               'plano-dia','materia','redacao',
                                -- A anotacao. Sobem TODAS: a tela Notas do
                                -- celular mostra o conjunto, e o Hoje corta
                                -- pelo dia. Quem corta e a tela, nao o banco.

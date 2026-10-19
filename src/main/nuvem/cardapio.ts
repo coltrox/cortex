@@ -270,6 +270,68 @@ export function montarCardapio(
     })
   }
 
+  /*
+   * Os conteúdos de estudo, com o resumo inteiro.
+   *
+   * É o que faz o celular servir para estudar, e não só para registrar: o
+   * formulário de física aberto no ônibus vale mais que qualquer tela de
+   * gráfico. `dominio` e `prioridade` sobem porque é com eles que a tela
+   * ordena — reta final primeiro, depois o que ele domina menos.
+   */
+  for (const n of notas.filter(x => x.tipo === 'materia')) {
+    out.push({
+      especie: 'materia',
+      nome: txt(n.title),
+      detalhe: comValor({
+        path: n.path,
+        materia: txt(n.campos.materia),
+        dominio: num(n.campos.dominio) || undefined,
+        prioridade: n.campos.prioridade === true ? true : undefined,
+        status: txt(n.campos.status),
+        corpo: corpoPublicavel(n.corpo)
+      })
+    })
+  }
+
+  /*
+   * As redações escritas, com o texto.
+   *
+   * Sobem para ele reler o que escreveu e o que o corretor apontou, longe do
+   * computador. `status` é o que diz se já pediu correção.
+   */
+  for (const n of notas.filter(x => x.tipo === 'redacao')) {
+    out.push({
+      especie: 'redacao',
+      nome: txt(n.title),
+      detalhe: comValor({
+        path: n.path,
+        data: txt(n.date),
+        nota: num(n.campos.nota) || undefined,
+        status: txt(n.campos.status),
+        corpo: corpoPublicavel(n.corpo)
+      })
+    })
+  }
+
+  // Os dias do cronograma. Sobem todos: a tela do celular corta pelo dia,
+  // e ver o de amanhã à noite é metade da utilidade do plano.
+  for (const n of notas.filter(x => x.tipo === 'plano-dia')) {
+    const data = txt(n.date)
+    if (!data) continue
+    out.push({
+      especie: 'plano-dia',
+      nome: txt(n.title),
+      detalhe: comValor({
+        path: n.path,
+        data,
+        foco: txt(n.campos.foco),
+        redacao: n.campos.redacao === true ? true : undefined,
+        feito: n.campos.feito === true ? true : undefined,
+        corpo: corpoPublicavel(n.corpo)
+      })
+    })
+  }
+
   // Os repertórios, agrupados por tema na tela do celular.
   for (const n of notas.filter(x => x.tipo === 'repertorio')) {
     out.push({

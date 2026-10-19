@@ -2724,3 +2724,29 @@ kbd {
 /* A barra de ar{x} — a média. Desenhada pela borda, e não por caractere
    combinante, que desalinha em fonte de largura fixa. */
 .sobrelinha { border-top: 1px solid currentColor; padding-top: 1px; }
+
+/* ---------- cronograma da reta final ---------- */
+
+.cronograma-resumo {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 12px 14px; margin-bottom: 14px;
+  background: var(--surface-sunk); border-radius: 10px;
+}
+.cronograma-resumo .barra {
+  flex: 1 1 160px; height: 6px; border-radius: 3px;
+  background: var(--border); overflow: hidden;
+}
+.cronograma-resumo .barra i { display: block; height: 100%; background: var(--accent); }
+
+/* O dia de hoje é o unico que importa as sete da manha. */
+.linha-data[data-hoje] {
+  color: var(--accent); font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.aviso-correcao {
+  padding: 12px 14px; margin-bottom: 16px;
+  border: 1px solid var(--accent); border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.aviso-correcao > strong { display: block; margin-bottom: 6px; font-size: 13px; }

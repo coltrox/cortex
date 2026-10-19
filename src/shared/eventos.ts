@@ -118,7 +118,11 @@ export const TIPOS_NOTA_CARDAPIO = [
   // Redação: o modelo de gênero e o material que sustenta o argumento. Os
   // dois são consulta na hora de escrever, e por isso vão inteiros, com o
   // corpo.
-  'estrutura-redacao', 'repertorio'
+  'estrutura-redacao', 'repertorio',
+  // O cronograma da reta final: o dia de hoje, no bolso.
+  'plano-dia',
+  // O material de estudo e as redações escritas.
+  'materia', 'redacao'
 ] as const
 
 export const ESPECIES_CARDAPIO = [
@@ -207,7 +211,26 @@ export const ESPECIES_CARDAPIO = [
    * chamada "Krenak" não ajuda ninguém na hora de escrever — o que ajuda é o
    * que ele defende e como usar aquilo.
    */
-  'repertorio'
+  'repertorio',
+
+  /*
+   * Um dia do cronograma de estudo.
+   *
+   * O celular é onde ele olha de manhã: o dia de hoje, com o que fazer e os
+   * links, tem de caber no bolso. Vai com o corpo inteiro, porque o plano SEM
+   * o que fazer é só uma data.
+   */
+  'plano-dia',
+
+  /*
+   * O conteúdo de estudo e a redação escrita.
+   *
+   * Entraram para o celular deixar de ser só registro e virar material: ele
+   * estuda fora de casa, e o resumo que mora no computador não serve a quem
+   * está no ônibus. A redação sobe com o texto para dar para reler o que
+   * escreveu e o que o corretor apontou.
+   */
+  'materia', 'redacao'
 ] as const
 
 export type EspecieCardapio = (typeof ESPECIES_CARDAPIO)[number]

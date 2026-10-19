@@ -442,9 +442,10 @@ describe('a lista de tipos que alimenta o cardapio', () => {
     expect([...TIPOS_NOTA_CARDAPIO].sort()).toEqual([
       'acontecimento',
       'anotacao', 'cardio', 'data-comemorativa', 'diario', 'estrutura-redacao',
-      'evento', 'hidratacao', 'medida',
-      'meta-cofre', 'pessoa', 'plano', 'porquinho', 'prova', 'repertorio', 'rotina',
-      'sessao', 'simulado', 'suplemento', 'tarefa', 'treino-modelo'
+      'evento', 'hidratacao', 'materia', 'medida',
+      'meta-cofre', 'pessoa', 'plano', 'plano-dia', 'porquinho', 'prova', 'redacao',
+      'repertorio', 'rotina', 'sessao', 'simulado', 'suplemento', 'tarefa',
+      'treino-modelo'
     ])
   })
 
@@ -459,6 +460,9 @@ describe('a lista de tipos que alimenta o cardapio', () => {
       tarefa: nota({ path: 'f.md', title: 'Ta', tipo: 'tarefa', date: '2026-09-10' }),
       rotina: nota({ path: 'h.md', title: 'Abdomen', tipo: 'rotina' }),
       'estrutura-redacao': { ...nota({ path: 'er.md', title: 'Carta', tipo: 'estrutura-redacao' }), corpo: 'passo a passo' },
+      'plano-dia': nota({ path: 'pd.md', title: 'Dia 1', tipo: 'plano-dia', date: '2026-09-10' }),
+      materia: { ...nota({ path: 'mt.md', title: 'Trigonometria', tipo: 'materia' }), corpo: 'resumo' },
+      redacao: { ...nota({ path: 'rd.md', title: 'Tema X', tipo: 'redacao', date: '2026-09-10' }), corpo: 'texto' },
       repertorio: { ...nota({ path: 'rp.md', title: 'Krenak', tipo: 'repertorio' }), corpo: 'o que diz' },
       hidratacao: nota({ path: 'i.md', title: 'Agua', tipo: 'hidratacao', campos: { meta: 3500 } }),
       'data-comemorativa': nota({

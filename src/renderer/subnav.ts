@@ -29,6 +29,9 @@ export const SUBS: Partial<Record<Lente, { id: Sub; nome: string }[]>> = {
   ],
   conhecimento: [
     { id: 'overview',    nome: 'Panorama' },
+    // O cronograma vem antes dos conteúdos: na reta final, a pergunta das
+    // sete da manhã é "o que eu faço hoje", e não "o que existe".
+    { id: 'cronograma',  nome: 'Cronograma' },
     { id: 'conteudos',   nome: 'Conteúdos' },
     { id: 'provas',      nome: 'Provas' },
     { id: 'simulados',   nome: 'Simulados' },

@@ -407,6 +407,12 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.9.0` — **reta final do ENEM**: aba de Cronograma em Estudos, com cada dia
+como nota que aparece no Calendário junto das provas; a redação ganhou situação
+("aguardando correção") e fila própria; e o celular virou material de estudo, com
+plano do dia, conteúdos e redações escritas. Precisa rodar
+`supabase/migracoes/2026-10-18-reta-final.sql`.
+
 `v2.8.2` — **o nome do item não some mais** nas listas estreitas. Em coluna
 apertada, como a do Panorama, o título encolhia a zero e a linha virava
 "BIOLOGIA · domínio 1/5 · revisando" sem dizer de que conteúdo se tratava.

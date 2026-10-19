@@ -28,7 +28,13 @@ const CRIAVEIS = [
 ]
 
 /** Os tipos com data marcada que o calendário mostra. A data comemorativa vem à parte. */
-const TIPOS_DO_CALENDARIO = new Set(['evento', 'prova', 'simulado', 'tarefa', 'acontecimento'])
+/*
+ * `plano-dia` entrou em 18/10/2026: o cronograma da reta final do ENEM mora
+ * no calendário junto das provas, porque é lá que se olha para saber o que o
+ * dia pede — e um plano que vive numa tela separada do calendário é um plano
+ * que se esquece.
+ */
+const TIPOS_DO_CALENDARIO = new Set(['evento', 'prova', 'simulado', 'tarefa', 'acontecimento', 'plano-dia'])
 
 /** Constrói ISO sem passar por Date — evita a viagem de fuso do toISOString. */
 function iso(ano: number, mes: number, dia: number): string {

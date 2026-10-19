@@ -45,6 +45,16 @@ export function LenteEstudos({
    * se consulta ANTES de escrever. Na mesma lista, o modelo de carta
    * aparecia como uma redação sem nota e sem data — quebrado.
    */
+  /*
+   * Os dias do cronograma, em ordem de data.
+   *
+   * Dia sem data não entra: a tela inteira é uma linha do tempo, e um dia
+   * solto no meio dela confunde mais do que ajuda.
+   */
+  const dias = notas
+    .filter(n => n.tipo === 'plano-dia' && n.date)
+    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+
   const repertorios = notas
     .filter(n => n.tipo === 'repertorio')
     .sort((a, b) => txt(a.title).localeCompare(txt(b.title)))
@@ -257,6 +267,27 @@ export function LenteEstudos({
       {sub === 'redacoes' && (
         <>
           <Secao nome="Redações" acao="Redação" aoClicar={() => aoAdicionar('redacao')} />
+
+          {/* A fila de correção no topo: é o que está esperando resposta, e
+              some sozinha quando a redação é marcada como corrigida. */}
+          {redacoes.filter(r => txt(r.campos.status) === 'aguardando correção').length > 0 && (
+            <div className="aviso-correcao">
+              <strong>Aguardando correção</strong>
+              <div className="lista-notas">
+                {redacoes
+                  .filter(r => txt(r.campos.status) === 'aguardando correção')
+                  .map(r => (
+                    <Linha key={r.path} aoAbrir={() => aoAbrir(r.path)} aoEditar={() => aoEditar(r)}>
+                      <span className="linha-data">{r.date}</span>
+                      <span className="linha-titulo">{r.title}</span>
+                    </Linha>
+                  ))}
+              </div>
+              <p className="form-dica">
+                Escreva o texto no corpo da nota e peça a correção no chat.
+              </p>
+            </div>
+          )}
           {redacoes.length === 0 ? (
             <Vazio>Nenhuma redação. O tema, a nota e os repertórios usados ficam aqui.</Vazio>
           ) : (
@@ -331,6 +362,60 @@ export function LenteEstudos({
                 <span key={rep} className="chip">{rep}{n > 1 ? ` · ${n}` : ''}</span>
               ))}
           </div>
+        </>
+      )}
+
+      {sub === 'cronograma' && (
+        <>
+          <Secao
+            nome="Cronograma"
+            acao="Dia"
+            aoClicar={() => aoAdicionar('plano-dia')}
+          />
+          {dias.length === 0 ? (
+            <Vazio>
+              Nenhum dia planejado. Cada dia é uma nota com data, foco e o que
+              fazer — e aparece no Calendário junto das provas.
+            </Vazio>
+          ) : (
+            <>
+              {(() => {
+                const cumpridos = dias.filter(d => d.campos.feito === true).length
+                const restantes = dias.filter(d => (d.date ?? '') >= hoje).length
+                const pct = Math.round((cumpridos / dias.length) * 100)
+                return (
+                  <div className="cronograma-resumo">
+                    <span><strong>{cumpridos}</strong> de {dias.length} dias cumpridos</span>
+                    <span className="linha-valor">{restantes} pela frente</span>
+                    <div className="barra"><i style={{ width: `${pct}%` }} /></div>
+                  </div>
+                )
+              })()}
+
+              <div className="lista-notas">
+                {dias.map(d => {
+                  const feito = d.campos.feito === true
+                  /* O dia de hoje é o único que importa às sete da manhã. */
+                  const eHoje = d.date === hoje
+                  const passou = (d.date ?? '') < hoje && !feito
+                  return (
+                    <Linha key={d.path} aoAbrir={() => aoAbrir(d.path)}
+                      aoEditar={() => aoEditar(d)} aoExcluir={() => aoExcluir(d)}>
+                      <Check feito={feito} rotulo={d.title}
+                        aoAlternar={() => aoAlterar(d.path, { feito: feito ? null : true })} />
+                      <span className="linha-data" data-hoje={eHoje || undefined}>
+                        {eHoje ? 'hoje' : d.date}
+                      </span>
+                      <span className="linha-titulo" data-feito={feito || undefined}>{d.title}</span>
+                      {txt(d.campos.foco) && <span className="tipo">{txt(d.campos.foco)}</span>}
+                      {d.campos.redacao === true && <span className="chip">redação</span>}
+                      {passou && <span className="nivel" data-n="1">ficou para trás</span>}
+                    </Linha>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </>
       )}
 

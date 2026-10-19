@@ -238,12 +238,38 @@ export const FORMULARIOS: Record<string, Formulario> = {
       { k: 'date', rotulo: 'Data', tipo: 'data', obrigatorio: true },
       { k: 'nota', rotulo: 'Nota', tipo: 'numero' },
       {
+        k: 'status', rotulo: 'Situação', tipo: 'select',
+        opcoes: ['rascunho', 'aguardando correção', 'corrigida'],
+        dica: 'Marque "aguardando correção" e peça a correção no chat.'
+      },
+      {
         k: 'repertorios', rotulo: 'Repertórios usados', tipo: 'longo',
         placeholder: 'Um por linha: Zygmunt Bauman, Constituição art. 205, Vidas Secas…'
       }
     ],
     corpo: '## Texto\n\n## O que o corretor apontou\n'
   },
+  /*
+   * Um dia do cronograma.
+   *
+   * Cada dia é uma NOTA, e não uma linha dentro de um plano gigante: assim
+   * ele aparece no Calendário junto das provas, pode ser marcado como feito
+   * sozinho, e o que estudar naquele dia mora no corpo, com links para os
+   * conteúdos. Plano que não dá para marcar vira decoração.
+   */
+  'plano-dia': {
+    tipo: 'plano-dia', nome: 'Dia de estudo', pasta: 'Estudos/Cronograma',
+    nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'Dia', tipo: 'texto', obrigatorio: true, placeholder: '08/11 — Linguagens e Redação' },
+      { k: 'date', rotulo: 'Data', tipo: 'data', obrigatorio: true },
+      { k: 'foco', rotulo: 'Foco', tipo: 'texto', placeholder: 'linguagens, humanas' },
+      { k: 'redacao', rotulo: 'Tem redação', tipo: 'bool', dica: 'Dia sim, dia não na reta final.' },
+      { k: 'feito', rotulo: 'Cumprido', tipo: 'bool' }
+    ],
+    corpo: 'MANHA\n\n\nTARDE\n\n\nNOITE\n'
+  },
+
   /*
    * O repertório: o material que sustenta o argumento.
    *
