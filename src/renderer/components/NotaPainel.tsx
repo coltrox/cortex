@@ -197,6 +197,35 @@ export function NotaPainel({
         <span className="nota-caminho">{caminho}</span>
         <span className="nota-trilha-dir">
           {sujo && <span className="salvo" data-sujo>não salvo</span>}
+
+          {/*
+            * Entregar a redação.
+            *
+            * Pedido do dono: depois de salvar, um botão que tire o texto de
+            * `rascunho` e o ponha como `aguardando correção`. Fica aqui, ao
+            * lado do Salvar, porque é o gesto SEGUINTE ao dele — e não num
+            * formulário, que exigiria reabrir a nota para trocar um campo.
+            *
+            * Desabilitado enquanto houver texto não salvo: entregar o que
+            * ainda não está em disco pediria correção de uma versão que o
+            * corretor não vai ler.
+            */}
+          {nota?.tipo === 'redacao' && aoGravarCampos && (() => {
+            const status = textoDoCampo(nota.campos?.status)
+            if (status === 'aguardando correção' || status === 'corrigida') {
+              return <span className="salvo">{status}</span>
+            }
+            return (
+              <button
+                className="btn"
+                disabled={sujo}
+                title={sujo ? 'Salve o texto antes de entregar' : 'Marca como aguardando correção'}
+                onClick={() => aoGravarCampos({ status: 'aguardando correção' })}
+              >
+                Entregar
+              </button>
+            )
+          })()}
           <button className="btn-fantasma" onClick={() => aoEditar(!editando)}>
             {editando ? 'Ler' : 'Escrever'}
           </button>
