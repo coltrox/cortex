@@ -407,6 +407,9 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.11.1` — as **abas dentro de cada área** também se arrastam, não só as áreas.
+A ordem é guardada por área, para a de Estudos não mexer na de Saúde.
+
 `v2.11.0` — **as áreas da barra lateral se arrastam** para a ordem que você
 quiser; o Panorama de Estudos passou a mostrar o **cronograma** no lugar da lista de
 conteúdos, com botão para abrir o dia; e escrever redação virou folha em branco —

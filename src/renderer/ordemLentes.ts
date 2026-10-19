@@ -61,3 +61,36 @@ export function gravarOrdem(ids: string[]): void {
     localStorage.setItem(CHAVE, JSON.stringify(ids))
   } catch { /* sem armazenamento, a ordem vale só nesta sessão */ }
 }
+
+/* ---------- a ordem das abas DENTRO de cada área ---------- */
+
+const CHAVE_SUBS = 'cortex.ordem-subs'
+
+/**
+ * A ordem escolhida das abas, por área.
+ *
+ * Um mapa, e não uma lista: as abas de Estudos não dizem nada sobre as de
+ * Saúde, e guardá-las juntas faria a ordem de uma vazar na outra.
+ */
+export type OrdemSubs = Record<string, string[]>
+
+export function lerOrdemSubs(): OrdemSubs {
+  try {
+    const bruto = localStorage.getItem(CHAVE_SUBS)
+    const o: unknown = bruto ? JSON.parse(bruto) : null
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return {}
+    const saida: OrdemSubs = {}
+    for (const [lente, ids] of Object.entries(o as Record<string, unknown>)) {
+      if (Array.isArray(ids)) saida[lente] = ids.filter((x): x is string => typeof x === 'string')
+    }
+    return saida
+  } catch {
+    return {}
+  }
+}
+
+export function gravarOrdemSubs(o: OrdemSubs): void {
+  try {
+    localStorage.setItem(CHAVE_SUBS, JSON.stringify(o))
+  } catch { /* sem armazenamento, vale só nesta sessão */ }
+}

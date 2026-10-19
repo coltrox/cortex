@@ -4,7 +4,9 @@ import { TIPOS_NOTA_CARDAPIO } from '../shared/eventos'
 import type { NoteComCampos } from './tipos'
 import { hojeISO } from './tipos'
 import { SUBS } from './subnav'
-import { aplicarOrdem, reordenar, lerOrdem, gravarOrdem } from './ordemLentes'
+import {
+  aplicarOrdem, reordenar, lerOrdem, gravarOrdem, lerOrdemSubs, gravarOrdemSubs
+} from './ordemLentes'
 import { subAreaDaAba } from '../shared/subareas'
 import { lentesVisiveis, lenteDeAbertura } from './lentes'
 import { FORMULARIOS, ITENS } from './formularios'
@@ -82,6 +84,10 @@ export function App() {
   const [ordemAreas, setOrdemAreas] = useState<string[]>(() => lerOrdem())
   /** Qual área está na mão agora. `null` fora do arraste. */
   const [arrastando, setArrastando] = useState<string | null>(null)
+  /* A ordem das abas dentro de cada área, também escolhida arrastando. */
+  const [ordemSubs, setOrdemSubs] = useState(() => lerOrdemSubs())
+  /** Qual aba está na mão. Separado do de área: são dois arrastes diferentes. */
+  const [subArrastando, setSubArrastando] = useState<string | null>(null)
 
   const [abertas, setAbertas] = useState<string[]>(() => [v.lente])
   /**
@@ -447,11 +453,37 @@ export function App() {
                   </button>
                   {abas && aberta && (
                     <div className="sb-subs">
-                      {abas.map(s => (
+                      {aplicarOrdem(abas, ordemSubs[id] ?? []).map(s => (
                         <button
                           key={s.id}
                           className="sb-sub"
                           aria-current={ativa && v.sub === s.id ? 'page' : undefined}
+                          draggable
+                          data-arrastando={subArrastando === `${id}:${s.id}` || undefined}
+                          onDragStart={ev => {
+                            // Sem isto, arrastar a aba arrastaria a área
+                            // inteira junto — o grupo também é arrastável.
+                            ev.stopPropagation()
+                            setSubArrastando(`${id}:${s.id}`)
+                            ev.dataTransfer.effectAllowed = 'move'
+                            ev.dataTransfer.setData('text/plain', s.id)
+                          }}
+                          onDragOver={ev => { ev.preventDefault(); ev.stopPropagation() }}
+                          onDrop={ev => {
+                            ev.preventDefault()
+                            ev.stopPropagation()
+                            const de = ev.dataTransfer.getData('text/plain')
+                            if (!de) return
+                            /* Parte da ordem ATUAL da tela: na primeira vez
+                               não há nada salvo, e o resto tem de ficar como
+                               está. */
+                            const atual = aplicarOrdem(abas, ordemSubs[id] ?? []).map(x => x.id)
+                            const nova = { ...ordemSubs, [id]: reordenar(atual, de, s.id) }
+                            setOrdemSubs(nova)
+                            gravarOrdemSubs(nova)
+                            setSubArrastando(null)
+                          }}
+                          onDragEnd={ev => { ev.stopPropagation(); setSubArrastando(null) }}
                           onClick={() => {
                             // `setLente` volta a aba para o panorama; a aba
                             // escolhida vem logo depois e é a que fica.

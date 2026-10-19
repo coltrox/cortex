@@ -58,3 +58,23 @@ describe('reordenar', () => {
     expect(reordenar(ids, 'a', 'x')).toBe(ids)
   })
 })
+
+describe('aplicarOrdem nas abas de uma area', () => {
+  // As abas usam a mesma funcao das areas: e o mesmo problema, um nivel
+  // abaixo. O teste existe para garantir que continuem usando.
+  const abas = [
+    { id: 'overview' }, { id: 'cronograma' }, { id: 'conteudos' },
+    { id: 'provas' }, { id: 'simulados' }
+  ]
+
+  it('da para subir simulados para o topo', () => {
+    const r = aplicarOrdem(abas, ['simulados', 'cronograma'])
+    expect(r.map(a => a.id)).toEqual(['simulados', 'cronograma', 'overview', 'conteudos', 'provas'])
+  })
+
+  it('aba nova de uma versao posterior nao some', () => {
+    const r = aplicarOrdem(abas, ['provas', 'overview'])
+    expect(r).toHaveLength(5)
+    expect(new Set(r.map(a => a.id)).size).toBe(5)
+  })
+})

@@ -2802,3 +2802,7 @@ kbd {
    nao esconder a posicao onde ela vai cair. */
 .sb-grupo { cursor: grab; }
 .sb-grupo[data-arrastando] { opacity: .45; cursor: grabbing; }
+
+/* A aba na mao, dentro da area. */
+.sb-sub { cursor: grab; }
+.sb-sub[data-arrastando] { opacity: .45; cursor: grabbing; }
