@@ -72,6 +72,14 @@ export function LenteEstudos({
     .filter(n => n.tipo === 'plano-dia' && n.date)
     .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
 
+  /*
+   * O que vem pela frente no cronograma, para o Panorama.
+   *
+   * Quatro dias: hoje e os três seguintes. Mais que isso vira a aba
+   * Cronograma, que existe justamente para a visão longa.
+   */
+  const proximosDias = dias.filter(d => (d.date ?? '') >= hoje).slice(0, 4)
+
   const repertorios = notas
     .filter(n => n.tipo === 'repertorio')
     .sort((a, b) => txt(a.title).localeCompare(txt(b.title)))
@@ -161,13 +169,39 @@ export function LenteEstudos({
               />
             </section>
 
+            {/*
+              * O cronograma, e não a lista de conteúdos.
+              *
+              * Quem abre o Panorama de manhã quer saber o que FAZER hoje, não
+              * o catálogo do que existe — e a lista de conteúdos já tem aba
+              * própria. O dia de hoje vem primeiro, com o que vem depois logo
+              * abaixo, para dar para olhar a semana de relance.
+              */}
             <section className="col">
-              <h3 className="secao">Revisar agora</h3>
-              <ListaConteudos
-                conteudos={ordenados.slice(0, 8)} aoAbrir={aoAbrir}
-                aoEditar={aoEditar} aoExcluir={aoExcluir}
-                vazio="Nenhum conteúdo cadastrado."
-              />
+              <h3 className="secao">Cronograma</h3>
+              {proximosDias.length === 0 ? (
+                <Vazio>Nenhum dia planejado.</Vazio>
+              ) : (
+                <div className="cards">
+                  {proximosDias.map(d => {
+                    const eHoje = d.date === hoje
+                    const feito = d.campos.feito === true
+                    return (
+                      <div key={d.path} className="card" data-hoje={eHoje || undefined}>
+                        <div className="card-topo">
+                          <strong>{d.title}</strong>
+                          {eHoje && <span className="chip">hoje</span>}
+                          {d.campos.redacao === true && <span className="chip">redação</span>}
+                          {feito && <span className="linha-valor">✓</span>}
+                        </div>
+                        <button className="btn-fantasma largo" onClick={() => aoAbrir(d.path)}>
+                          Abrir o dia
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </section>
           </div>
         </>

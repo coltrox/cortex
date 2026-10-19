@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.11.0` — **as áreas da barra lateral se arrastam** para a ordem que você
+quiser; o Panorama de Estudos passou a mostrar o **cronograma** no lugar da lista de
+conteúdos, com botão para abrir o dia; e escrever redação virou folha em branco —
+sem YAML e sem cabeçalhos para apagar antes de começar.
+
 `v2.10.2` — **Conteúdos agrupados pelas quatro áreas do ENEM**, cada uma dizendo
 em qual domingo cai; e a nota do simulado parou de despejar as questões como texto
 corrido — era ilegível e entregava o gabarito antes da prova.

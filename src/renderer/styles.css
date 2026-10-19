@@ -2795,3 +2795,10 @@ kbd {
    a uma pergunta: o que cai em cada domingo de prova. */
 .area-enem + .area-enem { margin-top: 26px; }
 .area-enem .secao { display: flex; align-items: baseline; gap: 4px; }
+
+/* ---------- areas arrastaveis na barra lateral ---------- */
+
+/* O cursor avisa que da para arrastar, e a area na mao fica translucida para
+   nao esconder a posicao onde ela vai cair. */
+.sb-grupo { cursor: grab; }
+.sb-grupo[data-arrastando] { opacity: .45; cursor: grabbing; }

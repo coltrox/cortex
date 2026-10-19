@@ -4,6 +4,7 @@ import { TIPOS_NOTA_CARDAPIO } from '../shared/eventos'
 import type { NoteComCampos } from './tipos'
 import { hojeISO } from './tipos'
 import { SUBS } from './subnav'
+import { aplicarOrdem, reordenar, lerOrdem, gravarOrdem } from './ordemLentes'
 import { subAreaDaAba } from '../shared/subareas'
 import { lentesVisiveis, lenteDeAbertura } from './lentes'
 import { FORMULARIOS, ITENS } from './formularios'
@@ -76,6 +77,12 @@ export function App() {
    * poder abrir e fechar grupos continuando onde está, e ter mais de um aberto.
    * A tela só muda ao clicar numa aba.
    */
+  /* A ordem das áreas na barra, escolhida arrastando. Preferência desta
+     máquina: mora no localStorage, não na config do vault. */
+  const [ordemAreas, setOrdemAreas] = useState<string[]>(() => lerOrdem())
+  /** Qual área está na mão agora. `null` fora do arraste. */
+  const [arrastando, setArrastando] = useState<string | null>(null)
+
   const [abertas, setAbertas] = useState<string[]>(() => [v.lente])
   /**
    * A barra lateral escondida, para o Dev ocupar a tela toda (pedido do
@@ -277,7 +284,7 @@ export function App() {
 
   // Quem decide é `lentes.ts`: `cerebro` e `hoje` não são áreas e vêm
   // sempre — menos no app só de Dev, onde o Hoje não teria o que mostrar.
-  const visiveis = lentesVisiveis(LENTES, v.config.areas)
+  const visiveis = aplicarOrdem(lentesVisiveis(LENTES, v.config.areas), ordemAreas)
   const lenteAtual = lenteDeAbertura(visiveis, v.lente, v.config.areas) ?? visiveis[0]
   /* A lente da vez pode ter sumido (o dono desligou a área, ou passou a usar
      só o Dev): quem manda na tela é `lenteAtual`, e não o `v.lente` guardado. */
@@ -397,7 +404,35 @@ export function App() {
               const ativa = v.lente === id
               const aberta = abertas.includes(id)
               return (
-                <div key={id} className="sb-grupo" data-area={id} data-com-abas={abas ? 'true' : undefined}>
+                <div
+                  key={id}
+                  className="sb-grupo"
+                  data-area={id}
+                  data-com-abas={abas ? 'true' : undefined}
+                  data-arrastando={arrastando === id || undefined}
+                  draggable
+                  onDragStart={ev => {
+                    setArrastando(id)
+                    // Sem isto o Chromium recusa o arraste em alguns casos.
+                    ev.dataTransfer.effectAllowed = 'move'
+                    ev.dataTransfer.setData('text/plain', id)
+                  }}
+                  onDragOver={ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move' }}
+                  onDrop={ev => {
+                    ev.preventDefault()
+                    const de = ev.dataTransfer.getData('text/plain') || arrastando
+                    if (!de) return
+                    /* A ordem guardada parte da ordem ATUAL da tela, e não da
+                       lista salva: se ainda não havia nada salvo, a primeira
+                       arrastada precisa preservar o resto como está. */
+                    const atual = visiveis.map(l => l.id)
+                    const nova = reordenar(atual, de, id)
+                    setOrdemAreas(nova)
+                    gravarOrdem(nova)
+                    setArrastando(null)
+                  }}
+                  onDragEnd={() => setArrastando(null)}
+                >
                   <button
                     className="sb-item"
                     data-ativa={ativa}

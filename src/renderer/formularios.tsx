@@ -247,7 +247,10 @@ export const FORMULARIOS: Record<string, Formulario> = {
         placeholder: 'Um por linha: Zygmunt Bauman, Constituição art. 205, Vidas Secas…'
       }
     ],
-    corpo: '## Texto\n\n## O que o corretor apontou\n'
+    // Sem cabecalhos: a redacao e texto corrido, e um '## Texto' no topo so
+    // da trabalho de apagar antes de comecar. O que o corretor apontou vem
+    // depois, no chat, e entra aqui se ele quiser guardar.
+    corpo: ''
   },
   /*
    * Um dia do cronograma.

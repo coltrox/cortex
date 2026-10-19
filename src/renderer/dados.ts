@@ -54,6 +54,25 @@ const CHAVES_DE_CABECALHO = new Set([
  */
 const CHAVES_DE_DADO = new Set(['questoes', 'respostas'])
 
+/**
+ * Separa o frontmatter do corpo de uma nota.
+ *
+ * Serve para quem está ESCREVENDO precisar ver só o que escreve. Numa
+ * redação, o YAML no topo da caixa é ruído puro: ele vai escrever trinta
+ * linhas de texto corrido, e o cabeçalho é mantido pelo formulário.
+ *
+ * Nota sem frontmatter devolve cabeçalho vazio, e o corpo é tudo.
+ */
+export function separarFrontmatter(texto: string): { cabecalho: string; corpo: string } {
+  if (!texto.startsWith('---')) return { cabecalho: '', corpo: texto }
+  // O fim é a PRÓXIMA linha de três traços, e não qualquer '---' do meio do
+  // texto: uma linha horizontal no corpo cortaria a nota ao meio.
+  const fim = texto.indexOf('\n---', 3)
+  if (fim < 0) return { cabecalho: '', corpo: texto }
+  const corte = fim + 4
+  return { cabecalho: texto.slice(0, corte), corpo: texto.slice(corte).replace(/^\n+/, '') }
+}
+
 export type CampoExibido = {
   k: string
   rotulo: string

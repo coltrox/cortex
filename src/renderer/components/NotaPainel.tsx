@@ -3,7 +3,7 @@ import type { NoteComCampos } from '../tipos'
 import type { Link, Backlink } from '../useVault'
 import { Markdown } from './Markdown'
 import { NotaTreino, NotaCardio } from './NotaTreino'
-import { corpoAlinhado, semDependenciasDaRede, camposExibiveis, textoDoCampo, type CampoExibido } from '../dados'
+import { corpoAlinhado, semDependenciasDaRede, camposExibiveis, textoDoCampo, separarFrontmatter, type CampoExibido } from '../dados'
 
 /**
  * A nota aberta.
@@ -187,15 +187,31 @@ export function NotaPainel({
             )
           })()}
 
-          {editando ? (
-            <textarea
-              ref={area}
-              className="editor"
-              value={conteudo}
-              onChange={e => aoMudar(e.target.value)}
-              spellCheck={false}
-            />
-          ) : (
+          {editando ? (() => {
+            /*
+             * Escrever redação é escrever texto corrido, e só.
+             *
+             * Nas outras notas o markdown cru É o conteúdo, e esconder o
+             * frontmatter atrapalharia. Numa redação ele é ruído: o cabeçalho
+             * vem do formulário, e quem está escrevendo precisa da folha em
+             * branco. O que sai da caixa volta colado ao cabeçalho original.
+             */
+            const soTexto = nota?.tipo === 'redacao'
+            const { cabecalho, corpo } = separarFrontmatter(conteudo)
+            return (
+              <textarea
+                ref={area}
+                className="editor"
+                data-redacao={soTexto || undefined}
+                value={soTexto ? corpo : conteudo}
+                onChange={e => aoMudar(
+                  soTexto ? `${cabecalho}\n\n${e.target.value}` : e.target.value
+                )}
+                placeholder={soTexto ? 'Escreva a redação aqui.' : undefined}
+                spellCheck={soTexto}
+              />
+            )
+          })() : (
             <Markdown
               // Sem a seção "Dependências da Rede": ela já aparece na lateral
               // (a pedido do dono). As linhas viram vazias, e não somem, para
