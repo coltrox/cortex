@@ -407,6 +407,11 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.10.0` — **simulado de verdade dentro do Cortex**: a prova aparece uma questão
+por vez, e ao finalizar vêm a correção, o acerto por matéria (ordenado do pior para
+o melhor) e o comentário de cada erro. As questões viraram dado na nota, e não
+texto corrido.
+
 `v2.9.0` — **reta final do ENEM**: aba de Cronograma em Estudos, com cada dia
 como nota que aparece no Calendário junto das provas; a redação ganhou situação
 ("aguardando correção") e fila própria; e o celular virou material de estudo, com

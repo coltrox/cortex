@@ -2750,3 +2750,41 @@ kbd {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .aviso-correcao > strong { display: block; margin-bottom: 6px; font-size: 13px; }
+
+/* ---------- simulado: a prova questao a questao ---------- */
+
+.prova { max-width: 760px; }
+.prova-topo { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.prova .barra { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+.prova .barra i { display: block; height: 100%; background: var(--accent); }
+
+.prova-enunciado { font-size: 15px; line-height: 1.65; margin: 20px 0 16px; }
+
+.prova-alternativas { display: flex; flex-direction: column; gap: 8px; }
+.prova-alternativa {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%;
+  padding: 12px 14px; text-align: left; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: inherit; font-size: 14px; line-height: 1.5;
+}
+.prova-alternativa:hover { background: var(--surface-hover); }
+.prova-alternativa[data-marcada] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.prova-letra { flex: none; font-family: var(--mono); font-weight: 700; color: var(--text-2); }
+
+.prova-navegacao { display: flex; gap: 10px; margin: 22px 0 10px; }
+.prova-navegacao .btn { flex: 1; }
+
+.prova-resultado {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  padding: 16px; margin-bottom: 10px;
+  background: var(--surface-sunk); border-radius: 12px;
+}
+.prova-nota { font-size: 30px; font-family: var(--mono); }
+.prova-comentario {
+  margin-top: 8px; padding: 10px 12px;
+  background: var(--surface-sunk); border-radius: 8px;
+  font-size: 13px; line-height: 1.6; color: var(--text-2);
+}

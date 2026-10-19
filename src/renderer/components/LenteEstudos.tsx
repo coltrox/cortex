@@ -6,6 +6,7 @@ import {
 } from './base'
 import { diasAte, rotuloPrazo } from '../subnav'
 import { Pomodoro } from './Pomodoro'
+import { ProvaSimulado, questoesDe } from './ProvaSimulado'
 
 /**
  * Estudos.
@@ -32,6 +33,9 @@ export function LenteEstudos({
   notas, sub, hoje, aoAbrir, aoAdicionar, aoEditar, aoExcluir, aoAlterar, aoMarcarDia
 }: PropsLente) {
   const [materiaFiltro, setMateriaFiltro] = useState<string | null>(null)
+  /* Qual simulado está aberto para fazer. A prova ocupa a tela inteira: no
+     meio de uma questão, o resto da lente é distração. */
+  const [fazendo, setFazendo] = useState<NoteComCampos | null>(null)
 
   const conteudos = notas.filter(n => n.tipo === 'materia')
   const provas = notas.filter(n => n.tipo === 'prova' && n.date).sort(porData)
@@ -233,7 +237,15 @@ export function LenteEstudos({
         </div>
       )}
 
-      {sub === 'simulados' && (
+      {sub === 'simulados' && fazendo && (
+        <ProvaSimulado
+          nota={fazendo}
+          aoSair={() => setFazendo(null)}
+          aoGravar={campos => aoAlterar(fazendo.path, campos)}
+        />
+      )}
+
+      {sub === 'simulados' && !fazendo && (
         <>
           <Secao nome="Simulados" acao="Simulado" aoClicar={() => aoAdicionar('simulado')} />
           {simulados.length === 0 ? (
@@ -253,6 +265,14 @@ export function LenteEstudos({
                     {/* Simulado ainda nao feito nao mostra "0 acertos": o enunciado
                         entra aqui antes da prova, e um zero ali pareceria nota. */}
                     <span className="linha-valor">{a || t ? (t ? `${a}/${t}` : `${a} acertos`) : 'a fazer'}</span>
+                    {questoesDe(s).length > 0 && (
+                      <button
+                        className="btn-fantasma"
+                        onClick={ev => { ev.stopPropagation(); setFazendo(s) }}
+                      >
+                        {a || t ? 'Refazer' : 'Fazer'}
+                      </button>
+                    )}
                     {t > 0 && (
                       <span className="nivel" data-n={Math.max(1, Math.ceil(pct / 20))}>{pct}%</span>
                     )}
