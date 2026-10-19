@@ -29,6 +29,19 @@ const MATERIAS = [
 const repertoriosDe = (v: unknown): string[] =>
   txt(v).split(/[\n;]/).map(s => s.trim()).filter(Boolean)
 
+/*
+ * As quatro áreas do ENEM, na ordem dos dois domingos de prova.
+ *
+ * O dia da prova aparece junto porque muda a urgência: em 18 de outubro,
+ * Linguagens e Humanas têm três semanas, e Natureza e Matemática têm quatro.
+ */
+const AREAS_ENEM = [
+  { nome: 'Linguagens', quando: '1º domingo', materias: ['português', 'literatura', 'inglês', 'redação'] },
+  { nome: 'Ciências Humanas', quando: '1º domingo', materias: ['história', 'geografia', 'filosofia', 'sociologia'] },
+  { nome: 'Matemática', quando: '2º domingo', materias: ['matemática'] },
+  { nome: 'Ciências da Natureza', quando: '2º domingo', materias: ['física', 'química', 'biologia'] }
+]
+
 export function LenteEstudos({
   notas, sub, hoje, aoAbrir, aoAdicionar, aoEditar, aoExcluir, aoAlterar, aoMarcarDia
 }: PropsLente) {
@@ -182,11 +195,34 @@ export function LenteEstudos({
             ))}
           </div>
 
-          <ListaConteudos
-            conteudos={ordenados} aoAbrir={aoAbrir}
-            aoEditar={aoEditar} aoExcluir={aoExcluir}
-            vazio="Nenhum conteúdo cadastrado."
-          />
+          {/* Por ÁREA do ENEM, e não numa lista só: é assim que a prova é
+              dividida (um domingo para cada metade), e é assim que ele
+              estuda. Dez itens sem hierarquia viram uma pilha. */}
+          {materiaFiltro === null ? (
+            AREAS_ENEM.map(area => {
+              const daArea = ordenados.filter(c => area.materias.includes(txt(c.campos.materia)))
+              if (daArea.length === 0) return null
+              return (
+                <section key={area.nome} className="area-enem">
+                  <h3 className="secao">
+                    {area.nome}
+                    <span className="linha-valor"> · {area.quando}</span>
+                  </h3>
+                  <ListaConteudos
+                    conteudos={daArea} aoAbrir={aoAbrir}
+                    aoEditar={aoEditar} aoExcluir={aoExcluir}
+                    vazio="Nada aqui ainda."
+                  />
+                </section>
+              )
+            })
+          ) : (
+            <ListaConteudos
+              conteudos={ordenados} aoAbrir={aoAbrir}
+              aoEditar={aoEditar} aoExcluir={aoExcluir}
+              vazio="Nenhum conteúdo nesta matéria."
+            />
+          )}
         </>
       )}
 

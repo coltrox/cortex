@@ -666,3 +666,29 @@ describe('estrutura de redacao no painel da nota', () => {
     expect(FORMULARIOS['estrutura-redacao'].campos.map(c => c.k)).not.toContain('repertorios')
   })
 })
+
+describe('campos que sao dado de tela, e nao texto', () => {
+  /*
+   * O defeito que ele viu: abrir a nota do simulado mostrava o campo
+   * `questoes` desenhado como texto corrido -- enunciado, cinco alternativas,
+   * gabarito e comentario de cada questao, tudo embolado. Ilegivel, e ainda
+   * entregava o gabarito antes de fazer a prova.
+   */
+  it('a nota do simulado nao desenha as questoes nem as respostas', () => {
+    const n = nota({
+      path: 'Estudos/Provas/S.md', tipo: 'simulado',
+      campos: {
+        total: 20,
+        materia: 'natureza',
+        questoes: [{ n: 1, enunciado: 'Quanto e 2 + 2?', a: '3', b: '4', gabarito: 'b' }],
+        respostas: 'bacde'
+      }
+    })
+    const chaves = camposExibiveis(n).map(c => c.k)
+    expect(chaves).not.toContain('questoes')
+    expect(chaves).not.toContain('respostas')
+    // O que importa para quem abre a nota continua aparecendo.
+    expect(chaves).toContain('total')
+    expect(chaves).toContain('materia')
+  })
+})

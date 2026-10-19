@@ -2788,3 +2788,10 @@ kbd {
   background: var(--surface-sunk); border-radius: 8px;
   font-size: 13px; line-height: 1.6; color: var(--text-2);
 }
+
+/* ---------- conteudos agrupados por area do ENEM ---------- */
+
+/* Dez conteudos numa lista so viram uma pilha. Por area, cada bloco responde
+   a uma pergunta: o que cai em cada domingo de prova. */
+.area-enem + .area-enem { margin-top: 26px; }
+.area-enem .secao { display: flex; align-items: baseline; gap: 4px; }

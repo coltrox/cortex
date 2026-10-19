@@ -407,6 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.10.2` — **Conteúdos agrupados pelas quatro áreas do ENEM**, cada uma dizendo
+em qual domingo cai; e a nota do simulado parou de despejar as questões como texto
+corrido — era ilegível e entregava o gabarito antes da prova.
+
 `v2.10.1` — na aba Simulados, **o próximo a fazer vem primeiro**, com a data e o
 prazo; e o botão só diz "Refazer" depois de você ter feito — antes dizia sempre,
 porque eu olhava o total de questões, que existe desde que a nota nasce.

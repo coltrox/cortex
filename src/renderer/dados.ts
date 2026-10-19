@@ -44,6 +44,16 @@ const CHAVES_DE_CABECALHO = new Set([
   'titulo', 'title', 'tipo', 'date', 'data', 'project', 'created', 'updated', 'origem'
 ])
 
+/*
+ * Campos que são DADO de uma tela, e não texto para ler.
+ *
+ * `questoes` é a prova inteira — enunciado, cinco alternativas, gabarito e
+ * comentário por questão. Desenhado como texto vira um bloco ilegível que,
+ * de quebra, entrega o gabarito a quem ia fazer o simulado. Quem mostra isso
+ * é a tela de fazer a prova. `respostas` é o que ele marcou, no mesmo caso.
+ */
+const CHAVES_DE_DADO = new Set(['questoes', 'respostas'])
+
 export type CampoExibido = {
   k: string
   rotulo: string
@@ -90,14 +100,15 @@ export function camposExibiveis(nota: NoteComCampos): CampoExibido[] {
 
   for (const d of definidos) {
     vistos.add(d.k)
-    if (CHAVES_DE_CABECALHO.has(d.k)) continue
+    if (CHAVES_DE_CABECALHO.has(d.k) || CHAVES_DE_DADO.has(d.k)) continue
     const valor = campos[d.k]
     if (vazio(valor)) continue
     saida.push({ k: d.k, rotulo: d.rotulo, tipo: d.tipo, valor })
   }
 
   const sobras = Object.keys(campos)
-    .filter(k => !vistos.has(k) && !CHAVES_DE_CABECALHO.has(k) && !vazio(campos[k]))
+    .filter(k => !vistos.has(k) && !CHAVES_DE_CABECALHO.has(k)
+      && !CHAVES_DE_DADO.has(k) && !vazio(campos[k]))
     .sort()
   for (const k of sobras) {
     // `tags` é lista de palavras e já tem lugar próprio no cabeçalho de quem
