@@ -252,10 +252,31 @@ export function LenteEstudos({
             <Vazio>Nenhum simulado registrado.</Vazio>
           ) : (
             <div className="lista-notas">
-              {[...simulados].reverse().map(s => {
+              {[...simulados]
+                /*
+                 * A fazer primeiro, em ordem de data crescente — o próximo no
+                 * topo. Os já feitos descem, do mais recente para o mais
+                 * antigo, porque ali a lista vira histórico.
+                 */
+                .sort((x, y) => {
+                  const fx = txt(x.campos.respostas) !== ''
+                  const fy = txt(y.campos.respostas) !== ''
+                  if (fx !== fy) return fx ? 1 : -1
+                  const dx = x.date ?? ''
+                  const dy = y.date ?? ''
+                  return fx ? dy.localeCompare(dx) : dx.localeCompare(dy)
+                })
+                .map(s => {
                 const a = num(s.campos.acertos)
                 const t = num(s.campos.total)
                 const pct = t ? Math.round((a / t) * 100) : 0
+                /*
+                 * Já feito é quem tem RESPOSTA gravada, e não quem tem total.
+                 * O total vem preenchido desde que a nota nasce — é quantas
+                 * questões a prova tem —, então usá-lo fazia um simulado
+                 * intocado aparecer como "0/30" e oferecer "Refazer".
+                 */
+                const jaFez = txt(s.campos.respostas) !== ''
                 return (
                   <Linha key={s.path} aoAbrir={() => aoAbrir(s.path)}
                     aoEditar={() => aoEditar(s)} aoExcluir={() => aoExcluir(s)}>
@@ -264,16 +285,19 @@ export function LenteEstudos({
                     {txt(s.campos.materia) && <span className="tipo">{txt(s.campos.materia)}</span>}
                     {/* Simulado ainda nao feito nao mostra "0 acertos": o enunciado
                         entra aqui antes da prova, e um zero ali pareceria nota. */}
-                    <span className="linha-valor">{a || t ? (t ? `${a}/${t}` : `${a} acertos`) : 'a fazer'}</span>
+                    {/* Quando fazer, e não quando foi criado: é a pergunta de
+                        quem abre esta aba. */}
+                    {!jaFez && s.date && <Prazo data={s.date} hoje={hoje} feito={false} />}
+                    <span className="linha-valor">{jaFez ? `${a}/${t}` : 'a fazer'}</span>
                     {questoesDe(s).length > 0 && (
                       <button
                         className="btn-fantasma"
                         onClick={ev => { ev.stopPropagation(); setFazendo(s) }}
                       >
-                        {a || t ? 'Refazer' : 'Fazer'}
+                        {jaFez ? 'Refazer' : 'Fazer simulado'}
                       </button>
                     )}
-                    {t > 0 && (
+                    {jaFez && t > 0 && (
                       <span className="nivel" data-n={Math.max(1, Math.ceil(pct / 20))}>{pct}%</span>
                     )}
                   </Linha>

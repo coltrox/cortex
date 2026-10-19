@@ -407,6 +407,10 @@ row a second time". A dedup tem que acontecer antes, no payload.
 
 ## Estado
 
+`v2.10.1` — na aba Simulados, **o próximo a fazer vem primeiro**, com a data e o
+prazo; e o botão só diz "Refazer" depois de você ter feito — antes dizia sempre,
+porque eu olhava o total de questões, que existe desde que a nota nasce.
+
 `v2.10.0` — **simulado de verdade dentro do Cortex**: a prova aparece uma questão
 por vez, e ao finalizar vêm a correção, o acerto por matéria (ordenado do pior para
 o melhor) e o comentário de cada erro. As questões viraram dado na nota, e não
