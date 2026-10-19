@@ -44,6 +44,33 @@ export function reordenar(ids: string[], arrastado: string, alvo: string): strin
   return out
 }
 
+/**
+ * A lista com `arrastado` solto ANTES ou DEPOIS de `alvo`.
+ *
+ * `reordenar` só sabe soltar na posição de quem está embaixo do cursor, e
+ * isso deixa um lugar impossível de alcançar: o fim da lista. Pior, não há
+ * como a tela PROMETER onde o item vai parar — foi a reclamação do dono, que
+ * não conseguia ter noção de onde o item ia ficar.
+ *
+ * Com `depois`, a metade de cima de um item significa "acima dele" e a de
+ * baixo, "abaixo dele". A linha que a tela desenha e o resultado desta função
+ * são a mesma decisão, tomada no mesmo lugar.
+ */
+export function soltarPerto(
+  ids: string[], arrastado: string, alvo: string, depois: boolean
+): string[] {
+  if (arrastado === alvo) return ids
+  const de = ids.indexOf(arrastado)
+  if (de < 0 || !ids.includes(alvo)) return ids
+  const sem = ids.filter(x => x !== arrastado)
+  // O índice é procurado na lista JÁ SEM o arrastado: procurá-lo antes faria
+  // o item descer uma posição a mais sempre que ele viesse de cima do alvo.
+  const para = sem.indexOf(alvo) + (depois ? 1 : 0)
+  const out = [...sem]
+  out.splice(para, 0, arrastado)
+  return out.every((x, i) => x === ids[i]) ? ids : out
+}
+
 export function lerOrdem(): string[] {
   try {
     const bruto = localStorage.getItem(CHAVE)

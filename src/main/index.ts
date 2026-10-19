@@ -257,6 +257,22 @@ function createWindow(): void {
     }
   })
 
+  /*
+   * Os botões laterais do mouse, repassados ao renderer.
+   *
+   * No Windows eles não chegam à página como clique: o sistema manda
+   * WM_APPCOMMAND, que o Electron entrega aqui como `app-command`. Quem decide
+   * o que "voltar" significa é o renderer — ele tem o histórico de cada aba, e
+   * voltar numa aba não pode mexer nas outras.
+   *
+   * A navegação da própria janela não serviria: o Cortex é uma página só, e
+   * `webContents.goBack()` não teria para onde ir.
+   */
+  win.on('app-command', (_e, comando) => {
+    if (comando === 'browser-backward') win?.webContents.send('nav:lateral', -1)
+    if (comando === 'browser-forward') win?.webContents.send('nav:lateral', 1)
+  })
+
   // Nada nesta janela pode navegar para fora nem abrir janela nova: o app é
   // local, e um link clicado dentro de uma nota abre no navegador do sistema.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -390,7 +406,25 @@ ipcMain.handle('janela:tema', async (_e, tema: unknown) => {
   }
 })
 
+/**
+ * A reabertura do vault lembrado, enquanto ela está em curso.
+ *
+ * Existe para `vault:state` poder ESPERÁ-LA. Sem isso o renderer perguntava
+ * "tem vault?" antes de a reabertura terminar, ouvia "não" e desenhava a
+ * tela de criar vault — que piscava e sumia quando o `vault:aberto` chegava
+ * um instante depois. Quem abre o app todo dia no mesmo vault via aquilo
+ * SEMPRE, e a tela de primeiro uso não tem nada a dizer a essa pessoa.
+ *
+ * Fica `null` quando não há nada a esperar: sem vault lembrado, ou a
+ * reabertura já terminou (bem ou mal).
+ */
+let reabertura: Promise<unknown> | null = null
+
 ipcMain.handle('vault:state', async () => {
+  // O `catch` não é decoração: esperar uma promessa alheia sem rede de
+  // segurança viraria uma exceção neste canal se a reabertura falhasse. O
+  // que importa aqui é só que ela TERMINOU — o resultado está em `session`.
+  if (reabertura) await reabertura.catch(() => {})
   if (session.isOpen) return { root: session.vault.root, config: projetarConfigParaRenderer(session.config) }
   return { root: null, config: null }
 })
@@ -1073,8 +1107,18 @@ app.whenReady().then(async () => {
   const daLinhaDeComando = arquivoDosArgumentos(process.argv, app.isPackaged, c => existsSync(c))
   if (daLinhaDeComando) arquivoPendente = daLinhaDeComando
 
-  const lembrado = await vaultLembrado()
-  if (lembrado) {
+  /*
+   * A reabertura inteira vira UMA promessa, publicada antes do primeiro
+   * `await`.
+   *
+   * É ela que `vault:state` espera. Publicar depois de qualquer `await`
+   * abriria a mesma janela de novo: entre o começo da leitura do arquivo de
+   * memória e a atribuição, um `vault:state` chegaria com `reabertura`
+   * ainda `null` e ouviria "não tem vault".
+   */
+  reabertura = (async () => {
+    const lembrado = await vaultLembrado()
+    if (!lembrado) return
     try {
       // Passa por `abrirVault` para não haver dois caminhos de abertura: foi
       // exatamente essa duplicação que deixaria a campainha ligada só quando
@@ -1091,7 +1135,9 @@ app.whenReady().then(async () => {
     } catch {
       // Pasta apagada, drive desconectado, permissão negada: cai na abertura.
     }
-  }
+  })()
+
+  await reabertura
 })
 
 app.on('window-all-closed', async () => {

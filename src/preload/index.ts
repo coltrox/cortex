@@ -234,6 +234,20 @@ const api = {
     const h = (_e: unknown, estado: EstadoVault): void => cb(estado)
     ipcRenderer.on('vault:aberto', h)
     return () => { ipcRenderer.off('vault:aberto', h) }
+  },
+
+  /**
+   * Os botões laterais do mouse: voltar e avançar.
+   *
+   * Vêm do processo principal, e não de um `mouseup` na página, porque no
+   * Windows eles não são clique nenhum — o sistema manda WM_APPCOMMAND, que a
+   * janela recebe como `app-command`. Escutar só no DOM deixaria os dois
+   * botões mudos justamente no mouse que motivou o pedido.
+   */
+  onBotaoLateral(cb: (passo: -1 | 1) => void): () => void {
+    const h = (_e: unknown, passo: -1 | 1): void => cb(passo)
+    ipcRenderer.on('nav:lateral', h)
+    return () => { ipcRenderer.off('nav:lateral', h) }
   }
 }
 

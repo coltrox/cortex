@@ -1801,3 +1801,151 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
   font-size: 13px; outline: none;
 }
 .refeicao-outra input:focus { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* ==========================================================================
+   Arrastar na barra lateral: o cursor e a linha de destino
+   ==========================================================================
+   Três reclamações do dono, todas sobre a mesma coisa — não dava para saber
+   o que o arraste ia fazer:
+
+   1. A mãozinha aparecia só de passar o mouse, antes de pegar em nada. Agora
+      o item é seta normal, e a mão fechada só aparece com o botão apertado.
+   2. O ponteiro virava "proibido" entre um item e outro (ver o `onDragOver`
+      da coluna, que passou a aceitar o solte em qualquer pedaço dela).
+   3. Não havia promessa nenhuma de onde o item ia parar. Agora uma linha na
+      cor da área marca a borda exata, acima ou abaixo de quem está embaixo
+      do cursor — a mesma decisão que `soltarPerto` usa para reordenar.
+   ========================================================================== */
+
+.sb-item, .sb-sub { cursor: default; }
+/* `grabbing` e não `grab`: a mão fechada é a de quem JÁ está segurando. */
+.sb-item:active, .sb-sub:active { cursor: grabbing; }
+.sb-grupo[data-arrastando="true"], .sb-grupo[data-arrastando="true"] .sb-item,
+.sb-sub[data-arrastando="true"] { cursor: grabbing; }
+
+/* O item na mão fica fantasma: é a cópia que o cursor carrega que importa. */
+.sb-grupo[data-arrastando="true"] > .sb-item, .sb-sub[data-arrastando="true"] {
+  opacity: .4;
+}
+
+/* A linha do destino. `::after` porque o `::before` desses itens já é a
+   barrinha de "área aberta", e sobrescrevê-la apagaria onde você está. */
+.sb-grupo[data-alvo]::after, .sb-sub[data-alvo]::after {
+  content: '';
+  position: absolute;
+  left: 4px; right: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--cor, var(--accent));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cor, var(--accent)) 35%, transparent);
+  pointer-events: none;
+}
+.sb-grupo { position: relative; }
+.sb-grupo[data-alvo="antes"]::after  { top: -1px; }
+.sb-grupo[data-alvo="depois"]::after { bottom: -1px; }
+.sb-sub[data-alvo="antes"]::after  { top: -1px; }
+.sb-sub[data-alvo="depois"]::after { bottom: -1px; }
+
+/* ==========================================================================
+   A barra de abas
+   ==========================================================================
+   Só existe na tela com mais de uma aba aberta. Fica ACIMA do caminho, como
+   num navegador: a aba diz em qual trabalho você está, o caminho diz onde
+   dentro dele.
+   ========================================================================== */
+
+.abas {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px clamp(28px, 3.2vw, 56px) 0;
+  background: var(--vidro);
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* A faixa das abas é da janela, não do conteúdo: arrastar por ela move o
+     app, como o resto do topo. Os botões de dentro continuam clicáveis. */
+  -webkit-app-region: drag;
+}
+.abas::-webkit-scrollbar { display: none; }
+.abas button { -webkit-app-region: no-drag; }
+
+.aba {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 220px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--raio-1) var(--raio-1) 0 0;
+  background: transparent;
+  transition: background var(--dur) var(--curva);
+}
+.aba:hover { background: var(--realce); }
+.aba[data-ativa] {
+  background: var(--canvas);
+  border-color: var(--border);
+}
+
+.aba-nome {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 7px 4px 7px 11px;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.aba[data-ativa] .aba-nome { color: var(--text); }
+
+.aba-fechar {
+  flex: none;
+  width: 20px; height: 20px;
+  margin-right: 5px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity var(--dur) var(--curva), background var(--dur) var(--curva);
+}
+/* O × aparece ao passar o mouse na aba, e sempre na aba da vez: um × que só
+   existe no hover esconde de quem navega pelo teclado qual aba vai fechar. */
+.aba:hover .aba-fechar, .aba[data-ativa] .aba-fechar { opacity: 1; }
+.aba-fechar:hover { background: var(--surface-hover); color: var(--text); }
+.aba-fechar:focus-visible { opacity: 1; }
+
+/* Voltar e avançar, ao lado do botão do menu. */
+.topo-nav { display: inline-flex; gap: 2px; margin-left: 4px; }
+.nav-botao {
+  width: 26px; height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 17px;
+  line-height: 1;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva);
+}
+.nav-botao:hover:not(:disabled) { background: var(--realce); color: var(--text); }
+.nav-botao:disabled { opacity: .3; cursor: default; }
+
+/* Os exercícios no fim da nota do conteúdo. Uma linha acima separa a prova
+   da teoria sem precisar de título em caixa. */
+.nota-exercicios {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.nota-exercicios .secao { margin-top: 0; }
+.nota-exercicios .prova { margin-top: 4px; }

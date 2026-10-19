@@ -242,6 +242,8 @@ declare global {
 
       onVaultChange(cb: (rel: string) => void): () => void
       onVaultAberto(cb: (e: EstadoVault) => void): () => void
+      /** Botões laterais do mouse: -1 volta, 1 avança. */
+      onBotaoLateral(cb: (passo: -1 | 1) => void): () => void
     }
   }
 }

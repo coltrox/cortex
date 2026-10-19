@@ -70,6 +70,12 @@ export function Estudar(p: {
     <div>
       <Cabecalho titulo="Estudar" aoVoltar={() => p.irPara('hoje')} />
       <div className="bloco">
+        {/* Primeiro botão da tela, antes das abas: é o gesto de quem abriu o
+            app na fila do ônibus e tem cinco minutos. Ler vem depois. */}
+        <Botao tipo="principal" aoClicar={() => p.irPara('treinar')}>
+          Treinar exercícios
+        </Botao>
+
         <div className="abas-redacao">
           <button type="button" className="btn-aba" data-ativa={aba === 'plano'}
             onClick={() => { setAba('plano'); setAberto(null) }}>Plano</button>

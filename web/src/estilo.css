@@ -2160,3 +2160,57 @@ body:has(input:not([type=checkbox]):not([type=radio]):not([type=button]):focus, 
   border-color:var(--acento); color:var(--txt-1);
   background:color-mix(in srgb, var(--acento) 14%, transparent);
 }
+
+/* ==========================================================================
+   Treinar: o exercício solto, na fila do ônibus
+   ==========================================================================
+   Alvos de toque grandes e correção na hora. A alternativa é um botão de
+   altura cheia porque o dedo acerta pior que o mouse, e porque esta tela é
+   usada em pé, com uma mão, dentro do ônibus.
+   ========================================================================== */
+
+/* As matérias passam de três e não cabem divididas igualmente: rolam. */
+.treino-materias{ overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+.treino-materias::-webkit-scrollbar{ display:none; }
+.treino-materias .btn-aba{ flex:none; padding:9px 14px; white-space:nowrap; }
+
+.treino-de{ color:var(--txt-3); font-size:13px; margin-bottom:6px; }
+.treino-enunciado{ font-size:17px; line-height:1.5; margin:0 0 16px; }
+
+.treino-alternativas{ display:flex; flex-direction:column; gap:8px; }
+.treino-alternativa{
+  display:flex; align-items:flex-start; gap:12px; width:100%;
+  padding:14px; border-radius:var(--r2); cursor:pointer; text-align:left;
+  border:1px solid var(--linha); background:transparent; color:var(--txt-1);
+  font-size:15.5px; line-height:1.4;
+}
+/* Depois de responder, a tela vira leitura: o cinza do `disabled` do
+   navegador apagaria justamente o texto que ele precisa reler. */
+.treino-alternativa:disabled{ opacity:1; cursor:default; }
+.treino-letra{
+  flex:none; width:26px; height:26px; display:grid; place-items:center;
+  border-radius:50%; border:1px solid var(--linha);
+  font-size:13px; font-weight:700; color:var(--txt-2);
+}
+.treino-alternativa[data-estado='certa']{
+  border-color:var(--ok); background:var(--ok-fraco);
+}
+.treino-alternativa[data-estado='certa'] .treino-letra{
+  border-color:var(--ok); color:var(--ok);
+}
+.treino-alternativa[data-estado='errada']{
+  border-color:var(--erro); background:var(--erro-fraco);
+}
+.treino-alternativa[data-estado='errada'] .treino-letra{
+  border-color:var(--erro); color:var(--erro);
+}
+
+.treino-correcao{
+  margin-top:14px; padding:13px; border-radius:var(--r2);
+  background:var(--erro-fraco); border:1px solid var(--erro);
+}
+.treino-correcao[data-acertou]{ background:var(--ok-fraco); border-color:var(--ok); }
+.treino-correcao strong{ display:block; margin-bottom:6px; }
+.treino-correcao p{ margin:0; font-size:14.5px; line-height:1.5; color:var(--txt-2); }
+
+.treino-dica{ margin-top:14px; color:var(--txt-3); font-size:13.5px; line-height:1.5; }

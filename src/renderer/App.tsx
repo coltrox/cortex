@@ -1,12 +1,17 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useVault, type Lente } from './useVault'
 import { TIPOS_NOTA_CARDAPIO } from '../shared/eventos'
 import type { NoteComCampos } from './tipos'
 import { hojeISO } from './tipos'
-import { SUBS } from './subnav'
+import { SUBS, subPadrao } from './subnav'
 import {
-  aplicarOrdem, reordenar, lerOrdem, gravarOrdem, lerOrdemSubs, gravarOrdemSubs
+  aplicarOrdem, reordenar, soltarPerto, lerOrdem, gravarOrdem,
+  lerOrdemSubs, gravarOrdemSubs
 } from './ordemLentes'
+import {
+  criarAba, destinoDe, mesmoDestino, navegar, andar, podeVoltar, podeAvancar,
+  abrirEmNova, fecharAba, girar, tituloAba, type Aba, type Destino
+} from './abas'
 import { subAreaDaAba } from '../shared/subareas'
 import { lentesVisiveis, lenteDeAbertura } from './lentes'
 import { FORMULARIOS, ITENS } from './formularios'
@@ -84,12 +89,119 @@ export function App() {
   const [ordemAreas, setOrdemAreas] = useState<string[]>(() => lerOrdem())
   /** Qual área está na mão agora. `null` fora do arraste. */
   const [arrastando, setArrastando] = useState<string | null>(null)
+  /**
+   * Onde o item vai cair: em cima de quem, e de que lado dele.
+   *
+   * Existe porque arrastar sem isto era adivinhação — o dono disse que não
+   * conseguia ter noção de onde o item ia ficar. A tela desenha uma linha
+   * nesta borda, e o solte usa EXATAMENTE a mesma decisão.
+   */
+  const [alvo, setAlvo] = useState<{ id: string; depois: boolean } | null>(null)
+
+  /** Em qual metade do item o cursor está. Decide de que lado a linha aparece. */
+  const metadeDeBaixo = (ev: { clientY: number; currentTarget: Element }): boolean => {
+    const r = ev.currentTarget.getBoundingClientRect()
+    return ev.clientY > r.top + r.height / 2
+  }
   /* A ordem das abas dentro de cada área, também escolhida arrastando. */
   const [ordemSubs, setOrdemSubs] = useState(() => lerOrdemSubs())
   /** Qual aba está na mão. Separado do de área: são dois arrastes diferentes. */
   const [subArrastando, setSubArrastando] = useState<string | null>(null)
+  /** O mesmo alvo, para as abas de dentro de uma área. */
+  const [alvoSub, setAlvoSub] = useState<{ id: string; depois: boolean } | null>(null)
 
   const [abertas, setAbertas] = useState<string[]>(() => [v.lente])
+
+  /* ---------- abas e histórico ----------
+   *
+   * A lista nasce com UMA aba, e não vazia: o histórico de voltar/avançar vale
+   * desde o primeiro clique, muito antes de alguém abrir uma segunda aba. A
+   * barra de abas só aparece quando existe mais de uma — quem nunca deu
+   * Ctrl+clique não ganha uma faixa a mais na tela.
+   */
+  const [abas, setAbas] = useState<Aba[]>(() =>
+    [criarAba({ lente: v.lente, sub: v.sub, nota: null })])
+  const [abaAtual, setAbaAtual] = useState(0)
+
+  /** Onde a tela está AGORA, no formato que a aba guarda. */
+  const destinoVivo: Destino = { lente: v.lente, sub: v.sub, nota: v.aberta }
+
+  /**
+   * O destino que acabamos de mandar para a tela, enquanto ela não chega lá.
+   *
+   * É um `ref` e não estado porque ninguém desenha isto — e porque ele existe
+   * só para o efeito abaixo não registrar como "passo novo" a mudança que o
+   * próprio voltar acabou de pedir. Sem ele, voltar gravaria o destino antigo
+   * no histórico e o botão de avançar nunca sairia do lugar.
+   */
+  const aplicando = useRef<Destino | null>(null)
+
+  /** Manda um destino para a tela. O histórico quem cuida é o chamador. */
+  const aplicarDestino = (d: Destino): void => {
+    aplicando.current = d
+    v.setLente(d.lente as Lente)
+    v.setSub(d.sub)
+    if (d.nota) void v.abrir(d.nota)
+    else v.fechar()
+  }
+
+  /*
+   * Toda mudança de tela virá um passo no histórico da aba da vez.
+   *
+   * Aqui, e não em cada botão: a tela muda de dezenas de lugares (sidebar,
+   * paleta, link dentro de uma nota, duplo clique do Windows), e pendurar o
+   * registro em cada um deles deixaria metade dos caminhos fora do histórico.
+   */
+  useEffect(() => {
+    if (aplicando.current) {
+      // A tela ainda está indo para onde mandamos. Só volta a registrar
+      // quando ela chegar — comparando, e não por tempo.
+      if (mesmoDestino(destinoVivo, aplicando.current)) aplicando.current = null
+      return
+    }
+    setAbas(a => navegar(a, abaAtual, destinoVivo))
+  }, [v.lente, v.sub, v.aberta, abaAtual])
+
+  const aba = abas[abaAtual]
+
+  /** Volta ou avança DENTRO da aba da vez, sem tocar nas outras. */
+  const andarNaAba = (passo: -1 | 1): void => {
+    const r = andar(navegar(abas, abaAtual, destinoVivo), abaAtual, passo)
+    if (!r) return
+    setAbas(r.abas)
+    aplicarDestino(r.destino)
+  }
+
+  /** Abre um destino em aba nova e vai para ela (o Ctrl+clique). */
+  const abrirEmAbaNova = (d: Destino): void => {
+    const r = abrirEmNova(abas, abaAtual, destinoVivo, d)
+    setAbas(r.abas)
+    setAbaAtual(r.atual)
+    aplicarDestino(d)
+  }
+
+  const irParaAba = (i: number): void => {
+    if (i === abaAtual || !abas[i]) return
+    const base = navegar(abas, abaAtual, destinoVivo)
+    setAbas(base)
+    setAbaAtual(i)
+    aplicarDestino(destinoDe(base[i]))
+  }
+
+  const fecharAbaEm = (i: number): void => {
+    const base = navegar(abas, abaAtual, destinoVivo)
+    const r = fecharAba(base, abaAtual, i)
+    if (r.abas === base) return
+    setAbas(r.abas)
+    setAbaAtual(r.atual)
+    // Aplica sempre: fechar a aba da vez muda a tela, e fechar outra não —
+    // nesse caso o destino aplicado é o mesmo que já está no ar.
+    aplicarDestino(destinoDe(r.abas[r.atual]))
+  }
+
+  /* Os botões laterais do mouse. Vêm do processo principal: no Windows eles
+     não chegam à página como clique nenhum. */
+  useEffect(() => window.vaultApi.onBotaoLateral(passo => andarNaAba(passo)))
   /**
    * A barra lateral escondida, para o Dev ocupar a tela toda (pedido do
    * dono). Some por inteiro — para ir a outra área, abre de novo pelo ☰ no
@@ -204,10 +316,45 @@ export function App() {
         e.preventDefault()
         void v.salvar()
       }
+
+      /*
+       * Trocar de aba: Ctrl+Tab adiante, Ctrl+Shift+Tab atrás.
+       *
+       * Não é Alt+Tab, embora tenha sido o que o dono pediu: Alt+Tab é do
+       * Windows, que troca de JANELA e nunca entrega a tecla ao app. Prometer
+       * aquele atalho seria prometer um atalho que não funciona.
+       */
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Tab') {
+        e.preventDefault()
+        irParaAba(girar(abas.length, abaAtual, e.shiftKey ? -1 : 1))
+      }
+
+      // Fechar a aba da vez. A última não fecha — `fecharAba` cuida disso.
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault()
+        fecharAbaEm(abaAtual)
+      }
+
+      // Voltar e avançar pelo teclado, o mesmo que os botões laterais do
+      // mouse fazem. Alt+setas é o atalho que todo navegador usa.
+      if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault()
+        andarNaAba(e.key === 'ArrowLeft' ? -1 : 1)
+      }
+
+      // Ctrl+1 a Ctrl+9: a aba daquela posição, como no navegador.
+      if ((e.ctrlKey || e.metaKey) && /^[1-9]$/.test(e.key)) {
+        const i = Number(e.key) - 1
+        if (abas[i]) { e.preventDefault(); irParaAba(i) }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [v])
+    // Sem lista de dependências de propósito: os atalhos de aba leem `abas` e
+    // `abaAtual`, e uma lista desatualizada faria o Ctrl+Tab girar sobre a
+    // lista de abas de dois renders atrás. Trocar um ouvinte de teclado por
+    // render não custa nada.
+  })
 
   // Puxa ao abrir o vault e a cada 2 minutos. Uma falha isolada continua
   // silenciosa — rede caiu por um instante, a próxima rodada resolve, e um
@@ -271,6 +418,25 @@ export function App() {
     }, 900)
     return () => clearTimeout(t)
   }, [v.root, assinaturaCardapio])
+
+  /*
+   * Enquanto não se sabe se existe vault, não se desenha nem uma coisa nem
+   * outra.
+   *
+   * A tela de criar vault é uma AFIRMAÇÃO — "você não tem vault" — e durante
+   * a sondagem ela é falsa na esmagadora maioria das aberturas. Mostrá-la por
+   * meio segundo e trocar pelo app é pior que não mostrar nada.
+   */
+  if (v.sondando && !v.root) {
+    return (
+      <div className="abertura">
+        <div className="abertura-caixa">
+          <h1>Cortex</h1>
+          <p className="abertura-sub">Abrindo seu vault…</p>
+        </div>
+      </div>
+    )
+  }
 
   // Abertura: escolher a pasta e, depois, as áreas. `escolheu` distingue
   // "marquei todas" de "nunca passei por aqui".
@@ -404,9 +570,27 @@ export function App() {
           */}
         <aside className="sidebar-app">
           <div className="sb-marca">Cortex</div>
-          <nav className="sb-nav" aria-label="Áreas do Cortex">
+          {/*
+            * O vão entre os itens também aceita o solte.
+            *
+            * Sem isto, passar o cursor por qualquer pedaço da coluna que não
+            * fosse um item exato trocava o ponteiro pelo ícone de proibido —
+            * era o "mouse com bloqueiozinho" de que o dono reclamou. O
+            * destino continua sendo o último alvo que a linha mostrou; aqui só
+            * se promete que arrastar ali é permitido.
+            */}
+          <nav
+            className="sb-nav"
+            aria-label="Áreas do Cortex"
+            onDragOver={ev => {
+              if (!arrastando && !subArrastando) return
+              ev.preventDefault()
+              ev.dataTransfer.dropEffect = 'move'
+            }}
+            onDragEnd={() => { setArrastando(null); setAlvo(null); setAlvoSub(null) }}
+          >
             {visiveis.map(({ id, nome, Icone }) => {
-              const abas = SUBS[id]
+              const abasDaArea = SUBS[id]
               const ativa = v.lente === id
               const aberta = abertas.includes(id)
               return (
@@ -414,8 +598,13 @@ export function App() {
                   key={id}
                   className="sb-grupo"
                   data-area={id}
-                  data-com-abas={abas ? 'true' : undefined}
+                  data-com-abas={abasDaArea ? 'true' : undefined}
                   data-arrastando={arrastando === id || undefined}
+                  data-alvo={
+                    alvo?.id === id && arrastando && arrastando !== id
+                      ? (alvo.depois ? 'depois' : 'antes')
+                      : undefined
+                  }
                   draggable
                   onDragStart={ev => {
                     setArrastando(id)
@@ -423,43 +612,68 @@ export function App() {
                     ev.dataTransfer.effectAllowed = 'move'
                     ev.dataTransfer.setData('text/plain', id)
                   }}
-                  onDragOver={ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move' }}
+                  onDragOver={ev => {
+                    ev.preventDefault()
+                    ev.dataTransfer.dropEffect = 'move'
+                    // Metade de cima do item: a linha fica acima dele; metade
+                    // de baixo, abaixo. É assim que se alcança o fim da lista.
+                    const depois = metadeDeBaixo(ev)
+                    if (alvo?.id !== id || alvo.depois !== depois) setAlvo({ id, depois })
+                  }}
                   onDrop={ev => {
                     ev.preventDefault()
                     const de = ev.dataTransfer.getData('text/plain') || arrastando
+                    setArrastando(null)
+                    setAlvo(null)
                     if (!de) return
                     /* A ordem guardada parte da ordem ATUAL da tela, e não da
                        lista salva: se ainda não havia nada salvo, a primeira
                        arrastada precisa preservar o resto como está. */
                     const atual = visiveis.map(l => l.id)
-                    const nova = reordenar(atual, de, id)
+                    const nova = soltarPerto(atual, de, id, metadeDeBaixo(ev))
+                    if (nova === atual) return
                     setOrdemAreas(nova)
                     gravarOrdem(nova)
-                    setArrastando(null)
                   }}
-                  onDragEnd={() => setArrastando(null)}
+                  onDragEnd={() => { setArrastando(null); setAlvo(null) }}
                 >
                   <button
                     className="sb-item"
                     data-ativa={ativa}
-                    aria-current={ativa && !abas ? 'page' : undefined}
-                    aria-expanded={abas ? aberta : undefined}
+                    aria-current={ativa && !abasDaArea ? 'page' : undefined}
+                    aria-expanded={abasDaArea ? aberta : undefined}
                     // Área com abas só abre e fecha; sem abas, é a própria tela.
-                    onClick={() => (abas ? alternarArea(id) : v.setLente(id))}
+                    // Com Ctrl, a área vai para uma aba NOVA — inclusive as que
+                    // têm sub-abas, que de outro modo só abririam o grupo e não
+                    // teriam como ser abertas ao lado.
+                    onClick={ev => {
+                      if (ev.ctrlKey || ev.metaKey) {
+                        abrirEmAbaNova({ lente: id, sub: subPadrao(id), nota: null })
+                        return
+                      }
+                      if (abasDaArea) alternarArea(id)
+                      else v.setLente(id)
+                    }}
                   >
                     <Icone size={17} />
                     <span>{nome}</span>
-                    {abas && <span className="sb-seta" aria-hidden="true">▸</span>}
+                    {abasDaArea && <span className="sb-seta" aria-hidden="true">▸</span>}
                   </button>
-                  {abas && aberta && (
+                  {abasDaArea && aberta && (
                     <div className="sb-subs">
-                      {aplicarOrdem(abas, ordemSubs[id] ?? []).map(s => (
+                      {aplicarOrdem(abasDaArea, ordemSubs[id] ?? []).map(s => (
                         <button
                           key={s.id}
                           className="sb-sub"
                           aria-current={ativa && v.sub === s.id ? 'page' : undefined}
                           draggable
                           data-arrastando={subArrastando === `${id}:${s.id}` || undefined}
+                          data-alvo={
+                            alvoSub?.id === `${id}:${s.id}` && subArrastando
+                              && subArrastando !== `${id}:${s.id}`
+                              ? (alvoSub.depois ? 'depois' : 'antes')
+                              : undefined
+                          }
                           onDragStart={ev => {
                             // Sem isto, arrastar a aba arrastaria a área
                             // inteira junto — o grupo também é arrastável.
@@ -468,23 +682,47 @@ export function App() {
                             ev.dataTransfer.effectAllowed = 'move'
                             ev.dataTransfer.setData('text/plain', s.id)
                           }}
-                          onDragOver={ev => { ev.preventDefault(); ev.stopPropagation() }}
+                          onDragOver={ev => {
+                            ev.preventDefault()
+                            ev.stopPropagation()
+                            ev.dataTransfer.dropEffect = 'move'
+                            const depois = metadeDeBaixo(ev)
+                            const chave = `${id}:${s.id}`
+                            if (alvoSub?.id !== chave || alvoSub.depois !== depois) {
+                              setAlvoSub({ id: chave, depois })
+                            }
+                          }}
                           onDrop={ev => {
                             ev.preventDefault()
                             ev.stopPropagation()
                             const de = ev.dataTransfer.getData('text/plain')
+                            const depois = metadeDeBaixo(ev)
+                            setSubArrastando(null)
+                            setAlvoSub(null)
                             if (!de) return
                             /* Parte da ordem ATUAL da tela: na primeira vez
                                não há nada salvo, e o resto tem de ficar como
                                está. */
-                            const atual = aplicarOrdem(abas, ordemSubs[id] ?? []).map(x => x.id)
-                            const nova = { ...ordemSubs, [id]: reordenar(atual, de, s.id) }
+                            const atual = aplicarOrdem(abasDaArea, ordemSubs[id] ?? []).map(x => x.id)
+                            const ordenada = soltarPerto(atual, de, s.id, depois)
+                            if (ordenada === atual) return
+                            const nova = { ...ordemSubs, [id]: ordenada }
                             setOrdemSubs(nova)
                             gravarOrdemSubs(nova)
-                            setSubArrastando(null)
                           }}
-                          onDragEnd={ev => { ev.stopPropagation(); setSubArrastando(null) }}
-                          onClick={() => {
+                          onDragEnd={ev => {
+                            ev.stopPropagation()
+                            setSubArrastando(null)
+                            setAlvoSub(null)
+                          }}
+                          onClick={ev => {
+                            // Com Ctrl, a aba abre AO LADO em vez de trocar a
+                            // tela: é o que deixa estrutura de redação,
+                            // repertórios e pomodoro abertos ao mesmo tempo.
+                            if (ev.ctrlKey || ev.metaKey) {
+                              abrirEmAbaNova({ lente: id, sub: s.id, nota: null })
+                              return
+                            }
                             // `setLente` volta a aba para o panorama; a aba
                             // escolhida vem logo depois e é a que fica.
                             if (!ativa) v.setLente(id)
@@ -528,6 +766,48 @@ export function App() {
         </aside>
 
         <main className="main">
+          {/*
+            * A barra de abas, estilo navegador.
+            *
+            * Só aparece com mais de uma aba: quem nunca deu Ctrl+clique não
+            * precisa de uma faixa a mais na tela dizendo que tem uma aba
+            * aberta. É também o que ensina o recurso — ela surge no momento em
+            * que a segunda aba nasce.
+            */}
+          {abas.length > 1 && (
+            <div className="abas" role="tablist" aria-label="Abas abertas">
+              {abas.map((a, i) => {
+                const d = destinoDe(a)
+                const nome = tituloAba(a, {
+                  lente: LENTES.find(l => l.id === d.lente)?.nome,
+                  sub: SUBS[d.lente as Lente]?.find(s => s.id === d.sub)?.nome,
+                  // O título da nota, quando ela já está no índice. Enquanto
+                  // não estiver, a aba mostra a área — nunca o caminho cru.
+                  nota: d.nota ? v.notas.find(n => n.path === d.nota)?.title : undefined
+                })
+                return (
+                  <div key={a.id} className="aba" data-ativa={i === abaAtual || undefined}>
+                    <button
+                      className="aba-nome"
+                      role="tab"
+                      aria-selected={i === abaAtual}
+                      title={nome}
+                      onClick={() => irParaAba(i)}
+                    >
+                      {nome}
+                    </button>
+                    <button
+                      className="aba-fechar"
+                      title="Fechar esta aba (Ctrl+W)"
+                      aria-label={`Fechar ${nome}`}
+                      onClick={() => fecharAbaEm(i)}
+                    >×</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           <div className="topo">
             {/* Esconder e mostrar o menu, em qualquer tela (o mesmo que Ctrl+B).
                 Escondido, o botão diz "Abrir menu" — é por ele que se volta. */}
@@ -540,6 +820,27 @@ export function App() {
               <IconeLateral aberta={!semLateral} />
               {semLateral && <span>Abrir menu</span>}
             </button>
+
+            {/* Voltar e avançar, o mesmo caminho dos botões laterais do mouse.
+                Desabilitados quando não há para onde ir — um botão que às
+                vezes não faz nada é pior que um botão apagado. */}
+            <span className="topo-nav">
+              <button
+                className="nav-botao"
+                title="Voltar (Alt ←, ou o botão lateral do mouse)"
+                aria-label="Voltar"
+                disabled={!podeVoltar(aba)}
+                onClick={() => andarNaAba(-1)}
+              >‹</button>
+              <button
+                className="nav-botao"
+                title="Avançar (Alt →, ou o botão lateral do mouse)"
+                aria-label="Avançar"
+                disabled={!podeAvancar(aba)}
+                onClick={() => andarNaAba(1)}
+              >›</button>
+            </span>
+
             <span className="caminho">
               <strong>{lenteAtual?.nome}</strong>
               {subs && (
@@ -577,6 +878,9 @@ export function App() {
               aoAbrirNome={alvo => void v.abrirPorNome(alvo)}
               aoAbrirPath={p => void v.abrir(p)}
               aoExcluir={v.notaAberta ? () => setExcluindo(v.notaAberta) : undefined}
+              // O acerto dos exercícios volta para o frontmatter da própria
+              // nota do conteúdo — mesmo caminho que o simulado usa.
+              aoGravarCampos={campos => { if (v.aberta) void v.alterar(v.aberta, campos) }}
             />
           ) : view()}
         </main>

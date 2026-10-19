@@ -33,6 +33,36 @@ self.addEventListener('fetch', evento => {
   // uma mudança futura não transformar isto em cache de dados por acidente.
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return
 
+  /*
+   * Arquivo com hash no nome é imutável: vem do cache primeiro.
+   *
+   * O Vite assina cada bundle com um hash do conteúdo
+   * (`index-W-WYSM4o.js`), então aquele endereço nunca muda de conteúdo — uma
+   * versão nova tem nome novo. Pedir à rede algo que não pode ter mudado
+   * atrasa a abertura do app, e no celular do dono isso aparecia como o app
+   * "pensando" na fila do ônibus antes de mostrar uma fórmula que já estava
+   * no aparelho.
+   *
+   * O HTML continua rede-primeiro, logo abaixo: é ele que aponta para os
+   * bundles novos, e servi-lo do cache prenderia o app numa versão velha.
+   */
+  const imutavel = /\/assets\/.*-[A-Za-z0-9_-]{8,}\.(js|css|woff2?|png|svg|jpe?g)$/
+    .test(new URL(req.url).pathname)
+
+  if (imutavel) {
+    evento.respondWith(
+      caches.match(req).then(guardado => {
+        if (guardado) return guardado
+        return fetch(req).then(resposta => {
+          const copia = resposta.clone()
+          caches.open(CACHE).then(c => c.put(req, copia))
+          return resposta
+        })
+      })
+    )
+    return
+  }
+
   evento.respondWith(
     fetch(req)
       .then(resposta => {

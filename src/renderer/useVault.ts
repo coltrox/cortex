@@ -52,6 +52,17 @@ export function nomeArquivo(s: string): string {
 
 export function useVault() {
   const [root, setRoot] = useState<string | null>(null)
+
+  /*
+   * "Ainda não sei se existe vault" — que é diferente de "não existe".
+   *
+   * São três estados, e não dois: o processo principal reabre o vault
+   * lembrado sozinho e leva alguns milissegundos para responder. Tratar a
+   * espera como ausência fazia a tela de criar vault piscar em TODA abertura
+   * do app, e quem abre no mesmo vault de sempre via aquilo todo dia.
+   */
+  const [sondando, setSondando] = useState(true)
+
   const [config, setConfig] = useState<Config>({
     areas: [], pastasDev: [], escolheu: false, paineisTrancados: [], temSenha: false,
     dicaSenha: ''
@@ -101,7 +112,7 @@ export function useVault() {
     })
     void window.vaultApi.estadoVault().then(e => {
       if (e.root) { setRoot(e.root); if (e.config) setConfig(e.config) }
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setSondando(false))
     return parar
   }, [])
 
@@ -442,7 +453,7 @@ export function useVault() {
   }, [])
 
   return {
-    root, config, notas, pastas, visiveis, notaAberta,
+    root, sondando, config, notas, pastas, visiveis, notaAberta,
     lente, setLente, sub, setSub,
     filtro, setFiltro,
     aberta, conteudo, setConteudo, editando, setEditando,

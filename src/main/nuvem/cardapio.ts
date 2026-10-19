@@ -75,6 +75,29 @@ export type NotaParaCardapio = NoteComCampos & { corpo?: string }
 const TETO_CORPO = 8000
 
 /**
+ * Teto de questões que sobem por nota.
+ *
+ * O celular faz exercício esperando o ônibus, e não prova de cinco horas:
+ * doze questões é mais do que cabe numa espera. O teto também protege a
+ * publicação — cada questão tem enunciado, cinco alternativas e comentário, e
+ * uma nota com cinquenta delas passaria sozinha do corpo inteiro.
+ */
+const TETO_QUESTOES = 12
+
+/**
+ * As questões da nota, prontas para o celular.
+ *
+ * Vão COM o gabarito e COM o comentário, de propósito: sem rede, quem corrige
+ * é o aparelho, e questão sem resposta certa no bolso é exercício que não
+ * ensina nada. Isto não é segredo — é material de estudo do dono.
+ */
+function questoesPublicaveis(campos: Record<string, unknown>): unknown[] | undefined {
+  const q = campos.questoes
+  if (!Array.isArray(q) || q.length === 0) return undefined
+  return q.slice(0, TETO_QUESTOES)
+}
+
+/**
  * Esta nota pode ter o CORPO publicado?
  *
  * Duas perguntas, e as duas precisam ser sim.
@@ -288,7 +311,10 @@ export function montarCardapio(
         dominio: num(n.campos.dominio) || undefined,
         prioridade: n.campos.prioridade === true ? true : undefined,
         status: txt(n.campos.status),
-        corpo: corpoPublicavel(n.corpo)
+        corpo: corpoPublicavel(n.corpo),
+        // Os exercícios do conteúdo, para fazer no celular — é o que o dono
+        // pediu para a espera do ônibus.
+        questoes: questoesPublicaveis(n.campos)
       })
     })
   }
@@ -327,7 +353,10 @@ export function montarCardapio(
         foco: txt(n.campos.foco),
         redacao: n.campos.redacao === true ? true : undefined,
         feito: n.campos.feito === true ? true : undefined,
-        corpo: corpoPublicavel(n.corpo)
+        corpo: corpoPublicavel(n.corpo),
+        // Os exercícios DO DIA. Sobem junto do plano porque é o mesmo gesto:
+        // abriu o dia no celular, faz as questões dele.
+        questoes: questoesPublicaveis(n.campos)
       })
     })
   }

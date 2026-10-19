@@ -3,6 +3,7 @@ import type { NoteComCampos } from '../tipos'
 import type { Link, Backlink } from '../useVault'
 import { Markdown } from './Markdown'
 import { NotaTreino, NotaCardio } from './NotaTreino'
+import { ProvaSimulado, questoesDe } from './ProvaSimulado'
 import { corpoAlinhado, semDependenciasDaRede, camposExibiveis, textoDoCampo, separarFrontmatter, type CampoExibido } from '../dados'
 
 /**
@@ -33,6 +34,57 @@ type Props = {
   aoAbrirNome: (alvo: string) => void
   aoAbrirPath: (p: string) => void
   aoExcluir?: () => void
+  /** Grava campos no frontmatter da nota — é por aqui que o acerto dos
+      exercícios volta para o arquivo. */
+  aoGravarCampos?: (campos: Record<string, unknown>) => void
+}
+
+/**
+ * Os exercícios da nota, logo abaixo da teoria.
+ *
+ * Pedido do dono, ao pé da letra: "não quero só estudar teoria, quero
+ * exercícios junto dos conteúdos". Por isso ficam NA NOTA do conteúdo, e não
+ * numa aba separada — a hora de responder é agora, logo depois de ler.
+ *
+ * É a mesma tela do simulado, de propósito: questão por questão, alternativas,
+ * correção com o que errou e o comentário. Duas telas diferentes para a mesma
+ * coisa divergiriam na primeira melhoria que uma delas recebesse.
+ */
+function ExerciciosDaNota({ nota, aoGravar }: {
+  nota: NoteComCampos
+  aoGravar: (campos: Record<string, unknown>) => void
+}) {
+  const [fazendo, setFazendo] = useState(false)
+  const questoes = questoesDe(nota)
+  const acertos = textoDoCampo(nota.campos?.acertos)
+  const total = textoDoCampo(nota.campos?.total)
+  // `respostas`, e não `total`: `total` existe desde que a nota foi escrita,
+  // e checá-lo diria "já fez" para quem nunca respondeu nada.
+  const jaFez = textoDoCampo(nota.campos?.respostas) !== ''
+
+  if (fazendo) {
+    return (
+      <div className="nota-exercicios">
+        <ProvaSimulado nota={nota} aoSair={() => setFazendo(false)} aoGravar={aoGravar} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="nota-exercicios">
+      <h2 className="secao">Exercícios</h2>
+      <p className="form-dica">
+        {questoes.length} {questoes.length === 1 ? 'questão' : 'questões'} sobre o que
+        está aqui em cima. Uma por vez, com correção e comentário no fim.
+        {jaFez && total !== '' && (
+          <> Na última vez: <b>{acertos}/{total}</b>.</>
+        )}
+      </p>
+      <button className="btn" onClick={() => setFazendo(true)}>
+        {jaFez ? 'Fazer de novo' : 'Fazer os exercícios'}
+      </button>
+    </div>
+  )
 }
 
 /** Junta links repetidos e conta — três menções à mesma nota são uma linha. */
@@ -101,7 +153,8 @@ function LinhaCampo({ campo }: { campo: CampoExibido }) {
 
 export function NotaPainel({
   nota, caminho, conteudo, editando, sujo, saindo, entrando,
-  voltarPara, aoVoltar, aoEditar, aoMudar, aoSalvar, aoAbrirNome, aoAbrirPath, aoExcluir
+  voltarPara, aoVoltar, aoEditar, aoMudar, aoSalvar, aoAbrirNome, aoAbrirPath, aoExcluir,
+  aoGravarCampos
 }: Props) {
   const area = useRef<HTMLTextAreaElement>(null)
 
@@ -224,6 +277,13 @@ export function NotaPainel({
               // é `Anexos/audio.mp4` a partir da raiz do vault.
               aoAbrirAnexo={{ pasta: pastaDaNota, chamar: abrirAnexo }}
             />
+          )}
+
+          {/* Os exercícios vêm DEPOIS do texto, e só na leitura: no modo de
+              escrita a nota é o markdown cru, e uma prova interativa no meio
+              do que está sendo editado atrapalharia. */}
+          {nota && !editando && aoGravarCampos && questoesDe(nota).length > 0 && (
+            <ExerciciosDaNota nota={nota} aoGravar={aoGravarCampos} />
           )}
         </div>
 

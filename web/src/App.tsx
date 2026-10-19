@@ -21,6 +21,7 @@ import { Notas } from './telas/Notas'
 import { Estudo } from './telas/Estudo'
 import { Redacao } from './telas/Redacao'
 import { Estudar } from './telas/Estudar'
+import { Treinar } from './telas/Treinar'
 import { diaLocal } from './montar'
 import { Agenda } from './telas/Agenda'
 import { NovoItem, type EdicaoItem, type TipoNovo } from './telas/NovoItem'
@@ -55,6 +56,8 @@ export type Tela =
   | 'redacao'
   // O material de estudo: plano do dia, conteúdos e redações escritas.
   | 'estudar'
+  // Os exercícios soltos, um por vez, para a fila do ônibus. Sem rede.
+  | 'treinar'
   // As abas do desenho `Rotina` que ainda não tinham tela própria.
   | 'saude' | 'dieta' | 'corpo' | 'dinheiro'
 
@@ -78,6 +81,10 @@ const ABAS: { id: Tela; nome: string; area: string | null; forma: string }[] = [
   // mesma pergunta e três abas vizinhas do mesmo assunto gastam metade da
   // barra para dizer "saúde" de três jeitos.
   { id: 'saude',    nome: 'Saúde',    area: 'saude',      forma: '50%' },
+  // Estudos: o material em si — plano do dia, conteudos e redacoes. O app
+  // sabia REGISTRAR estudo e nao sabia mostrar o que estudar, que e o que ele
+  // precisa quando esta fora de casa.
+  { id: 'estudar',  nome: 'Estudos',  area: 'conhecimento', forma: '2px 10px' },
   { id: 'dinheiro', nome: 'Dinheiro', area: 'financas',   forma: '4px' },
   { id: 'notas',    nome: 'Notas',    area: 'vida',       forma: '3px 10px 3px 3px' },
   // O desenho chama esta aba de "Chegando"; a tela sempre se chamou `agenda`.
@@ -310,6 +317,7 @@ export function App() {
       {tela === 'estudo' && <Estudo envio={envio} irPara={setTela} />}
       {tela === 'redacao' && <Redacao cardapio={cardapio} irPara={setTela} />}
       {tela === 'estudar' && <Estudar cardapio={cardapio} hoje={diaLocal()} irPara={setTela} />}
+      {tela === 'treinar' && <Treinar cardapio={cardapio} hoje={diaLocal()} irPara={setTela} />}
       {tela === 'ajustes' && <Ajustes cardapio={cardapio} irPara={setTela} />}
       {tela === 'lerqr' && (
         <Suspense fallback={<Aviso>Abrindo a câmera…</Aviso>}>
