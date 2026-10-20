@@ -175,10 +175,31 @@ function IconeAjustes() {
 }
 
 export function App() {
-  // Sem id configurado o app abre direto em Ajustes: qualquer outra tela seria
-  // um formulário que não tem para onde enviar.
-  const [tela, setTela] = useState<Tela>(() =>
-    lerVaultId(guardadoDoNavegador) ? 'hoje' : 'ajustes')
+  /*
+   * A tela aberta sobrevive ao recarregamento.
+   *
+   * Recarregar — ou o navegador descartar a aba em segundo plano, que no
+   * celular acontece o tempo todo — voltava para o Hoje. Quem estava no meio
+   * de um conteúdo perdia o lugar e tinha de navegar de novo até ele.
+   *
+   * Só a ABA é guardada, e não a nota aberta dentro dela: a nota depende do
+   * cardápio, que pode ter mudado, e abrir numa nota que não existe mais
+   * seria pior que abrir na lista.
+   *
+   * Sem id configurado nada disso vale: o app abre em Ajustes, porque
+   * qualquer outra tela seria um formulário sem para onde enviar.
+   */
+  const [tela, setTela] = useState<Tela>(() => {
+    if (!lerVaultId(guardadoDoNavegador)) return 'ajustes'
+    const guardada = guardadoDoNavegador.ler('cortex.tela')
+    return guardada ? (guardada as Tela) : 'hoje'
+  })
+
+  useEffect(() => {
+    // Ajustes não é guardada: ela é destino de conserto, e reabrir ali toda
+    // vez faria o app parecer quebrado.
+    if (tela !== 'ajustes') guardadoDoNavegador.gravar('cortex.tela', tela)
+  }, [tela])
   const envio = useEnvio()
   const cardapio = useCardapio()
   /*

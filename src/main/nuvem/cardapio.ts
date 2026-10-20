@@ -357,6 +357,12 @@ export function montarCardapio(
         data: txt(n.date),
         nota: num(n.campos.nota) || undefined,
         status: txt(n.campos.status),
+        // O TEMA e o que a banca cobra. Sem eles o celular abria uma caixa
+        // de texto em branco e a pessoa não sabia sobre o que escrever —
+        // eram justamente os dois campos que faziam a folha ser uma folha.
+        tema: txt(n.campos.tema),
+        banca: txt(n.campos.banca),
+        cobranca: txt(n.campos.cobranca),
         corpo: corpoPublicavel(n.corpo)
       })
     })

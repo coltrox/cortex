@@ -2569,3 +2569,17 @@ button.md-link{
 
 /* Concluir o dia, no fim da nota do cronograma. */
 .dia-concluir{ margin-top:22px; padding-top:18px; border-top:1px solid var(--borda); }
+
+/* O tema da redação, fixo acima do campo de escrita. */
+.redacao-tema{
+  padding:14px; border-radius:var(--r2);
+  background:var(--painel); border:1px solid var(--borda);
+  border-left:3px solid var(--acento);
+}
+.redacao-tema-rotulo{
+  display:block; margin-bottom:6px;
+  font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--acento);
+}
+.redacao-tema strong{ display:block; font-size:16px; line-height:1.4; }
+.redacao-tema p{ margin:10px 0 0; font-size:13.5px; line-height:1.55; color:var(--txt-2); }

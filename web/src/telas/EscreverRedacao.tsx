@@ -77,8 +77,23 @@ export function EscreverRedacao({ item, envio, aoVoltar }: {
     )
   }
 
+  const tema = typeof item.detalhe.tema === 'string' ? item.detalhe.tema : ''
+  const banca = typeof item.detalhe.banca === 'string' ? item.detalhe.banca : ''
+  const cobranca = typeof item.detalhe.cobranca === 'string' ? item.detalhe.cobranca : ''
+
   return (
     <div className="redacao-escrita">
+      {/* O tema vem ANTES do campo, e fica na tela enquanto se escreve: sem
+          ele a folha era uma caixa em branco, e a pessoa tinha de sair da
+          tela para lembrar sobre o que era para escrever. */}
+      {tema && (
+        <div className="redacao-tema">
+          <span className="redacao-tema-rotulo">Tema{banca ? ` · ${banca}` : ''}</span>
+          <strong>{tema}</strong>
+          {cobranca && <p>{cobranca}</p>}
+        </div>
+      )}
+
       <textarea
         className="redacao-campo"
         value={texto}
