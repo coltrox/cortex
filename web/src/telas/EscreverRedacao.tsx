@@ -44,11 +44,11 @@ export function EscreverRedacao({ item, envio, aoVoltar }: {
   const mandar = (novoStatus: string): void => {
     if (!path) return
     envio.registrar({
-      tipo: 'redacao_escrita',
+      tipo: 'nota_escrita',
       // Data local, nunca `toISOString` do fuso: à noite viraria o dia
       // seguinte, e o evento cairia no diário errado.
       dia: diaLocal(),
-      dados: { path, texto, status: novoStatus }
+      dados: { path, texto, tipo: 'redacao', campos: { status: novoStatus } }
     })
     if (novoStatus === 'aguardando correção') {
       guardadoDoNavegador.apagar(chave)

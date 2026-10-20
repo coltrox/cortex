@@ -738,15 +738,40 @@ export function planejar(evento: Evento): Operacao[] {
      * `path` vem do cardápio, que foi o próprio Cortex quem publicou: o
      * celular devolve a referência que recebeu, em vez de montar um caminho.
      */
-    case 'redacao_escrita': {
+    case 'nota_escrita': {
       const path = txt(dados.path).trim()
-      const texto = txt(dados.texto)
       if (!path || !path.endsWith('.md')) return []
-      const ops: Operacao[] = [{ acao: 'nota-corpo', path, texto }]
-      const status = txt(dados.status).trim()
-      if (status) {
-        ops.push({ acao: 'nota-campos', tipo: 'redacao', path, campos: { status } })
+
+      const ops: Operacao[] = []
+
+      /* O texto só é escrito quando VEM texto. Marcar o dia como concluído
+         manda só os campos, e um `texto` vazio ali apagaria a nota inteira. */
+      if (typeof dados.texto === 'string') {
+        ops.push({ acao: 'nota-corpo', path, texto: dados.texto })
       }
+
+      /*
+       * Lista branca dos campos que um evento pode mexer.
+       *
+       * Sem ela, um evento escolheria qualquer campo de qualquer nota do
+       * vault — inclusive `tipo`, que decide o que a nota É para o app
+       * inteiro. A mesma precaução que o resto deste arquivo toma.
+       */
+      const PERMITIDOS = ['status', 'feito', 'nota']
+      const campos: Record<string, unknown> = {}
+      const vindos = dados.campos
+      if (vindos && typeof vindos === 'object' && !Array.isArray(vindos)) {
+        for (const [k, v] of Object.entries(vindos as Record<string, unknown>)) {
+          if (PERMITIDOS.includes(k)) campos[k] = v
+        }
+      }
+      if (Object.keys(campos).length > 0) {
+        /* O `tipo` vem do evento porque a mesma operação serve a redação e
+           ao dia do cronograma — e o executor o reafirma de qualquer jeito. */
+        const tipo = txt(dados.tipo).trim() || 'redacao'
+        ops.push({ acao: 'nota-campos', tipo, path, campos })
+      }
+
       return ops
     }
 

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Cabecalho, Botao } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
-import { rotuloData, tituloCurto, acharPorNome, daquiPraFrente, proximaAba } from '../rotulos'
+import { rotuloData, tituloCurto, acharPorNome, daquiPraFrente, proximaAba, ordemDeEstudo } from '../rotulos'
 import { CorpoDaNota } from './Nota'
 import { ExerciciosDaNota } from './Exercicios'
 import type { Questao } from '../exercicios'
@@ -41,6 +41,12 @@ export function Estudar(p: {
    * direto para Estudar — perdendo o lugar.
    */
   const [pilha, setPilha] = useState<string[]>([])
+  /* Marcado agora, antes de o Cortex devolver.
+   *
+   * O `feito` só volta no cardápio quando o computador republicar — o que
+   * pode levar minutos. Sem esta marca, o botão parecia não ter funcionado e
+   * ele clicaria de novo. */
+  const [concluido, setConcluido] = useState<Record<string, boolean>>({})
   const aberto = pilha.length > 0 ? pilha[pilha.length - 1] : null
   const abrirNota = (nome: string): void => { setPilha(p => [...p, nome]); window.scrollTo(0, 0) }
 
@@ -86,12 +92,17 @@ export function Estudar(p: {
     return (Number(a.detalhe.dominio) || 3) - (Number(b.detalhe.dominio) || 3)
   })
 
-  /* Hoje e o que vem primeiro. Estava do mais novo para o mais velho, e a
-     folha de HOJE caía no fim da lista, atrás das de novembro. */
-  const redacoes = daquiPraFrente(
+  /* Atrasada e não escrita vem PRIMEIRO, depois hoje e o futuro, e por fim
+     as entregues. A folha de ontem que ficou em branco é a mais urgente da
+     lista — e era justamente ela que ficava no fim. */
+  const redacoes = ordemDeEstudo(
     itens.filter(i => i.especie === 'redacao'),
     p.hoje,
-    i => txt(i.detalhe.data)
+    i => txt(i.detalhe.data),
+    i => {
+      const st = txt(i.detalhe.status)
+      return st === 'aguardando correção' || st === 'corrigida'
+    }
   )
 
   const lista = aba === 'plano' ? dias : aba === 'conteudos' ? conteudos : redacoes
@@ -130,6 +141,33 @@ export function Estudar(p: {
                 }}
               />
               <ExerciciosDaNota questoes={questoes} />
+
+              {/* Concluir o dia: o mesmo gesto de riscar a linha no papel,
+                  e o único jeito de o Cortex saber, em casa, o que foi feito
+                  na rua. Vai como evento e cai no `feito` da nota. */}
+              {escolhido.especie === 'plano-dia' && (
+                <div className="dia-concluir">
+                  {escolhido.detalhe.feito === true ? (
+                    <p className="treino-dica">✓ Dia marcado como concluído.</p>
+                  ) : (
+                    <Botao
+                      tipo="secundario"
+                      aoClicar={() => {
+                        const caminho = txt(escolhido.detalhe.path)
+                        if (!caminho) return
+                        p.envio.registrar({
+                          tipo: 'nota_escrita',
+                          dia: txt(escolhido.detalhe.data) || p.hoje,
+                          dados: { path: caminho, tipo: 'plano-dia', campos: { feito: true } }
+                        })
+                        setConcluido(c => ({ ...c, [escolhido.nome]: true }))
+                      }}
+                    >
+                      {concluido[escolhido.nome] ? '✓ Concluído' : 'Marcar o dia como concluído'}
+                    </Botao>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>

@@ -129,3 +129,34 @@ export function proximaAba<T>(abas: readonly T[], atual: T, passo: 1 | -1): T {
   if (destino < 0 || destino >= abas.length) return atual
   return abas[destino]
 }
+
+/**
+ * A ordem de uma lista de tarefas com data: o que está ATRASADO vem primeiro.
+ *
+ * `daquiPraFrente` põe o passado no fim, e isso está certo para consulta —
+ * mas errado para quem tem trabalho atrasado. A redação de ontem que não foi
+ * escrita é a mais urgente da lista, e ela estava embaixo de todas as de
+ * novembro.
+ *
+ * Três grupos, nesta ordem:
+ *
+ * 1. **Atrasado e não feito** — do mais antigo ao mais novo, para limpar a
+ *    fila na ordem em que ela se formou.
+ * 2. **Hoje e o futuro** — crescente. O próximo primeiro.
+ * 3. **Já feito** — decrescente, porque ali a lista vira histórico.
+ */
+export function ordemDeEstudo<T>(
+  itens: T[], hoje: string, data: (i: T) => string, feito: (i: T) => boolean
+): T[] {
+  const cresc = (a: T, b: T): number => data(a).localeCompare(data(b))
+  const desc = (a: T, b: T): number => data(b).localeCompare(data(a))
+
+  const comData = itens.filter(i => data(i) !== '')
+  const semData = itens.filter(i => data(i) === '')
+
+  const atrasado = comData.filter(i => data(i) < hoje && !feito(i)).sort(cresc)
+  const vindo = comData.filter(i => data(i) >= hoje && !feito(i)).sort(cresc)
+  const pronto = comData.filter(i => feito(i)).sort(desc)
+
+  return [...atrasado, ...vindo, ...pronto, ...semData]
+}

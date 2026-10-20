@@ -58,10 +58,10 @@ language sql immutable as $$
                -- Vira linha no diario do dia, e nao nota, porque estudar
                -- duas vezes no mesmo dia e o caso normal.
                'estudo',
-               -- A REDACAO escrita no celular, com o texto inteiro. Nao cria
-               -- nota: preenche a folha que o Cortex ja publicou e muda o
-               -- status para "aguardando correcao".
-               'redacao_escrita']
+               -- Escrever numa nota que JA EXISTE, do celular: o texto da
+               -- redacao, o dia do cronograma marcado como concluido. Nunca
+               -- cria nota, e so mexe nos campos de uma lista branca curta.
+               'nota_escrita']
 $$;
 
 create or replace function registrar_evento(

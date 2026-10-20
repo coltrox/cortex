@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rotuloData, tituloCurto, acharPorNome, daquiPraFrente } from './rotulos'
+import { rotuloData, tituloCurto, acharPorNome, daquiPraFrente, ordemDeEstudo, proximaAba } from './rotulos'
 
 describe('rotuloData', () => {
   it('monta dia da semana e data curta', () => {
@@ -109,5 +109,62 @@ describe('daquiPraFrente', () => {
 
   it('lista vazia nao quebra', () => {
     expect(daquiPraFrente([], HOJE, dt)).toEqual([])
+  })
+})
+
+describe('ordemDeEstudo', () => {
+  const r = (data: string, feito = false) => ({ data, feito })
+  const dt = (i: { data: string }) => i.data
+  const ok = (i: { feito: boolean }) => i.feito
+  const HOJE = '2026-10-20'
+
+  it('atrasado e NAO feito vem primeiro de tudo', () => {
+    // O caso real: a redacao do dia 19 ficou em branco e aparecia no fim da
+    // lista, atras de todas as de novembro.
+    const lista = [r('2026-11-14'), r('2026-10-20'), r('2026-10-19')]
+    expect(ordemDeEstudo(lista, HOJE, dt, ok).map(dt))
+      .toEqual(['2026-10-19', '2026-10-20', '2026-11-14'])
+  })
+
+  it('atrasados entre si vao do mais antigo ao mais novo', () => {
+    const lista = [r('2026-10-19'), r('2026-10-10'), r('2026-10-15')]
+    expect(ordemDeEstudo(lista, HOJE, dt, ok).map(dt))
+      .toEqual(['2026-10-10', '2026-10-15', '2026-10-19'])
+  })
+
+  it('o que ja foi feito desce, mesmo sendo de hoje', () => {
+    const lista = [r('2026-10-20', true), r('2026-11-02')]
+    expect(ordemDeEstudo(lista, HOJE, dt, ok).map(dt))
+      .toEqual(['2026-11-02', '2026-10-20'])
+  })
+
+  it('atrasado JA FEITO nao sobe: ele e historico', () => {
+    const lista = [r('2026-10-19', true), r('2026-10-25')]
+    expect(ordemDeEstudo(lista, HOJE, dt, ok).map(dt))
+      .toEqual(['2026-10-25', '2026-10-19'])
+  })
+
+  it('nao perde nem duplica item', () => {
+    const lista = [r('2026-10-19'), r('2026-10-20', true), r(''), r('2026-11-01')]
+    expect(ordemDeEstudo(lista, HOJE, dt, ok)).toHaveLength(4)
+  })
+})
+
+describe('proximaAba', () => {
+  const abas = ['plano', 'conteudos', 'redacoes'] as const
+
+  it('avanca e volta', () => {
+    expect(proximaAba(abas, 'plano', 1)).toBe('conteudos')
+    expect(proximaAba(abas, 'redacoes', -1)).toBe('conteudos')
+  })
+
+  it('nao da a volta nas pontas', () => {
+    // Dar a volta confunde: a pessoa nao sabe se avancou uma ou voltou duas.
+    expect(proximaAba(abas, 'plano', -1)).toBe('plano')
+    expect(proximaAba(abas, 'redacoes', 1)).toBe('redacoes')
+  })
+
+  it('aba desconhecida nao muda nada', () => {
+    expect(proximaAba(abas, 'outra' as never, 1)).toBe('outra')
   })
 })

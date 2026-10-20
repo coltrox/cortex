@@ -44,13 +44,14 @@ export const TIPOS_EVENTO = [
   // semana -- o dado que nao existia, e sem o qual todo grafico de estudo
   // seria um grafico de zero.
   'estudo',
-  // A redacao escrita NO CELULAR, com o texto inteiro.
+  // Escrever numa nota que JA EXISTE, do celular: o texto da redacao, o
+  // dia marcado como concluido.
   //
-  // Tipo proprio, e nao um `anotacao`: ela nao cria nota nova, ela PREENCHE
-  // uma folha que ja existe no vault (criada com tema, data e banca) e muda o
-  // status para "aguardando correcao". Era o ultimo pedaco que obrigava a
-  // abrir o computador para estudar.
-  'redacao_escrita'
+  // Um tipo so para os dois porque o gesto e o mesmo — preencher uma nota que
+  // o Cortex publicou —, e dois tipos exigiriam duas migracoes no banco para
+  // a mesma capacidade. Nunca CRIA nota, e os campos que ele pode mexer sao
+  // uma lista branca curta em planejar.ts.
+  'nota_escrita'
 ] as const
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number]

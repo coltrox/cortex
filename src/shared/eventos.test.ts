@@ -50,14 +50,15 @@ describe('validarEvento', () => {
       // acertos. Vira linha no diario, e nao nota: estudar duas vezes no
       // mesmo dia e o caso normal.
       'estudo',
-      'gasto', 'item_apagado', 'medida', 'peso', 'porquinho',
+      'gasto', 'item_apagado', 'medida',
+      // `nota_escrita` preenche uma nota que ja existe: o texto da redacao
+      // escrita no celular, ou o dia do cronograma marcado como concluido.
+      'nota_escrita',
+      'peso', 'porquinho',
       // `prova_etapa` sao a inscricao e o pagamento do vestibular: uma vez
       // cada, com prazo proprio, ao contrario de `prova_estudada`.
       'prova_estudada', 'prova_etapa',
       'prova_nova',
-      // `redacao_escrita` leva o TEXTO da redacao escrita no celular. Nao
-      // cria nota: preenche a folha que o Cortex ja publicou e muda o status.
-      'redacao_escrita',
       'refeicao_extra', 'refeicao_plano', 'rotina_feita',
       'sessao', 'suplemento', 'tarefa_nova'
     ])

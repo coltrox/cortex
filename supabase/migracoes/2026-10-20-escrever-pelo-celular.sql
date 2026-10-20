@@ -1,12 +1,19 @@
--- Migração de 20/10/2026 — escrever a redação pelo celular.
+-- Migração de 20/10/2026 — escrever no vault pelo celular.
 --
--- Acrescenta o tipo de evento `redacao_escrita` à lista branca do banco.
--- Sem ele, `registrar_evento` recusa com "tipo desconhecido" e o texto
--- escrito no tablet nunca chega ao vault.
+-- Acrescenta o tipo de evento `nota_escrita` à lista branca do banco. Sem
+-- ele, `registrar_evento` recusa com "tipo desconhecido" e nada do que for
+-- escrito no tablet chega ao vault.
 --
--- A lista precisa casar com TIPOS_EVENTO em src/shared/eventos.ts e ter um
--- caso em planejar.ts. Faltar num dos três faz o evento sumir em silêncio —
--- foi assim que as espécies do cardápio já sumiram antes.
+-- Esse tipo serve a dois gestos, que são o mesmo por dentro — preencher uma
+-- nota que o Cortex já publicou:
+--   1. a REDAÇÃO escrita no celular, com o texto e o status;
+--   2. o DIA do cronograma marcado como concluído.
+--
+-- Ele nunca cria nota, e os campos que pode mexer são uma lista branca curta
+-- em planejar.ts (status, feito, nota).
+--
+-- A lista abaixo precisa casar com TIPOS_EVENTO em src/shared/eventos.ts.
+-- Faltar num dos dois faz o evento sumir em silêncio.
 --
 -- Cole no SQL Editor do Supabase e rode. É idempotente.
 
@@ -33,12 +40,8 @@ language sql immutable as $$
                -- Vira linha no diario do dia, e nao nota, porque estudar
                -- duas vezes no mesmo dia e o caso normal.
                'estudo',
-               -- A REDACAO escrita no celular, com o texto inteiro.
-               --
-               -- Nao cria nota: preenche a folha que o Cortex ja publicou,
-               -- com tema, data e banca, e muda o status para "aguardando
-               -- correcao". E o que permite escrever no tablet, longe do
-               -- computador. O texto cabe folgado no teto de 8 KB por evento:
-               -- uma redacao de 30 linhas tem cerca de 1,8 KB.
-               'redacao_escrita']
+               -- Escrever numa nota que JA EXISTE, do celular: o texto da
+               -- redacao, o dia do cronograma marcado como concluido. Nunca
+               -- cria nota, e so mexe nos campos de uma lista branca curta.
+               'nota_escrita']
 $$;

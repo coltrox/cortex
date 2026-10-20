@@ -2566,3 +2566,6 @@ button.md-link{
 }
 @media (min-width: 900px){ .rascunho-area{ height:52vh; max-height:560px; } }
 @media (max-height: 560px) and (orientation: landscape){ .rascunho-area{ height:62vh; } }
+
+/* Concluir o dia, no fim da nota do cronograma. */
+.dia-concluir{ margin-top:22px; padding-top:18px; border-top:1px solid var(--borda); }
