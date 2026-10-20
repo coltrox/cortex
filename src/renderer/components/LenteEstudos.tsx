@@ -4,6 +4,7 @@ import {
   Cartao, Secao, Titulo, Linha, ListaNotas, Prazo, Vazio, Progresso, Check,
   num, txt, porData, dataCurta, type PropsLente
 } from './base'
+import { chaveMateria } from '../dados'
 import { diasAte, rotuloPrazo } from '../subnav'
 import { JANELAS, listar, naJanela, type Janela } from '../datas'
 import { Pomodoro } from './Pomodoro'
@@ -23,7 +24,11 @@ import { ProvaSimulado, questoesDe } from './ProvaSimulado'
 
 const MATERIAS = [
   'matemática', 'física', 'química', 'biologia', 'português', 'literatura',
-  'história', 'geografia', 'filosofia', 'sociologia', 'inglês', 'redação'
+  'história', 'geografia', 'filosofia', 'sociologia', 'inglês', 'redação',
+  // Os baralhos de recall são de uma ÁREA inteira, e não de uma matéria: um
+  // flashcard de Humanas pode ser de história ou de sociologia. Sem estes
+  // dois aqui, aquelas notas não tinham chip e só apareciam em "todas".
+  'humanas', 'linguagens'
 ]
 
 /** Repertórios são escritos um por linha; ponto e vírgula também separa. */
@@ -106,7 +111,9 @@ export function LenteEstudos({
   // Reta final primeiro, depois o que você domina menos. É a ordem em que se
   // deve estudar, então é a ordem em que a tela mostra.
   const ordenados = [...conteudos]
-    .filter(c => !materiaFiltro || txt(c.campos.materia) === materiaFiltro)
+    // Comparação por CHAVE, e não por texto: "Matemática" e "matemática" são
+    // a mesma matéria, e comparar cru escondia dez notas sem dizer nada.
+    .filter(c => !materiaFiltro || chaveMateria(c.campos.materia) === chaveMateria(materiaFiltro))
     .sort((a, b) => {
       const pa = a.campos.prioridade === true ? 0 : 1
       const pb = b.campos.prioridade === true ? 0 : 1
@@ -114,7 +121,7 @@ export function LenteEstudos({
       return (num(a.campos.dominio) || 3) - (num(b.campos.dominio) || 3)
     })
 
-  const usadas = new Set(conteudos.map(c => txt(c.campos.materia)).filter(Boolean))
+  const usadas = new Set(conteudos.map(c => chaveMateria(c.campos.materia)).filter(Boolean))
 
   const comDominio = conteudos.filter(c => num(c.campos.dominio) >= 1 && num(c.campos.dominio) <= 5)
   const somaDominio = comDominio.reduce((s, c) => s + num(c.campos.dominio), 0)
@@ -231,7 +238,7 @@ export function LenteEstudos({
           <div className="chips">
             <button className="chip" aria-pressed={materiaFiltro === null}
               onClick={() => setMateriaFiltro(null)}>todas</button>
-            {MATERIAS.filter(m => usadas.has(m)).map(m => (
+            {MATERIAS.filter(m => usadas.has(chaveMateria(m))).map(m => (
               <button key={m} className="chip" aria-pressed={materiaFiltro === m}
                 onClick={() => setMateriaFiltro(materiaFiltro === m ? null : m)}>
                 {m}

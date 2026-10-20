@@ -5,7 +5,7 @@ import {
   suplementosDoDia, rotinasDoDia, anotacoesDoDia, datasComemorativas, totaisDoDia,
   fatorDaRefeicao, trocaDaRefeicao, refeicoesDoDia,
   seriePeso, serieAgua, litros, textos, camposExibiveis, textoDoCampo,
-  opcaoDaRefeicao, comOpcaoEscolhida, comTrocaEscrita, lista
+  opcaoDaRefeicao, comOpcaoEscolhida, comTrocaEscrita, lista, chaveMateria
 } from './dados'
 import { FORMULARIOS, type Campo } from './formularios'
 
@@ -690,5 +690,40 @@ describe('campos que sao dado de tela, e nao texto', () => {
     // O que importa para quem abre a nota continua aparecendo.
     expect(chaves).toContain('total')
     expect(chaves).toContain('materia')
+  })
+})
+
+describe('chaveMateria', () => {
+  it('iguala caixa diferente -- o bug que escondeu dez notas', () => {
+    // As notas antigas tinham "matemática"; as novas, "Matemática". O filtro
+    // comparava cru, e as novas sumiam da aba sem nenhum aviso.
+    expect(chaveMateria('Matemática')).toBe(chaveMateria('matemática'))
+  })
+
+  it('iguala com e sem acento', () => {
+    expect(chaveMateria('fisica')).toBe(chaveMateria('física'))
+    expect(chaveMateria('HISTÓRIA')).toBe(chaveMateria('historia'))
+  })
+
+  it('ignora espaco em volta', () => {
+    expect(chaveMateria('  química  ')).toBe(chaveMateria('quimica'))
+  })
+
+  it('nao mistura materias diferentes', () => {
+    expect(chaveMateria('física')).not.toBe(chaveMateria('filosofia'))
+    expect(chaveMateria('matemática')).not.toBe(chaveMateria('biologia'))
+  })
+
+  it('valor ausente vira string vazia', () => {
+    expect(chaveMateria(undefined)).toBe('')
+    expect(chaveMateria(null)).toBe('')
+    expect(chaveMateria('')).toBe('')
+  })
+
+  it('numero vira o texto dele, como no resto do app', () => {
+    // `txt` ja converte numero para texto; a chave segue a mesma regra, em
+    // vez de inventar uma conversao propria que divergiria do que a tela
+    // mostra.
+    expect(chaveMateria(42)).toBe('42')
   })
 })

@@ -593,3 +593,24 @@ function comCampoDaRefeicao(
   if (Object.keys(linha).length > 1) out.push(linha)
   return out
 }
+
+/**
+ * A chave de comparação de uma matéria.
+ *
+ * Existe por um bug que escondeu dez notas em silêncio: as notas antigas
+ * traziam `materia: matemática` e as novas, `materia: Matemática`. O filtro da
+ * aba Conteúdos comparava texto exato, então o chip "matemática" simplesmente
+ * não listava as novas — e nada na tela dizia por quê.
+ *
+ * Normaliza caixa e acento: `Matemática`, `matemática` e `Matematica` viram a
+ * mesma chave. É só para COMPARAR; o que a tela mostra continua sendo o texto
+ * escrito na nota.
+ */
+export function chaveMateria(valor: unknown): string {
+  return txt(valor)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    // Tira os sinais diacríticos (acento, til, cedilha) que a NFD separou.
+    .replace(/[\u0300-\u036f]/g, '')
+}
