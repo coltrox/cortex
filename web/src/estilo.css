@@ -2370,3 +2370,60 @@ h3.md-titulo{ font-size:15.5px; color:var(--txt-2); }
 }
 
 .rascunho-dica{ margin:8px 0 0; color:var(--txt-3); font-size:12.5px; line-height:1.5; }
+
+/* ==========================================================================
+   Respiro entre os controles
+   ==========================================================================
+   Na tela Estudar, o botão "Treinar exercícios" encostava nas abas Plano /
+   Conteúdos / Redações: dois alvos de toque colados são um convite a errar o
+   dedo, e no tablet ficava feio de perto.
+   ========================================================================== */
+
+.btn + .abas-redacao,
+.btn + .lista-notas,
+.btn + .cartao,
+.btn + h2{ margin-top:16px; }
+
+.abas-redacao{ gap:10px; margin-bottom:16px; }
+.abas-redacao + *{ margin-top:0; }
+
+/* Botões empilhados nunca se tocam. */
+.bloco > .btn + .btn{ margin-top:10px; }
+
+/* ==========================================================================
+   Deitado: tablet e computador
+   ==========================================================================
+   O app nasceu retrato, com 480px de largura máxima. Numa tela deitada isso
+   deixa dois terços da tela vazios e espreme o conteúdo numa tira no meio.
+
+   A partir de 760px o conteúdo respira até 760, a barra de abas vira uma
+   faixa centrada com cantos arredondados (em vez de colada nas bordas), e a
+   folha de rascunho ganha altura — é no tablet deitado que ela vai ser usada
+   com a caneta.
+   ========================================================================== */
+
+@media (min-width: 760px) {
+  :root{ --largura: 760px; }
+
+  .bloco{ padding-left:var(--e5); padding-right:var(--e5); }
+
+  /* Em duas colunas: cartão de lista e cartão de conteúdo lado a lado. */
+  .lista-notas, .cards{
+    display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px;
+  }
+  .lista-notas > *, .cards > *{ margin:0; }
+
+  .rascunho-folha{ height:52vh; max-height:560px; }
+
+  /* A tabela de um conteúdo cabe inteira: nada de rolar na horizontal. */
+  .md-tabela{ font-size:14.5px; }
+}
+
+/* Tela baixa e deitada — tablet na horizontal, ou celular virado.
+   Aqui o que falta é ALTURA: o cabeçalho e a barra comem metade da tela. */
+@media (max-height: 560px) and (orientation: landscape) {
+  .cabecalho{ padding-top:8px; padding-bottom:8px; }
+  .cabecalho h1{ font-size:20px; }
+  .rascunho-folha{ height:64vh; min-height:160px; }
+  .bloco:last-child{ padding-bottom:calc(72px + var(--baixo-seguro, 0px)); }
+}
