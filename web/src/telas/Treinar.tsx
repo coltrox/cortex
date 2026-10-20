@@ -7,6 +7,7 @@ import {
   cartasDoCardapio, materiasDo, filtrarPorMateria, baralho, registrar,
   placarDoDia, pendentes, lerHistorico, gravarHistorico, type Carta
 } from '../exercicios'
+import { Rascunho } from './Rascunho'
 
 /**
  * Treinar na rua.
@@ -118,6 +119,8 @@ export function Treinar(p: {
           <>
             <div className="treino-de">{atual.origem}</div>
             <p className="treino-enunciado">{q?.enunciado}</p>
+
+            <Rascunho />
 
             <div className="treino-alternativas">
               {letras.map(l => {

@@ -2329,3 +2329,44 @@ h3.md-titulo{ font-size:15.5px; color:var(--txt-2); }
 /* Os exercícios no fim da nota, separados da teoria por uma linha. */
 .nota-exercicios{ margin-top:24px; padding-top:18px; border-top:1px solid var(--borda); }
 .nota-exercicios .md-titulo{ margin-top:0; }
+
+/* ==========================================================================
+   Respiro embaixo: a barra de abas é FIXA e cobre 68 px
+   ==========================================================================
+   Telas montadas como `<div><Cabecalho/><div class="bloco">…` não herdavam o
+   respiro que o `main` dá: o último botão da tela — "Fazer os exercícios",
+   "Registrar uma sessão" — terminava DEBAIXO da barra de abas, inalcançável.
+
+   `:last-child` e não `.bloco` inteiro: numa tela com dois blocos, só o de
+   baixo precisa do espaço. O `--baixo-seguro` cobre o entalhe do iPhone.
+   ========================================================================== */
+.bloco:last-child{ padding-bottom:calc(84px + var(--baixo-seguro, 0px)); }
+
+/* ==========================================================================
+   Rascunho: a folha de conta dentro do exercício
+   ==========================================================================
+   Para o tablet com caneta. `touch-action:none` é o que faz a caneta
+   DESENHAR em vez de rolar a página — sem isso o recurso inteiro não serve.
+   ========================================================================== */
+
+.rascunho-abrir{ margin:4px 0 14px; }
+
+.rascunho{
+  margin:4px 0 16px; padding:10px;
+  border:1px solid var(--borda); border-radius:var(--r2); background:var(--painel);
+}
+.rascunho-barra{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:9px; }
+.rascunho-barra .btn-aba{ flex:none; padding:8px 12px; font-size:13.5px; }
+
+.rascunho-folha{
+  display:block; width:100%; height:46vh; min-height:220px; max-height:420px;
+  border:1px dashed var(--borda-forte); border-radius:var(--r2);
+  background:var(--fundo);
+  /* A cor do traço sai daqui: o canvas lê o `color` computado. */
+  color:var(--txt-1);
+  /* Sem isto, arrastar a caneta rola a página em vez de desenhar. */
+  touch-action:none;
+  cursor:crosshair;
+}
+
+.rascunho-dica{ margin:8px 0 0; color:var(--txt-3); font-size:12.5px; line-height:1.5; }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Botao } from '../componentes'
 import type { Questao } from '../exercicios'
+import { Rascunho } from './Rascunho'
 
 /**
  * Os exercícios de UMA nota, no fim dela.
@@ -72,6 +73,10 @@ export function ExerciciosDaNota({ questoes }: { questoes: Questao[] }) {
       <h2 className="md-titulo">Exercícios</h2>
       <div className="treino-de">Questão {i + 1} de {questoes.length}</div>
       <p className="treino-enunciado">{q.enunciado}</p>
+
+      {/* A folha de conta fica ANTES das alternativas: a conta vem antes
+          da escolha, e um botão depois delas convidaria a chutar primeiro. */}
+      <Rascunho />
 
       <div className="treino-alternativas">
         {letras.map(l => {
