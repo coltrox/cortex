@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  espessura, tamanhoDoBitmap, paraFolha, comArrasto, comPinca,
-  VISTA_INICIAL, type Ferramenta, type Vista
+  espessura, acaoDoPonteiro, tamanhoDoBitmap, paraFolha, comArrasto, comPinca,
+  comZoom, nomeDoPng, VISTA_INICIAL, type Ferramenta, type Vista
 } from '../rascunho'
 
 /**
@@ -17,9 +17,13 @@ import {
  * - `touch-action: none` na área impede o navegador de rolar a página com o
  *   dedo. Sem isso, arrastar a caneta rolaria a tela em vez de desenhar.
  * - Com o navegador fora do caminho, o dedo precisa de dono: um dedo ARRASTA
- *   a folha, dois dedos AMPLIAM. É o que este componente faz.
- * - E o dedo nunca desenha. Apoiar a mão na tela para escrever não risca
- *   nada — a rejeição de palma sai de graça, como consequência da regra.
+ *   a folha, dois dedos AMPLIAM.
+ * - E, depois que uma caneta aparece, o dedo nunca desenha. Apoiar a mão na
+ *   tela para escrever não risca nada — a rejeição de palma sai como
+ *   consequência da regra, e não como heurística de área de toque.
+ *
+ * No celular, sem caneta nenhuma, o dedo desenha: quem não tem tablet
+ * continua tendo rascunho. Quem decide isso é `deveDesenhar`.
  *
  * A folha é MAIOR que a janela de propósito: dá para empurrá-la de lado e
  * continuar a conta no espaço em branco, em vez de apagar para ter espaço.
@@ -27,9 +31,19 @@ import {
  * O traço não é salvo. É rascunho, e morre com a questão.
  */
 
-/** O tamanho da folha, em pixels lógicos. Maior que a tela, para sobrar espaço. */
-const FOLHA_L = 1400
-const FOLHA_A = 1000
+/**
+ * O tamanho da folha, em pixels lógicos.
+ *
+ * Bem maior que a janela, a pedido dele — "escrever bastante". Dá umas quatro
+ * telas de conta: quando acabar o espaço, empurra a folha de lado em vez de
+ * apagar. O teto de memória de `tamanhoDoBitmap` é quem segura a conta disso
+ * num tablet de alta densidade.
+ */
+const FOLHA_L = 2200
+const FOLHA_A = 1500
+
+/** Quanto cada toque nos botões `−`/`+` amplia ou reduz. */
+const PASSO_ZOOM = 1.25
 
 export function Rascunho() {
   const [aberto, setAberto] = useState(false)
@@ -42,6 +56,8 @@ export function Rascunho() {
   /* Os dedos encostados agora, por id. Em `ref` porque mudam a cada frame do
      gesto, e um `setState` por frame travaria o arraste. */
   const dedos = useRef(new Map<number, { x: number; y: number }>())
+  /* Uma caneta já encostou nesta folha? A partir daí o dedo só move. */
+  const jaUsouCaneta = useRef(false)
   /* A vista também em ref: os handlers precisam do valor atual DENTRO do
      gesto, e o estado só chega no render seguinte. */
   const vistaRef = useRef(vista)
@@ -66,46 +82,75 @@ export function Rascunho() {
     ctx.strokeStyle = getComputedStyle(el).color
   }, [aberto])
 
-  const origem = (): { left: number; top: number } => {
-    const r = area.current?.getBoundingClientRect()
-    return { left: r?.left ?? 0, top: r?.top ?? 0 }
+  /**
+   * O ponto, em coordenada da folha.
+   *
+   * Mede o retângulo do CANVAS, não o da área: ele já vem com o translate e o
+   * scale aplicados, então o traço cai onde a ponta encostou sem o código ter
+   * de adivinhar de que canto o CSS amplia.
+   */
+  const naFolha = (e: React.PointerEvent): { x: number; y: number } => {
+    const r = canvas.current?.getBoundingClientRect()
+    return paraFolha(
+      e.clientX, e.clientY,
+      { left: r?.left ?? 0, top: r?.top ?? 0 },
+      vistaRef.current.escala
+    )
   }
 
   /** Ponto do dedo em coordenada da ÁREA, que é o que os gestos usam. */
   const naArea = (e: React.PointerEvent): { x: number; y: number } => {
-    const o = origem()
-    return { x: e.clientX - o.left, y: e.clientY - o.top }
+    const r = area.current?.getBoundingClientRect()
+    return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) }
   }
 
+  /** Desenha de um ponto ao outro, já em coordenada de folha. */
+  const riscar = (
+    de: { x: number; y: number }, ate: { x: number; y: number }, pressao: number
+  ): void => {
+    const ctx = canvas.current?.getContext('2d')
+    if (!ctx) return
+    ctx.globalCompositeOperation = ferramenta === 'borracha' ? 'destination-out' : 'source-over'
+    /* A espessura é dividida pela escala para o traço ter a mesma grossura
+       APARENTE em qualquer zoom: ampliado, um traço de 2 px viraria 10. */
+    ctx.lineWidth = espessura(pressao, ferramenta) / vistaRef.current.escala
+    ctx.beginPath()
+    ctx.moveTo(de.x, de.y)
+    ctx.lineTo(ate.x, ate.y)
+    ctx.stroke()
+  }
+
+  /** A regra, com o estado atual da folha preenchido. */
+  const acao = (e: React.PointerEvent) =>
+    acaoDoPonteiro(e.pointerType, jaUsouCaneta.current, ultimo.current !== null)
+
   const aoEncostar = (e: React.PointerEvent): void => {
+    if (e.pointerType === 'pen') jaUsouCaneta.current = true
+    const o_que = acao(e)
+    if (o_que === 'ignorar') return
+
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* nem todo navegador deixa */ }
 
-    if (e.pointerType === 'pen') {
-      ultimo.current = paraFolha(e.clientX, e.clientY, origem(), vistaRef.current)
+    if (o_que === 'desenhar') {
+      const p = naFolha(e)
+      ultimo.current = p
+      // Um toque curto precisa deixar um ponto: sem isto, pingar um "i" ou
+      // marcar uma vírgula não desenha nada, porque não houve movimento.
+      riscar(p, p, e.pressure)
       return
     }
-    // Dedo e mouse movem a folha. Nunca desenham — é daí que sai a rejeição
-    // de palma: a mão apoiada é só mais um dedo, e dedo não risca.
+
     dedos.current.set(e.pointerId, naArea(e))
   }
 
   const aoMover = (e: React.PointerEvent): void => {
-    if (e.pointerType === 'pen') {
-      const de = ultimo.current
-      if (!de) return
-      const ctx = canvas.current?.getContext('2d')
-      if (!ctx) return
-      const ate = paraFolha(e.clientX, e.clientY, origem(), vistaRef.current)
+    const o_que = acao(e)
+    if (o_que === 'ignorar') return
 
-      ctx.globalCompositeOperation = ferramenta === 'borracha' ? 'destination-out' : 'source-over'
-      /* A espessura é dividida pela escala para o traço ter a mesma grossura
-         APARENTE em qualquer zoom: ampliado, um traço de 2 px viraria 10. */
-      ctx.lineWidth = espessura(e.pressure, ferramenta) / vistaRef.current.escala
-      ctx.beginPath()
-      ctx.moveTo(de.x, de.y)
-      ctx.lineTo(ate.x, ate.y)
-      ctx.stroke()
-
+    if (o_que === 'desenhar') {
+      if (!ultimo.current) return
+      const ate = naFolha(e)
+      riscar(ultimo.current, ate, e.pressure)
       ultimo.current = ate
       return
     }
@@ -132,8 +177,13 @@ export function Rascunho() {
   }
 
   const aoSoltar = (e: React.PointerEvent): void => {
-    if (e.pointerType === 'pen') ultimo.current = null
-    else dedos.current.delete(e.pointerId)
+    /* Com `canetaEncostada` em false, a pergunta é "este ponteiro era o que
+       desenhava?" — e só ele encerra o traço. A palma levantando no meio da
+       escrita não pode cortar a linha. */
+    if (acaoDoPonteiro(e.pointerType, jaUsouCaneta.current, false) === 'desenhar') {
+      ultimo.current = null
+    }
+    dedos.current.delete(e.pointerId)
   }
 
   const limpar = (): void => {
@@ -144,6 +194,71 @@ export function Rascunho() {
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, el.width, el.height)
     ctx.restore()
+  }
+
+  /** O meio da janela, que é a âncora natural para os botões de zoom. */
+  const meioDaArea = (): { x: number; y: number } => {
+    const r = area.current?.getBoundingClientRect()
+    return { x: (r?.width ?? 0) / 2, y: (r?.height ?? 0) / 2 }
+  }
+
+  const ampliar = (fator: number): void =>
+    aplicar(comZoom(vistaRef.current, fator, meioDaArea()))
+
+  /**
+   * Roda do mouse amplia, em vez de rolar a página.
+   *
+   * No computador não há pinça, e sem isto o zoom ficaria só nos botões. A
+   * âncora é o ponteiro: amplia onde o mouse está, como todo mapa faz.
+   */
+  const aoRodar = (e: React.WheelEvent): void => {
+    const r = area.current?.getBoundingClientRect()
+    if (!r) return
+    aplicar(comZoom(
+      vistaRef.current,
+      e.deltaY < 0 ? PASSO_ZOOM : 1 / PASSO_ZOOM,
+      { x: e.clientX - r.left, y: e.clientY - r.top }
+    ))
+  }
+
+  /**
+   * Salva a folha como PNG, no tamanho cheio do bitmap.
+   *
+   * Duas decisões moram aqui. A primeira é exportar o BITMAP inteiro, e não o
+   * pedaço visível: o arquivo sai na resolução de desenho, que num tablet é
+   * duas a três vezes a da tela — serve para guardar a resolução da conta, que
+   * é o que ele pediu.
+   *
+   * A segunda é pintar o fundo antes. O canvas é transparente, e um PNG
+   * transparente com traço escuro abre invisível em visualizador de fundo
+   * escuro. Com o fundo sólido, o arquivo sai como a folha aparece na tela.
+   */
+  const salvarPng = (): void => {
+    const el = canvas.current
+    if (!el) return
+
+    const folha = document.createElement('canvas')
+    folha.width = el.width
+    folha.height = el.height
+    const ctx = folha.getContext('2d')
+    if (!ctx) return
+
+    const estilo = getComputedStyle(el)
+    ctx.fillStyle = estilo.backgroundColor || '#ffffff'
+    ctx.fillRect(0, 0, folha.width, folha.height)
+    ctx.drawImage(el, 0, 0)
+
+    folha.toBlob(blob => {
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = nomeDoPng(new Date())
+      a.click()
+      // Sem revogar, o bitmap inteiro fica preso na memória da aba até ela
+      // fechar — e são dezenas de megabytes.
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }, 'image/png')
   }
 
   if (!aberto) {
@@ -170,10 +285,26 @@ export function Rascunho() {
           onClick={() => setFerramenta('borracha')}
         >⌫ Borracha</button>
         <button type="button" className="btn-aba" onClick={limpar}>Limpar</button>
+
+        {/* O zoom em botão, porque no computador não há pinça — e no tablet
+            é mais firme do que dois dedos no meio de uma conta. */}
+        <span className="rascunho-zoom">
+          <button
+            type="button" className="btn-aba" aria-label="Reduzir"
+            onClick={() => ampliar(1 / PASSO_ZOOM)}
+          >−</button>
+          <span className="rascunho-escala">{Math.round(vista.escala * 100)}%</span>
+          <button
+            type="button" className="btn-aba" aria-label="Ampliar"
+            onClick={() => ampliar(PASSO_ZOOM)}
+          >+</button>
+        </span>
+
         <button
           type="button" className="btn-aba"
           onClick={() => aplicar(VISTA_INICIAL)}
         >Centralizar</button>
+        <button type="button" className="btn-aba" onClick={salvarPng}>⇩ PNG</button>
         <button type="button" className="btn-aba" onClick={() => setAberto(false)}>Fechar</button>
       </div>
 
@@ -184,7 +315,7 @@ export function Rascunho() {
         onPointerMove={aoMover}
         onPointerUp={aoSoltar}
         onPointerCancel={aoSoltar}
-        onPointerLeave={aoSoltar}
+        onWheel={aoRodar}
       >
         <canvas
           ref={canvas}
@@ -198,8 +329,9 @@ export function Rascunho() {
       </div>
 
       <p className="rascunho-dica">
-        Caneta escreve. Um dedo arrasta a folha, dois dedos dão zoom — e a mão
-        apoiada não risca nada.
+        Caneta escreve. Um dedo arrasta a folha, dois dedos dão zoom (no
+        computador, a roda do mouse) — e a mão apoiada não risca nada. A folha
+        é bem maior que a janela: empurre para o lado quando faltar espaço.
       </p>
     </div>
   )

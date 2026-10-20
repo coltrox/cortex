@@ -338,7 +338,7 @@ export function App() {
       {tela === 'estudo' && <Estudo envio={envio} irPara={setTela} />}
       {tela === 'redacao' && <Redacao cardapio={cardapio} irPara={setTela} />}
       {tela === 'estudar' && <Estudar cardapio={cardapio} envio={envio} hoje={diaLocal()} irPara={setTela} />}
-      {tela === 'treinar' && <Treinar cardapio={cardapio} hoje={diaLocal()} irPara={setTela} />}
+      {tela === 'treinar' && <Treinar cardapio={cardapio} envio={envio} hoje={diaLocal()} irPara={setTela} />}
       {tela === 'ajustes' && <Ajustes cardapio={cardapio} irPara={setTela} />}
       {tela === 'lerqr' && (
         <Suspense fallback={<Aviso>Abrindo a câmera…</Aviso>}>

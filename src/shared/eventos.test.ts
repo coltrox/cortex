@@ -60,7 +60,12 @@ describe('validarEvento', () => {
       'prova_estudada', 'prova_etapa',
       'prova_nova',
       'refeicao_extra', 'refeicao_plano', 'rotina_feita',
-      'sessao', 'suplemento', 'tarefa_nova'
+      'sessao',
+      // `sessao_estudo` e o treino fechado no celular, com hora de inicio e
+      // de fim: vira NOTA com o relatorio por materia e por conteudo. O
+      // `estudo` ali acima continua sendo a linha de horas no diario.
+      'sessao_estudo',
+      'suplemento', 'tarefa_nova'
     ])
   })
 })

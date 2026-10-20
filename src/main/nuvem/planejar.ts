@@ -1,6 +1,7 @@
 import type { Evento } from '../../shared/eventos'
 import { txt, num, comValor } from './util'
 import { anoDeOrigem, proximaOcorrencia, OQUE_COMEMORATIVA } from '../../shared/datas'
+import { normalizarSessao, notaDaSessao } from './notaDaSessao'
 
 /**
  * Traduz um evento vindo do celular nas mudanças que ele causa no vault.
@@ -71,6 +72,15 @@ export type Operacao =
   | {
       acao: 'nota'; tipo: string; path: string; frontmatter: Record<string, unknown>
       seExistir: 'mesclar' | 'criarOutro'
+      /**
+       * O texto da nota, quando ela nasce com um.
+       *
+       * Existe para a sessão de estudos, cujo valor está no relatório — as
+       * tabelas de acerto por matéria e por conteúdo — e não em campos de
+       * frontmatter. Só vale na CRIAÇÃO: numa nota que já existe, o corpo é
+       * do dono, e sobrescrevê-lo apagaria o que ele escreveu lá.
+       */
+      corpo?: string
     }
   /** Cria a nota se faltar e mescla campos — usado por peso e medida. */
   | { acao: 'nota-campos'; tipo: string; path: string; campos: Record<string, unknown> }
@@ -816,6 +826,49 @@ export function planejar(evento: Evento): Operacao[] {
           prioridade: dados.prioridade === true ? true : undefined
         })
       }]
+    }
+
+    /*
+     * A sessão de treino fechada no celular.
+     *
+     * Rende DUAS coisas, e de propósito:
+     *
+     * 1. a **nota** com o relatório, que é o que ele pediu para ler depois;
+     * 2. uma **linha no diário** por matéria, para a conta de horas e de
+     *    questões da semana continuar funcionando — ela já existe e já é
+     *    alimentada pelo evento `estudo`.
+     *
+     * Sem a segunda, treinar pelo celular não apareceria em nenhum total, e
+     * a semana pareceria vazia mesmo depois de uma hora de exercício.
+     */
+    case 'sessao_estudo': {
+      const s = normalizarSessao(dados)
+      if (!s) return []
+
+      const { path, frontmatter, corpo } = notaDaSessao(s)
+      const ops: Operacao[] = [{
+        acao: 'nota', tipo: 'sessao-estudo', seExistir: 'criarOutro',
+        path, frontmatter, corpo
+      }]
+
+      /* Os minutos vão INTEIROS na primeira matéria, e não divididos entre
+         elas. Dividir inventaria precisão que não existe: ele não cronometra
+         por matéria, e lançar 40 minutos como "13 de cada" faria o total da
+         semana parecer exato quando é estimativa. */
+      s.materias.forEach((m, i) => {
+        ops.push({
+          acao: 'diario-lista', dia: s.dia, campo: 'estudos',
+          item: comValor({
+            materia: m.nome,
+            minutos: i === 0 ? s.minutos || undefined : undefined,
+            questoes: m.certas + m.erradas,
+            acertos: m.certas,
+            obs: `sessão de ${s.inicio}`
+          })
+        })
+      })
+
+      return ops
     }
 
     default:

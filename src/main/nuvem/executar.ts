@@ -242,19 +242,28 @@ export async function executar(
       }
 
       case 'nota': {
+        /* A nota que nasce com texto — hoje, o relatório da sessão de
+           estudos. Só na CRIAÇÃO: quando o arquivo já existe, o corpo é do
+           dono, e semear por cima apagaria o que ele escreveu. */
+        const semente = op.corpo
+          ? `${ESQUELETO_VAZIO}\n${op.corpo.trim()}\n`
+          : ESQUELETO_VAZIO
+
         if (op.seExistir === 'mesclar') {
           // Já existir não é erro: dois cardios no mesmo dia (ou duas
           // sessões com o mesmo modelo e data) caem no mesmo caminho, e o
           // segundo mescla em vez de estourar.
           const raw = await lerOuVazio(vault, op.path)
-          await vault.writeAtomic(op.path, patchFrontmatter(raw, op.frontmatter))
+          await vault.writeAtomic(
+            op.path, patchFrontmatter(raw === '' ? semente : raw, op.frontmatter)
+          )
           await indexarSemFalhar(indexer, op.path)
         } else {
           // 'criarOutro': mesclar aqui apagaria uma anotação diferente que
           // só por acaso começa com a mesma frase — nunca sobrescreve,
           // sempre cria um arquivo à parte com um sufixo que desambigua.
           const path = await proximoCaminhoLivre(vault, op.path)
-          await vault.writeAtomic(path, patchFrontmatter(ESQUELETO_VAZIO, op.frontmatter))
+          await vault.writeAtomic(path, patchFrontmatter(semente, op.frontmatter))
           await indexarSemFalhar(indexer, path)
         }
         break

@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Cabecalho, Botao } from '../componentes'
-import type { UsoDoCardapio } from '../envio'
+import type { UsoDoCardapio, useEnvio } from '../envio'
 import type { Tela } from '../App'
 import { guardadoDoNavegador } from '../guardado'
 import {
   cartasDoCardapio, materiasDo, filtrarPorMateria, baralho, registrar,
   placarDoDia, pendentes, lerHistorico, gravarHistorico, type Carta
 } from '../exercicios'
+import {
+  iniciar, anotar, resumir, placares, totalGeral, destaques, porcentagem,
+  rotuloDeHora, diaDaSessao,
+  lerSessao, gravarSessao, limparSessao, type SessaoEstudo, type ResumoSessao
+} from '../sessao'
 import { Rascunho } from './Rascunho'
 
 /**
@@ -28,10 +33,20 @@ import { Rascunho } from './Rascunho'
  */
 export function Treinar(p: {
   cardapio: UsoDoCardapio
+  envio: ReturnType<typeof useEnvio>
   hoje: string
   irPara: (t: Tela) => void
 }) {
   const [historico, setHistorico] = useState(() => lerHistorico(guardadoDoNavegador))
+  /* A sessão aberta, se houver. Sai do aparelho e não do estado inicial vazio
+     porque fechar o app no meio do treino — ou o navegador descartar a aba —
+     não pode perder meia hora de exercício já respondido. */
+  const [sessao, setSessao] = useState<SessaoEstudo | null>(
+    () => lerSessao(guardadoDoNavegador)
+  )
+  /* O relatório da sessão que acabou de ser encerrada, para ele ver na hora
+     o que o Cortex vai escrever na nota. */
+  const [fechada, setFechada] = useState<ResumoSessao | null>(null)
   const [materia, setMateria] = useState<string | null>(null)
   const [marcada, setMarcada] = useState<string | null>(null)
   /* Quantas cartas já passaram. Serve para forçar o próximo sorteio quando o
@@ -79,9 +94,69 @@ export function Treinar(p: {
   const responder = (letra: string): void => {
     if (!atual || marcada) return
     setMarcada(letra)
-    const h = registrar(historico, atual.chave, letra === atual.questao.gabarito, p.hoje)
+    const acertou = letra === atual.questao.gabarito
+
+    const h = registrar(historico, atual.chave, acertou, p.hoje)
     gravarHistorico(guardadoDoNavegador, h)
     setHistorico(h)
+
+    /* A resposta entra na sessão além do histórico. São duas contas
+       diferentes: o histórico decide qual carta volta antes, a sessão é o
+       recorte do treino de agora, que vira nota. */
+    if (sessao) {
+      const nova = anotar(sessao, {
+        chave: atual.chave,
+        materia: atual.materia,
+        conteudo: atual.origem,
+        acertou
+      })
+      gravarSessao(guardadoDoNavegador, nova)
+      setSessao(nova)
+    }
+  }
+
+  const abrirSessao = (): void => {
+    const s = iniciar(new Date())
+    gravarSessao(guardadoDoNavegador, s)
+    setSessao(s)
+    setFechada(null)
+  }
+
+  /**
+   * Encerra a sessão: manda o relatório para o Cortex escrever a nota.
+   *
+   * Sessão sem resposta nenhuma é descartada em silêncio — foi o botão tocado
+   * por engano, e um evento assim só criaria nota vazia no vault.
+   */
+  const encerrarSessao = (): void => {
+    if (!sessao) return
+    const agora = new Date()
+
+    if (sessao.respostas.length === 0) {
+      limparSessao(guardadoDoNavegador)
+      setSessao(null)
+      return
+    }
+
+    const r = resumir(sessao, agora)
+    p.envio.registrar({
+      tipo: 'sessao_estudo',
+      dia: diaDaSessao(sessao),
+      dados: {
+        inicio: r.inicio,
+        fim: r.fim,
+        minutos: r.minutos,
+        /* Só nome e contagem: o Cortex não precisa das respostas uma por uma
+           para escrever o relatório, e mandar menos é mandar menos coisa que
+           pode chegar torta. */
+        materias: r.materias.map(m => ({ nome: m.nome, certas: m.certas, erradas: m.erradas })),
+        conteudos: r.conteudos.map(c => ({ nome: c.nome, certas: c.certas, erradas: c.erradas }))
+      }
+    })
+
+    limparSessao(guardadoDoNavegador)
+    setSessao(null)
+    setFechada(r)
   }
 
   const proxima = (): void => {
@@ -119,6 +194,14 @@ export function Treinar(p: {
       />
 
       <div className="bloco">
+        <PainelDaSessao
+          sessao={sessao}
+          fechada={fechada}
+          aoIniciar={abrirSessao}
+          aoEncerrar={encerrarSessao}
+          aoDispensar={() => setFechada(null)}
+        />
+
         {/* O filtro de matéria. "Tudo" primeiro, porque é o modo normal: na
             espera do ônibus não se escolhe matéria, responde-se o que vier. */}
         <div className="abas-redacao treino-materias">
@@ -190,6 +273,121 @@ export function Treinar(p: {
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * A faixa da sessão de estudos, no topo do treino.
+ *
+ * Três estados, e nunca dois ao mesmo tempo:
+ *
+ * 1. **sem sessão** — um convite para abrir uma;
+ * 2. **sessão aberta** — o placar ao vivo e o botão de encerrar;
+ * 3. **acabou de encerrar** — o relatório que foi para o Cortex.
+ *
+ * O treino funciona sem sessão nenhuma, e isso é de propósito: a tela nasceu
+ * para responder uma questão na fila do ônibus, e obrigar a "iniciar sessão"
+ * antes disso transformaria um gesto de dez segundos em burocracia. A sessão
+ * é para quando ele senta para estudar de verdade.
+ */
+function PainelDaSessao(p: {
+  sessao: SessaoEstudo | null
+  fechada: ResumoSessao | null
+  aoIniciar: () => void
+  aoEncerrar: () => void
+  aoDispensar: () => void
+}) {
+  if (p.fechada) {
+    const r = p.fechada
+    const geral = r.materias.reduce(
+      (acc, m) => ({ certas: acc.certas + m.certas, erradas: acc.erradas + m.erradas }),
+      { certas: 0, erradas: 0 }
+    )
+    const feitas = geral.certas + geral.erradas
+    const d = destaques(r.conteudos.length > 0 ? r.conteudos : r.materias)
+
+    return (
+      <div className="sessao-painel" data-estado="fechada">
+        <h2 className="sessao-titulo">Sessão encerrada</h2>
+        <p className="sessao-resumo">
+          {r.minutos > 0 && <><b>{r.minutos} min</b> · </>}
+          <b>{feitas}</b> {feitas === 1 ? 'questão' : 'questões'} ·{' '}
+          <b>{geral.certas} ✓</b> {geral.erradas} ✗
+        </p>
+
+        <ul className="sessao-lista">
+          {r.materias.map(m => (
+            <li key={m.nome}>
+              <span>{m.nome}</span>
+              <span className="sessao-nota">
+                {m.certas}/{m.total} · {porcentagem(m.taxa)}%
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        {d.mal.length > 0 && (
+          <p className="sessao-dica">
+            Volte em <b>{d.mal.map(x => x.nome).join(', ')}</b>.
+          </p>
+        )}
+        {d.bem.length > 0 && (
+          <p className="sessao-dica">
+            Foi bem em <b>{d.bem.map(x => x.nome).join(', ')}</b>.
+          </p>
+        )}
+
+        <p className="sessao-dica">
+          O relatório completo vai para <b>Estudos/Sessões</b> no Cortex, na
+          próxima vez que o computador ligar.
+        </p>
+        <Botao tipo="secundario" aoClicar={p.aoDispensar}>Fechar</Botao>
+      </div>
+    )
+  }
+
+  if (!p.sessao) {
+    return (
+      <div className="sessao-painel">
+        <Botao tipo="secundario" aoClicar={p.aoIniciar}>▶ Iniciar sessão de estudos</Botao>
+        <p className="sessao-dica">
+          Com a sessão aberta, tudo que você responder entra num relatório — por
+          matéria e por conteúdo — que vira nota no Cortex.
+        </p>
+      </div>
+    )
+  }
+
+  const total = totalGeral(p.sessao.respostas)
+  const porMateria = placares(p.sessao.respostas, 'materia')
+
+  return (
+    <div className="sessao-painel" data-estado="aberta">
+      <div className="sessao-cabeca">
+        <span className="sessao-etiqueta">
+          Sessão desde {rotuloDeHora(p.sessao.inicio)}
+        </span>
+        <span className="sessao-nota">
+          {total.certas} ✓ · {total.erradas} ✗
+          {total.total > 0 && ` · ${porcentagem(total.taxa)}%`}
+        </span>
+      </div>
+
+      {porMateria.length > 0 && (
+        <ul className="sessao-lista">
+          {porMateria.map(m => (
+            <li key={m.nome}>
+              <span>{m.nome}</span>
+              <span className="sessao-nota">{m.certas}/{m.total}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Botao tipo="principal" aoClicar={p.aoEncerrar}>
+        ■ Encerrar e registrar
+      </Botao>
     </div>
   )
 }

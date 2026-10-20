@@ -51,7 +51,17 @@ export const TIPOS_EVENTO = [
   // o Cortex publicou —, e dois tipos exigiriam duas migracoes no banco para
   // a mesma capacidade. Nunca CRIA nota, e os campos que ele pode mexer sao
   // uma lista branca curta em planejar.ts.
-  'nota_escrita'
+  'nota_escrita',
+  // A sessao de treino fechada no celular: comecou tal hora, terminou tal
+  // hora, tantos acertos de cada materia e de cada conteudo.
+  //
+  // Nao e um `estudo` com mais campos. O `estudo` e uma LINHA no diario, e
+  // responde "quantas horas estudei nesta semana". Esta vira NOTA, porque o
+  // que ele pediu e um relatorio para ler depois -- onde foi bem, onde foi
+  // mal --, e isso nao cabe numa linha de diario. As duas coisas convivem: o
+  // mesmo evento tambem soma os minutos no diario, para a conta de horas
+  // continuar de pe.
+  'sessao_estudo'
 ] as const
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number]

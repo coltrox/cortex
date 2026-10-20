@@ -2358,16 +2358,8 @@ h3.md-titulo{ font-size:15.5px; color:var(--txt-2); }
 .rascunho-barra{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:9px; }
 .rascunho-barra .btn-aba{ flex:none; padding:8px 12px; font-size:13.5px; }
 
-.rascunho-folha{
-  display:block; width:100%; height:46vh; min-height:220px; max-height:420px;
-  border:1px dashed var(--borda-forte); border-radius:var(--r2);
-  background:var(--fundo);
-  /* A cor do traço sai daqui: o canvas lê o `color` computado. */
-  color:var(--txt-1);
-  /* Sem isto, arrastar a caneta rola a página em vez de desenhar. */
-  touch-action:none;
-  cursor:crosshair;
-}
+/* A folha e a janela dela estão mais abaixo, na seção do rascunho no tablet —
+   um lugar só, para a altura não ser definida em quatro. */
 
 .rascunho-dica{ margin:8px 0 0; color:var(--txt-3); font-size:12.5px; line-height:1.5; }
 
@@ -2413,7 +2405,6 @@ h3.md-titulo{ font-size:15.5px; color:var(--txt-2); }
   }
   .lista-notas > *, .cards > *{ margin:0; }
 
-  .rascunho-folha{ height:52vh; max-height:560px; }
 
   /* A tabela de um conteúdo cabe inteira: nada de rolar na horizontal. */
   .md-tabela{ font-size:14.5px; }
@@ -2424,7 +2415,6 @@ h3.md-titulo{ font-size:15.5px; color:var(--txt-2); }
 @media (max-height: 560px) and (orientation: landscape) {
   .cabecalho{ padding-top:8px; padding-bottom:8px; }
   .cabecalho h1{ font-size:20px; }
-  .rascunho-folha{ height:64vh; min-height:160px; }
   .bloco:last-child{ padding-bottom:calc(72px + var(--baixo-seguro, 0px)); }
 }
 
@@ -2496,7 +2486,7 @@ h3.md-titulo{ font-size:15.5px; color:var(--txt-2); }
   /* O rascunho ao lado das alternativas: a conta e a escolha na mesma tela,
      sem rolar. É o ganho real de estudar deitado. */
   .rascunho{ margin-top:0; }
-  .rascunho-folha{ height:46vh; }
+  .rascunho-area{ height:46vh; }
 }
 
 @media (min-width: 1200px) {
@@ -2551,18 +2541,26 @@ button.md-link{
   background:var(--fundo);
   touch-action:none;
   cursor:crosshair;
-  /* Faixa de papel quadriculado, bem fraca: ajuda a alinhar conta sem
-     competir com o traço. */
-  background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--borda) 55%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--borda) 55%, transparent) 1px, transparent 1px);
-  background-size:26px 26px;
+  /* Cor chapada, sem quadriculado: pedido dele, e o papel listrado competia
+     com o traço no tablet. */
+  overscroll-behavior:contain;
 }
 .rascunho-folha{
   position:absolute; top:0; left:0;
   transform-origin:0 0;
+  /* O fundo da FOLHA, e não o da área: é este que o PNG exportado pinta por
+     baixo do traço, e é ele que faz a folha terminar onde o papel termina. */
+  background:var(--fundo);
   /* A cor do traço sai daqui: o canvas lê o `color` computado. */
   color:var(--txt-1);
+}
+
+/* Os botões de zoom, grudados como um controle só. */
+.rascunho-zoom{ display:inline-flex; align-items:center; gap:4px; }
+.rascunho-zoom .btn-aba{ min-width:38px; font-size:16px; line-height:1; }
+.rascunho-escala{
+  min-width:46px; text-align:center;
+  font-size:12.5px; font-variant-numeric:tabular-nums; color:var(--txt-3);
 }
 @media (min-width: 900px){ .rascunho-area{ height:52vh; max-height:560px; } }
 @media (max-height: 560px) and (orientation: landscape){ .rascunho-area{ height:62vh; } }
@@ -2583,3 +2581,50 @@ button.md-link{
 }
 .redacao-tema strong{ display:block; font-size:16px; line-height:1.4; }
 .redacao-tema p{ margin:10px 0 0; font-size:13.5px; line-height:1.55; color:var(--txt-2); }
+
+/* ==========================================================================
+   A sessão de estudos, no topo do treino
+   ==========================================================================
+   "Eu quero iniciar uma sessão de estudos e aí todos os exercícios que eu
+   fizer, eu quero que você marque depois sessão de estudos tal de tal dia."
+
+   A faixa fica ACIMA do filtro de matéria, e não embaixo da questão: é
+   moldura do treino, não parte dele. E some do caminho quando não há sessão
+   aberta — o treino de dez segundos na fila do ônibus continua a ser o modo
+   normal da tela.
+   ========================================================================== */
+
+.sessao-painel{
+  margin:0 0 16px; padding:14px;
+  border:1px solid var(--borda); border-radius:var(--r2);
+  background:var(--painel);
+}
+.sessao-painel[data-estado="aberta"]{ border-left:3px solid var(--acento); }
+.sessao-painel[data-estado="fechada"]{ border-left:3px solid var(--ok, var(--acento)); }
+
+.sessao-cabeca{
+  display:flex; flex-wrap:wrap; gap:8px; align-items:baseline;
+  justify-content:space-between; margin-bottom:10px;
+}
+.sessao-etiqueta{
+  font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--txt-3);
+}
+.sessao-titulo{ margin:0 0 8px; font-size:16px; }
+.sessao-resumo{ margin:0 0 10px; color:var(--txt-2); font-size:14.5px; }
+
+/* Uma linha por matéria: nome à esquerda, placar à direita. Tabela seria
+   mais pesada do que o dado merece numa tela de celular. */
+.sessao-lista{ margin:0 0 12px; padding:0; list-style:none; }
+.sessao-lista li{
+  display:flex; justify-content:space-between; gap:12px;
+  padding:7px 0; border-bottom:1px solid var(--borda);
+  font-size:14.5px;
+}
+.sessao-lista li:last-child{ border-bottom:0; }
+
+.sessao-nota{
+  font-variant-numeric:tabular-nums; color:var(--txt-2); white-space:nowrap;
+}
+.sessao-dica{ margin:8px 0 10px; color:var(--txt-3); font-size:12.5px; line-height:1.55; }
+.sessao-dica:last-of-type{ margin-bottom:12px; }

@@ -61,7 +61,11 @@ language sql immutable as $$
                -- Escrever numa nota que JA EXISTE, do celular: o texto da
                -- redacao, o dia do cronograma marcado como concluido. Nunca
                -- cria nota, e so mexe nos campos de uma lista branca curta.
-               'nota_escrita']
+               'nota_escrita',
+               -- A sessao de treino fechada no celular. Vira NOTA com o
+               -- relatorio -- acertos por materia e por conteudo, onde foi
+               -- bem e onde foi mal --, e tambem soma os minutos no diario.
+               'sessao_estudo']
 $$;
 
 create or replace function registrar_evento(
