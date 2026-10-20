@@ -48,3 +48,47 @@ export function tituloCurto(nome: string): string {
   // Se o corte esvaziar o título, o prefixo ERA o título (ex.: "08/11 dom").
   return sem === '' ? limpo : sem
 }
+
+/**
+ * Acha a nota que um link `[[assim]]` aponta.
+ *
+ * Os links do vault usam o TÍTULO da nota, e o cardápio publica esse mesmo
+ * título como `nome` — então o casamento é quase sempre direto. O "quase" é o
+ * motivo desta função existir:
+ *
+ * - O título tem travessão e acento (`Física — Energia`), o nome do arquivo
+ *   tem hífen e nenhum (`Fisica - Energia`), e um link pode ter sido escrito
+ *   de qualquer um dos dois jeitos.
+ * - Maiúscula e minúscula variam conforme quem escreveu.
+ *
+ * Por isso a comparação é por CHAVE: sem acento, sem caixa, com traços e
+ * espaços repetidos reduzidos a um. Sem isso o link abria "a nota não existe"
+ * em cima de uma nota que estava ali o tempo todo.
+ */
+export function chaveDoNome(nome: string): string {
+  return (nome ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    // Travessão, meia-risca e hífen viram o mesmo caractere.
+    .replace(/[\u2014\u2013-]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*-\s*/g, ' - ')
+}
+
+export function acharPorNome<T extends { nome: string }>(
+  itens: T[], alvo: string
+): T | undefined {
+  const chave = chaveDoNome(alvo)
+  if (chave === '') return undefined
+  const exato = itens.find(i => chaveDoNome(i.nome) === chave)
+  if (exato) return exato
+  // Última tentativa: o link cita só o começo do título, ou o título tem um
+  // sufixo que o link não trouxe ("Fisica - Formulario Unicamp" x
+  // "Fisica - Formulario").
+  return itens.find(i => {
+    const c = chaveDoNome(i.nome)
+    return c.startsWith(chave) || chave.startsWith(c)
+  })
+}

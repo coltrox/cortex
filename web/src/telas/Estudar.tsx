@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Cabecalho, Botao } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
-import { rotuloData, tituloCurto } from '../rotulos'
+import { rotuloData, tituloCurto, acharPorNome } from '../rotulos'
 import { CorpoDaNota } from './Nota'
 import { ExerciciosDaNota } from './Exercicios'
 import type { Questao } from '../exercicios'
@@ -51,7 +51,10 @@ export function Estudar(p: {
     .sort((a, b) => txt(b.detalhe.data).localeCompare(txt(a.detalhe.data)))
 
   const lista = aba === 'plano' ? dias : aba === 'conteudos' ? conteudos : redacoes
-  const escolhido = lista.find(i => i.nome === aberto)
+  /* A nota aberta é procurada em TODO o cardápio, e não só na aba da vez: um
+     link dentro do plano do dia aponta para uma estrutura de redação ou um
+     repertório, que moram em outra tela. Antes, clicar nele não achava nada. */
+  const escolhido = itens.find(i => i.nome === aberto) ?? lista.find(i => i.nome === aberto)
 
   if (escolhido) {
     const corpo = txt(escolhido.detalhe.corpo)
@@ -64,7 +67,14 @@ export function Estudar(p: {
       <div>
         <Cabecalho titulo={escolhido.nome} aoVoltar={() => setAberto(null)} />
         <div className="bloco">
-          <CorpoDaNota texto={corpo} />
+          <CorpoDaNota
+            texto={corpo}
+            nota={escolhido.nome}
+            aoAbrirNota={nome => {
+              const alvo = acharPorNome(itens, nome)
+              if (alvo) { setAberto(alvo.nome); window.scrollTo(0, 0) }
+            }}
+          />
           <ExerciciosDaNota questoes={questoes} />
         </div>
       </div>

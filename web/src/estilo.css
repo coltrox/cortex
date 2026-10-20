@@ -2427,3 +2427,96 @@ h3.md-titulo{ font-size:15.5px; color:var(--txt-2); }
   .rascunho-folha{ height:64vh; min-height:160px; }
   .bloco:last-child{ padding-bottom:calc(72px + var(--baixo-seguro, 0px)); }
 }
+
+/* ==========================================================================
+   Geral de espaçamento: nada encostado em nada
+   ==========================================================================
+   Reclamação direta do dono, olhando o tablet: "tá tudo muito coladinho, até
+   na hora de fazer exercício". Alvo de toque colado em outro é erro de dedo
+   garantido, e numa tela grande fica feio de perto.
+   ========================================================================== */
+
+/* --- Barra de baixo: mais baixa e mais discreta ---
+   68px numa tela deitada come altura demais. 56 continua acima do mínimo de
+   toque confortável, e o rótulo encolhe junto para não espremer o ícone. */
+.barra-baixo{
+  height:calc(56px + var(--baixo-seguro));
+  border-top:1px solid color-mix(in srgb, var(--borda) 70%, transparent);
+}
+.barra-baixo button{ gap:3px; }
+.barra-baixo span{ font-size:10px; }
+.barra-baixo svg, .barra-baixo i{ transform:scale(.88); }
+
+/* O respiro embaixo acompanha a barra menor. */
+.bloco:last-child{ padding-bottom:calc(74px + var(--baixo-seguro, 0px)); }
+
+/* --- Exercício: cada peça com ar em volta --- */
+.treino-enunciado{ margin:0 0 18px; }
+.treino-de{ margin-bottom:10px; }
+.treino-alternativas{ gap:10px; }
+.treino-alternativa{ padding:15px 14px; }
+.treino-correcao{ margin-top:18px; margin-bottom:4px; }
+.treino-correcao + .btn, .treino-dica + .btn{ margin-top:16px; }
+.treino-materias{ margin-bottom:18px; }
+.rascunho{ margin:12px 0 18px; }
+.rascunho-abrir{ margin:10px 0 18px; }
+
+/* --- Nota: respiro entre blocos de conteúdo --- */
+.nota-md{ padding-top:4px; }
+.md-titulo{ margin-top:26px; }
+.md-formula{ margin:16px 0; padding:14px; }
+.md-tabela-rolagem{ margin:16px 0; }
+.md-lista, .md-tarefas{ margin-bottom:16px; }
+.nota-exercicios{ margin-top:30px; padding-top:22px; }
+
+/* --- Cartões da lista: mais ar entre eles --- */
+.cartao-estudo{ gap:8px; padding:14px; }
+.cartao + .cartao, .cartao-estudo + .cartao-estudo{ margin-top:10px; }
+
+/* ==========================================================================
+   Deitado: usar as laterais de verdade
+   ==========================================================================
+   Numa tela larga o conteúdo ficava numa coluna central com as laterais
+   vazias. Agora a lista e o conteúdo dividem a tela, e o texto da nota ganha
+   duas colunas de leitura quando sobra largura.
+   ========================================================================== */
+
+@media (min-width: 900px) {
+  :root{ --largura: 1100px; }
+
+  /* A lista de dias e de conteúdos vira grade: duas colunas em 900px,
+     três acima de 1300px. É o que ocupa a lateral que estava vazia. */
+  .cartao-estudo{ margin:0 !important; }
+  .bloco > .cartao-estudo{ margin:0 0 10px !important; }
+
+  /* Os exercícios ficam mais largos, mas o texto não: linha longa demais
+     cansa. 70ch é o limite confortável de leitura. */
+  .treino-enunciado, .md-p, .md-lista, .md-citacao{ max-width:70ch; }
+
+  /* O rascunho ao lado das alternativas: a conta e a escolha na mesma tela,
+     sem rolar. É o ganho real de estudar deitado. */
+  .rascunho{ margin-top:0; }
+  .rascunho-folha{ height:46vh; }
+}
+
+@media (min-width: 1200px) {
+  .barra-baixo{ border-radius:14px 14px 0 0; }
+}
+
+/* O check vira botão de verdade: alvo de toque com 28px, e o link dentro do
+   texto fica clicável e sublinhado — era texto morto antes. */
+.md-caixa{
+  flex:none; width:26px; height:26px; margin-top:0;
+  display:grid; place-items:center; cursor:pointer;
+  border:1px solid var(--borda-forte); border-radius:6px;
+  background:transparent; color:var(--ok); font-size:14px;
+  -webkit-tap-highlight-color:transparent;
+}
+.md-tarefas li{ gap:11px; margin-bottom:10px; align-items:center; }
+.md-tarefas li[data-feito] .md-caixa{ border-color:var(--ok); background:var(--ok-fraco); }
+
+button.md-link{
+  padding:0; border:0; background:none; cursor:pointer;
+  color:var(--acento); font:inherit; font-weight:600;
+  text-decoration:underline; text-underline-offset:3px;
+}
