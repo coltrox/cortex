@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  iniciar, anotar, marcaDeTempo, rotuloDeHora, minutos, diaDaSessao,
+  iniciar, anotar, desfazerUltima, marcaDeTempo, rotuloDeHora, minutos, diaDaSessao,
   placares, totalGeral, destaques, porcentagem, resumir,
   lerSessao, gravarSessao, limparSessao, MINIMO_PARA_DESTAQUE,
   type RespostaSessao
@@ -242,5 +242,32 @@ describe('a sessao guardada no aparelho', () => {
       })
     })
     expect(lerSessao(g)?.respostas[0]?.acertou).toBe(false)
+  })
+})
+
+describe('desfazerUltima', () => {
+  const base = () => {
+    let s = iniciar(new Date(2026, 9, 20, 14, 30))
+    s = anotar(s, resposta('matemática', 'Trigonometria', true))
+    s = anotar(s, resposta('biologia', 'Célula', false, 'Célula#2'))
+    return s
+  }
+
+  it('tira a resposta dada por engano', () => {
+    const s = desfazerUltima(base(), 'Célula#2')
+    expect(s.respostas).toHaveLength(1)
+    expect(s.respostas[0]?.conteudo).toBe('Trigonometria')
+  })
+
+  it('so desfaz a ULTIMA, e so se for daquela questao', () => {
+    /* Se ele ja respondeu outra no meio, contestar a anterior sairia
+       removendo a errada — e o relatorio ficaria pior do que sem contestar. */
+    const s = desfazerUltima(base(), 'Trigonometria#1')
+    expect(s.respostas).toHaveLength(2)
+  })
+
+  it('sessao vazia nao quebra', () => {
+    const s = iniciar(new Date(2026, 9, 20, 14, 30))
+    expect(desfazerUltima(s, 'qualquer').respostas).toEqual([])
   })
 })

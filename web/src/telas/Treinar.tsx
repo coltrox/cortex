@@ -5,10 +5,12 @@ import type { Tela } from '../App'
 import { guardadoDoNavegador } from '../guardado'
 import {
   cartasDoCardapio, materiasDo, filtrarPorMateria, baralho, registrar,
-  placarDoDia, pendentes, lerHistorico, gravarHistorico, type Carta
+  placarDoDia, pendentes, lerHistorico, gravarHistorico,
+  paraTreinar, desfazer, feitas, type Carta, type Feita
 } from '../exercicios'
 import {
-  iniciar, anotar, resumir, placares, totalGeral, destaques, porcentagem,
+  iniciar, anotar, desfazerUltima, resumir, placares, totalGeral, destaques,
+  porcentagem,
   rotuloDeHora, diaDaSessao,
   lerSessao, gravarSessao, limparSessao, type SessaoEstudo, type ResumoSessao
 } from '../sessao'
@@ -47,16 +49,26 @@ export function Treinar(p: {
   /* O relatório da sessão que acabou de ser encerrada, para ele ver na hora
      o que o Cortex vai escrever na nota. */
   const [fechada, setFechada] = useState<ResumoSessao | null>(null)
+  /* A lista do que ele já respondeu, por cima do treino. */
+  const [vendoFeitas, setVendoFeitas] = useState(false)
   const [materia, setMateria] = useState<string | null>(null)
   const [marcada, setMarcada] = useState<string | null>(null)
   /* Quantas cartas já passaram. Serve para forçar o próximo sorteio quando o
      histórico não distingue duas cartas. */
   const [rodada, setRodada] = useState(0)
 
-  const todas = useMemo(
-    () => cartasDoCardapio(p.cardapio.cardapio.itens),
-    [p.cardapio.cardapio.itens]
+  /* TODAS as cartas, inclusive as que o cronograma reservou. Esta lista é a
+     do histórico: ele precisa reencontrar uma questão que respondeu no dia 26
+     mesmo que ela não possa cair no treino livre. */
+  const todasAsCartas = useMemo(
+    () => cartasDoCardapio(p.cardapio.cardapio.itens, p.hoje),
+    [p.cardapio.cardapio.itens, p.hoje]
   )
+
+  /* O baralho do treino, sem o que está reservado para os dias que ainda vêm.
+     Pedido dele: treinar hoje o que o cronograma guardou para o dia 11
+     estragaria o dia 11. */
+  const todas = useMemo(() => paraTreinar(todasAsCartas), [todasAsCartas])
   const materias = useMemo(() => materiasDo(todas), [todas])
 
   /*
@@ -90,6 +102,9 @@ export function Treinar(p: {
 
   const placar = placarDoDia(historico, p.hoje)
   const aRever = pendentes(todas, historico).length
+  /* A lista sai de TODAS as cartas, e não só das de treino: ele respondeu
+     questões do cronograma nos dias passados e precisa reencontrá-las. */
+  const jaFeitas = feitas(todasAsCartas, historico)
 
   const responder = (letra: string): void => {
     if (!atual || marcada) return
@@ -164,6 +179,39 @@ export function Treinar(p: {
     setRodada(r => r + 1)
   }
 
+  /**
+   * "Cliquei sem querer": apaga a resposta e devolve a questão em branco.
+   *
+   * Desfaz nos DOIS lugares — no histórico, que decide o que volta antes no
+   * baralho, e na sessão, que vira relatório. Corrigir só um deixaria o
+   * relatório culpando uma matéria por um toque errado na tela.
+   */
+  const contestar = (): void => {
+    if (!atual || marcada === null) return
+    const acertou = marcada === atual.questao.gabarito
+
+    const h = desfazer(historico, atual.chave, acertou)
+    gravarHistorico(guardadoDoNavegador, h)
+    setHistorico(h)
+
+    if (sessao) {
+      const nova = desfazerUltima(sessao, atual.chave)
+      gravarSessao(guardadoDoNavegador, nova)
+      setSessao(nova)
+    }
+
+    // A MESMA questão continua na tela, em branco: ele contestou para
+    // responder de novo, não para pular.
+    setMarcada(null)
+  }
+
+  /** Escolher uma questão específica do histórico para refazer. */
+  const refazer = (c: Carta): void => {
+    setMarcada(null)
+    setAtual(c)
+    setVendoFeitas(false)
+  }
+
   if (todas.length === 0) {
     return (
       <div>
@@ -201,6 +249,20 @@ export function Treinar(p: {
           aoEncerrar={encerrarSessao}
           aoDispensar={() => setFechada(null)}
         />
+
+        {jaFeitas.length > 0 && (
+          <button
+            type="button"
+            className="btn btn-fantasma treino-ver-feitas"
+            onClick={() => setVendoFeitas(v => !v)}
+          >
+            {vendoFeitas
+              ? '← Voltar ao treino'
+              : `Meus exercícios (${jaFeitas.length})`}
+          </button>
+        )}
+
+        {vendoFeitas && <ListaDeFeitas feitas={jaFeitas} aoRefazer={refazer} />}
 
         {/* O filtro de matéria. "Tudo" primeiro, porque é o modo normal: na
             espera do ônibus não se escolhe matéria, responde-se o que vier. */}
@@ -253,6 +315,7 @@ export function Treinar(p: {
                   {acertou ? 'Acertou.' : `Resposta: ${(q?.gabarito ?? '').toUpperCase()}`}
                 </strong>
                 {q?.comentario && <p>{q.comentario}</p>}
+                <Formulas formulas={q?.formulas} />
               </div>
             )}
 
@@ -261,7 +324,14 @@ export function Treinar(p: {
                 Faça a conta no papel quando a questão pedir — é assim que ela cai na prova.
               </p>
             ) : (
-              <Botao tipo="principal" aoClicar={proxima}>Próxima</Botao>
+              <div className="treino-acoes">
+                <Botao tipo="principal" aoClicar={proxima}>Próxima</Botao>
+                {/* Antes de avançar, e não depois: uma vez que a questão
+                    passa, ele não tem como voltar para corrigir o toque. */}
+                <button type="button" className="btn btn-fantasma" onClick={contestar}>
+                  Cliquei sem querer
+                </button>
+              </div>
             )}
           </>
         )}
@@ -388,6 +458,91 @@ function PainelDaSessao(p: {
       <Botao tipo="principal" aoClicar={p.aoEncerrar}>
         ■ Encerrar e registrar
       </Botao>
+    </div>
+  )
+}
+
+/**
+ * As fórmulas que a questão cobrava.
+ *
+ * Aparece junto da correção, e não no enunciado: dizer a fórmula antes
+ * entregaria metade da questão. Depois de responder, é o que faz o erro
+ * virar aprendizado — "era esta que eu deveria ter usado".
+ */
+function Formulas({ formulas }: { formulas?: string[] }) {
+  if (!formulas || formulas.length === 0) return null
+  return (
+    <div className="treino-formulas">
+      <span className="treino-formulas-rotulo">
+        {formulas.length === 1 ? 'Fórmula usada' : 'Fórmulas usadas'}
+      </span>
+      <ul>
+        {formulas.map(f => <li key={f}><code>{f}</code></li>)}
+      </ul>
+    </div>
+  )
+}
+
+/**
+ * Tudo que ele já respondeu, para escolher o que refazer.
+ *
+ * Pedido: "quero poder ver todos que eu já fiz, separados em acertos e
+ * erros". Os ERRADOS vêm primeiro e já abertos, porque são o motivo de a
+ * lista existir — rever o que acertou é opcional, rever o que errou é o
+ * treino.
+ *
+ * Cada linha é um botão: tocar põe aquela questão na tela, inclusive uma
+ * reservada ao cronograma. Reservada é para não cair por SORTEIO; se ele
+ * escolher de propósito, é escolha dele.
+ */
+function ListaDeFeitas(p: { feitas: Feita[]; aoRefazer: (c: Carta) => void }) {
+  const [aba, setAba] = useState<'errei' | 'acertei'>('errei')
+  const mostradas = p.feitas.filter(f => f.situacao === aba)
+  const erradas = p.feitas.filter(f => f.situacao === 'errei').length
+  const certas = p.feitas.length - erradas
+
+  return (
+    <div className="feitas">
+      <div className="abas-redacao">
+        <button
+          type="button" className="btn-aba" data-ativa={aba === 'errei'}
+          onClick={() => setAba('errei')}
+        >Errei ({erradas})</button>
+        <button
+          type="button" className="btn-aba" data-ativa={aba === 'acertei'}
+          onClick={() => setAba('acertei')}
+        >Acertei ({certas})</button>
+      </div>
+
+      {mostradas.length === 0 ? (
+        <p className="vazio">
+          {aba === 'errei'
+            ? 'Nenhuma questão errada por aqui. Bom sinal.'
+            : 'Nenhuma acertada ainda.'}
+        </p>
+      ) : (
+        <ul className="feitas-lista">
+          {mostradas.map(f => (
+            <li key={f.carta.chave}>
+              <button type="button" onClick={() => p.aoRefazer(f.carta)}>
+                <span className="feitas-enunciado">{f.carta.questao.enunciado}</span>
+                <span className="feitas-rodape">
+                  <span className="feitas-de">{f.carta.origem}</span>
+                  <span className="feitas-placar">
+                    {f.acertos} ✓ · {f.erros} ✗
+                    {f.carta.pote === 'cronograma' && ' · do cronograma'}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="treino-dica">
+        Toque numa questão para refazê-la agora. As fórmulas aparecem na
+        correção, depois de você responder.
+      </p>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { guardadoDeMemoria } from './guardado'
 import {
   cartasDoCardapio, materiasDo, filtrarPorMateria, peso, baralho, registrar,
+  paraTreinar, desfazer, feitas, reservadosPeloCronograma,
   placarDoDia, pendentes, lerHistorico, gravarHistorico, type Historico
 } from './exercicios'
 
@@ -215,5 +216,169 @@ describe('persistencia', () => {
       'cortex.treino': JSON.stringify({ 'a#1': { acertos: 'muitos', erros: 2 } })
     })
     expect(lerHistorico(g)['a#1']).toEqual({ acertos: 0, erros: 2, visto: '' })
+  })
+})
+
+describe('o pote da carta: treino ou cronograma', () => {
+  it('questao de dia que AINDA VAI CHEGAR fica fora do treino', () => {
+    /* Pedido dele: "quero que eles nao envolvam os exercicios que faria
+       posteriormente de acordo com o cronograma". Treinar hoje o que esta
+       reservado para o dia 26 estraga o dia 26. */
+    const cartas = cartasDoCardapio(itens, '2026-10-20')
+    const doDia = cartas.find(c => c.chave === '26/10 seg#1')
+    expect(doDia?.pote).toBe('cronograma')
+    expect(paraTreinar(cartas).map(c => c.chave))
+      .toEqual(['Trigonometria#1', 'Trigonometria#2'])
+  })
+
+  it('dia que JA PASSOU volta para o treino', () => {
+    const cartas = cartasDoCardapio(itens, '2026-10-27')
+    expect(cartas.find(c => c.chave === '26/10 seg#1')?.pote).toBe('treino')
+    expect(paraTreinar(cartas)).toHaveLength(3)
+  })
+
+  it('o dia de HOJE ainda e reserva: ele vai fazer no bloco da noite', () => {
+    const cartas = cartasDoCardapio(itens, '2026-10-26')
+    expect(cartas.find(c => c.chave === '26/10 seg#1')?.pote).toBe('cronograma')
+  })
+
+  it('conteudo nunca e reserva, seja qual for o dia', () => {
+    const cartas = cartasDoCardapio(itens, '2026-10-20')
+    expect(cartas.filter(c => c.origem === 'Trigonometria').every(c => c.pote === 'treino'))
+      .toBe(true)
+  })
+
+  it('sem saber que dia e hoje, nada e reservado', () => {
+    // Quem chama so querendo a lista inteira nao deve perder questao.
+    expect(cartasDoCardapio(itens).every(c => c.pote === 'treino')).toBe(true)
+  })
+})
+
+describe('desfazer', () => {
+  it('tira o erro que foi dedo torto', () => {
+    const h: Historico = { 'a#1': { acertos: 1, erros: 1, visto: '2026-10-20' } }
+    expect(desfazer(h, 'a#1', false)['a#1']).toEqual({
+      acertos: 1, erros: 0, visto: '2026-10-20'
+    })
+  })
+
+  it('tira tambem um acerto', () => {
+    const h: Historico = { 'a#1': { acertos: 2, erros: 0, visto: '2026-10-20' } }
+    expect(desfazer(h, 'a#1', true)['a#1']?.acertos).toBe(1)
+  })
+
+  it('zerou tudo: a questao volta a ser NUNCA VISTA', () => {
+    /* E nao uma vista com placar zerado, que teria peso bem menor no sorteio
+       e sumiria do topo do baralho sem ele nunca a ter respondido. */
+    const h: Historico = { 'a#1': { acertos: 0, erros: 1, visto: '2026-10-20' } }
+    expect(desfazer(h, 'a#1', false)['a#1']).toBeUndefined()
+  })
+
+  it('contestar duas vezes nao inventa credito', () => {
+    const h: Historico = { 'a#1': { acertos: 1, erros: 1, visto: '2026-10-20' } }
+    const uma = desfazer(h, 'a#1', false)
+    const duas = desfazer(uma, 'a#1', false)
+    expect(duas['a#1']?.erros).toBe(0)
+    expect(duas['a#1']?.acertos).toBe(1)
+  })
+
+  it('questao que nunca foi respondida nao muda nada', () => {
+    const h: Historico = {}
+    expect(desfazer(h, 'nao-existe', true)).toEqual({})
+  })
+})
+
+describe('feitas', () => {
+  const cartas = cartasDoCardapio(itens)
+  const h: Historico = {
+    'Trigonometria#1': { acertos: 3, erros: 0, visto: '2026-10-19' },
+    'Trigonometria#2': { acertos: 1, erros: 2, visto: '2026-10-20' },
+    '26/10 seg#1': { acertos: 1, erros: 1, visto: '2026-10-18' }
+  }
+
+  it('lista so o que ja foi respondido', () => {
+    const f = feitas(cartas, { 'Trigonometria#1': h['Trigonometria#1'] })
+    expect(f).toHaveLength(1)
+    expect(f[0]?.carta.chave).toBe('Trigonometria#1')
+  })
+
+  it('separa acerto de erro', () => {
+    const f = feitas(cartas, h)
+    const porChave = Object.fromEntries(f.map(x => [x.carta.chave, x.situacao]))
+    expect(porChave['Trigonometria#1']).toBe('acertei')
+    expect(porChave['Trigonometria#2']).toBe('errei')
+  })
+
+  it('empate conta como ERRO: ainda e questao para refazer', () => {
+    // Esconder na pilha dos acertos seria dizer que esta resolvida.
+    expect(feitas(cartas, h).find(x => x.carta.chave === '26/10 seg#1')?.situacao)
+      .toBe('errei')
+  })
+
+  it('o mais recente vem primeiro', () => {
+    expect(feitas(cartas, h)[0]?.carta.chave).toBe('Trigonometria#2')
+  })
+
+  it('historico de questao que sumiu do cardapio nao quebra a lista', () => {
+    // A nota pode ter sido apagada no computador depois de respondida.
+    expect(feitas(cartas, { 'nota-apagada#9': { acertos: 1, erros: 0, visto: '2026-10-20' } }))
+      .toEqual([])
+  })
+})
+
+describe('reservadosPeloCronograma', () => {
+  const comCronograma = [
+    {
+      especie: 'materia', nome: 'Trigonometria',
+      detalhe: { materia: 'Matemática', questoes: [q(1, 'matemática')] }
+    },
+    {
+      especie: 'materia', nome: 'Questões difíceis — Matemática',
+      detalhe: { materia: 'Matemática', questoes: [q(1, 'matemática')] }
+    },
+    {
+      especie: 'plano-dia', nome: '26/10 seg',
+      detalhe: {
+        data: '2026-10-26',
+        corpo: 'Noite: trigonometria.\n\n→ [[Trigonometria]]\n',
+        questoes: [q(1, 'matemática')]
+      }
+    },
+    {
+      especie: 'plano-dia', nome: '18/10 dom',
+      detalhe: { data: '2026-10-18', corpo: '→ [[Questões difíceis — Matemática]]' }
+    }
+  ] as never[]
+
+  it('guarda o conteudo que um dia futuro manda estudar', () => {
+    /* O dia 26 aponta a nota de trigonometria. Se os exercicios dela caissem
+       no treino de hoje, o dia 26 chegaria com tudo ja respondido. */
+    expect([...reservadosPeloCronograma(comCronograma, '2026-10-20')])
+      .toEqual(['Trigonometria'])
+  })
+
+  it('dia que ja passou nao guarda mais nada', () => {
+    expect([...reservadosPeloCronograma(comCronograma, '2026-10-27')]).toEqual([])
+  })
+
+  it('a reserva tira a nota inteira do treino livre', () => {
+    const cartas = cartasDoCardapio(comCronograma, '2026-10-20')
+    const porChave = Object.fromEntries(cartas.map(c => [c.chave, c.pote]))
+    expect(porChave['Trigonometria#1']).toBe('cronograma')
+    // A de questoes dificeis nao esta reservada por nenhum dia futuro.
+    expect(porChave['Questões difíceis — Matemática#1']).toBe('treino')
+  })
+
+  it('link com apelido conta pelo nome da nota', () => {
+    const itensComApelido = [{
+      especie: 'plano-dia', nome: 'amanha',
+      detalhe: { data: '2026-10-21', corpo: '→ [[Trigonometria|a nota de trigo]]' }
+    }] as never[]
+    expect([...reservadosPeloCronograma(itensComApelido, '2026-10-20')])
+      .toEqual(['Trigonometria'])
+  })
+
+  it('sem hoje, nada fica reservado', () => {
+    expect(reservadosPeloCronograma(comCronograma, '').size).toBe(0)
   })
 })

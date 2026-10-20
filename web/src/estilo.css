@@ -2628,3 +2628,63 @@ button.md-link{
 }
 .sessao-dica{ margin:8px 0 10px; color:var(--txt-3); font-size:12.5px; line-height:1.55; }
 .sessao-dica:last-of-type{ margin-bottom:12px; }
+
+/* ==========================================================================
+   Meus exercícios: o que já foi feito, e as fórmulas
+   ==========================================================================
+   "Quero poder ter acesso a todos os exercícios que eu fiz, escolher quais
+   refazer, ter acesso a quais fórmulas tinham que ser utilizadas."
+   ========================================================================== */
+
+/* Avançar e contestar lado a lado — contestar é secundário de propósito:
+   o caminho normal é seguir, não desfazer. */
+.treino-acoes{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.treino-acoes .btn{ flex:1 1 auto; }
+
+.treino-formulas{
+  margin-top:12px; padding-top:12px;
+  border-top:1px solid var(--borda);
+}
+.treino-formulas-rotulo{
+  display:block; margin-bottom:6px;
+  font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--txt-3);
+}
+.treino-formulas ul{ margin:0; padding:0; list-style:none; }
+.treino-formulas li{ margin:4px 0; }
+.treino-formulas code{
+  display:inline-block; padding:4px 8px;
+  border-radius:6px; background:var(--fundo); border:1px solid var(--borda);
+  font-size:14px;
+}
+
+.treino-ver-feitas{ margin-bottom:14px; }
+
+.feitas{ margin-bottom:18px; }
+.feitas .abas-redacao{ margin-bottom:12px; }
+.feitas-lista{ margin:0 0 10px; padding:0; list-style:none; }
+.feitas-lista li{ margin-bottom:8px; }
+
+/* A linha inteira é alvo de toque: no celular, mirar num link de texto
+   dentro da linha é errar o dedo. */
+.feitas-lista button{
+  display:block; width:100%; text-align:left;
+  padding:12px; border-radius:var(--r2);
+  border:1px solid var(--borda); background:var(--painel);
+  color:var(--txt-1); font:inherit; cursor:pointer;
+}
+.feitas-lista button:active{ background:var(--fundo); }
+
+.feitas-enunciado{
+  display:block; margin-bottom:6px; font-size:14.5px; line-height:1.45;
+  /* Três linhas bastam para reconhecer a questão; o resto vira muro de
+     texto numa lista de vinte. */
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.feitas-rodape{
+  display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between;
+  font-size:12px; color:var(--txt-3);
+}
+.feitas-de{ flex:1 1 auto; min-width:0; }
+.feitas-placar{ white-space:nowrap; font-variant-numeric:tabular-nums; }

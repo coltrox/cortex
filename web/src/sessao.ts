@@ -85,6 +85,22 @@ export function anotar(s: SessaoEstudo, r: RespostaSessao): SessaoEstudo {
   return { ...s, respostas: [...s.respostas, r] }
 }
 
+/**
+ * Tira a última resposta anotada — o par do "contestar" do histórico.
+ *
+ * Sem isto, desfazer um clique torto corrigiria o baralho e mentiria no
+ * relatório: a sessão ainda contaria o erro, e a matéria apareceria como
+ * fraca por causa de um toque errado na tela.
+ *
+ * Tira só a ÚLTIMA, e só se for daquela questão: se outra já foi respondida
+ * no meio, contestar a anterior acabaria removendo a errada.
+ */
+export function desfazerUltima(s: SessaoEstudo, chave: string): SessaoEstudo {
+  const ultima = s.respostas[s.respostas.length - 1]
+  if (!ultima || ultima.chave !== chave) return s
+  return { ...s, respostas: s.respostas.slice(0, -1) }
+}
+
 /** O dia da sessão, para o evento. */
 export function diaDaSessao(s: SessaoEstudo): string {
   return s.inicio.slice(0, 10)
