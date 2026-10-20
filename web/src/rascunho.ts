@@ -70,3 +70,79 @@ export function tamanhoDoBitmap(
     escala
   }
 }
+
+/* ---------- mover e ampliar a folha ---------- */
+
+/**
+ * Onde a folha está e quanto ela está ampliada.
+ *
+ * `x` e `y` são o canto da folha em pixels de tela; `escala` multiplica o
+ * tamanho. É o mesmo par que o CSS aplica em `translate(...) scale(...)`.
+ */
+export type Vista = { x: number; y: number; escala: number }
+
+export const VISTA_INICIAL: Vista = { x: 0, y: 0, escala: 1 }
+export const ESCALA_MIN = 0.4
+export const ESCALA_MAX = 5
+
+export function limitarEscala(s: number): number {
+  if (!Number.isFinite(s)) return 1
+  return Math.min(Math.max(s, ESCALA_MIN), ESCALA_MAX)
+}
+
+/**
+ * Ponto da TELA para ponto da FOLHA.
+ *
+ * É o que faz a caneta escrever onde a ponta encostou mesmo com a folha
+ * movida e ampliada. Sem desfazer a transformação, o traço sai deslocado — e
+ * quanto maior o zoom, mais longe do dedo ele aparece.
+ */
+export function paraFolha(
+  clienteX: number, clienteY: number,
+  origem: { left: number; top: number },
+  v: Vista
+): { x: number; y: number } {
+  return {
+    x: (clienteX - origem.left - v.x) / v.escala,
+    y: (clienteY - origem.top - v.y) / v.escala
+  }
+}
+
+/** Um dedo arrastando: a folha acompanha, sem mudar de tamanho. */
+export function comArrasto(v: Vista, dx: number, dy: number): Vista {
+  return { ...v, x: v.x + dx, y: v.y + dy }
+}
+
+type Par = { a: { x: number; y: number }; b: { x: number; y: number } }
+
+const distancia = (p: Par): number => Math.hypot(p.a.x - p.b.x, p.a.y - p.b.y)
+const meio = (p: Par): { x: number; y: number } => ({
+  x: (p.a.x + p.b.x) / 2,
+  y: (p.a.y + p.b.y) / 2
+})
+
+/**
+ * Pinça de dois dedos: amplia e move ao mesmo tempo.
+ *
+ * O ponto da folha que estava sob o meio dos dedos continua sob o meio dos
+ * dedos depois do gesto. É isso que faz a pinça parecer natural — sem essa
+ * âncora, a folha escapa para um canto enquanto se tenta ampliar um trecho.
+ *
+ * Os pontos chegam em coordenada de tela relativa à área de desenho.
+ */
+export function comPinca(v: Vista, antes: Par, agora: Par): Vista {
+  const dAntes = distancia(antes)
+  if (dAntes < 1) return v
+  const escala = limitarEscala(v.escala * (distancia(agora) / dAntes))
+
+  const mAntes = meio(antes)
+  const mAgora = meio(agora)
+  // O ponto da folha ancorado no meio dos dedos, antes do gesto.
+  const ancora = { x: (mAntes.x - v.x) / v.escala, y: (mAntes.y - v.y) / v.escala }
+
+  return {
+    escala,
+    x: mAgora.x - ancora.x * escala,
+    y: mAgora.y - ancora.y * escala
+  }
+}

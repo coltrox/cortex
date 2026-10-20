@@ -16,19 +16,25 @@ import { Rascunho } from './Rascunho'
  * valor está em responder enquanto o assunto está fresco.
  */
 export function ExerciciosDaNota({ questoes }: { questoes: Questao[] }) {
+  /* A lista é fotografada ao montar a tela.
+   *
+   * O cardápio se atualiza sozinho de tempos em tempos, e sem esta foto a
+   * questão trocava debaixo do dedo no meio da resposta. Quem estuda escolhe
+   * quando avançar; a nuvem não. */
+  const [lista] = useState(() => questoes)
   const [aberto, setAberto] = useState(false)
   const [i, setI] = useState(0)
   const [marcada, setMarcada] = useState<string | null>(null)
   const [certas, setCertas] = useState(0)
 
-  if (questoes.length === 0) return null
+  if (lista.length === 0) return null
 
   if (!aberto) {
     return (
       <div className="nota-exercicios">
         <h2 className="md-titulo">Exercícios</h2>
         <p className="treino-dica">
-          {questoes.length} {questoes.length === 1 ? 'questão' : 'questões'} sobre o que
+          {lista.length} {lista.length === 1 ? 'questão' : 'questões'} sobre o que
           está aqui em cima. Faça a conta no papel quando a questão pedir.
         </p>
         <Botao tipo="principal" aoClicar={() => setAberto(true)}>
@@ -38,12 +44,12 @@ export function ExerciciosDaNota({ questoes }: { questoes: Questao[] }) {
     )
   }
 
-  if (i >= questoes.length) {
+  if (i >= lista.length) {
     return (
       <div className="nota-exercicios">
         <h2 className="md-titulo">Exercícios</h2>
         <p className="treino-dica">
-          Você acertou <b>{certas} de {questoes.length}</b>.
+          Você acertou <b>{certas} de {lista.length}</b>.
         </p>
         <Botao tipo="secundario" aoClicar={() => { setI(0); setCertas(0); setMarcada(null) }}>
           Fazer de novo
@@ -52,10 +58,10 @@ export function ExerciciosDaNota({ questoes }: { questoes: Questao[] }) {
     )
   }
 
-  const q = questoes[i]
+  const q = lista[i]
   const letras = (['a', 'b', 'c', 'd', 'e'] as const).filter(l => q?.[l])
   const acertou = marcada !== null && marcada === q?.gabarito
-  const ultima = i === questoes.length - 1
+  const ultima = i === lista.length - 1
 
   const responder = (letra: string): void => {
     if (marcada) return
@@ -71,7 +77,7 @@ export function ExerciciosDaNota({ questoes }: { questoes: Questao[] }) {
   return (
     <div className="nota-exercicios">
       <h2 className="md-titulo">Exercícios</h2>
-      <div className="treino-de">Questão {i + 1} de {questoes.length}</div>
+      <div className="treino-de">Questão {i + 1} de {lista.length}</div>
       <p className="treino-enunciado">{q.enunciado}</p>
 
       {/* A folha de conta fica ANTES das alternativas: a conta vem antes

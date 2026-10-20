@@ -92,3 +92,40 @@ export function acharPorNome<T extends { nome: string }>(
     return c.startsWith(chave) || chave.startsWith(c)
   })
 }
+
+/**
+ * A ordem de estudo: hoje e o que vem primeiro; o passado, depois.
+ *
+ * É a mesma regra do Cortex no computador, e existe pelo mesmo motivo: a
+ * lista de redações estava do mais novo para o mais velho, então a folha de
+ * HOJE aparecia no fim, atrás de todas as de novembro. Quem abre a lista quer
+ * agir, e agir é sempre no próximo.
+ *
+ * O passado desce em ordem decrescente, porque ali a lista vira consulta — e
+ * consulta começa pelo mais recente. Item sem data vai para o fim, em vez de
+ * se perder no meio.
+ */
+export function daquiPraFrente<T>(
+  itens: T[], hoje: string, data: (i: T) => string
+): T[] {
+  const com = itens.filter(i => data(i) !== '')
+  const sem = itens.filter(i => data(i) === '')
+  const vindo = com.filter(i => data(i) >= hoje).sort((a, b) => data(a).localeCompare(data(b)))
+  const passou = com.filter(i => data(i) < hoje).sort((a, b) => data(b).localeCompare(data(a)))
+  return [...vindo, ...passou, ...sem]
+}
+
+/**
+ * A aba vizinha, quando se arrasta o dedo de lado.
+ *
+ * Sem dar a volta de propósito: na primeira aba, arrastar para a direita não
+ * faz nada. Dar a volta num gesto contínuo confunde — a pessoa não sabe se
+ * avançou uma ou voltou duas.
+ */
+export function proximaAba<T>(abas: readonly T[], atual: T, passo: 1 | -1): T {
+  const i = abas.indexOf(atual)
+  if (i < 0) return atual
+  const destino = i + passo
+  if (destino < 0 || destino >= abas.length) return atual
+  return abas[destino]
+}

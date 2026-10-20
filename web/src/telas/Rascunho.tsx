@@ -1,97 +1,139 @@
 import { useEffect, useRef, useState } from 'react'
-import { espessura, deveDesenhar, tamanhoDoBitmap, type Ferramenta } from '../rascunho'
+import {
+  espessura, tamanhoDoBitmap, paraFolha, comArrasto, comPinca,
+  VISTA_INICIAL, type Ferramenta, type Vista
+} from '../rascunho'
 
 /**
  * A folha de rascunho, dentro do exercício.
  *
- * Pedido do dono, que estuda no tablet com caneta: "uma área para desenhar e
- * fazer conta, que eu consigo escrever, apagar". É o papel ao lado da prova,
- * na mesma tela — sem trocar de app no meio de uma questão.
+ * Pedido do dono, que estuda no tablet com caneta: fazer a conta ao lado da
+ * questão, sem trocar de app. E, depois de usar: **caneta escreve, dedo move
+ * e amplia** — como num app de caderno.
  *
- * Três decisões que separam usável de irritante:
+ * É por isso que os gestos são feitos à mão aqui, em vez de deixar o
+ * navegador cuidar:
  *
- * - **`touch-action: none` no canvas.** Sem isso, arrastar a caneta ROLA a
- *   página em vez de desenhar, e o rascunho vira piada.
- * - **Rejeição de palma.** Depois que uma caneta encosta, o dedo deixa de
- *   desenhar: apoiar a mão para escrever não risca mais a folha.
- * - **Bitmap na densidade da tela.** Desenhar num bitmap pequeno e esticar é
- *   o que deixa a linha serrilhada no tablet.
+ * - `touch-action: none` na área impede o navegador de rolar a página com o
+ *   dedo. Sem isso, arrastar a caneta rolaria a tela em vez de desenhar.
+ * - Com o navegador fora do caminho, o dedo precisa de dono: um dedo ARRASTA
+ *   a folha, dois dedos AMPLIAM. É o que este componente faz.
+ * - E o dedo nunca desenha. Apoiar a mão na tela para escrever não risca
+ *   nada — a rejeição de palma sai de graça, como consequência da regra.
  *
- * O traço NÃO é salvo: é rascunho, e morre com a questão, como o papel que se
- * amassa. Guardar exigiria decidir onde, e não é isso que ele pediu.
+ * A folha é MAIOR que a janela de propósito: dá para empurrá-la de lado e
+ * continuar a conta no espaço em branco, em vez de apagar para ter espaço.
+ *
+ * O traço não é salvo. É rascunho, e morre com a questão.
  */
+
+/** O tamanho da folha, em pixels lógicos. Maior que a tela, para sobrar espaço. */
+const FOLHA_L = 1400
+const FOLHA_A = 1000
+
 export function Rascunho() {
   const [aberto, setAberto] = useState(false)
   const [ferramenta, setFerramenta] = useState<Ferramenta>('caneta')
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const desenhando = useRef(false)
-  /* Em `ref`, e não em estado: isto muda no meio de um gesto, e redesenhar a
-     tela a cada toque engoliria o traço. */
-  const usouCaneta = useRef(false)
-  const ultimo = useRef<{ x: number; y: number } | null>(null)
+  const [vista, setVista] = useState<Vista>(VISTA_INICIAL)
 
-  /* Prepara o bitmap quando a folha abre, e de novo se a janela mudar de
-     largura. Redimensionar canvas limpa o conteúdo — virar o tablet apaga o
-     rascunho, e é melhor que o traço fique borrado e fora de lugar. */
+  const area = useRef<HTMLDivElement>(null)
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const ultimo = useRef<{ x: number; y: number } | null>(null)
+  /* Os dedos encostados agora, por id. Em `ref` porque mudam a cada frame do
+     gesto, e um `setState` por frame travaria o arraste. */
+  const dedos = useRef(new Map<number, { x: number; y: number }>())
+  /* A vista também em ref: os handlers precisam do valor atual DENTRO do
+     gesto, e o estado só chega no render seguinte. */
+  const vistaRef = useRef(vista)
+  vistaRef.current = vista
+
+  const aplicar = (v: Vista): void => { vistaRef.current = v; setVista(v) }
+
   useEffect(() => {
     if (!aberto) return
     const el = canvas.current
     if (!el) return
-
-    const preparar = (): void => {
-      const { largura, altura, escala } = tamanhoDoBitmap(
-        el.clientWidth, el.clientHeight, window.devicePixelRatio
-      )
-      el.width = largura
-      el.height = altura
-      const ctx = el.getContext('2d')
-      if (!ctx) return
-      ctx.scale(escala, escala)
-      ctx.lineCap = 'round'
-      ctx.lineJoin = 'round'
-      ctx.strokeStyle = getComputedStyle(el).color
-    }
-
-    preparar()
-    window.addEventListener('resize', preparar)
-    return () => window.removeEventListener('resize', preparar)
+    const { largura, altura, escala } = tamanhoDoBitmap(
+      FOLHA_L, FOLHA_A, window.devicePixelRatio
+    )
+    el.width = largura
+    el.height = altura
+    const ctx = el.getContext('2d')
+    if (!ctx) return
+    ctx.scale(escala, escala)
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = getComputedStyle(el).color
   }, [aberto])
 
-  const ponto = (e: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } => {
-    const r = e.currentTarget.getBoundingClientRect()
-    return { x: e.clientX - r.left, y: e.clientY - r.top }
+  const origem = (): { left: number; top: number } => {
+    const r = area.current?.getBoundingClientRect()
+    return { left: r?.left ?? 0, top: r?.top ?? 0 }
   }
 
-  const comecar = (e: React.PointerEvent<HTMLCanvasElement>): void => {
-    if (e.pointerType === 'pen') usouCaneta.current = true
-    if (!deveDesenhar(e.pointerType, usouCaneta.current)) return
-    desenhando.current = true
-    ultimo.current = ponto(e)
-    // Captura o ponteiro para o traço não morrer se a caneta sair da folha.
+  /** Ponto do dedo em coordenada da ÁREA, que é o que os gestos usam. */
+  const naArea = (e: React.PointerEvent): { x: number; y: number } => {
+    const o = origem()
+    return { x: e.clientX - o.left, y: e.clientY - o.top }
+  }
+
+  const aoEncostar = (e: React.PointerEvent): void => {
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* nem todo navegador deixa */ }
+
+    if (e.pointerType === 'pen') {
+      ultimo.current = paraFolha(e.clientX, e.clientY, origem(), vistaRef.current)
+      return
+    }
+    // Dedo e mouse movem a folha. Nunca desenham — é daí que sai a rejeição
+    // de palma: a mão apoiada é só mais um dedo, e dedo não risca.
+    dedos.current.set(e.pointerId, naArea(e))
   }
 
-  const mover = (e: React.PointerEvent<HTMLCanvasElement>): void => {
-    if (!desenhando.current) return
-    if (!deveDesenhar(e.pointerType, usouCaneta.current)) return
-    const ctx = canvas.current?.getContext('2d')
-    const de = ultimo.current
-    if (!ctx || !de) return
-    const ate = ponto(e)
+  const aoMover = (e: React.PointerEvent): void => {
+    if (e.pointerType === 'pen') {
+      const de = ultimo.current
+      if (!de) return
+      const ctx = canvas.current?.getContext('2d')
+      if (!ctx) return
+      const ate = paraFolha(e.clientX, e.clientY, origem(), vistaRef.current)
 
-    ctx.globalCompositeOperation = ferramenta === 'borracha' ? 'destination-out' : 'source-over'
-    ctx.lineWidth = espessura(e.pressure, ferramenta)
-    ctx.beginPath()
-    ctx.moveTo(de.x, de.y)
-    ctx.lineTo(ate.x, ate.y)
-    ctx.stroke()
+      ctx.globalCompositeOperation = ferramenta === 'borracha' ? 'destination-out' : 'source-over'
+      /* A espessura é dividida pela escala para o traço ter a mesma grossura
+         APARENTE em qualquer zoom: ampliado, um traço de 2 px viraria 10. */
+      ctx.lineWidth = espessura(e.pressure, ferramenta) / vistaRef.current.escala
+      ctx.beginPath()
+      ctx.moveTo(de.x, de.y)
+      ctx.lineTo(ate.x, ate.y)
+      ctx.stroke()
 
-    ultimo.current = ate
+      ultimo.current = ate
+      return
+    }
+
+    const antes = dedos.current.get(e.pointerId)
+    if (!antes) return
+    const agora = naArea(e)
+
+    if (dedos.current.size === 1) {
+      aplicar(comArrasto(vistaRef.current, agora.x - antes.x, agora.y - antes.y))
+      dedos.current.set(e.pointerId, agora)
+      return
+    }
+
+    // Dois dedos: pinça. Pega o outro dedo para formar o par.
+    const outro = [...dedos.current.entries()].find(([id]) => id !== e.pointerId)
+    if (!outro) return
+    aplicar(comPinca(
+      vistaRef.current,
+      { a: antes, b: outro[1] },
+      { a: agora, b: outro[1] }
+    ))
+    dedos.current.set(e.pointerId, agora)
   }
 
-  const terminar = (): void => {
-    desenhando.current = false
-    ultimo.current = null
+  const aoSoltar = (e: React.PointerEvent): void => {
+    if (e.pointerType === 'pen') ultimo.current = null
+    else dedos.current.delete(e.pointerId)
   }
 
   const limpar = (): void => {
@@ -128,22 +170,36 @@ export function Rascunho() {
           onClick={() => setFerramenta('borracha')}
         >⌫ Borracha</button>
         <button type="button" className="btn-aba" onClick={limpar}>Limpar</button>
+        <button
+          type="button" className="btn-aba"
+          onClick={() => aplicar(VISTA_INICIAL)}
+        >Centralizar</button>
         <button type="button" className="btn-aba" onClick={() => setAberto(false)}>Fechar</button>
       </div>
 
-      <canvas
-        ref={canvas}
-        className="rascunho-folha"
-        onPointerDown={comecar}
-        onPointerMove={mover}
-        onPointerUp={terminar}
-        onPointerCancel={terminar}
-        onPointerLeave={terminar}
-      />
+      <div
+        ref={area}
+        className="rascunho-area"
+        onPointerDown={aoEncostar}
+        onPointerMove={aoMover}
+        onPointerUp={aoSoltar}
+        onPointerCancel={aoSoltar}
+        onPointerLeave={aoSoltar}
+      >
+        <canvas
+          ref={canvas}
+          className="rascunho-folha"
+          style={{
+            width: `${FOLHA_L}px`,
+            height: `${FOLHA_A}px`,
+            transform: `translate(${vista.x}px, ${vista.y}px) scale(${vista.escala})`
+          }}
+        />
+      </div>
 
       <p className="rascunho-dica">
-        Escreva com a caneta. Depois do primeiro traço, o toque do dedo deixa
-        de desenhar — dá para apoiar a mão na tela.
+        Caneta escreve. Um dedo arrasta a folha, dois dedos dão zoom — e a mão
+        apoiada não risca nada.
       </p>
     </div>
   )

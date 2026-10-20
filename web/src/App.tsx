@@ -316,7 +316,7 @@ export function App() {
       {tela === 'dieta' && <Dieta envio={envio} cardapio={cardapio} irPara={setTela} />}
       {tela === 'estudo' && <Estudo envio={envio} irPara={setTela} />}
       {tela === 'redacao' && <Redacao cardapio={cardapio} irPara={setTela} />}
-      {tela === 'estudar' && <Estudar cardapio={cardapio} hoje={diaLocal()} irPara={setTela} />}
+      {tela === 'estudar' && <Estudar cardapio={cardapio} envio={envio} hoje={diaLocal()} irPara={setTela} />}
       {tela === 'treinar' && <Treinar cardapio={cardapio} hoje={diaLocal()} irPara={setTela} />}
       {tela === 'ajustes' && <Ajustes cardapio={cardapio} irPara={setTela} />}
       {tela === 'lerqr' && (

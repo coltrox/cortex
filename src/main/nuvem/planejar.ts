@@ -75,6 +75,17 @@ export type Operacao =
   /** Cria a nota se faltar e mescla campos — usado por peso e medida. */
   | { acao: 'nota-campos'; tipo: string; path: string; campos: Record<string, unknown> }
   /**
+   * Substitui o CORPO de uma nota que já existe, preservando o frontmatter.
+   *
+   * Nasceu da redação escrita no celular: a folha já está no vault com tema,
+   * data e banca, e o que falta é o texto. Trocar a nota inteira perderia o
+   * cabeçalho; mexer só no frontmatter não guardaria o texto.
+   *
+   * Nunca CRIA nota: se o caminho não existir, a operação não faz nada. Um
+   * evento não pode inventar arquivo em lugar nenhum do vault.
+   */
+  | { acao: 'nota-corpo'; path: string; texto: string }
+  /**
    * Marca campos numa nota que JÁ existe — "estudei esta prova", "cancelei
    * este compromisso".
    *
@@ -715,6 +726,28 @@ export function planejar(evento: Evento): Operacao[] {
           titulo: undefined, data: undefined, path: undefined
         })
       }]
+    }
+
+    /*
+     * A redação escrita no celular.
+     *
+     * Duas operações, nesta ordem: o TEXTO primeiro, o status depois. Se a
+     * segunda falhar, a redação está salva e só o status ficou para trás —
+     * o inverso perderia o texto e diria que está entregue.
+     *
+     * `path` vem do cardápio, que foi o próprio Cortex quem publicou: o
+     * celular devolve a referência que recebeu, em vez de montar um caminho.
+     */
+    case 'redacao_escrita': {
+      const path = txt(dados.path).trim()
+      const texto = txt(dados.texto)
+      if (!path || !path.endsWith('.md')) return []
+      const ops: Operacao[] = [{ acao: 'nota-corpo', path, texto }]
+      const status = txt(dados.status).trim()
+      if (status) {
+        ops.push({ acao: 'nota-campos', tipo: 'redacao', path, campos: { status } })
+      }
+      return ops
     }
 
     case 'porquinho': {

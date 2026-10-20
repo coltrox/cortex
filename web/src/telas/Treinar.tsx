@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Cabecalho, Botao } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
@@ -45,16 +45,33 @@ export function Treinar(p: {
   const materias = useMemo(() => materiasDo(todas), [todas])
 
   /*
-   * A carta da vez.
+   * A carta da vez vive em ESTADO, e não num valor derivado.
    *
-   * O baralho é refeito a cada rodada de propósito: responder muda o
-   * histórico, e o histórico é o que decide a ordem. Refazer é barato — são
-   * dezenas de cartas, não milhares — e evita guardar uma fila que envelhece.
+   * Isto corrigiu um bug feio: o cardápio se atualiza sozinho a cada dois
+   * minutos, e a carta era recalculada a partir dele. No meio de uma questão
+   * — com a conta já feita no rascunho — a atualização trocava o enunciado e
+   * o trabalho ia embora.
+   *
+   * Agora a carta só muda quando ALGUÉM MANDA: ao abrir a tela, ao tocar em
+   * "próxima", ou ao trocar de matéria. Nada que chegue da nuvem mexe nela.
    */
-  const atual: Carta | undefined = useMemo(
-    () => baralho(filtrarPorMateria(todas, materia), historico)[0],
-    [todas, materia, historico, rodada]
-  )
+  const [atual, setAtual] = useState<Carta | undefined>(undefined)
+
+  /* O histórico num ref para o sorteio ler o valor mais recente sem virar
+     dependência do efeito — se virasse, responder trocaria a carta na hora. */
+  const historicoRef = useRef(historico)
+  historicoRef.current = historico
+  const todasRef = useRef(todas)
+  todasRef.current = todas
+
+  useEffect(() => {
+    const candidatas = filtrarPorMateria(todasRef.current, materia)
+    const escolhida = baralho(candidatas, historicoRef.current)[0]
+    // Baralho vazio não apaga a carta na tela: o cardápio pode ter chegado
+    // vazio por um instante, e sumir com a questão no meio seria o mesmo bug
+    // de novo, por outro caminho.
+    if (escolhida) setAtual(escolhida)
+  }, [materia, rodada])
 
   const placar = placarDoDia(historico, p.hoje)
   const aRever = pendentes(todas, historico).length

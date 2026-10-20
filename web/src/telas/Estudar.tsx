@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Cabecalho, Botao } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
-import { rotuloData, tituloCurto, acharPorNome } from '../rotulos'
+import { rotuloData, tituloCurto, acharPorNome, daquiPraFrente, proximaAba } from '../rotulos'
 import { CorpoDaNota } from './Nota'
 import { ExerciciosDaNota } from './Exercicios'
 import type { Questao } from '../exercicios'
+import { EscreverRedacao } from './EscreverRedacao'
+import type { useEnvio } from '../envio'
 
 /**
  * Estudar fora de casa.
@@ -23,11 +25,49 @@ import type { Questao } from '../exercicios'
  */
 export function Estudar(p: {
   cardapio: UsoDoCardapio
+  envio: ReturnType<typeof useEnvio>
   hoje: string
   irPara: (t: Tela) => void
 }) {
+  const ABAS = ['plano', 'conteudos', 'redacoes'] as const
   const [aba, setAba] = useState<'plano' | 'conteudos' | 'redacoes'>('plano')
-  const [aberto, setAberto] = useState<string | null>(null)
+
+  /*
+   * O CAMINHO andado, e não só a nota aberta.
+   *
+   * Clicar num link dentro de uma nota abre outra nota; voltar tem de cair na
+   * anterior, e não pular para a lista. Antes a tela guardava um nome só, e
+   * entrar em "Frases e conectivos" a partir do plano do dia e voltar jogava
+   * direto para Estudar — perdendo o lugar.
+   */
+  const [pilha, setPilha] = useState<string[]>([])
+  const aberto = pilha.length > 0 ? pilha[pilha.length - 1] : null
+  const abrirNota = (nome: string): void => { setPilha(p => [...p, nome]); window.scrollTo(0, 0) }
+
+  /*
+   * Arrastar de lado troca de aba.
+   *
+   * Só conta o gesto claramente HORIZONTAL — mais de 60 px para o lado e pelo
+   * menos o dobro do movimento vertical. Sem essa segunda condição, rolar a
+   * lista com o dedo um pouco torto trocaria de aba no meio da leitura.
+   */
+  const gesto = useRef<{ x: number; y: number } | null>(null)
+  const aoTocar = (e: React.TouchEvent): void => {
+    const t = e.touches[0]
+    gesto.current = t ? { x: t.clientX, y: t.clientY } : null
+  }
+  const aoSoltarToque = (e: React.TouchEvent): void => {
+    const inicio = gesto.current
+    const t = e.changedTouches[0]
+    gesto.current = null
+    if (!inicio || !t) return
+    const dx = t.clientX - inicio.x
+    const dy = t.clientY - inicio.y
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2) return
+    const destino = proximaAba(ABAS, aba, dx < 0 ? 1 : -1)
+    if (destino !== aba) { setAba(destino); setPilha([]) }
+  }
+  const voltarUm = (): void => { setPilha(p => p.slice(0, -1)); window.scrollTo(0, 0) }
 
   const itens = p.cardapio.cardapio.itens
   const dias = itens
@@ -46,9 +86,13 @@ export function Estudar(p: {
     return (Number(a.detalhe.dominio) || 3) - (Number(b.detalhe.dominio) || 3)
   })
 
-  const redacoes = itens
-    .filter(i => i.especie === 'redacao')
-    .sort((a, b) => txt(b.detalhe.data).localeCompare(txt(a.detalhe.data)))
+  /* Hoje e o que vem primeiro. Estava do mais novo para o mais velho, e a
+     folha de HOJE caía no fim da lista, atrás das de novembro. */
+  const redacoes = daquiPraFrente(
+    itens.filter(i => i.especie === 'redacao'),
+    p.hoje,
+    i => txt(i.detalhe.data)
+  )
 
   const lista = aba === 'plano' ? dias : aba === 'conteudos' ? conteudos : redacoes
   /* A nota aberta é procurada em TODO o cardápio, e não só na aba da vez: um
@@ -65,17 +109,29 @@ export function Estudar(p: {
       : []
     return (
       <div>
-        <Cabecalho titulo={escolhido.nome} aoVoltar={() => setAberto(null)} />
+        <Cabecalho titulo={escolhido.nome} aoVoltar={() => voltarUm()} />
         <div className="bloco">
-          <CorpoDaNota
-            texto={corpo}
-            nota={escolhido.nome}
-            aoAbrirNota={nome => {
-              const alvo = acharPorNome(itens, nome)
-              if (alvo) { setAberto(alvo.nome); window.scrollTo(0, 0) }
-            }}
-          />
-          <ExerciciosDaNota questoes={questoes} />
+          {/* Redação é para ESCREVER, não para ler: a folha abre direto no
+              campo de texto. As outras notas abrem no conteúdo. */}
+          {escolhido.especie === 'redacao' ? (
+            <EscreverRedacao
+              item={escolhido}
+              envio={p.envio}
+              aoVoltar={() => voltarUm()}
+            />
+          ) : (
+            <>
+              <CorpoDaNota
+                texto={corpo}
+                nota={escolhido.nome}
+                aoAbrirNota={nome => {
+                  const alvo = acharPorNome(itens, nome)
+                  if (alvo) abrirNota(alvo.nome)
+                }}
+              />
+              <ExerciciosDaNota questoes={questoes} />
+            </>
+          )}
         </div>
       </div>
     )
@@ -83,13 +139,20 @@ export function Estudar(p: {
 
   /* O que vem pela frente primeiro: na reta final, rolar a tela para achar o
      dia de hoje é atrito puro. */
-  const daquiPraFrente = dias.filter(d => txt(d.detalhe.data) >= p.hoje)
+  const proximos = dias.filter(d => txt(d.detalhe.data) >= p.hoje)
   const passados = dias.filter(d => txt(d.detalhe.data) < p.hoje).reverse()
 
   return (
     <div>
-      <Cabecalho titulo="Estudar" aoVoltar={() => p.irPara('hoje')} />
-      <div className="bloco">
+      {/* Sem seta de voltar: Estudos e uma aba de primeiro nivel, como
+          Saude e Notas. Quem troca de area e a barra de baixo — uma seta
+          aqui sugeriria que esta tela esta DENTRO do Hoje. */}
+      <Cabecalho titulo="Estudar" />
+      <div
+        className="bloco"
+        onTouchStart={aoTocar}
+        onTouchEnd={aoSoltarToque}
+      >
         {/* Primeiro botão da tela, antes das abas: é o gesto de quem abriu o
             app na fila do ônibus e tem cinco minutos. Ler vem depois. */}
         <Botao tipo="principal" aoClicar={() => p.irPara('treinar')}>
@@ -98,11 +161,11 @@ export function Estudar(p: {
 
         <div className="abas-redacao">
           <button type="button" className="btn-aba" data-ativa={aba === 'plano'}
-            onClick={() => { setAba('plano'); setAberto(null) }}>Plano</button>
+            onClick={() => { setAba('plano'); setPilha([]) }}>Plano</button>
           <button type="button" className="btn-aba" data-ativa={aba === 'conteudos'}
-            onClick={() => { setAba('conteudos'); setAberto(null) }}>Conteúdos</button>
+            onClick={() => { setAba('conteudos'); setPilha([]) }}>Conteúdos</button>
           <button type="button" className="btn-aba" data-ativa={aba === 'redacoes'}
-            onClick={() => { setAba('redacoes'); setAberto(null) }}>Redações</button>
+            onClick={() => { setAba('redacoes'); setPilha([]) }}>Redações</button>
         </div>
 
         {aba === 'plano' && (
@@ -110,14 +173,14 @@ export function Estudar(p: {
             ? <p className="vazio">Nenhum dia planejado. O cronograma é montado no Cortex, no computador.</p>
             : (
               <>
-                {daquiPraFrente.map(d => (
-                  <CartaoDia key={d.nome} item={d} hoje={p.hoje} aoAbrir={() => setAberto(d.nome)} />
+                {proximos.map(d => (
+                  <CartaoDia key={d.nome} item={d} hoje={p.hoje} aoAbrir={() => abrirNota(d.nome)} />
                 ))}
                 {passados.length > 0 && (
                   <>
                     <h2 className="titulo-grupo">Dias que passaram</h2>
                     {passados.map(d => (
-                      <CartaoDia key={d.nome} item={d} hoje={p.hoje} aoAbrir={() => setAberto(d.nome)} />
+                      <CartaoDia key={d.nome} item={d} hoje={p.hoje} aoAbrir={() => abrirNota(d.nome)} />
                     ))}
                   </>
                 )}
@@ -137,7 +200,7 @@ export function Estudar(p: {
                   c.detalhe.prioridade === true ? 'reta final' : '',
                   quantasQuestoes(c) > 0 ? `${quantasQuestoes(c)} exercícios` : ''
                 ]}
-                aoAbrir={() => setAberto(c.nome)}
+                aoAbrir={() => abrirNota(c.nome)}
               />
             ))
         )}
@@ -151,7 +214,7 @@ export function Estudar(p: {
                 titulo={tituloCurto(r.nome)}
                 acima={rotuloData(txt(r.detalhe.data))}
                 etiquetas={[txt(r.detalhe.status)]}
-                aoAbrir={() => setAberto(r.nome)}
+                aoAbrir={() => abrirNota(r.nome)}
               />
             ))
         )}

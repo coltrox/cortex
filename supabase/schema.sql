@@ -57,7 +57,11 @@ language sql immutable as $$
                -- A sessao de estudo: materia, minutos, questoes e acertos.
                -- Vira linha no diario do dia, e nao nota, porque estudar
                -- duas vezes no mesmo dia e o caso normal.
-               'estudo']
+               'estudo',
+               -- A REDACAO escrita no celular, com o texto inteiro. Nao cria
+               -- nota: preenche a folha que o Cortex ja publicou e muda o
+               -- status para "aguardando correcao".
+               'redacao_escrita']
 $$;
 
 create or replace function registrar_evento(

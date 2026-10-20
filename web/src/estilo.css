@@ -2520,3 +2520,49 @@ button.md-link{
   color:var(--acento); font:inherit; font-weight:600;
   text-decoration:underline; text-underline-offset:3px;
 }
+
+/* A folha de redação: campo grande, porque uma redação tem 30 linhas. */
+.redacao-escrita{ display:flex; flex-direction:column; gap:14px; }
+.redacao-campo{
+  width:100%; min-height:52vh; padding:14px;
+  border:1px solid var(--borda); border-radius:var(--r2);
+  background:var(--painel); color:var(--txt-1);
+  font:400 16px/1.7 var(--fonte); resize:vertical;
+}
+.redacao-campo:focus{ outline:none; border-color:var(--acento); }
+.redacao-conta{
+  display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+  color:var(--txt-3); font-size:13px;
+}
+@media (min-width: 900px){ .redacao-campo{ min-height:58vh; font-size:16.5px; } }
+
+/* ==========================================================================
+   Rascunho: a folha que se move e amplia
+   ==========================================================================
+   A área é a janela; a folha é maior que ela e desliza por dentro. Caneta
+   escreve, um dedo arrasta, dois dedos ampliam — por isso `touch-action` é
+   `none`: o navegador sai do caminho e os gestos são tratados no componente.
+   ========================================================================== */
+
+.rascunho-area{
+  position:relative; overflow:hidden;
+  height:46vh; min-height:220px; max-height:460px;
+  border:1px dashed var(--borda-forte); border-radius:var(--r2);
+  background:var(--fundo);
+  touch-action:none;
+  cursor:crosshair;
+  /* Faixa de papel quadriculado, bem fraca: ajuda a alinhar conta sem
+     competir com o traço. */
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--borda) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--borda) 55%, transparent) 1px, transparent 1px);
+  background-size:26px 26px;
+}
+.rascunho-folha{
+  position:absolute; top:0; left:0;
+  transform-origin:0 0;
+  /* A cor do traço sai daqui: o canvas lê o `color` computado. */
+  color:var(--txt-1);
+}
+@media (min-width: 900px){ .rascunho-area{ height:52vh; max-height:560px; } }
+@media (max-height: 560px) and (orientation: landscape){ .rascunho-area{ height:62vh; } }

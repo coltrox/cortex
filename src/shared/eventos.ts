@@ -43,7 +43,14 @@ export const TIPOS_EVENTO = [
   // sobrescrever a primeira. Da lista sai a conta de horas por dia e por
   // semana -- o dado que nao existia, e sem o qual todo grafico de estudo
   // seria um grafico de zero.
-  'estudo'
+  'estudo',
+  // A redacao escrita NO CELULAR, com o texto inteiro.
+  //
+  // Tipo proprio, e nao um `anotacao`: ela nao cria nota nova, ela PREENCHE
+  // uma folha que ja existe no vault (criada com tema, data e banca) e muda o
+  // status para "aguardando correcao". Era o ultimo pedaco que obrigava a
+  // abrir o computador para estudar.
+  'redacao_escrita'
 ] as const
 
 export type TipoEvento = (typeof TIPOS_EVENTO)[number]

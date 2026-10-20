@@ -305,6 +305,30 @@ export async function executar(
         break
       }
 
+      /*
+       * Troca o corpo, mantém o cabeçalho.
+       *
+       * Lê o arquivo, separa o frontmatter com o mesmo parser do resto do
+       * app e reescreve só o que vem depois dele. Arquivo que não existe é
+       * ignorado em silêncio: um evento não cria nota aqui, e falhar alto
+       * travaria a fila por causa de uma nota que o dono apagou.
+       */
+      case 'nota-corpo': {
+        const raw = await lerOuVazio(vault, op.path)
+        if (raw === '') break
+        const { frontmatter } = parseFrontmatter(raw)
+        // O fim do frontmatter é a linha `---` que o fecha. Sem ela, a nota
+        // não tem cabeçalho a preservar e o corpo vai sozinho.
+        const corte = raw.indexOf('\n---', 3)
+        const cabecalho = Object.keys(frontmatter).length > 0 && corte >= 0
+          ? raw.slice(0, corte + 4)
+          : ''
+        const corpo = op.texto.trim()
+        await vault.writeAtomic(op.path, cabecalho ? `${cabecalho}\n\n${corpo}\n` : `${corpo}\n`)
+        await indexarSemFalhar(indexer, op.path)
+        break
+      }
+
       case 'nota-campos': {
         const raw = await lerOuVazio(vault, op.path)
         // `op.tipo` depois do spread de `op.campos`: quem decide o `tipo`
