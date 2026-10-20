@@ -5,6 +5,7 @@ import {
   num, txt, porData, dataCurta, type PropsLente
 } from './base'
 import { diasAte, rotuloPrazo } from '../subnav'
+import { JANELAS, listar, naJanela, type Janela } from '../datas'
 import { Pomodoro } from './Pomodoro'
 import { ProvaSimulado, questoesDe } from './ProvaSimulado'
 
@@ -51,6 +52,15 @@ export function LenteEstudos({
   const [fazendo, setFazendo] = useState<NoteComCampos | null>(null)
 
   const conteudos = notas.filter(n => n.tipo === 'materia')
+  /*
+   * O filtro de data das listas.
+   *
+   * Um estado para a lente inteira, e não um por aba: trocar de aba e reencontrar
+   * o filtro onde você deixou é o comportamento que não surpreende. O padrão é
+   * "a fazer" porque na reta final a pergunta é sempre o que ainda falta.
+   */
+  const [janela, setJanela] = useState<Janela>('afazer')
+
   const provas = notas.filter(n => n.tipo === 'prova' && n.date).sort(porData)
   const simulados = notas.filter(n => n.tipo === 'simulado').sort(porData)
   const redacoes = notas.filter(n => n.tipo === 'redacao').sort(porData)
@@ -318,11 +328,12 @@ export function LenteEstudos({
       {sub === 'simulados' && !fazendo && (
         <>
           <Secao nome="Simulados" acao="Simulado" aoClicar={() => aoAdicionar('simulado')} />
+          <FiltroDatas janela={janela} aoTrocar={setJanela} />
           {simulados.length === 0 ? (
             <Vazio>Nenhum simulado registrado.</Vazio>
           ) : (
             <div className="lista-notas">
-              {[...simulados]
+              {[...naJanela(simulados, hoje, janela)]
                 /*
                  * A fazer primeiro, em ordem de data crescente — o próximo no
                  * topo. Os já feitos descem, do mais recente para o mais
@@ -381,6 +392,7 @@ export function LenteEstudos({
       {sub === 'redacoes' && (
         <>
           <Secao nome="Redações" acao="Redação" aoClicar={() => aoAdicionar('redacao')} />
+          <FiltroDatas janela={janela} aoTrocar={setJanela} />
 
           {/* A fila de correção no topo: é o que está esperando resposta, e
               some sozinha quando a redação é marcada como corrigida. */}
@@ -406,7 +418,7 @@ export function LenteEstudos({
             <Vazio>Nenhuma redação. O tema, a nota e os repertórios usados ficam aqui.</Vazio>
           ) : (
             <div className="cards">
-              {[...redacoes].reverse().map(r => {
+              {listar(redacoes, hoje, janela).map(r => {
                 const reps = repertoriosDe(r.campos.repertorios)
                 return (
                   <div key={r.path} className="card">
@@ -573,9 +585,10 @@ export function LenteEstudos({
         <div className="grade-2">
           <section className="col">
           <Secao nome="Abertas" acao="Tarefa" aoClicar={() => aoAdicionar('tarefa')} />
+          <FiltroDatas janela={janela} aoTrocar={setJanela} />
           {abertas.length === 0 ? <Vazio>Nenhuma tarefa aberta.</Vazio> : (
             <div className="lista-notas">
-              {abertas.map(t => (
+              {listar(abertas, hoje, janela).map(t => (
                 <Linha key={t.path} aoAbrir={() => aoAbrir(t.path)}
                   aoEditar={() => aoEditar(t)} aoExcluir={() => aoExcluir(t)}>
                   <Check feito={false} rotulo={t.title}
@@ -673,6 +686,32 @@ function ListaConteudos({ conteudos, aoAbrir, aoEditar, aoExcluir, vazio }: {
           )}
           <span className="linha-valor">{txt(c.campos.status) || 'sem status'}</span>
         </Linha>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * O filtro de data das listas.
+ *
+ * Chips, e não um <select>: são cinco opções curtas e a escolha é frequente —
+ * um menu custaria dois cliques para trocar de "a fazer" para "7 dias".
+ *
+ * Ele NÃO reordena nada por conta própria. Quem ordena é `listar`, que põe
+ * hoje e o futuro na frente; o filtro só decide o que entra.
+ */
+function FiltroDatas({ janela, aoTrocar }: { janela: Janela; aoTrocar: (j: Janela) => void }) {
+  return (
+    <div className="filtro-datas" role="group" aria-label="Filtrar por data">
+      {JANELAS.map(j => (
+        <button
+          key={j.id}
+          className="chip-filtro"
+          aria-pressed={janela === j.id}
+          onClick={() => aoTrocar(j.id)}
+        >
+          {j.nome}
+        </button>
       ))}
     </div>
   )

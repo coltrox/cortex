@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Cabecalho, Botao } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
+import { rotuloData, tituloCurto } from '../rotulos'
 
 /**
  * Estudar fora de casa.
@@ -109,12 +110,16 @@ export function Estudar(p: {
           conteudos.length === 0
             ? <p className="vazio">Nenhum conteúdo. Eles são escritos no Cortex, no computador.</p>
             : conteudos.map(c => (
-              <button key={c.nome} type="button" className="cartao cartao-redacao"
-                onClick={() => setAberto(c.nome)}>
-                <span className="redacao-nome">{c.nome}</span>
-                {txt(c.detalhe.materia) && <span className="redacao-quando">{txt(c.detalhe.materia)}</span>}
-                <span className="seta">›</span>
-              </button>
+              <CartaoEstudo
+                key={c.nome}
+                titulo={c.nome}
+                acima={txt(c.detalhe.materia)}
+                etiquetas={[
+                  c.detalhe.prioridade === true ? 'reta final' : '',
+                  quantasQuestoes(c) > 0 ? `${quantasQuestoes(c)} exercícios` : ''
+                ]}
+                aoAbrir={() => setAberto(c.nome)}
+              />
             ))
         )}
 
@@ -122,12 +127,13 @@ export function Estudar(p: {
           redacoes.length === 0
             ? <p className="vazio">Nenhuma redação ainda.</p>
             : redacoes.map(r => (
-              <button key={r.nome} type="button" className="cartao cartao-redacao"
-                onClick={() => setAberto(r.nome)}>
-                <span className="redacao-nome">{r.nome}</span>
-                {txt(r.detalhe.status) && <span className="redacao-quando">{txt(r.detalhe.status)}</span>}
-                <span className="seta">›</span>
-              </button>
+              <CartaoEstudo
+                key={r.nome}
+                titulo={tituloCurto(r.nome)}
+                acima={rotuloData(txt(r.detalhe.data))}
+                etiquetas={[txt(r.detalhe.status)]}
+                aoAbrir={() => setAberto(r.nome)}
+              />
             ))
         )}
 
@@ -144,6 +150,11 @@ function txt(v: unknown): string {
   return typeof v === 'string' ? v : ''
 }
 
+/** Quantos exercícios o item traz — 0 quando não traz nenhum. */
+function quantasQuestoes(i: { detalhe: Record<string, unknown> }): number {
+  return Array.isArray(i.detalhe.questoes) ? i.detalhe.questoes.length : 0
+}
+
 function CartaoDia(p: {
   item: { nome: string; detalhe: Record<string, unknown> }
   hoje: string
@@ -151,14 +162,57 @@ function CartaoDia(p: {
 }) {
   const data = txt(p.item.detalhe.data)
   const eHoje = data === p.hoje
+  const questoes = quantasQuestoes(p.item)
   return (
-    <button type="button" className="cartao cartao-redacao" data-hoje={eHoje || undefined}
-      onClick={p.aoAbrir}>
-      <span className="redacao-nome">{p.item.nome}</span>
-      {eHoje && <span className="chip">hoje</span>}
-      {p.item.detalhe.redacao === true && <span className="chip">redação</span>}
-      {p.item.detalhe.feito === true && <span className="redacao-quando">✓</span>}
-      <span className="seta">›</span>
+    <CartaoEstudo
+      destaque={eHoje}
+      acima={rotuloData(data)}
+      titulo={tituloCurto(p.item.nome)}
+      etiquetas={[
+        eHoje ? 'hoje' : '',
+        p.item.detalhe.redacao === true ? 'redação' : '',
+        questoes > 0 ? `${questoes} exercícios` : '',
+        p.item.detalhe.feito === true ? '✓ feito' : ''
+      ]}
+      aoAbrir={p.aoAbrir}
+    />
+  )
+}
+
+/**
+ * O cartão de uma coisa para estudar.
+ *
+ * Três linhas empilhadas, e não uma só: data em cima, título com a largura
+ * inteira, etiquetas embaixo. Numa linha só, as etiquetas (que são pílulas de
+ * 44 px, para caber o dedo) espremiam o título em 122 px dos 343 do cartão, e
+ * "Matemática: razão, proporção e %" virava três linhas picadas.
+ *
+ * As etiquetas vêm como lista com buracos — `''` para o que não se aplica —
+ * porque quem chama fica mais legível assim do que com quatro condicionais no
+ * meio do JSX. O filtro é aqui.
+ */
+function CartaoEstudo(p: {
+  acima?: string
+  titulo: string
+  etiquetas?: string[]
+  destaque?: boolean
+  aoAbrir: () => void
+}) {
+  const etiquetas = (p.etiquetas ?? []).filter(e => e !== '')
+  return (
+    <button
+      type="button"
+      className="cartao cartao-estudo"
+      data-hoje={p.destaque || undefined}
+      onClick={p.aoAbrir}
+    >
+      {p.acima && <span className="cartao-estudo-acima">{p.acima}</span>}
+      <span className="cartao-estudo-titulo">{p.titulo}</span>
+      {etiquetas.length > 0 && (
+        <span className="cartao-estudo-etiquetas">
+          {etiquetas.map(e => <span key={e} className="etiqueta">{e}</span>)}
+        </span>
+      )}
     </button>
   )
 }

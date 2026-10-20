@@ -1949,3 +1949,28 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
 }
 .nota-exercicios .secao { margin-top: 0; }
 .nota-exercicios .prova { margin-top: 4px; }
+
+/* O filtro de data das listas: hoje e o que vem primeiro, e a janela
+   escolhida em chips. Nasceu de a redação de HOJE aparecer no fim da lista. */
+.filtro-datas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.chip-filtro {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  transition: background var(--dur) var(--curva), color var(--dur) var(--curva),
+              border-color var(--dur) var(--curva);
+}
+.chip-filtro:hover { color: var(--text); border-color: var(--border-forte, var(--border)); }
+.chip-filtro[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+}

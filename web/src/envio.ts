@@ -183,7 +183,28 @@ export function useCardapio(): UsoDoCardapio {
     setBuscando(true)
     try {
       const itens = await cliente.listarCardapio()
-      gravarCardapio(guardadoDoNavegador, itens, new Date().toISOString())
+
+      /*
+       * Resposta VAZIA não apaga o que já está guardado.
+       *
+       * O cardápio no aparelho é o material de estudo offline — conteúdo,
+       * cronograma, redações, exercícios. Trocá-lo por uma lista vazia
+       * significa ficar sem nada justamente quando não há como repor: na rua,
+       * longe do computador.
+       *
+       * E vazio quase nunca quer dizer "não há mais nada". Quer dizer ID
+       * trocado em Ajustes, migração do banco ainda não rodada (a lista
+       * branca de espécies descarta em silêncio o que não conhece), ou uma
+       * resposta que voltou pela metade. Em qualquer um desses casos, manter
+       * o que estava é o certo.
+       *
+       * Com o aparelho ainda sem nada, gravar o vazio é inofensivo — e é o
+       * que mantém o `atualizadoEm` em dia.
+       */
+      const guardado = lerCardapio(guardadoDoNavegador)
+      if (itens.length > 0 || guardado.itens.length === 0) {
+        gravarCardapio(guardadoDoNavegador, itens, new Date().toISOString())
+      }
       setCardapio(lerCardapio(guardadoDoNavegador))
       setErro(opts?.comoConexao && itens.length === 0
         ? 'Não veio nada com esse ID. Ou ele está errado, ou o Cortex ainda não subiu seus dados — confira o ID no Cortex, em Configurações → Celular.'
