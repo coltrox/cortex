@@ -120,8 +120,31 @@ function questoesPublicaveis(campos: Record<string, unknown>): unknown[] | undef
  * Mora aqui, e exportada, porque é uma regra de segurança: precisa de teste
  * próprio, e não de um teste que a alcance de raspão por outro caminho.
  */
+/**
+ * Os tipos cujo TEXTO vai junto para o celular.
+ *
+ * `rotina` estava sozinha aqui, e esse era o bug: as notas de estudo tinham
+ * `corpo: corpoPublicavel(n.corpo)` no cardápio, mas o corpo nunca era lido
+ * do disco — o sincronizador consulta esta função antes de abrir o arquivo.
+ * O resultado era o celular mostrando "esta nota ainda não tem conteúdo" em
+ * cima de um cronograma inteiro.
+ *
+ * O que entra é material de ESTUDO, que só serve se der para ler longe do
+ * computador: o plano do dia, o conteúdo, a estrutura de redação, o
+ * repertório, a redação escrita e a tarefa com passo a passo.
+ *
+ * O que NÃO entra continua fora. `anotacao` saiu em 11/09/2026 a pedido do
+ * dono ("é a estrutura de uma anotação, não é para mostrar o que tem
+ * dentro"), e `conta`, `documento` e afins nem chegam aqui, porque não estão
+ * em `TIPOS_NOTA_CARDAPIO`.
+ */
+const TIPOS_COM_CORPO = [
+  'rotina', 'tarefa',
+  'plano-dia', 'materia', 'redacao', 'estrutura-redacao', 'repertorio'
+]
+
 export function podePublicarCorpo(tipo: string | null | undefined, caminho: string): boolean {
-  if (tipo !== 'rotina') return false
+  if (!tipo || !TIPOS_COM_CORPO.includes(tipo)) return false
   return !emPastaProtegida(caminho)
 }
 

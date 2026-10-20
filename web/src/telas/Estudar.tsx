@@ -3,6 +3,9 @@ import { Cabecalho, Botao } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
 import { rotuloData, tituloCurto } from '../rotulos'
+import { CorpoDaNota } from './Nota'
+import { ExerciciosDaNota } from './Exercicios'
+import type { Questao } from '../exercicios'
 
 /**
  * Estudar fora de casa.
@@ -52,11 +55,17 @@ export function Estudar(p: {
 
   if (escolhido) {
     const corpo = txt(escolhido.detalhe.corpo)
+    // As questões vêm do cardápio como dado; o celular as roda igual ao
+    // computador, logo abaixo da teoria.
+    const questoes = Array.isArray(escolhido.detalhe.questoes)
+      ? (escolhido.detalhe.questoes as Questao[])
+      : []
     return (
       <div>
         <Cabecalho titulo={escolhido.nome} aoVoltar={() => setAberto(null)} />
         <div className="bloco">
-          <pre className="redacao-corpo">{corpo || 'Esta nota ainda não tem conteúdo.'}</pre>
+          <CorpoDaNota texto={corpo} />
+          <ExerciciosDaNota questoes={questoes} />
         </div>
       </div>
     )
