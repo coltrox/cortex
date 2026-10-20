@@ -1,3 +1,4 @@
+import { figuraSegura } from '@compartilhado/figura'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 /**
@@ -314,5 +315,29 @@ export function Selecao({ rotulo, opcoes, valor, aoMudar }: {
         </ul>
       )}
     </div>
+  )
+}
+
+/**
+ * A figura de uma questão — o triângulo, a parábola, o plano cartesiano.
+ *
+ * Usa `dangerouslySetInnerHTML`, e é o único lugar do app que faz isso. O que
+ * torna isso aceitável é `figuraSegura`: ela recusa qualquer SVG que não
+ * reconheça por inteiro, elemento por elemento e atributo por atributo. Sem
+ * figura aprovada, não renderiza nada — e a questão segue respondível pelo
+ * enunciado.
+ *
+ * O desenho herda a cor do texto (`currentColor` nos traços), então funciona
+ * no tema claro e no escuro sem duas versões.
+ */
+export function Figura({ svg }: { svg?: string }) {
+  const seguro = figuraSegura(svg)
+  if (!seguro) return null
+  return (
+    <div
+      className="questao-figura"
+      role="img"
+      dangerouslySetInnerHTML={{ __html: seguro }}
+    />
   )
 }

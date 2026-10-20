@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Cabecalho, Botao } from '../componentes'
+import { Cabecalho, Botao, Figura } from '../componentes'
 import type { UsoDoCardapio, useEnvio } from '../envio'
 import type { Tela } from '../App'
 import { guardadoDoNavegador } from '../guardado'
@@ -281,6 +281,7 @@ export function Treinar(p: {
           <>
             <div className="treino-de">{atual.origem}</div>
             <p className="treino-enunciado">{q?.enunciado}</p>
+            <Figura svg={q?.figura} />
 
             <Rascunho />
 

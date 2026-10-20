@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { NoteComCampos } from '../tipos'
+import { figuraSegura } from '../../shared/figura'
 
 /**
  * Fazer o simulado, questão por questão.
@@ -20,9 +21,31 @@ type Questao = {
   a?: string; b?: string; c?: string; d?: string; e?: string
   gabarito?: string
   comentario?: string
+  /** O desenho da questão, em SVG — geometria, gráfico, plano cartesiano. */
+  figura?: string
 }
 
 const LETRAS = ['a', 'b', 'c', 'd', 'e'] as const
+
+/**
+ * A figura da questão.
+ *
+ * Mesmo sanitizador do celular (`shared/figura`), e pelo mesmo motivo: o SVG
+ * entra no DOM como markup. Aqui ele vem do disco, mas a nota pode ter sido
+ * escrita pelo celular — e uma lista branca só, compartilhada, é melhor do
+ * que duas que podem discordar.
+ */
+function Figura({ svg }: { svg?: string }) {
+  const seguro = figuraSegura(svg)
+  if (!seguro) return null
+  return (
+    <div
+      className="prova-figura"
+      role="img"
+      dangerouslySetInnerHTML={{ __html: seguro }}
+    />
+  )
+}
 
 /** As questões da nota, se houver. */
 export function questoesDe(nota: NoteComCampos): Questao[] {
@@ -149,6 +172,7 @@ export function ProvaSimulado({ nota, aoSair, aoGravar }: {
                   {qq.materia && <span className="chip">{qq.materia}</span>}
                 </div>
                 <p className="prova-enunciado">{qq.enunciado}</p>
+                <Figura svg={qq.figura} />
                 <p className="form-dica">
                   Você marcou <b>{respostas[i] ? respostas[i].toUpperCase() : '—'}</b>;
                   a resposta é <b>{(qq.gabarito ?? '').toUpperCase()}</b>.
@@ -174,6 +198,7 @@ export function ProvaSimulado({ nota, aoSair, aoGravar }: {
       <div className="barra"><i style={{ width: `${((atual + 1) / questoes.length) * 100}%` }} /></div>
 
       <p className="prova-enunciado">{q.enunciado}</p>
+      <Figura svg={q.figura} />
 
       <div className="prova-alternativas">
         {LETRAS.map(l => {

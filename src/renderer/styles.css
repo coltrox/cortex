@@ -2806,3 +2806,25 @@ kbd {
 /* A aba na mao, dentro da area. */
 .sb-sub { cursor: grab; }
 .sb-sub[data-arrastando] { opacity: .45; cursor: grabbing; }
+
+/* A figura da questão — geometria e gráfico, desenhados em SVG na nota.
+   O traço herda `color`, então o desenho acompanha o tema sem segunda
+   versão. Mesmo sanitizador do celular: shared/figura.ts. */
+.prova-figura {
+  margin: 16px 0 18px;
+  padding: 14px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: var(--fundo);
+  color: var(--txt-1);
+  text-align: center;
+}
+.prova-figura svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 380px;
+  max-height: 320px;
+  margin: 0 auto;
+}
+.prova-figura text { fill: var(--txt-2); }

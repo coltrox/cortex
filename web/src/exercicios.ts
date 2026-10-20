@@ -38,6 +38,15 @@ export type Questao = {
    * daquela conta, não a matéria inteira.
    */
   formulas?: string[]
+  /**
+   * O desenho da questão: o triângulo, a parábola, o plano cartesiano.
+   *
+   * SVG em texto, e não imagem, porque anexo não sobe para a nuvem — assim a
+   * figura viaja junto da questão até o celular. Passa por `figuraSegura`
+   * antes de ir para a tela: o campo vem do vault pela internet e entra no
+   * DOM como markup.
+   */
+  figura?: string
 }
 
 /**

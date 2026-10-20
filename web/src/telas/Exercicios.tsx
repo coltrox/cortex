@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Botao } from '../componentes'
+import { Botao, Figura } from '../componentes'
 import type { Questao } from '../exercicios'
 import { Rascunho } from './Rascunho'
 
@@ -79,6 +79,7 @@ export function ExerciciosDaNota({ questoes }: { questoes: Questao[] }) {
       <h2 className="md-titulo">Exercícios</h2>
       <div className="treino-de">Questão {i + 1} de {lista.length}</div>
       <p className="treino-enunciado">{q.enunciado}</p>
+      <Figura svg={q.figura} />
 
       {/* A folha de conta fica ANTES das alternativas: a conta vem antes
           da escolha, e um botão depois delas convidaria a chutar primeiro. */}

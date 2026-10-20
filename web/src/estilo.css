@@ -2688,3 +2688,31 @@ button.md-link{
 }
 .feitas-de{ flex:1 1 auto; min-width:0; }
 .feitas-placar{ white-space:nowrap; font-variant-numeric:tabular-nums; }
+
+/* ==========================================================================
+   A figura da questão
+   ==========================================================================
+   "Questões que aparecem em figuras, de geometria, até de gráfico também."
+   O SVG herda `color`, então o desenho acompanha o tema sem duas versões.
+   ========================================================================== */
+
+.questao-figura{
+  margin:14px 0 16px; padding:12px;
+  border:1px solid var(--borda); border-radius:var(--r2);
+  background:var(--fundo);
+  color:var(--txt-1);
+  text-align:center;
+}
+.questao-figura svg{
+  display:block; width:100%; height:auto;
+  /* Teto para a figura não empurrar as alternativas para fora da tela no
+     celular. Medido: com 46vh a primeira alternativa caía em y=786 numa tela
+     de 812, ou seja, fora. É preciso ver o desenho E as opções. */
+  max-width:min(100%, 340px); max-height:32vh;
+  margin:0 auto;
+}
+.questao-figura text{ fill:var(--txt-2); }
+
+@media (max-height: 560px) and (orientation: landscape) {
+  .questao-figura svg{ max-height:60vh; }
+}
