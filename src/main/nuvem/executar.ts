@@ -338,6 +338,50 @@ export async function executar(
         break
       }
 
+      /*
+       * Marca ou desmarca um `- [ ]` dentro da nota.
+       *
+       * Reescreve UMA linha. O índice diz qual checkbox (o terceiro da nota,
+       * por exemplo) e o texto confirma que ele ainda é a mesma tarefa — se
+       * o dia foi reescrito no computador nesse meio-tempo, o evento é
+       * descartado em vez de riscar a linha errada.
+       */
+      case 'nota-tarefa': {
+        const raw = await lerOuVazio(vault, op.path)
+        if (raw === '') break
+
+        const linhas = raw.split(/\r?\n/)
+        // `- [ ]`, `* [x]`, com qualquer indentação — o mesmo que o app
+        // reconhece como tarefa ao exibir a nota.
+        const MARCA = /^(\s*[-*]\s*\[)([ xX])(\]\s*)(.*)$/
+
+        let vista = -1
+        let mexeu = false
+        for (let i = 0; i < linhas.length; i++) {
+          const m = MARCA.exec(linhas[i] ?? '')
+          if (!m) continue
+          vista += 1
+          if (vista !== op.indice) continue
+
+          const texto = (m[4] ?? '').trim()
+          if (texto !== op.texto.trim()) {
+            console.error(
+              `[cortex] check do celular ignorado em ${op.path}: a tarefa ${op.indice} ` +
+              `agora é "${texto}", e não "${op.texto}"`
+            )
+            break
+          }
+          linhas[i] = `${m[1]}${op.feito ? 'x' : ' '}${m[3]}${m[4]}`
+          mexeu = true
+          break
+        }
+
+        if (!mexeu) break
+        await vault.writeAtomic(op.path, linhas.join('\n'))
+        await indexarSemFalhar(indexer, op.path)
+        break
+      }
+
       case 'nota-campos': {
         const raw = await lerOuVazio(vault, op.path)
         // `op.tipo` depois do spread de `op.campos`: quem decide o `tipo`

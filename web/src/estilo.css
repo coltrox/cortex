@@ -2534,11 +2534,16 @@ button.md-link{
    `none`: o navegador sai do caminho e os gestos são tratados no componente.
    ========================================================================== */
 
+/* A MESA onde a folha fica apoiada.
+   Cor diferente da folha, de propósito: antes as duas eram iguais e ele não
+   via onde o papel acabava — "do nada eu não consigo escrever mais porque
+   chega no limite, só que eu não consigo ver o limite". Agora o papel se
+   destaca da mesa, e o fim dele é visível com qualquer zoom. */
 .rascunho-area{
   position:relative; overflow:hidden;
   height:46vh; min-height:220px; max-height:460px;
   border:1px dashed var(--borda-forte); border-radius:var(--r2);
-  background:var(--fundo);
+  background:color-mix(in srgb, var(--borda) 42%, var(--painel));
   touch-action:none;
   cursor:crosshair;
   /* Cor chapada, sem quadriculado: pedido dele, e o papel listrado competia
@@ -2553,6 +2558,13 @@ button.md-link{
   background:var(--fundo);
   /* A cor do traço sai daqui: o canvas lê o `color` computado. */
   color:var(--txt-1);
+  /* A borda do papel. `outline`, e não `border`: borda entraria na caixa do
+     canvas e deslocaria o desenho em um pixel; outline fica por fora e não
+     mexe na geometria — e é ela que o traço usa como referência. */
+  outline:1px solid var(--borda-forte);
+  /* A sombra levanta o papel da mesa: mesmo encostando o zoom no mínimo, dá
+     para ver onde ele termina. */
+  box-shadow:0 2px 14px rgba(0, 0, 0, 0.28);
 }
 
 /* Os botões de zoom, grudados como um controle só. */

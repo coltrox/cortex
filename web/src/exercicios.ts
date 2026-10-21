@@ -52,13 +52,16 @@ export type Questao = {
 /**
  * De onde a questão veio — e, com isso, se ela pode cair no treino.
  *
- * `cronograma` é a questão de um dia que ainda vai chegar. Ela fica FORA do
- * treino livre, a pedido dele: "quero que eles não envolvam os exercícios que
- * faria posteriormente de acordo com o cronograma". Treinar hoje o que o
- * cronograma reservou para o dia 11 estragaria as duas coisas — a questão
- * perde o efeito no dia certo, e o treino vira revisão do que ele já viu.
+ * `cronograma` é tudo que pertence ao plano de estudos. Fica FORA do treino
+ * livre, nas palavras dele: "exercício de cronograma é para ser feito de
+ * acordo com os meus estudos do cronograma. Iniciar a sessão de estudos é
+ * para fazer exercício aleatório".
  *
- * Dia que já passou não é mais reserva: volta para o bolo do treino.
+ * Vale para o dia que ainda vem E para o que já passou — esta é a correção
+ * de um erro meu, que deixava o dia vencido voltar ao bolo do sorteio. O
+ * exercício do dia 19 continua sendo do dia 19: para refazê-lo, ele abre o
+ * dia ou escolhe a questão em "Meus exercícios". O que não pode é ela cair
+ * por acaso no treino.
  */
 export type Origem = 'treino' | 'cronograma'
 
@@ -130,14 +133,13 @@ export function cartasDoCardapio(itens: ItemCardapio[], hoje = ''): Carta[] {
   for (const item of itens) {
     if (!COM_QUESTOES.includes(item.especie)) continue
     const detalhe = item.detalhe as Record<string, unknown>
-    /* A reserva do cronograma, por dois caminhos: o dia que ainda não chegou,
-       e o conteúdo que esse dia manda estudar. Comparação de texto basta
-       entre datas, porque as duas são `AAAA-MM-DD` — e, sem `hoje`, nada é
-       reserva, que é o seguro para quem chama só querendo a lista inteira. */
-    const data = txt(detalhe.data)
-    const reservada = hoje !== '' && (
-      (item.especie === 'plano-dia' && data >= hoje) || presos.has(item.nome)
-    )
+    /* A reserva do cronograma, por dois caminhos: a questão que mora num DIA
+       do plano — qualquer dia, passado ou futuro — e o conteúdo que um dia
+       ainda por vir manda estudar.
+       Sem `hoje` nada é reserva de conteúdo, mas o dia continua sendo dia:
+       quem chama sem data quer a lista inteira, e ainda assim precisa saber
+       de onde cada questão veio. */
+    const reservada = item.especie === 'plano-dia' || presos.has(item.nome)
 
     comoQuestoes(detalhe.questoes).forEach((q, i) => {
       if (!q.enunciado || !q.gabarito) return

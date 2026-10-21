@@ -96,6 +96,23 @@ export type Operacao =
    */
   | { acao: 'nota-corpo'; path: string; texto: string }
   /**
+   * Marca ou desmarca UM `- [ ]` dentro de uma nota.
+   *
+   * Nasceu de uma reclamação curta: "no celular eu marquei a checkbox das
+   * notas e no computador não atualizou". A marca vivia só no aparelho, de
+   * propósito, porque o celular não escrevia no vault. Agora escreve.
+   *
+   * Mexe numa LINHA, e não no corpo inteiro, para não sobrescrever o que foi
+   * escrito no computador entre a publicação do cardápio e a chegada do
+   * evento. `texto` é a guarda: o executor só troca o colchete se a linha
+   * daquele índice ainda for aquela tarefa. Se o dia foi reescrito, o evento
+   * não faz nada — melhor perder um check do que riscar a tarefa errada.
+   */
+  | {
+      acao: 'nota-tarefa'; path: string
+      indice: number; texto: string; feito: boolean
+    }
+  /**
    * Marca campos numa nota que JÁ existe — "estudei esta prova", "cancelei
    * este compromisso".
    *
@@ -758,6 +775,23 @@ export function planejar(evento: Evento): Operacao[] {
          manda só os campos, e um `texto` vazio ali apagaria a nota inteira. */
       if (typeof dados.texto === 'string') {
         ops.push({ acao: 'nota-corpo', path, texto: dados.texto })
+      }
+
+      /* Um check marcado no celular. Vem como `tarefa` em vez de `texto`
+         porque mexe numa linha só — ver a operação `nota-tarefa`. */
+      const tarefa = dados.tarefa
+      if (tarefa && typeof tarefa === 'object' && !Array.isArray(tarefa)) {
+        const t = tarefa as Record<string, unknown>
+        const indice = num(t.indice)
+        const texto = txt(t.texto).trim()
+        // Sem o texto não há como conferir se a linha ainda é aquela, e sem
+        // essa conferência o evento riscaria a tarefa errada.
+        if (indice !== undefined && indice >= 0 && Number.isInteger(indice) && texto) {
+          ops.push({
+            acao: 'nota-tarefa', path,
+            indice, texto, feito: t.feito === true
+          })
+        }
       }
 
       /*

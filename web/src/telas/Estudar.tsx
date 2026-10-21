@@ -139,6 +139,18 @@ export function Estudar(p: {
                   const alvo = acharPorNome(itens, nome)
                   if (alvo) abrirNota(alvo.nome)
                 }}
+                /* O check volta para o vault. Antes ele morria no aparelho,
+                   e a reclamação foi direta: "marquei no celular e no
+                   computador não atualizou". */
+                aoMarcar={(indice, texto, feito) => {
+                  const path = txt(escolhido.detalhe.path)
+                  if (!path) return
+                  p.envio.registrar({
+                    tipo: 'nota_escrita',
+                    dia: p.hoje,
+                    dados: { path, tarefa: { indice, texto, feito } }
+                  })
+                }}
               />
               <ExerciciosDaNota questoes={questoes} />
 

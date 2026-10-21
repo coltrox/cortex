@@ -14,12 +14,18 @@ import { alternar, chaveDaTarefa, estaFeita, gravarMarcados, lerMarcados } from 
  * numa tela de 375 px, uma tabela de quatro colunas empurraria a tela inteira
  * para o lado, e aí TUDO fica torto, não só a tabela.
  */
-export function CorpoDaNota({ texto, nota, aoAbrirNota }: {
+export function CorpoDaNota({ texto, nota, aoAbrirNota, aoMarcar }: {
   texto: string
   /** O nome da nota — identifica os checks guardados neste aparelho. */
   nota: string
   /** Chamado quando se toca num link `[[assim]]`. */
   aoAbrirNota?: (nome: string) => void
+  /**
+   * Chamado ao marcar ou desmarcar uma tarefa, para quem souber mandá-la ao
+   * Cortex. Sem isto a marca valeria só neste aparelho — que era justamente
+   * a reclamação: "marquei no celular e no computador não atualizou".
+   */
+  aoMarcar?: (indice: number, texto: string, feito: boolean) => void
 }) {
   const [marcados, setMarcados] = useState(() => lerMarcados(guardadoDoNavegador))
   const partes = blocos(texto)
@@ -28,15 +34,30 @@ export function CorpoDaNota({ texto, nota, aoAbrirNota }: {
     return <p className="vazio">Esta nota ainda não tem conteúdo.</p>
   }
 
-  const alternarTarefa = (indice: number): void => {
-    const m = alternar(marcados, chaveDaTarefa(nota, indice))
+  /* Quantas tarefas vieram ANTES de cada bloco.
+   *
+   * O índice precisa ser o da nota inteira, e não o de dentro do bloco: é
+   * por ele que o Cortex acha a linha `- [ ]` certa dentro do arquivo. */
+  const antesDe: number[] = []
+  let corridas = 0
+  for (const b of partes) {
+    antesDe.push(corridas)
+    if (b.tipo === 'tarefa') corridas += b.itens.length
+  }
+
+  const alternarTarefa = (indice: number, textoDaTarefa: string): void => {
+    const chave = chaveDaTarefa(nota, indice)
+    const m = alternar(marcados, chave)
     gravarMarcados(guardadoDoNavegador, m)
     setMarcados(m)
+    aoMarcar?.(indice, textoDaTarefa, m[chave] === true)
   }
 
   return (
     <div className="nota-md">
-      {partes.map((b, i) => desenhar(b, i, { nota, marcados, alternarTarefa, aoAbrirNota }))}
+      {partes.map((b, i) => desenhar(
+        b, i, { nota, marcados, alternarTarefa, aoAbrirNota, antesDe: antesDe[i] ?? 0 }
+      ))}
     </div>
   )
 }
@@ -44,8 +65,10 @@ export function CorpoDaNota({ texto, nota, aoAbrirNota }: {
 type Ferramentas = {
   nota: string
   marcados: Record<string, true>
-  alternarTarefa: (indice: number) => void
+  alternarTarefa: (indice: number, texto: string) => void
   aoAbrirNota?: (nome: string) => void
+  /** Quantas tarefas da nota vieram antes deste bloco. */
+  antesDe: number
 }
 
 function desenhar(b: Bloco, chave: number, f: Ferramentas): ReactNode {
@@ -73,10 +96,11 @@ function desenhar(b: Bloco, chave: number, f: Ferramentas): ReactNode {
       return (
         <ul key={chave} className="md-tarefas">
           {b.itens.map((t, i) => {
-            /* O índice é o da LISTA de tarefas da nota, e não o da linha do
-               arquivo: é estável enquanto a nota não muda, e é o que dá para
-               saber sem reler o markdown inteiro. */
-            const indice = chave * 100 + i
+            /* O índice conta as tarefas da NOTA INTEIRA, em ordem: a
+               terceira tarefa da nota é a 2, esteja ela em que bloco
+               estiver. É por ele que o Cortex acha a linha `- [ ]` certa
+               dentro do arquivo para riscar. */
+            const indice = f.antesDe + i
             const feita = estaFeita(f.marcados, chaveDaTarefa(f.nota, indice), t.feito)
             return (
               <li key={i} data-feito={feita || undefined}>
@@ -85,7 +109,7 @@ function desenhar(b: Bloco, chave: number, f: Ferramentas): ReactNode {
                   className="md-caixa"
                   aria-pressed={feita}
                   aria-label={feita ? 'desmarcar' : 'marcar como feito'}
-                  onClick={() => f.alternarTarefa(indice)}
+                  onClick={() => f.alternarTarefa(indice, t.texto)}
                 >{feita ? '✓' : ''}</button>
                 <span>{linha(t.texto, f)}</span>
               </li>

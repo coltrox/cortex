@@ -234,7 +234,6 @@ export function Hoje(p: {
    */
   const temSaude = areaLigada(p.cardapio.cardapio, 'saude')
   const temVida = areaLigada(p.cardapio.cardapio, 'vida')
-  const temEstudos = areaLigada(p.cardapio.cardapio, 'conhecimento')
   const temAgenda = areaLigada(p.cardapio.cardapio, 'calendario')
 
   /*
@@ -693,22 +692,17 @@ export function Hoje(p: {
         </div>}
 
         {/*
-          * Estudo, comprido, antes do Chegando.
+          * O atalho "Estudo" saiu daqui a pedido dele.
           *
-          * É o único atalho que sobrou da grade de registro: treino, cardio,
-          * peso, gasto e porquinho foram para as abas Saúde e Dinheiro, e
-          * anotação para Notas. Estudo não tem aba — ele é a única coisa que
-          * se registra e não mora em lugar nenhum —, então fica aqui.
+          * Ele servia para registrar matéria, tempo e questões à mão. Virou
+          * redundante quando a sessão de estudos nasceu no Treinar: lá o
+          * tempo e os acertos são contados sozinhos enquanto ele responde, e
+          * o relatório ainda vira nota. Preencher à mão o que o app já sabe
+          * é trabalho que não devolve nada.
+          *
+          * A tela `estudo` continua de pé, para lançar uma sessão feita longe
+          * do app — ela só não ocupa mais espaço no Hoje.
           */}
-        {temEstudos && (
-          <button className="cartao-largo" type="button" onClick={() => p.irPara('estudo')}>
-            <span className="cartao-largo-txt">
-              <strong>Estudo</strong>
-              <span>Matéria, tempo e questões</span>
-            </span>
-            <span className="cartao-largo-seta" aria-hidden="true">›</span>
-          </button>
-        )}
 
         {proximos.length > 0 && (
           <div className="grupo">

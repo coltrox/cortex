@@ -231,10 +231,14 @@ describe('o pote da carta: treino ou cronograma', () => {
       .toEqual(['Trigonometria#1', 'Trigonometria#2'])
   })
 
-  it('dia que JA PASSOU volta para o treino', () => {
+  it('dia que JA PASSOU tambem NAO volta para o treino', () => {
+    /* "Exercicio de cronograma e para ser feito de acordo com os meus
+       estudos do cronograma." A questao do dia 26 continua sendo do dia 26
+       depois que ele passa: para refazer, abre-se o dia ou escolhe-se a
+       questao em "Meus exercicios" — mas ela nao cai por sorteio no treino. */
     const cartas = cartasDoCardapio(itens, '2026-10-27')
-    expect(cartas.find(c => c.chave === '26/10 seg#1')?.pote).toBe('treino')
-    expect(paraTreinar(cartas)).toHaveLength(3)
+    expect(cartas.find(c => c.chave === '26/10 seg#1')?.pote).toBe('cronograma')
+    expect(paraTreinar(cartas)).toHaveLength(2)
   })
 
   it('o dia de HOJE ainda e reserva: ele vai fazer no bloco da noite', () => {
@@ -248,9 +252,14 @@ describe('o pote da carta: treino ou cronograma', () => {
       .toBe(true)
   })
 
-  it('sem saber que dia e hoje, nada e reservado', () => {
-    // Quem chama so querendo a lista inteira nao deve perder questao.
-    expect(cartasDoCardapio(itens).every(c => c.pote === 'treino')).toBe(true)
+  it('sem saber que dia e hoje, o DIA continua sendo do cronograma', () => {
+    /* Quem chama sem data quer a lista inteira — e ainda assim precisa saber
+       de onde cada questao veio, senao a lista "Meus exercicios" perderia a
+       marca "do cronograma". */
+    const cartas = cartasDoCardapio(itens)
+    expect(cartas.find(c => c.chave === '26/10 seg#1')?.pote).toBe('cronograma')
+    expect(cartas.filter(c => c.origem === 'Trigonometria').every(c => c.pote === 'treino'))
+      .toBe(true)
   })
 })
 
