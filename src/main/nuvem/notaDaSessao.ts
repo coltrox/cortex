@@ -224,7 +224,11 @@ export function notaDaSessao(s: SessaoNormalizada): {
       inicio: s.inicio,
       ...(s.fim ? { fim: s.fim } : {}),
       ...(s.minutos > 0 ? { minutos: s.minutos } : {}),
-      questoes,
+      /* `total`, e não `questoes`: em nota de conteúdo `questoes` é o ARRAY
+         de exercícios, e o mesmo nome com dois sentidos confunde o app
+         inteiro — o formulário esconde o campo e a lista mostra vazio.
+         `total` + `acertos` é também o par que o simulado já usa. */
+      total: questoes,
       acertos: geral.certas,
       aproveitamento: pct(geral)
     },

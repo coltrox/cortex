@@ -7,6 +7,7 @@ import {
 import { chaveMateria } from '../dados'
 import { diasAte, rotuloPrazo } from '../subnav'
 import { JANELAS, listar, naJanela, type Janela } from '../datas'
+import { TreinoExercicios } from './TreinoExercicios'
 import { Pomodoro } from './Pomodoro'
 import { ProvaSimulado, questoesDe } from './ProvaSimulado'
 
@@ -68,6 +69,11 @@ export function LenteEstudos({
 
   const provas = notas.filter(n => n.tipo === 'prova' && n.date).sort(porData)
   const simulados = notas.filter(n => n.tipo === 'simulado').sort(porData)
+  /* As sessões de treino que vieram do celular, da mais recente para a mais
+     antiga: a de hoje é a que ele quer ver ao abrir a aba. */
+  const sessoes = notas.filter(n => n.tipo === 'sessao-estudo')
+    .sort((a, b) => txt(b.campos.data).localeCompare(txt(a.campos.data))
+      || txt(b.campos.inicio).localeCompare(txt(a.campos.inicio)))
   const redacoes = notas.filter(n => n.tipo === 'redacao').sort(porData)
   /*
    * Os modelos de gênero, separados das redações escritas.
@@ -663,11 +669,63 @@ export function LenteEstudos({
         </>
       )}
 
+      {sub === 'exercicios' && (
+        <>
+          <Secao nome="Treinar" />
+          <TreinoExercicios notas={notas} />
+
+          <Secao nome="Sessões de estudo" direita={<span className="linha-valor">{sessoes.length}</span>} />
+          {sessoes.length === 0 ? (
+            <Vazio>
+              Nenhuma sessão ainda. Elas são gravadas quando você encerra uma
+              sessão no celular, em Estudar → Treinar.
+            </Vazio>
+          ) : (
+            <div className="lista-notas">
+              {sessoes.map(s => (
+                <Linha key={s.path} aoAbrir={() => aoAbrir(s.path)}
+                  aoEditar={() => aoEditar(s)} aoExcluir={() => aoExcluir(s)}>
+                  <span className="linha-titulo">{s.title}</span>
+                  {num(s.campos.minutos) > 0 && (
+                    <span className="tipo">{num(s.campos.minutos)} min</span>
+                  )}
+                  <span className="linha-valor">
+                    {num(s.campos.acertos)}/{num(s.campos.total)}
+                  </span>
+                  {/* O aproveitamento usa a mesma escala de domínio das
+                      outras listas: é o número que diz se o treino foi bem,
+                      e vê-lo aqui evita abrir seis notas para comparar. */}
+                  {typeof s.campos.aproveitamento !== 'undefined' && (
+                    <span className="nivel" data-n={faixaDe(num(s.campos.aproveitamento))}>
+                      {num(s.campos.aproveitamento)}%
+                    </span>
+                  )}
+                </Linha>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {sub === 'pomodoro' && (
         <Pomodoro notas={notas} hoje={hoje} aoMarcarDia={aoMarcarDia} />
       )}
     </div>
   )
+}
+
+/**
+ * O aproveitamento na escala de 1 a 5 que as listas já usam para domínio.
+ *
+ * Reaproveita a cor do resto da lente, em vez de inventar uma segunda
+ * convenção de "bom" e "ruim" na mesma tela.
+ */
+function faixaDe(pct: number): number {
+  if (pct >= 90) return 5
+  if (pct >= 75) return 4
+  if (pct >= 60) return 3
+  if (pct >= 40) return 2
+  return 1
 }
 
 function ListaConteudos({ conteudos, aoAbrir, aoEditar, aoExcluir, vazio }: {

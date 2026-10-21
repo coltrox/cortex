@@ -116,7 +116,7 @@ describe('notaDaSessao', () => {
       inicio: '14h30',
       fim: '15h10',
       minutos: 40,
-      questoes: 12,
+      total: 12,
       acertos: 7,
       aproveitamento: 58
     })

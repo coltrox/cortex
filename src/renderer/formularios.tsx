@@ -231,6 +231,31 @@ export const FORMULARIOS: Record<string, Formulario> = {
     ],
     corpo: '## O que errei e por quê\n'
   },
+  /*
+   * A sessão de treino, para CORRIGIR o que veio do celular.
+   *
+   * Ela nasce sozinha: o aparelho manda o relatório e o Cortex escreve a
+   * nota. Este formulário existe porque ele pediu para poder editá-la — um
+   * treino interrompido no meio conta minutos que não houve, e número errado
+   * no histórico vale menos que número nenhum.
+   *
+   * `pasta` aponta para onde o executor já grava; outra pasta faria a edição
+   * criar uma segunda nota em vez de corrigir a que existe.
+   */
+  'sessao-estudo': {
+    tipo: 'sessao-estudo', nome: 'Sessão de estudo', pasta: 'Estudos/Sessoes',
+    nomearPor: 'titulo',
+    campos: [
+      { k: 'titulo', rotulo: 'Sessão', tipo: 'texto', obrigatorio: true },
+      { k: 'data', rotulo: 'Dia', tipo: 'data', obrigatorio: true },
+      { k: 'inicio', rotulo: 'Começou', tipo: 'texto', placeholder: '14h30' },
+      { k: 'fim', rotulo: 'Terminou', tipo: 'texto', placeholder: '15h10' },
+      { k: 'minutos', rotulo: 'Minutos', tipo: 'numero' },
+      { k: 'total', rotulo: 'Questões', tipo: 'numero' },
+      { k: 'acertos', rotulo: 'Acertos', tipo: 'numero' },
+      { k: 'aproveitamento', rotulo: 'Aproveitamento (%)', tipo: 'numero' }
+    ]
+  },
   redacao: {
     tipo: 'redacao', nome: 'Redação', pasta: 'Estudos/Redacoes', nomearPor: 'titulo',
     campos: [

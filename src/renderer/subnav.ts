@@ -35,6 +35,11 @@ export const SUBS: Partial<Record<Lente, { id: Sub; nome: string }[]>> = {
     { id: 'conteudos',   nome: 'Conteúdos' },
     { id: 'provas',      nome: 'Provas' },
     { id: 'simulados',   nome: 'Simulados' },
+    /* Exercícios é separado de Simulados porque o gesto é outro: o simulado
+       é a prova inteira, cronometrada, corrigida no fim; aqui é questão a
+       questão, com correção na hora — e é também onde moram as sessões de
+       estudo que vieram do celular. */
+    { id: 'exercicios',  nome: 'Exercícios' },
     { id: 'redacoes',    nome: 'Redações' },
     // Área própria, e não uma seção dentro de Redações: repertório é o que se
     // consulta ANTES de escrever, e procurar por tema dentro da lista de
