@@ -91,10 +91,22 @@ const TETO_QUESTOES = 12
  * é o aparelho, e questão sem resposta certa no bolso é exercício que não
  * ensina nada. Isto não é segredo — é material de estudo do dono.
  */
-function questoesPublicaveis(campos: Record<string, unknown>): unknown[] | undefined {
+/**
+ * Teto de questões de um SIMULADO.
+ *
+ * Maior que o das notas de conteúdo porque é outra coisa: lá as questões
+ * fecham um texto de estudo, aqui são a prova. Os simulados do vault têm 20 e
+ * 30 questões; 40 dá folga sem inflar o cardápio, que viaja inteiro a cada
+ * publicação.
+ */
+const TETO_SIMULADO = 40
+
+function questoesPublicaveis(
+  campos: Record<string, unknown>, teto = TETO_QUESTOES
+): unknown[] | undefined {
   const q = campos.questoes
   if (!Array.isArray(q) || q.length === 0) return undefined
-  return q.slice(0, TETO_QUESTOES)
+  return q.slice(0, teto)
 }
 
 /**
@@ -501,7 +513,20 @@ export function montarCardapio(
         // de cursinho; com ela, mostra a etapa que ainda falta.
         inscricao: n.campos.inscricao === true ? true : undefined,
         inscrito: n.campos.inscrito === true ? true : undefined,
-        pago: n.campos.pago === true ? true : undefined
+        pago: n.campos.pago === true ? true : undefined,
+        /*
+         * As questões do simulado, para ele poder FAZER a prova no celular.
+         *
+         * Teto próprio, e bem maior que o das notas de conteúdo: lá 12
+         * questões são o fim de um texto de estudo; aqui são a prova
+         * inteira, e cortá-la em 12 entregaria meio simulado.
+         *
+         * Só de simulado. Prova de verdade (Fuvest, PUC) não tem questão no
+         * vault, e nem teria por quê: ela se faz no papel.
+         */
+        questoes: n.tipo === 'simulado'
+          ? questoesPublicaveis(n.campos, TETO_SIMULADO)
+          : undefined
       })
     })
   }

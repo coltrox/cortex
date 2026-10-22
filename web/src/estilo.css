@@ -2728,3 +2728,34 @@ button.md-link{
 @media (max-height: 560px) and (orientation: landscape) {
   .questao-figura svg{ max-height:60vh; }
 }
+
+/* ==========================================================================
+   O simulado no celular
+   ==========================================================================
+   Ao contrário do treino, aqui não há correção na hora — então a alternativa
+   marcada precisa de um estado PRÓPRIO, neutro: ele vê o que respondeu, sem
+   saber se acertou. Essa é a diferença inteira entre simulado e treino.
+   ========================================================================== */
+
+.treino-alternativa[data-estado='marcada']{
+  border-color:var(--acento);
+  background:color-mix(in srgb, var(--acento) 12%, transparent);
+}
+.treino-alternativa[data-estado='marcada'] .treino-letra{
+  background:var(--acento); color:var(--fundo);
+}
+
+.simulado-topo{
+  display:flex; justify-content:space-between; align-items:baseline;
+  gap:10px; margin-bottom:8px;
+}
+
+/* A barra é a única noção de progresso durante a prova. */
+.simulado-barra{
+  height:4px; border-radius:2px; overflow:hidden;
+  background:var(--borda); margin-bottom:16px;
+}
+.simulado-barra i{
+  display:block; height:100%; background:var(--acento);
+  transition:width .2s ease;
+}

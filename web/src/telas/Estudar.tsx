@@ -7,6 +7,7 @@ import { CorpoDaNota } from './Nota'
 import { ExerciciosDaNota } from './Exercicios'
 import type { Questao } from '../exercicios'
 import { EscreverRedacao } from './EscreverRedacao'
+import { Simulado } from './Simulado'
 import type { useEnvio } from '../envio'
 
 /**
@@ -29,8 +30,10 @@ export function Estudar(p: {
   hoje: string
   irPara: (t: Tela) => void
 }) {
-  const ABAS = ['plano', 'conteudos', 'redacoes'] as const
-  const [aba, setAba] = useState<'plano' | 'conteudos' | 'redacoes'>('plano')
+  const ABAS = ['plano', 'conteudos', 'redacoes', 'simulados'] as const
+  const [aba, setAba] = useState<'plano' | 'conteudos' | 'redacoes' | 'simulados'>('plano')
+  /* Qual simulado está aberto para fazer, se houver. */
+  const [fazendo, setFazendo] = useState<string | null>(null)
 
   /*
    * O CAMINHO andado, e não só a nota aberta.
@@ -105,11 +108,39 @@ export function Estudar(p: {
     }
   )
 
-  const lista = aba === 'plano' ? dias : aba === 'conteudos' ? conteudos : redacoes
+  /* Os simulados que dá para fazer aqui: só os que TÊM questões no vault.
+     Prova de verdade (Fuvest, PUC) também chega como `prova`, e oferecer
+     "fazer" numa delas seria uma promessa que o app não cumpre. */
+  const simulados = itens.filter(
+    i => i.especie === 'prova' && Array.isArray(i.detalhe.questoes) && i.detalhe.questoes.length > 0
+  )
+
+  const lista = aba === 'plano' ? dias
+    : aba === 'conteudos' ? conteudos
+      : aba === 'redacoes' ? redacoes : simulados
   /* A nota aberta é procurada em TODO o cardápio, e não só na aba da vez: um
      link dentro do plano do dia aponta para uma estrutura de redação ou um
      repertório, que moram em outra tela. Antes, clicar nele não achava nada. */
   const escolhido = itens.find(i => i.nome === aberto) ?? lista.find(i => i.nome === aberto)
+
+  /* O simulado ocupa a tela inteira, como no computador: no meio da prova,
+     a lista de notas atrás é distração. */
+  if (fazendo) {
+    const prova = simulados.find(s => s.nome === fazendo)
+    if (prova) {
+      return (
+        <div>
+          <Cabecalho titulo={prova.nome} aoVoltar={() => setFazendo(null)} />
+          <Simulado
+            item={prova}
+            envio={p.envio}
+            hoje={p.hoje}
+            aoVoltar={() => setFazendo(null)}
+          />
+        </div>
+      )
+    }
+  }
 
   if (escolhido) {
     const corpo = txt(escolhido.detalhe.corpo)
@@ -216,6 +247,8 @@ export function Estudar(p: {
             onClick={() => { setAba('conteudos'); setPilha([]) }}>Conteúdos</button>
           <button type="button" className="btn-aba" data-ativa={aba === 'redacoes'}
             onClick={() => { setAba('redacoes'); setPilha([]) }}>Redações</button>
+          <button type="button" className="btn-aba" data-ativa={aba === 'simulados'}
+            onClick={() => { setAba('simulados'); setPilha([]) }}>Simulados</button>
         </div>
 
         {aba === 'plano' && (
@@ -267,6 +300,31 @@ export function Estudar(p: {
                 aoAbrir={() => abrirNota(r.nome)}
               />
             ))
+        )}
+
+        {aba === 'simulados' && (
+          simulados.length === 0
+            ? (
+              <p className="vazio">
+                Nenhum simulado com questões. Eles são montados no Cortex, no
+                computador, e descem para cá com a prova inteira.
+              </p>
+            )
+            : simulados.map(s => {
+              const quantas = Array.isArray(s.detalhe.questoes) ? s.detalhe.questoes.length : 0
+              return (
+                <CartaoEstudo
+                  key={s.nome}
+                  titulo={s.nome}
+                  acima={rotuloData(txt(s.detalhe.data))}
+                  etiquetas={[
+                    `${quantas} questões`,
+                    s.detalhe.estudado === true ? 'já feito' : ''
+                  ]}
+                  aoAbrir={() => setFazendo(s.nome)}
+                />
+              )
+            })
         )}
 
         <Botao tipo="secundario" aoClicar={() => p.irPara('estudo')}>

@@ -801,7 +801,14 @@ export function planejar(evento: Evento): Operacao[] {
        * vault — inclusive `tipo`, que decide o que a nota É para o app
        * inteiro. A mesma precaução que o resto deste arquivo toma.
        */
-      const PERMITIDOS = ['status', 'feito', 'nota']
+      const PERMITIDOS = [
+        'status', 'feito', 'nota',
+        /* O resultado do simulado feito no celular. Entram aqui, e não num
+           tipo de evento próprio, porque o gesto é o mesmo — preencher uma
+           nota que o Cortex publicou — e porque um tipo novo exigiria outra
+           migração no banco para a mesma capacidade. */
+        'acertos', 'total', 'estudado'
+      ]
       const campos: Record<string, unknown> = {}
       const vindos = dados.campos
       if (vindos && typeof vindos === 'object' && !Array.isArray(vindos)) {
