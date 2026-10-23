@@ -520,12 +520,32 @@ button { font: inherit; color: inherit; cursor: pointer; }
  * primeira: numa janela baixa, a caixa precisa rolar em vez de ser cortada.
  */
 .abertura {
+  /* `relative` ancora a rede neural do fundo — ver `.abertura-rede`. */
+  position: relative;
   display: flex;
   justify-content: center;
   height: 100%;
   padding: 40px 32px;
   overflow-y: auto;
   background: var(--canvas);
+}
+
+/*
+ * A rede neural que se mexe enquanto o vault abre.
+ *
+ * Fica ATRÁS do conteúdo e não recebe toque: é pano de fundo, e um canvas
+ * por cima roubaria o clique do que importa. A opacidade baixa é de
+ * propósito — isto deve dar sensação de profundidade, não competir com o
+ * nome do app.
+ */
+.abertura-rede {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  color: var(--acento, var(--txt-2));
+  opacity: .5;
 }
 
 /*

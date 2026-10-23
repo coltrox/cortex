@@ -1,3 +1,4 @@
+import { RedeAnimada } from '@compartilhado/RedeAnimada'
 import { useEffect, useState } from 'react'
 import { qualSistema, type Sistema } from '../instalar'
 
@@ -71,6 +72,9 @@ export function Instalar({ aoFechar }: { aoFechar: () => void }) {
 
   return (
     <div className="instalar-fundo" role="dialog" aria-modal="true" aria-label={conteudo.titulo}>
+      {/* A mesma rede da abertura do Cortex, para o celular parecer o mesmo
+          app. Fica atrás da caixa e não recebe toque. */}
+      <RedeAnimada className="abertura-rede" />
       <div className="instalar-caixa">
         <span className="instalar-etiqueta">primeira vez por aqui</span>
         <h2 className="instalar-titulo">{conteudo.titulo}</h2>

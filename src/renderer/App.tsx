@@ -34,6 +34,7 @@ import { LenteHoje } from './components/LenteHoje'
 import { LenteVida } from './components/LenteVida'
 import { LenteSaude } from './components/LenteSaude'
 import { LenteEstudos } from './components/LenteEstudos'
+import { RedeAnimada } from '../shared/RedeAnimada'
 import { LenteGrana } from './components/LenteGrana'
 import { LenteDev } from './components/LenteDev'
 import { TerminalFlutuante } from './components/TerminalFlutuante'
@@ -430,6 +431,10 @@ export function App() {
   if (v.sondando && !v.root) {
     return (
       <div className="abertura">
+        {/* A rede ao fundo não é o SEU grafo — é um desenho do Cortex, e
+            dura o que a abertura durar. Ver as ligações se formando enquanto
+            o vault abre diz, sem texto, o que o app faz. */}
+        <RedeAnimada className="abertura-rede" />
         <div className="abertura-caixa">
           <h1>Cortex</h1>
           <p className="abertura-sub">Abrindo seu vault…</p>

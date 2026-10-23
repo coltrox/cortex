@@ -2761,3 +2761,13 @@ button.md-link{
   display:block; height:100%; background:var(--acento);
   transition:width .2s ease;
 }
+
+/* A rede neural da tela de primeira vez — a mesma da abertura do Cortex.
+   Atrás da caixa, sem receber toque: é pano de fundo, e um canvas por cima
+   roubaria o toque do botão de instalar. */
+.abertura-rede{
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none;
+  color:var(--acento);
+  opacity:.45;
+}
