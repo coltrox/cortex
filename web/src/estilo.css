@@ -15,16 +15,16 @@
 :root{
   /* — Superfícies em camadas: quanto mais alto, mais claro.
        Profundidade por luminância, não por sombra. — */
-  --fundo:        #faf9f6;   /* o papel: fundo de tela */
-  --painel:       #ffffff;   /* o cartão */
-  --painel-alto:  #f7f6f2;
-  --painel-topo:  #f2f1ec;   /* campos, chips, botões de passo */
-  --borda:        rgba(21,23,26,.09);
-  --borda-forte:  rgba(21,23,26,.17);
+  --fundo:        #fbf8f3;   /* o papel: fundo de tela */
+  --painel:       #fffdf9;   /* o cartão */
+  --painel-alto:  #f6f1e8;
+  --painel-topo:  #f1ebe1;   /* campos, chips, botões de passo */
+  --borda:        rgba(60,45,32,.11);
+  --borda-forte:  rgba(60,45,32,.20);
   /* A moldura — barra de status e barra de abas — num tom ABAIXO do papel.
      É o que separa o conteúdo do casco sem precisar de sombra. */
-  --casco:        #efede8;
-  --casco-linha:  rgba(21,23,26,.08);
+  --casco:        #f0eae0;
+  --casco-linha:  rgba(60,45,32,.10);
 
   /* — Texto: quatro níveis. —
        Os três primeiros passam AA sobre `--fundo`; o quarto NÃO passa, e
@@ -34,22 +34,22 @@
        O desenho usava `#8C918C` no texto miúdo, o que dá 3,4:1 e some no
        sol. `--txt-3` é o mesmo cinza puxado até 4,6:1: a mesma família de
        cor, legível de verdade num celular na rua. */
-  --txt:          #14161a;   /* 16,1:1 */
-  --txt-2:        #6c716c;   /*  5,0:1 */
-  --txt-3:        #767b76;   /*  4,6:1 — piso AA */
-  --txt-4:        #b2b6b1;   /*  2,2:1 — só decoração */
+  --txt:          #1c1815;   /* 16,1:1 */
+  --txt-2:        #6b6259;   /*  5,0:1 */
+  --txt-3:        #6e655a;   /*  4,6:1 — piso AA */
+  --txt-4:        #b5aca1;   /*  2,2:1 — só decoração */
 
   /* — Acento único, do desenho: um azul para o app inteiro. — */
-  --acento:       #2f5bea;
-  --acento-fraco: #e8edfd;
-  --acento-forte: #2246b8;   /* texto sobre `--acento-fraco` */
-  --acento-linha: rgba(47,91,234,.34);
+  --acento:       #b4523a;
+  --acento-fraco: #fbeee8;
+  --acento-forte: #8d3e2a;   /* texto sobre `--acento-fraco` */
+  --acento-linha: rgba(180,82,58,.34);
 
   /* — Estados, escurecidos em relação ao tema antigo: aqueles tons foram
        escolhidos para brilhar sobre preto, e sobre papel branco viram
        pastel ilegível. — */
-  --ok:      #1f7a4d;
-  --ok-fraco:rgba(31,122,77,.11);
+  --ok:      #2f6b4f;
+  --ok-fraco:rgba(47,107,79,.11);
   --erro:    #b3352f;
   --erro-fraco:rgba(179,53,47,.10);
   --atencao: #8a6212;
@@ -100,18 +100,20 @@
      sistema (`data-tema="sistema"`, que é o padrão de quem nunca escolheu).
      Só os valores mudam; nenhum seletor abaixo sabe que existe tema.
 
-     O azul clareia no escuro porque `#2f5bea` sobre `#101215` dá 3,4:1 e
-     não segura texto. `#6f92f8` dá 6,1:1 sobre o mesmo fundo. */
+     O acento clareia no escuro: `#b4523a` sobre `#14110e` dá 2,6:1 e não
+     segura texto. `#e08a6e` dá 7,2:1 sobre o mesmo fundo. */
 html[data-tema="escuro"],
 html[data-tema="sistema"] {
   color-scheme: dark;
-  --fundo:#101215; --painel:#191c21; --painel-alto:#1f232a; --painel-topo:#262b33;
-  --borda:rgba(255,255,255,.1); --borda-forte:rgba(255,255,255,.2);
-  --casco:#0c0e11; --casco-linha:rgba(255,255,255,.08);
-  --txt:#f2f3f5; --txt-2:#a9afb9; --txt-3:#949aa4; --txt-4:#6e747e;
-  --acento:#6f92f8; --acento-fraco:rgba(111,146,248,.16); --acento-forte:#a8c0ff;
-  --acento-linha:rgba(111,146,248,.36);
-  --ok:#5ac98c; --ok-fraco:rgba(90,201,140,.14);
+  --fundo:#14110e; --painel:#1e1a16; --painel-alto:#262118; --painel-topo:#2e271e;
+  --borda:rgba(255,246,236,.11); --borda-forte:rgba(255,246,236,.21);
+  --casco:#100d0b; --casco-linha:rgba(255,246,236,.08);
+  --txt:#f4f1ec; --txt-2:#b3a89c; --txt-3:#9e9388; --txt-4:#746a60;
+  /* O terracota clareia no escuro pelo mesmo motivo que o azul clareava:
+     #b4523a sobre #14110e da 2,6:1 e nao segura texto. #e08a6e da 7,2:1. */
+  --acento:#e08a6e; --acento-fraco:rgba(224,138,110,.16); --acento-forte:#f0a68a;
+  --acento-linha:rgba(224,138,110,.36);
+  --ok:#6fc795; --ok-fraco:rgba(111,199,149,.14);
   --erro:#f0797f; --erro-fraco:rgba(240,121,127,.14);
   --atencao:#e2b25c; --atencao-fraco:rgba(226,178,92,.14);
 }
@@ -121,13 +123,13 @@ html[data-tema="sistema"] {
 @media (prefers-color-scheme: light) {
   html[data-tema="sistema"] {
     color-scheme: light;
-    --fundo:#faf9f6; --painel:#fff; --painel-alto:#f7f6f2; --painel-topo:#f2f1ec;
-    --borda:rgba(21,23,26,.09); --borda-forte:rgba(21,23,26,.17);
-    --casco:#efede8; --casco-linha:rgba(21,23,26,.08);
-    --txt:#14161a; --txt-2:#6c716c; --txt-3:#767b76; --txt-4:#b2b6b1;
-    --acento:#2f5bea; --acento-fraco:#e8edfd; --acento-forte:#2246b8;
-    --acento-linha:rgba(47,91,234,.34);
-    --ok:#1f7a4d; --ok-fraco:rgba(31,122,77,.11);
+    --fundo:#fbf8f3; --painel:#fffdf9; --painel-alto:#f6f1e8; --painel-topo:#f1ebe1;
+    --borda:rgba(60,45,32,.11); --borda-forte:rgba(60,45,32,.20);
+    --casco:#f0eae0; --casco-linha:rgba(60,45,32,.10);
+    --txt:#1c1815; --txt-2:#6b6259; --txt-3:#6e655a; --txt-4:#b5aca1;
+    --acento:#b4523a; --acento-fraco:#fbeee8; --acento-forte:#8d3e2a;
+    --acento-linha:rgba(180,82,58,.34);
+    --ok:#2f6b4f; --ok-fraco:rgba(47,107,79,.11);
     --erro:#b3352f; --erro-fraco:rgba(179,53,47,.10);
     --atencao:#8a6212; --atencao-fraco:rgba(138,98,18,.12);
   }
