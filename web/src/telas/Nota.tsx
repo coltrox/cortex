@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { blocos, pedacos, type Bloco } from '../markdown'
+import { blocos, pedacos, partesDaFormula, type Bloco } from '../markdown'
 import { guardadoDoNavegador } from '../guardado'
 import { alternar, chaveDaTarefa, estaFeita, gravarMarcados, lerMarcados } from '../marcados'
 
@@ -120,7 +120,30 @@ function desenhar(b: Bloco, chave: number, f: Ferramentas): ReactNode {
     case 'citacao':
       return <blockquote key={chave} className="md-citacao">{linha(b.texto, f)}</blockquote>
     case 'formula':
-      return <div key={chave} className="md-formula">{b.texto}</div>
+      /* Cada fórmula na sua caixa, e a fração empilhada de verdade.
+         Antes isto era uma linha só de texto: duas fórmulas vinham coladas e
+         a fração virava `(m v^2)/(2)`, com barra e parêntese no lugar do
+         traço. Ele comparou as duas telas, e a diferença era gritante. */
+      return (
+        <div key={chave} className="md-formula">
+          {partesDaFormula(b.cru).map((formula, i) => (
+            <div key={i} className="md-formula-item">
+              {formula.map((p, j) => {
+                if (p.tipo === 'fracao') {
+                  return (
+                    <span key={j} className="md-fracao">
+                      <span className="md-fracao-cima">{p.cima}</span>
+                      <span className="md-fracao-baixo">{p.baixo}</span>
+                    </span>
+                  )
+                }
+                if (p.tipo === 'sub') return <sub key={j}>{p.texto}</sub>
+                return <span key={j}>{p.texto}</span>
+              })}
+            </div>
+          ))}
+        </div>
+      )
     case 'codigo':
       return <pre key={chave} className="md-codigo">{b.texto}</pre>
     case 'regra':

@@ -2942,3 +2942,33 @@ html[data-tema="escuro"], html[data-tema="sistema"]{
   letter-spacing:.02em;
 }
 .atrasadas[open] > summary{ margin-bottom:10px; }
+
+/* ==========================================================================
+   Fórmula estruturada
+   ==========================================================================
+   Ele comparou as duas telas: no Cortex a fração aparece empilhada, no
+   celular virava `E_c = (m v^2)/(2) E_p = m g h` numa linha só. Agora cada
+   fórmula tem a sua caixa e a fração tem traço de verdade.
+   ========================================================================== */
+
+.md-formula{
+  display:flex; flex-wrap:wrap; gap:10px 26px;
+  justify-content:center; align-items:center;
+}
+.md-formula-item{
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:16.5px; line-height:1.3;
+  white-space:nowrap;
+}
+
+/* Numerador sobre denominador, com a barra entre eles. `inline-flex` em
+   coluna é o que mantém a fração alinhada ao resto da linha. */
+.md-fracao{
+  display:inline-flex; flex-direction:column; align-items:center;
+  margin:0 2px; vertical-align:middle;
+}
+.md-fracao-cima{ padding:0 6px 2px; }
+.md-fracao-baixo{
+  padding:2px 6px 0;
+  border-top:1.5px solid currentColor;
+}

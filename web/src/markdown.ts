@@ -24,7 +24,13 @@ export type Bloco =
   | { tipo: 'lista'; itens: string[]; numerada: boolean }
   | { tipo: 'tarefa'; itens: { texto: string; feito: boolean }[] }
   | { tipo: 'citacao'; texto: string }
-  | { tipo: 'formula'; texto: string }
+  /**
+   * `texto` é a versão legível, para quem só quer mostrar uma linha.
+   * `cru` guarda o LaTeX como está na nota, porque a fração precisa dele:
+   * depois de virar `(a)/(b)` não dá mais para empilhar numerador e
+   * denominador.
+   */
+  | { tipo: 'formula'; texto: string; cru: string }
   | { tipo: 'codigo'; texto: string }
   | { tipo: 'tabela'; cabecalho: string[]; linhas: string[][] }
   | { tipo: 'regra' }
@@ -44,6 +50,115 @@ const separadorDeTabela = (l: string): boolean =>
  * conhecidos viram o símbolo. O que sobrar aparece como está — é melhor
  * mostrar `\oint` do que apagar um pedaço da fórmula sem avisar.
  */
+/**
+ * Expoente e índice viram caractere de verdade.
+ *
+ * `v^2` aparecia como `v^2` na tela e `E_c` como `E_c`, com o sublinhado cru
+ * no meio da fórmula. Unicode tem os dois conjuntos, e usá-los é a diferença
+ * entre uma fórmula e um pedaço de código-fonte.
+ *
+ * O que não existe em Unicode fica como está — melhor um `_β` honesto do que
+ * um caractere parecido que muda o sentido.
+ */
+const ALTO: Record<string, string> = {
+  '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+  '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+  '+': '⁺', '-': '⁻', n: 'ⁿ', i: 'ⁱ'
+}
+const BAIXO: Record<string, string> = {
+  '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+  '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+  a: 'ₐ', e: 'ₑ', i: 'ᵢ', j: 'ⱼ', k: 'ₖ', l: 'ₗ', m: 'ₘ', n: 'ₙ',
+  o: 'ₒ', p: 'ₚ', r: 'ᵣ', s: 'ₛ', t: 'ₜ', u: 'ᵤ', v: 'ᵥ', x: 'ₓ'
+}
+
+function trocarIndices(s: string): string {
+  const mapear = (txt: string, tabela: Record<string, string>): string | null => {
+    let saida = ''
+    for (const c of txt) {
+      const t = tabela[c]
+      if (!t) return null
+      saida += t
+    }
+    return saida
+  }
+  return s
+    .replace(/\^\{([^}]+)\}|\^(\w)/g, (inteiro, chaves, solto) =>
+      mapear(chaves ?? solto, ALTO) ?? inteiro)
+    .replace(/_\{([^}]+)\}|_(\w)/g, (inteiro, chaves, solto) =>
+      mapear(chaves ?? solto, BAIXO) ?? inteiro)
+}
+
+export type PedacoFormula =
+  | { tipo: 'texto'; texto: string }
+  /** Numerador sobre denominador, com a barra desenhada pelo CSS. */
+  | { tipo: 'fracao'; cima: string; baixo: string }
+  /**
+   * Índice que o Unicode não tem.
+   *
+   * Existe subscrito para `p` (Eₚ) e não para `c` — e `E_c`, com o sublinhado
+   * à mostra, é exatamente o que ele apontou na foto. Este pedaço deixa a
+   * tela resolver com `<sub>`, que serve para qualquer letra.
+   */
+  | { tipo: 'sub'; texto: string }
+
+/**
+ * A fórmula partida em pedaços que a tela sabe desenhar.
+ *
+ * Nasceu de uma comparação que ele mandou: no Cortex a fração aparece
+ * empilhada, e no celular virava `E_c = (m v^2)/(2) E_p = m g h` — tudo numa
+ * linha, com barra e parêntese no lugar do traço de fração.
+ *
+ * Duas fórmulas na mesma linha também vinham coladas. `\qquad` e `\quad` são
+ * justamente o espaço largo do LaTeX, então viram SEPARADOR aqui: cada
+ * fórmula ganha a sua caixa.
+ */
+export function partesDaFormula(texto: string): PedacoFormula[][] {
+  const formulas = texto.split(/\\qquad|\\quad|\s{3,}/).filter(f => f.trim() !== '')
+  return formulas.map(f => {
+    const pedacos: PedacoFormula[] = []
+    let resto = f
+    const re = /\\frac\{([^{}]*)\}\{([^{}]*)\}/
+    let achado = re.exec(resto)
+    while (achado) {
+      const antes = resto.slice(0, achado.index)
+      if (antes.trim()) pedacos.push({ tipo: 'texto', texto: formulaLegivel(antes) })
+      pedacos.push({
+        tipo: 'fracao',
+        cima: formulaLegivel(achado[1] ?? ''),
+        baixo: formulaLegivel(achado[2] ?? '')
+      })
+      resto = resto.slice(achado.index + achado[0].length)
+      achado = re.exec(resto)
+    }
+    if (resto.trim()) pedacos.push({ tipo: 'texto', texto: formulaLegivel(resto) })
+    return pedacos.flatMap(separarIndices)
+  })
+}
+
+/**
+ * Quebra um pedaço de texto onde sobrou um `_x` sem subscrito Unicode.
+ *
+ * Fração e sub já resolvidos passam direto. O que chega aqui é o texto que
+ * `formulaLegivel` não conseguiu converter inteiro — `E_c` é o caso da foto.
+ */
+function separarIndices(p: PedacoFormula): PedacoFormula[] {
+  if (p.tipo !== 'texto' || !p.texto.includes('_')) return [p]
+  const out: PedacoFormula[] = []
+  let resto = p.texto
+  const re = /_\{?([^{}\s_]+)\}?/
+  let achado = re.exec(resto)
+  while (achado) {
+    const antes = resto.slice(0, achado.index)
+    if (antes) out.push({ tipo: 'texto', texto: antes })
+    out.push({ tipo: 'sub', texto: achado[1] ?? '' })
+    resto = resto.slice(achado.index + achado[0].length)
+    achado = re.exec(resto)
+  }
+  if (resto) out.push({ tipo: 'texto', texto: resto })
+  return out
+}
+
 export function formulaLegivel(texto: string): string {
   const simbolos: Record<string, string> = {
     times: '×', cdot: '·', div: '÷', pm: '±', neq: '≠', leq: '≤', geq: '≥',
@@ -57,6 +172,10 @@ export function formulaLegivel(texto: string): string {
     .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)')
     .replace(/\\sqrt\{([^}]*)\}/g, '√($1)')
     .replace(/\\([a-zA-Z]+)/g, (inteiro: string, nome: string) => simbolos[nome] ?? inteiro)
+    /* Índice e expoente ANTES de tirar as chaves: `^{12}` precisa das chaves
+       para saber que os dois dígitos sobem juntos. */
+    .replace(/[{}]/g, m => m)
+    .replace(/(\^|_)\{?[^{}\s]*\}?/g, m => trocarIndices(m))
     .replace(/[{}]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -93,7 +212,8 @@ export function blocos(texto: string): Bloco[] {
       i++
       while (i < linhas.length && linhas[i].trim() !== '$$') { corpo.push(linhas[i]); i++ }
       i++
-      out.push({ tipo: 'formula', texto: formulaLegivel(corpo.join(' ')) })
+      const cru = corpo.join(' ')
+      out.push({ tipo: 'formula', texto: formulaLegivel(cru), cru })
       continue
     }
 

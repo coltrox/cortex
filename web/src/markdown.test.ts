@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { blocos, pedacos, formulaLegivel } from './markdown'
+import { blocos, pedacos, formulaLegivel, partesDaFormula } from './markdown'
 
 describe('blocos', () => {
   it('titulo com nivel', () => {
@@ -57,7 +57,12 @@ describe('blocos', () => {
   })
 
   it('formula de bloco entre $$ sozinhos', () => {
-    expect(blocos('$$\nE = mc^2\n$$')[0]).toEqual({ tipo: 'formula', texto: 'E = mc^2' })
+    /* O expoente agora sobe (era `mc^2` na tela), e o bloco guarda também o
+       LaTeX cru — a fração precisa dele para empilhar numerador e
+       denominador. */
+    expect(blocos('$$\nE = mc^2\n$$')[0]).toEqual({
+      tipo: 'formula', texto: 'E = mc²', cru: 'E = mc^2'
+    })
   })
 
   it('citacao', () => {
@@ -122,7 +127,7 @@ describe('pedacos', () => {
   })
 
   it('formula em linha vira texto legivel', () => {
-    expect(pedacos('vale $\\pi r^2$ aqui')[1]).toEqual({ tipo: 'formula', texto: 'π r^2' })
+    expect(pedacos('vale $\\pi r^2$ aqui')[1]).toEqual({ tipo: 'formula', texto: 'π r²' })
   })
 
   it('texto sem marcacao volta inteiro', () => {
@@ -154,5 +159,59 @@ describe('formulaLegivel', () => {
   it('comando desconhecido fica visivel em vez de sumir', () => {
     // Apagar em silencio tiraria um pedaco da formula sem ninguem notar.
     expect(formulaLegivel('\\oint x')).toBe('\\oint x')
+  })
+})
+
+describe('partesDaFormula', () => {
+  /** A fórmula da foto que ele mandou, como ela vive no markdown. */
+  const DUAS = 'E_c = \\frac{m v^2}{2} \\qquad E_p = m g h'
+
+  it('separa duas formulas que vinham coladas numa linha', () => {
+    /* No Cortex sao duas formulas lado a lado; no celular viravam
+       "E_c = (m v^2)/(2) E_p = m g h", tudo numa linha so. */
+    expect(partesDaFormula(DUAS)).toHaveLength(2)
+  })
+
+  it('a fracao vira numerador e denominador, nao barra com parenteses', () => {
+    const [primeira] = partesDaFormula(DUAS)
+    expect(primeira?.find(p => p.tipo === 'fracao'))
+      .toEqual({ tipo: 'fracao', cima: 'm v²', baixo: '2' })
+  })
+
+  it('o indice sem Unicode vira pedaco proprio, para a tela usar <sub>', () => {
+    /* Existe subscrito para `p` (Eₚ) e nao para `c`. O `E_c` com sublinhado
+       a mostra era exatamente o que ele apontou na foto. */
+    const [primeira] = partesDaFormula(DUAS)
+    expect(primeira?.[0]).toEqual({ tipo: 'texto', texto: 'E' })
+    expect(primeira?.[1]).toEqual({ tipo: 'sub', texto: 'c' })
+  })
+
+  it('formula sem fracao e um pedaco de texto so', () => {
+    const r = partesDaFormula('E_p = m g h')
+    expect(r).toHaveLength(1)
+    expect(r[0]).toHaveLength(1)
+    expect(r[0]?.[0]?.tipo).toBe('texto')
+  })
+
+  it('texto vazio nao gera formula nenhuma', () => {
+    expect(partesDaFormula('   ')).toEqual([])
+  })
+})
+
+describe('formulaLegivel com indices', () => {
+  it('expoente vira caractere alto', () => {
+    expect(formulaLegivel('v^2')).toBe('v²')
+    expect(formulaLegivel('x^{12}')).toBe('x¹²')
+  })
+
+  it('indice vira caractere baixo quando Unicode tem', () => {
+    expect(formulaLegivel('a_1')).toBe('a₁')
+    expect(formulaLegivel('E_p')).toBe('Eₚ')
+  })
+
+  it('o que Unicode nao tem fica como estava', () => {
+    /* Nao existe subscrito de `c`. Melhor um `E_c` honesto do que um
+       caractere parecido que muda o sentido da formula. */
+    expect(formulaLegivel('E_c')).toBe('E_c')
   })
 })
