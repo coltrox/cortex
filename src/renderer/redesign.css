@@ -1872,8 +1872,18 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
 .aba {
   display: flex;
   align-items: center;
-  flex: 0 1 auto;
-  min-width: 0;
+  /*
+   * A aba NÃO encolhe.
+   *
+   * Era `0 1 auto` com `min-width: 0`, e com quatro ou cinco abas abertas
+   * cada uma era espremida até o nome virar reticências — "tudo achatado,
+   * cortado", nas palavras dele. A faixa já rola na horizontal
+   * (`overflow-x: auto` em `.abas`), então havia para onde ir: faltava
+   * dizer que encolher não é opção. Agora cada aba guarda uma largura em
+   * que o nome se lê, e o excesso vira rolagem.
+   */
+  flex: 0 0 auto;
+  min-width: 132px;
   max-width: 220px;
   border: 1px solid transparent;
   border-bottom: 0;

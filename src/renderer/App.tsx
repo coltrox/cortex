@@ -880,8 +880,18 @@ export function App() {
               aoEditar={v.setEditando}
               aoMudar={v.setConteudo}
               aoSalvar={() => void v.salvar()}
-              aoAbrirNome={alvo => void v.abrirPorNome(alvo)}
-              aoAbrirPath={p => void v.abrir(p)}
+              /* Ctrl+clique num [[link]] abre a nota numa aba nova. A aba
+                 nasce no destino de agora e so entao recebe a nota: assim a
+                 de origem fica intacta, que e o ponto de encadear leitura
+                 sem perder de onde veio. */
+              aoAbrirNome={(alvo, novaAba) => {
+                if (novaAba) abrirEmAbaNova(destinoVivo)
+                void v.abrirPorNome(alvo)
+              }}
+              aoAbrirPath={(caminho, novaAba) => {
+                if (novaAba) abrirEmAbaNova(destinoVivo)
+                void v.abrir(caminho)
+              }}
               aoExcluir={v.notaAberta ? () => setExcluindo(v.notaAberta) : undefined}
               // O acerto dos exercícios volta para o frontmatter da própria
               // nota do conteúdo — mesmo caminho que o simulado usa.

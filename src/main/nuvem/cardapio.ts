@@ -82,7 +82,17 @@ const TETO_CORPO = 8000
  * publicação — cada questão tem enunciado, cinco alternativas e comentário, e
  * uma nota com cinquenta delas passaria sozinha do corpo inteiro.
  */
-const TETO_QUESTOES = 12
+/*
+ * Subiu de 12 para 45 a pedido dele: "só tem tipo 10 exercícios para cada
+ * conteúdo, enche de exercícios, coloca uns 30 a mais".
+ *
+ * O raciocínio antigo — "doze é mais do que cabe numa espera de ônibus" —
+ * confundia duas coisas: quantas ele faz de uma vez e quantas EXISTEM. Onde
+ * parar é decisão dele; o teto só precisa impedir que uma nota sozinha
+ * estoure a publicação. Com 45 as notas de conteúdo cabem inteiras e o
+ * cardápio continua com tamanho sadio.
+ */
+const TETO_QUESTOES = 45
 
 /**
  * As questões da nota, prontas para o celular.

@@ -31,8 +31,9 @@ type Props = {
   aoEditar: (v: boolean) => void
   aoMudar: (texto: string) => void
   aoSalvar: () => void
-  aoAbrirNome: (alvo: string) => void
-  aoAbrirPath: (p: string) => void
+  /** `novaAba` vem do Ctrl no clique — ver `AoAbrirLink` no Markdown. */
+  aoAbrirNome: (alvo: string, novaAba?: boolean) => void
+  aoAbrirPath: (p: string, novaAba?: boolean) => void
   aoExcluir?: () => void
   /** Grava campos no frontmatter da nota — é por aqui que o acerto dos
       exercícios volta para o arquivo. */
@@ -324,7 +325,7 @@ export function NotaPainel({
               key={l.dst}
               className="link"
               data-quebrado={l.alvo === null}
-              onClick={() => (l.alvo ? aoAbrirPath(l.alvo) : aoAbrirNome(l.dst))}
+              onClick={e => (l.alvo ? aoAbrirPath(l.alvo, e.ctrlKey || e.metaKey) : aoAbrirNome(l.dst, e.ctrlKey || e.metaKey))}
               title={l.alvo ?? 'esta nota ainda não existe'}
             >
               <span>{l.dst}</span>

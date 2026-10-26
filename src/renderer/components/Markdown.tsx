@@ -181,7 +181,15 @@ export function Formula({ src, bloco }: { src: string; bloco?: boolean }) {
 
 /* ---------- inline ---------- */
 
-type AoAbrirLink = (alvo: string) => void
+/**
+ * `novaAba` vem do Ctrl (ou ⌘) no clique.
+ *
+ * Pedido dele: "se eu apertar Ctrl clique em física, formulário Unicamp,
+ * abre na outra aba". É o mesmo gesto que já valia na barra lateral — e a
+ * nota é justamente onde ele encadeia leitura, saindo de um conteúdo para o
+ * formulário e para as questões sem perder de onde veio.
+ */
+type AoAbrirLink = (alvo: string, novaAba: boolean) => void
 
 /**
  * Marcações inline, em uma passada só.
@@ -220,7 +228,8 @@ function inline(
         <button
           key={k}
           className="wikilink"
-          onClick={() => aoAbrirLink?.(destino.trim())}
+          onClick={e => aoAbrirLink?.(destino.trim(), e.ctrlKey || e.metaKey)}
+          title="Ctrl+clique abre em outra aba"
           disabled={!aoAbrirLink}
         >
           {(rotulo ?? destino).trim()}
