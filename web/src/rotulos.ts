@@ -145,6 +145,33 @@ export function proximaAba<T>(abas: readonly T[], atual: T, passo: 1 | -1): T {
  * 2. **Hoje e o futuro** — crescente. O próximo primeiro.
  * 3. **Já feito** — decrescente, porque ali a lista vira histórico.
  */
+/**
+ * Tira da lista o que já passou e não foi feito.
+ *
+ * A regra mudou a pedido dele: "as redações que já passaram, coloca como
+ * atrasada e não coloca mais na lista pra aparecer ali. Se eu tiver um
+ * tempo, eu faço".
+ *
+ * Antes as atrasadas lideravam a lista, e a intenção era boa — mas o efeito
+ * na reta final é outro: abrir Redações e ver quatro cobranças de dias que
+ * não voltam mais empurra a de HOJE para baixo da dobra. O que não foi feito
+ * não some; muda de lugar, para um bloco à parte que ele abre quando tiver
+ * fôlego.
+ *
+ * Feito é feito, mesmo atrasado: uma redação entregue com um dia de atraso
+ * não é pendência, e por isso `feito` manda mais que a data.
+ */
+export function separarAtrasadas<T>(
+  itens: T[], hoje: string, data: (i: T) => string, feito: (i: T) => boolean
+): { lista: T[]; atrasadas: T[] } {
+  const atrasadas = itens.filter(i => {
+    const d = data(i)
+    return d !== '' && d < hoje && !feito(i)
+  })
+  const fora = new Set(atrasadas)
+  return { lista: itens.filter(i => !fora.has(i)), atrasadas }
+}
+
 export function ordemDeEstudo<T>(
   itens: T[], hoje: string, data: (i: T) => string, feito: (i: T) => boolean
 ): T[] {

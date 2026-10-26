@@ -7,6 +7,7 @@ import { faltaCredencial } from './credencial'
 import { areaLigada } from './cardapio'
 import { jaInstalado, viuTutorial, marcarTutorialVisto } from './instalar'
 import { Instalar } from './telas/Instalar'
+import { BarraDaSessao } from './telas/BarraDaSessao'
 import { Aviso } from './componentes'
 import { useVersaoNova } from './versao'
 import { Hoje } from './telas/Hoje'
@@ -353,6 +354,10 @@ export function App() {
         </Suspense>
       )}
 
+      {/* O cronometro vive ACIMA das telas: a sessao acompanha o estudo
+          inteiro, e nao so a tela de exercicios. */}
+      <BarraDaSessao aoAbrirTreino={() => setTela('treinar')} />
+
       <nav className="barra-baixo" style={{ gridTemplateColumns: `repeat(${abas.length}, 1fr)` }}>
         {abas.map(a => {
           const ativa = (ABA_DE[tela] ?? tela) === a.id
@@ -360,6 +365,10 @@ export function App() {
             <button
               key={a.id}
               className={`aba ${ativa ? 'aba-ativa' : ''}`}
+              /* Cada área tem a sua cor. Monocromático ficou "tudo na mesma
+                 cor, muito esquisito" — e, com seis áreas, a cor também diz
+                 onde você está antes de você ler o rótulo. */
+              data-area={a.id}
               // Treino começado e não registrado: a aba Saúde volta direto
               // para a sessão, e não para o painel do dia.
               onClick={() => setTela(a.id === 'saude' && haTreinoEmAndamento() ? 'treino' : a.id)}

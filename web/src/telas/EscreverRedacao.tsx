@@ -65,6 +65,19 @@ export function EscreverRedacao({ item, envio, aoVoltar }: {
     )
   }
 
+  /**
+   * Desfaz a entrega: a folha volta a ser rascunho.
+   *
+   * Pedido dele: "um botão de cancelar entrega, aí desentrega a redação,
+   * caso eu clique errado". O texto NÃO é apagado — ele já está no vault, e
+   * o que muda é só o status. Desentregar por engano não pode custar a
+   * redação inteira.
+   */
+  const desentregar = (): void => {
+    mandar('rascunho')
+    setEntregue(false)
+  }
+
   if (entregue) {
     return (
       <div className="redacao-escrita">
@@ -73,6 +86,12 @@ export function EscreverRedacao({ item, envio, aoVoltar }: {
           fica como <b>aguardando correção</b>.
         </Aviso>
         <Botao tipo="secundario" aoClicar={aoVoltar}>Voltar</Botao>
+        <Botao tipo="secundario" aoClicar={desentregar}>
+          Cancelar entrega
+        </Botao>
+        <p className="treino-dica">
+          Cancelar devolve a folha para rascunho. O texto continua salvo.
+        </p>
       </div>
     )
   }
@@ -124,6 +143,21 @@ export function EscreverRedacao({ item, envio, aoVoltar }: {
       <Botao tipo="secundario" aoClicar={() => mandar('rascunho')}>
         Só salvar, sem entregar
       </Botao>
+
+      {/* A folha pode chegar JÁ entregue, de uma sessão anterior ou do
+          computador. Aí o botão de cancelar precisa estar aqui também —
+          não só na tela que aparece logo depois de entregar. */}
+      {status === 'aguardando correção' && (
+        <>
+          <Botao tipo="secundario" aoClicar={desentregar}>
+            Cancelar entrega
+          </Botao>
+          <p className="treino-dica">
+            Esta folha está entregue. Cancelar devolve para rascunho sem
+            apagar o texto.
+          </p>
+        </>
+      )}
     </div>
   )
 }

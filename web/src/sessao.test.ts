@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   iniciar, anotar, desfazerUltima, marcaDeTempo, rotuloDeHora, minutos, diaDaSessao,
+  decorrido, pausar, retomar, comoRelogio, type SessaoEstudo,
   placares, totalGeral, destaques, porcentagem, resumir,
   lerSessao, gravarSessao, limparSessao, MINIMO_PARA_DESTAQUE,
   type RespostaSessao
@@ -269,5 +270,88 @@ describe('desfazerUltima', () => {
   it('sessao vazia nao quebra', () => {
     const s = iniciar(new Date(2026, 9, 20, 14, 30))
     expect(desfazerUltima(s, 'qualquer').respostas).toEqual([])
+  })
+})
+
+describe('o cronometro da sessao', () => {
+  // 20/10/2026, 14h30, em milissegundos do relogio local
+  const COMECO = new Date(2026, 9, 20, 14, 30).getTime()
+  const base = (): SessaoEstudo => iniciar(new Date(COMECO))
+  const depois = (min: number): number => COMECO + min * 60_000
+
+  it('conta do comeco ate agora', () => {
+    expect(decorrido(base(), depois(10))).toBe(600)
+  })
+
+  it('pausado, o tempo congela', () => {
+    /* Congela no instante da pausa: o numero para de subir na tela sem
+       perder o que ja havia. */
+    const s = pausar(base(), depois(10))
+    expect(decorrido(s, depois(10))).toBe(600)
+    expect(decorrido(s, depois(45))).toBe(600)
+  })
+
+  it('retomar desconta o tempo parado', () => {
+    /* Levantar para almocar nao e estudo. Sem o desconto, o relatorio
+       mostraria horas que nao aconteceram. */
+    let s = pausar(base(), depois(10))
+    s = retomar(s, depois(40))        // 30 min parado
+    expect(s.parado).toBe(1800)
+    expect(decorrido(s, depois(50))).toBe(20 * 60)
+  })
+
+  it('pausar duas vezes seguidas nao soma nada', () => {
+    const uma = pausar(base(), depois(10))
+    expect(pausar(uma, depois(20))).toEqual(uma)
+  })
+
+  it('retomar o que nao estava pausado nao inventa tempo', () => {
+    const s = base()
+    expect(retomar(s, depois(10))).toEqual(s)
+  })
+
+  it('varias pausas somam', () => {
+    let s = base()
+    s = retomar(pausar(s, depois(5)), depois(10))    // 5 min
+    s = retomar(pausar(s, depois(20)), depois(23))   // 3 min
+    expect(s.parado).toBe(8 * 60)
+    expect(decorrido(s, depois(30))).toBe(22 * 60)
+  })
+
+  it('comeco invalido nao vira tempo negativo nem NaN', () => {
+    expect(decorrido({ inicio: 'ontem', respostas: [] }, depois(10))).toBe(0)
+  })
+
+  it('a pausa sobrevive a fechar e reabrir o app', () => {
+    /* Por isso a pausa guarda o INSTANTE, e nao um booleano: o app pode
+       morrer pausado e voltar horas depois. */
+    const g = memoria()
+    gravarSessao(g, pausar(base(), depois(10)))
+    const voltou = lerSessao(g)
+    expect(voltou?.pausadaEm).toBe(depois(10))
+    expect(decorrido(voltou as SessaoEstudo, depois(300))).toBe(600)
+  })
+
+  it('o relatorio usa o cronometro, e nao o relogio de parede', () => {
+    let s = base()
+    s = anotar(s, resposta('matemática', 'Trigonometria', true))
+    s = retomar(pausar(s, depois(10)), depois(40))   // 30 min parado
+    // Terminou 50 min depois de comecar, mas estudou 20.
+    expect(resumir(s, new Date(depois(50))).minutos).toBe(20)
+  })
+})
+
+describe('comoRelogio', () => {
+  it('abaixo de uma hora, so minuto e segundo', () => {
+    expect(comoRelogio(125)).toBe('02:05')
+    expect(comoRelogio(0)).toBe('00:00')
+  })
+
+  it('acima de uma hora, mostra a hora', () => {
+    expect(comoRelogio(3725)).toBe('1:02:05')
+  })
+
+  it('negativo nao vira relogio torto', () => {
+    expect(comoRelogio(-30)).toBe('00:00')
   })
 })

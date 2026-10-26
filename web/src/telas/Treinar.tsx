@@ -117,17 +117,22 @@ export function Treinar(p: {
 
     /* A resposta entra na sessão além do histórico. São duas contas
        diferentes: o histórico decide qual carta volta antes, a sessão é o
-       recorte do treino de agora, que vira nota. */
-    if (sessao) {
-      const nova = anotar(sessao, {
-        chave: atual.chave,
-        materia: atual.materia,
-        conteudo: atual.origem,
-        acertou
-      })
-      gravarSessao(guardadoDoNavegador, nova)
-      setSessao(nova)
-    }
+       recorte do treino de agora, que vira nota.
+     *
+     * E a sessão COMEÇA SOZINHA se ele não abriu uma. Pedido dele: "eu já
+     * respondi um direto sem clicar em iniciar a sessão de estudos — ele
+     * automaticamente inicia uma sessão com um cronômetro". Quem senta e
+     * responde está estudando; exigir um botão antes disso só serve para
+     * perder o registro de quem esqueceu de apertá-lo. */
+    const aberta = sessao ?? iniciar(new Date())
+    const nova = anotar(aberta, {
+      chave: atual.chave,
+      materia: atual.materia,
+      conteudo: atual.origem,
+      acertou
+    })
+    gravarSessao(guardadoDoNavegador, nova)
+    setSessao(nova)
   }
 
   const abrirSessao = (): void => {

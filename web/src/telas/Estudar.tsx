@@ -2,8 +2,10 @@ import { useRef, useState } from 'react'
 import { Cabecalho, Botao } from '../componentes'
 import type { UsoDoCardapio } from '../envio'
 import type { Tela } from '../App'
-import { rotuloData, tituloCurto, acharPorNome, daquiPraFrente, proximaAba, ordemDeEstudo } from '../rotulos'
+import { rotuloData, tituloCurto, acharPorNome, daquiPraFrente, proximaAba, ordemDeEstudo, separarAtrasadas } from '../rotulos'
 import { CorpoDaNota } from './Nota'
+import { guardadoDoNavegador } from '../guardado'
+import { iniciar, lerSessao, gravarSessao } from '../sessao'
 import { ExerciciosDaNota } from './Exercicios'
 import type { Questao } from '../exercicios'
 import { EscreverRedacao } from './EscreverRedacao'
@@ -30,10 +32,19 @@ export function Estudar(p: {
   hoje: string
   irPara: (t: Tela) => void
 }) {
-  const ABAS = ['plano', 'conteudos', 'redacoes', 'simulados'] as const
-  const [aba, setAba] = useState<'plano' | 'conteudos' | 'redacoes' | 'simulados'>('plano')
+  const ABAS = ['plano', 'conteudos', 'redacoes', 'simulados', 'flashcards'] as const
+  const [aba, setAba] = useState<'plano' | 'conteudos' | 'redacoes' | 'simulados' | 'flashcards'>('plano')
   /* Qual simulado está aberto para fazer, se houver. */
   const [fazendo, setFazendo] = useState<string | null>(null)
+  /* Ha sessao aberta? So para decidir se o botao de iniciar aparece — quem
+     mostra o cronometro e a barra que vive acima das telas. */
+  const [temSessao, setTemSessao] = useState(() => lerSessao(guardadoDoNavegador) !== null)
+
+  const comecarSessao = (): void => {
+    if (lerSessao(guardadoDoNavegador)) return
+    gravarSessao(guardadoDoNavegador, iniciar(new Date()))
+    setTemSessao(true)
+  }
 
   /*
    * O CAMINHO andado, e não só a nota aberta.
@@ -98,7 +109,7 @@ export function Estudar(p: {
   /* Atrasada e não escrita vem PRIMEIRO, depois hoje e o futuro, e por fim
      as entregues. A folha de ontem que ficou em branco é a mais urgente da
      lista — e era justamente ela que ficava no fim. */
-  const redacoes = ordemDeEstudo(
+  const redacoesTodas = ordemDeEstudo(
     itens.filter(i => i.especie === 'redacao'),
     p.hoje,
     i => txt(i.detalhe.data),
@@ -115,9 +126,29 @@ export function Estudar(p: {
     i => i.especie === 'prova' && Array.isArray(i.detalhe.questoes) && i.detalhe.questoes.length > 0
   )
 
+  /* As atrasadas saem da lista e vao para um bloco proprio no fim. Pedido
+     dele: "coloca como atrasada e nao coloca mais na lista pra aparecer
+     ali. Se eu tiver um tempo, eu faco". */
+  const { lista: redacoes, atrasadas } = separarAtrasadas(
+    redacoesTodas, p.hoje,
+    i => txt(i.detalhe.data),
+    i => {
+      const st = txt(i.detalhe.status)
+      return st === 'aguardando correção' || st === 'corrigida'
+    }
+  )
+
+  /* Os baralhos de flashcard: notas de conteudo cujo titulo os anuncia.
+     Checar o titulo, e nao uma especie propria, evita mais um tipo de nota
+     no vault para a mesma coisa — e o dono ja nomeia assim. */
+  const flashcards = itens.filter(
+    i => i.especie === 'materia' && /flashcard/i.test(i.nome)
+  )
+
   const lista = aba === 'plano' ? dias
     : aba === 'conteudos' ? conteudos
-      : aba === 'redacoes' ? redacoes : simulados
+      : aba === 'redacoes' ? redacoes
+        : aba === 'simulados' ? simulados : flashcards
   /* A nota aberta é procurada em TODO o cardápio, e não só na aba da vez: um
      link dentro do plano do dia aponta para uma estrutura de redação ou um
      repertório, que moram em outra tela. Antes, clicar nele não achava nada. */
@@ -240,6 +271,16 @@ export function Estudar(p: {
           Treinar exercícios
         </Botao>
 
+        {/* Comecar a sessao SEM ir para os exercicios. Pedido dele: "embaixo
+            de treinar exercicios eu poderia registrar uma sessao de estudo
+            direto" — porque estudar tambem e ler conteudo e abrir o plano,
+            e o cronometro precisa correr nessas horas tambem. */}
+        {!temSessao && (
+          <Botao tipo="secundario" aoClicar={comecarSessao}>
+            ▶ Iniciar sessão de estudos
+          </Botao>
+        )}
+
         <div className="abas-redacao">
           <button type="button" className="btn-aba" data-ativa={aba === 'plano'}
             onClick={() => { setAba('plano'); setPilha([]) }}>Plano</button>
@@ -249,6 +290,8 @@ export function Estudar(p: {
             onClick={() => { setAba('redacoes'); setPilha([]) }}>Redações</button>
           <button type="button" className="btn-aba" data-ativa={aba === 'simulados'}
             onClick={() => { setAba('simulados'); setPilha([]) }}>Simulados</button>
+          <button type="button" className="btn-aba" data-ativa={aba === 'flashcards'}
+            onClick={() => { setAba('flashcards'); setPilha([]) }}>Flashcards</button>
         </div>
 
         {aba === 'plano' && (
@@ -289,17 +332,61 @@ export function Estudar(p: {
         )}
 
         {aba === 'redacoes' && (
-          redacoes.length === 0
-            ? <p className="vazio">Nenhuma redação ainda.</p>
-            : redacoes.map(r => (
-              <CartaoEstudo
-                key={r.nome}
-                titulo={tituloCurto(r.nome)}
-                acima={rotuloData(txt(r.detalhe.data))}
-                etiquetas={[txt(r.detalhe.status)]}
-                aoAbrir={() => abrirNota(r.nome)}
-              />
-            ))
+          <>
+            {redacoes.length === 0
+              ? <p className="vazio">Nenhuma redação para hoje em diante.</p>
+              : redacoes.map(r => (
+                <CartaoEstudo
+                  key={r.nome}
+                  titulo={tituloCurto(r.nome)}
+                  acima={rotuloData(txt(r.detalhe.data))}
+                  etiquetas={[txt(r.detalhe.status)]}
+                  aoAbrir={() => abrirNota(r.nome)}
+                />
+              ))}
+
+            {/* As que passaram ficam aqui embaixo, recolhidas: elas não
+                sumiram, só pararam de empurrar a de hoje para fora da tela.
+                "Se eu tiver um tempo, eu faço." */}
+            {atrasadas.length > 0 && (
+              <details className="atrasadas">
+                <summary>
+                  {atrasadas.length} {atrasadas.length === 1 ? 'atrasada' : 'atrasadas'}
+                </summary>
+                {atrasadas.map(r => (
+                  <CartaoEstudo
+                    key={r.nome}
+                    titulo={tituloCurto(r.nome)}
+                    acima={rotuloData(txt(r.detalhe.data))}
+                    etiquetas={['atrasada', txt(r.detalhe.status)]}
+                    aoAbrir={() => abrirNota(r.nome)}
+                  />
+                ))}
+              </details>
+            )}
+          </>
+        )}
+
+        {aba === 'flashcards' && (
+          flashcards.length === 0
+            ? (
+              <p className="vazio">
+                Nenhum baralho ainda. Flashcards são notas de conteúdo com
+                "Flashcards" no título, escritas no Cortex.
+              </p>
+            )
+            : flashcards.map(f => {
+              const quantas = Array.isArray(f.detalhe.questoes) ? f.detalhe.questoes.length : 0
+              return (
+                <CartaoEstudo
+                  key={f.nome}
+                  titulo={f.nome}
+                  acima={txt(f.detalhe.materia)}
+                  etiquetas={[quantas > 0 ? `${quantas} cartas` : '']}
+                  aoAbrir={() => abrirNota(f.nome)}
+                />
+              )
+            })
         )}
 
         {aba === 'simulados' && (
@@ -327,9 +414,6 @@ export function Estudar(p: {
             })
         )}
 
-        <Botao tipo="secundario" aoClicar={() => p.irPara('estudo')}>
-          Registrar uma sessão de estudo
-        </Botao>
       </div>
     </div>
   )

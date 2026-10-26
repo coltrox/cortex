@@ -38,6 +38,30 @@ export type SessaoEstudo = {
   /** Começo, em hora LOCAL: `2026-10-20T14:30`. */
   inicio: string
   respostas: RespostaSessao[]
+  /**
+   * O instante exato do começo, em milissegundos do relógio.
+   *
+   * `inicio` tem precisão de MINUTO, que basta para o título da nota
+   * ("sessão de 14h30") e não basta para um cronômetro: começar às 14h30m27s
+   * faria o relógio nascer marcando 27 segundos. Os dois convivem — um é
+   * rótulo, o outro é medida.
+   */
+  comecouEm?: number
+  /**
+   * Segundos já parados, somados.
+   *
+   * O cronômetro desconta isto. Sem ele, levantar para almoçar no meio da
+   * tarde entraria no relatório como estudo — e o número de horas, que é
+   * justamente o que ele quer acompanhar, viraria ficção.
+   */
+  parado?: number
+  /**
+   * Desde quando está pausado agora, em milissegundos do relógio.
+   *
+   * `undefined` significa correndo. Guardar o INSTANTE, e não um booleano,
+   * é o que permite fechar o app pausado e reabrir sem perder a conta.
+   */
+  pausadaEm?: number
 }
 
 /** Quanto se acertou de alguma coisa — de uma matéria ou de um conteúdo. */
@@ -71,7 +95,7 @@ export function marcaDeTempo(d: Date): string {
 }
 
 export function iniciar(agora: Date): SessaoEstudo {
-  return { inicio: marcaDeTempo(agora), respostas: [] }
+  return { inicio: marcaDeTempo(agora), comecouEm: agora.getTime(), respostas: [] }
 }
 
 /**
@@ -99,6 +123,56 @@ export function desfazerUltima(s: SessaoEstudo, chave: string): SessaoEstudo {
   const ultima = s.respostas[s.respostas.length - 1]
   if (!ultima || ultima.chave !== chave) return s
   return { ...s, respostas: s.respostas.slice(0, -1) }
+}
+
+/* ---------- o cronômetro ---------- */
+
+/**
+ * Há quantos segundos esta sessão está correndo.
+ *
+ * Conta do começo até agora e desconta o que ficou parado. Enquanto está
+ * pausada, o tempo congela no instante da pausa — é o que faz o número na
+ * tela parar de subir sem perder o que já havia.
+ *
+ * `agora` é injetado para o teste não depender do relógio da máquina.
+ */
+export function decorrido(s: SessaoEstudo, agora: number): number {
+  /* O instante exato quando existe; o texto do minuto como reserva, para
+     as sessoes criadas antes deste campo existir. */
+  const comeco = s.comecouEm ?? Date.parse(s.inicio)
+  if (!Number.isFinite(comeco)) return 0
+  const ate = s.pausadaEm ?? agora
+  const bruto = Math.floor((ate - comeco) / 1000)
+  return Math.max(0, bruto - Math.max(0, s.parado ?? 0))
+}
+
+/** Pausa, se já não estiver pausada. */
+export function pausar(s: SessaoEstudo, agora: number): SessaoEstudo {
+  if (s.pausadaEm !== undefined) return s
+  return { ...s, pausadaEm: agora }
+}
+
+/**
+ * Retoma, somando ao total parado o tempo desta pausa.
+ *
+ * Retomar o que não estava pausado não muda nada: o botão é o mesmo e dois
+ * toques seguidos não podem inventar tempo.
+ */
+export function retomar(s: SessaoEstudo, agora: number): SessaoEstudo {
+  if (s.pausadaEm === undefined) return s
+  const estaPausa = Math.max(0, Math.floor((agora - s.pausadaEm) / 1000))
+  const { pausadaEm: _fora, ...resto } = s
+  return { ...resto, parado: Math.max(0, s.parado ?? 0) + estaPausa }
+}
+
+/** `3725` → `1:02:05`; abaixo de uma hora, `02:05`. */
+export function comoRelogio(segundos: number): string {
+  const t = Math.max(0, Math.floor(segundos))
+  const h = Math.floor(t / 3600)
+  const m = Math.floor((t % 3600) / 60)
+  const s = t % 60
+  const dois = (n: number): string => String(n).padStart(2, '0')
+  return h > 0 ? `${h}:${dois(m)}:${dois(s)}` : `${dois(m)}:${dois(s)}`
 }
 
 /** O dia da sessão, para o evento. */
@@ -204,7 +278,10 @@ export function resumir(s: SessaoEstudo, fim: Date): ResumoSessao {
   return {
     inicio: s.inicio,
     fim: marca,
-    minutos: minutos(s.inicio, marca),
+    /* Os minutos vêm do CRONÔMETRO, e não da diferença entre começar e
+       terminar: o que ficou pausado não foi estudo, e somá-lo encheria o
+       relatório de horas que não aconteceram. */
+    minutos: Math.round(decorrido(s, fim.getTime()) / 60),
     materias: placares(s.respostas, 'materia'),
     conteudos: placares(s.respostas, 'conteudo')
   }
@@ -240,7 +317,16 @@ export function lerSessao(g: Guardado): SessaoEstudo | null {
         acertou: r.acertou === true
       })
     }
-    return { inicio: s.inicio, respostas }
+    const comecouEm = typeof s.comecouEm === 'number' && s.comecouEm > 0 ? s.comecouEm : undefined
+    const parado = typeof s.parado === 'number' && s.parado >= 0 ? s.parado : undefined
+    const pausadaEm = typeof s.pausadaEm === 'number' && s.pausadaEm > 0 ? s.pausadaEm : undefined
+    return {
+      inicio: s.inicio,
+      respostas,
+      ...(comecouEm !== undefined ? { comecouEm } : {}),
+      ...(parado !== undefined ? { parado } : {}),
+      ...(pausadaEm !== undefined ? { pausadaEm } : {})
+    }
   } catch {
     return null
   }

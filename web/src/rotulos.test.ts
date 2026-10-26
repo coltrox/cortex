@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { rotuloData, tituloCurto, acharPorNome, daquiPraFrente, ordemDeEstudo, proximaAba } from './rotulos'
+import {
+  rotuloData, tituloCurto, acharPorNome, daquiPraFrente, ordemDeEstudo,
+  proximaAba, separarAtrasadas
+} from './rotulos'
 
 describe('rotuloData', () => {
   it('monta dia da semana e data curta', () => {
@@ -166,5 +169,44 @@ describe('proximaAba', () => {
 
   it('aba desconhecida nao muda nada', () => {
     expect(proximaAba(abas, 'outra' as never, 1)).toBe('outra')
+  })
+})
+
+describe('separarAtrasadas', () => {
+  type R = { nome: string; data: string; pronta: boolean }
+  const r = (nome: string, data: string, pronta = false): R => ({ nome, data, pronta })
+  const dividir = (itens: R[]) =>
+    separarAtrasadas(itens, '2026-10-26', i => i.data, i => i.pronta)
+
+  it('tira da lista o que passou e nao foi feito', () => {
+    /* "Coloca como atrasada e nao coloca mais na lista pra aparecer ali."
+       Ver quatro cobrancas de dias que nao voltam empurra a de HOJE para
+       baixo da dobra. */
+    const { lista, atrasadas } = dividir([
+      r('ontem', '2026-10-25'), r('hoje', '2026-10-26'), r('amanha', '2026-10-27')
+    ])
+    expect(lista.map(x => x.nome)).toEqual(['hoje', 'amanha'])
+    expect(atrasadas.map(x => x.nome)).toEqual(['ontem'])
+  })
+
+  it('feito e feito, mesmo atrasado', () => {
+    // Entregue com um dia de atraso nao e pendencia.
+    const { lista, atrasadas } = dividir([r('ontem', '2026-10-25', true)])
+    expect(lista.map(x => x.nome)).toEqual(['ontem'])
+    expect(atrasadas).toEqual([])
+  })
+
+  it('o dia de HOJE nunca e atrasado', () => {
+    expect(dividir([r('hoje', '2026-10-26')]).atrasadas).toEqual([])
+  })
+
+  it('sem data fica na lista', () => {
+    // Modelo de redacao, folha sem dia marcado: nao da para atrasar.
+    expect(dividir([r('solta', '')]).lista.map(x => x.nome)).toEqual(['solta'])
+  })
+
+  it('a ordem original de cada lado e preservada', () => {
+    const { lista } = dividir([r('b', '2026-10-27'), r('a', '2026-10-26')])
+    expect(lista.map(x => x.nome)).toEqual(['b', 'a'])
   })
 })
