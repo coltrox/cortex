@@ -2785,6 +2785,24 @@ button.md-link{
 .pomo-botoes{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
 .pomo-botoes > *{ flex:1 1 auto; }
 
+/* Editar os tempos do ciclo. Campo largo e alto porque é dedo em tela de
+   celular, não mouse. */
+.pomo-editar{
+  display:flex; flex-direction:column; gap:10px;
+  padding:14px; margin-bottom:10px;
+  border:1px solid var(--borda); border-radius:14px;
+}
+.pomo-campo{ display:flex; align-items:center; gap:10px; }
+.pomo-campo > span:first-child{ flex:1; font-size:14px; }
+.pomo-campo input{
+  width:88px; padding:10px; text-align:center;
+  font-size:16px; /* 16px evita o zoom automático do iOS ao focar o campo */
+  font-variant-numeric:tabular-nums;
+  border:1px solid var(--borda); border-radius:10px;
+  background:var(--fundo); color:var(--texto);
+}
+.pomo-unidade{ font-size:13px; color:var(--texto-fraco); }
+
 /* A barra é a única noção de progresso durante a prova. */
 .simulado-barra{
   height:4px; border-radius:2px; overflow:hidden;

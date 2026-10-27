@@ -13,8 +13,40 @@
 
 export type Fase = 'foco' | 'pausa' | 'pausa-longa'
 
+/** Quanto dura cada fase, em minutos. */
+export type Duracoes = Record<Fase, number>
+
 /** Os 25/5/15 clássicos. */
-export const DURACOES_PADRAO: Record<Fase, number> = { foco: 25, pausa: 5, 'pausa-longa': 15 }
+export const DURACOES_PADRAO: Duracoes = { foco: 25, pausa: 5, 'pausa-longa': 15 }
+
+/**
+ * Teto de uma fase, em minutos.
+ *
+ * Três horas é mais do que qualquer bloco de foco honesto, e o teto existe
+ * para um dedo errado no celular não criar um pomodoro que nunca acaba.
+ */
+const MAIOR = 180
+
+/**
+ * Lê as durações que ele editou, caindo no padrão no que não servir.
+ *
+ * Pedido dele: "o pomodoro coloca opção de editar (para o Cortex mobile)".
+ * O valor vem do armazenamento do navegador, que pode ter sido mexido à mão
+ * ou ter sobrado de uma versão anterior — por isso cada campo é conferido
+ * sozinho, em vez de descartar o conjunto inteiro por causa de um número
+ * ruim.
+ */
+export function duracoesValidas(bruto: unknown): Duracoes {
+  const obj = typeof bruto === 'object' && bruto !== null ? bruto as Record<string, unknown> : {}
+  const campo = (fase: Fase): number => {
+    const v = Number(obj[fase])
+    if (!Number.isFinite(v)) return DURACOES_PADRAO[fase]
+    /* Minuto inteiro: meio minuto no relógio confunde mais do que ajuda, e
+       zero deixaria a fase acabar no instante em que começa. */
+    return Math.min(MAIOR, Math.max(1, Math.round(v)))
+  }
+  return { foco: campo('foco'), pausa: campo('pausa'), 'pausa-longa': campo('pausa-longa') }
+}
 
 /**
  * A próxima fase depois de uma.
