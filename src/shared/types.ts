@@ -170,6 +170,8 @@ declare global {
       invoke(canal: string, payload: unknown): Promise<unknown>
       /** A versão do app, lida do `package.json` empacotado pelo main. */
       versaoDoApp(): Promise<string>
+      /** Salva a nota aberta como PDF. Devolve o caminho, ou null se cancelou. */
+      pdfDaNota(titulo: string): Promise<string | null>
       /** O comando `claude mcp add` que liga o conector do Cortex. */
       conectorClaude(): Promise<{ comando: string }>
       estadoConector(): Promise<{ estado: 'conectado' | 'outra-instalacao' | 'desconectado' }>

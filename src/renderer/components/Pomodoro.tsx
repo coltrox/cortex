@@ -14,7 +14,12 @@ import { num } from './base'
  * gravado pelo mesmo `aoMarcarDia`. Pausa não conta.
  */
 
-export type Fase = 'foco' | 'pausa' | 'pausa-longa'
+/* As regras do ciclo moram em `shared` desde que o celular passou a ter
+   pomodoro também. Reexportadas daqui porque a lente e o teste as importam
+   deste arquivo desde antes da mudança. */
+export type { Fase } from '../../shared/pomodoro'
+export { proximaFase, formatarRelogio } from '../../shared/pomodoro'
+import { DURACOES_PADRAO, proximaFase, formatarRelogio, type Fase } from '../../shared/pomodoro'
 
 type Estado = {
   fase: Fase
@@ -26,8 +31,6 @@ type Estado = {
   ciclos: number
 }
 
-const DURACOES_PADRAO: Record<Fase, number> = { foco: 25, pausa: 5, 'pausa-longa': 15 }
-
 let duracoes = { ...DURACOES_PADRAO }
 let estado: Estado = { fase: 'foco', fimEm: null, restante: duracoes.foco * 60_000, ciclos: 0 }
 const ouvintes = new Set<() => void>()
@@ -38,18 +41,6 @@ let relogio: ReturnType<typeof setInterval> | null = null
 function emitir(novo: Estado): void {
   estado = novo
   for (const o of ouvintes) o()
-}
-
-/** A próxima fase depois de uma. A cada quatro focos, a pausa é longa. */
-export function proximaFase(fase: Fase, ciclos: number): { fase: Fase; ciclos: number } {
-  if (fase !== 'foco') return { fase: 'foco', ciclos }
-  const feitos = ciclos + 1
-  return { fase: feitos % 4 === 0 ? 'pausa-longa' : 'pausa', ciclos: feitos }
-}
-
-export function formatarRelogio(ms: number): string {
-  const s = Math.max(0, Math.ceil(ms / 1000))
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
 function tocar(): void {

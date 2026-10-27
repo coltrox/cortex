@@ -944,6 +944,10 @@ export function App() {
               aoEditar={v.setEditando}
               aoMudar={v.setConteudo}
               aoSalvar={() => void v.salvar()}
+              /* Marcar checkbox salva na hora, sem passar pelo estado — era
+                 pedido dele: "qualquer alteração que eu conseguir fazer
+                 assim, sem clicar em editar e salvar, tem que salvar". */
+              aoSalvarTexto={texto => void v.salvarTexto(texto)}
               /* Ctrl+clique num [[link]] abre a nota numa aba nova. A aba
                  nasce no destino de agora e so entao recebe a nota: assim a
                  de origem fica intacta, que e o ponto de encadear leitura

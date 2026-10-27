@@ -314,6 +314,41 @@ ipcMain.handle('app:reiniciar-atualizacao', async () => { reiniciarParaAtualizar
  * são ordens sem parâmetro. O segredo do cliente e o token nunca voltam para
  * a tela — só o estado.
  */
+/**
+ * Salvar a nota aberta como PDF.
+ *
+ * Imprime a JANELA que está na tela, e não um HTML montado à parte: o conteúdo
+ * tem fórmula, tabela e figura desenhadas pelo renderizador do app, e um
+ * segundo caminho de renderização divergiria do primeiro na primeira melhoria
+ * que um deles recebesse. O que recorta a página é o CSS de impressão.
+ *
+ * O renderer manda só o título, para sugerir o nome do arquivo — nenhum
+ * caminho vem da tela: quem escolhe onde salvar é o diálogo nativo.
+ */
+ipcMain.handle('nota:pdf', async (_e, p: { titulo?: unknown }) => {
+  if (!win) return null
+  const titulo = typeof p?.titulo === 'string' ? p.titulo : 'nota'
+  /* Caracteres proibidos em nome de arquivo no Windows. O título vem de uma
+     nota do vault, e título com `/` ou `:` é comum ("Física — Óptica"). */
+  const nome = `${titulo.replace(/[\\/:*?"<>|]/g, '-').trim().slice(0, 120) || 'nota'}.pdf`
+
+  const r = await dialog.showSaveDialog(win, {
+    title: 'Salvar conteúdo como PDF',
+    defaultPath: nome,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }]
+  })
+  if (r.canceled || !r.filePath) return null
+
+  const pdf = await win.webContents.printToPDF({
+    printBackground: true,
+    pageSize: 'A4',
+    /* Margens em polegada, como o Electron pede nesta versão. */
+    margins: { top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 }
+  })
+  await writeFile(r.filePath, pdf)
+  return r.filePath
+})
+
 ipcMain.handle('google:estado', async () => agenda.estado())
 ipcMain.handle('google:importar-cliente', async () => {
   const r = await dialog.showOpenDialog({

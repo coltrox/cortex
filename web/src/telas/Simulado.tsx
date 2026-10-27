@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Botao, Figura } from '../componentes'
+import { comoRelogio } from '../sessao'
+import { registrarTentativa } from '@compartilhado/tentativas'
 import type { ItemCardapio } from '@compartilhado/eventos'
 import type { useEnvio } from '../envio'
 import type { Questao } from '../exercicios'
@@ -43,6 +45,18 @@ export function Simulado({ item, envio, hoje, aoVoltar }: {
   const [terminado, setTerminado] = useState(false)
   const [enviado, setEnviado] = useState(false)
 
+  /* O relógio começa quando a tela abre — pedido dele: "o simulado conta o
+     tempo a partir do momento que eu cliquei nele". Sem botão de começar:
+     numa prova de verdade o tempo também não espera por ninguém. */
+  const [comecou] = useState(() => Date.now())
+  const [agora, setAgora] = useState(() => Date.now())
+  useEffect(() => {
+    if (terminado) return
+    const t = setInterval(() => setAgora(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [terminado])
+  const segundos = Math.floor((agora - comecou) / 1000)
+
   if (questoes.length === 0) {
     return (
       <div className="bloco">
@@ -62,13 +76,30 @@ export function Simulado({ item, envio, hoje, aoVoltar }: {
     setTerminado(true)
     const path = typeof detalhe.path === 'string' ? detalhe.path : ''
     if (!path) return
+    const minutos = Math.max(1, Math.round(segundos / 60))
     envio.registrar({
       tipo: 'nota_escrita',
       dia: hoje,
       dados: {
         path,
         tipo: 'simulado',
-        campos: { acertos: certas, total: questoes.length, estudado: true }
+        campos: {
+          acertos: certas,
+          total: questoes.length,
+          estudado: true,
+          minutos,
+          /* O histórico vai junto, com as questões erradas: refazer depois não
+             pode apagar o resultado de hoje. */
+          tentativas: registrarTentativa(detalhe.tentativas, {
+            data: hoje,
+            acertos: certas,
+            total: questoes.length,
+            minutos,
+            erradas: questoes
+              .map((q, i) => (respostas[i] !== q.gabarito ? i + 1 : 0))
+              .filter(n => n > 0)
+          })
+        }
       }
     })
     setEnviado(true)
@@ -84,7 +115,7 @@ export function Simulado({ item, envio, hoje, aoVoltar }: {
       <div className="bloco">
         <h2 className="md-titulo">Resultado</h2>
         <p className="sessao-resumo">
-          <b>{certas} de {questoes.length}</b> · <b>{pct}%</b>
+          <b>{certas} de {questoes.length}</b> · <b>{pct}%</b> · {comoRelogio(segundos)}
         </p>
         {enviado && (
           <p className="treino-dica">
@@ -121,6 +152,9 @@ export function Simulado({ item, envio, hoje, aoVoltar }: {
     <div className="bloco">
       <div className="simulado-topo">
         <span className="treino-de">Questão {atual + 1} de {questoes.length}</span>
+        {/* O tempo fica à vista, como o relógio na parede da sala de prova —
+            é a única informação que a prova de verdade também dá. */}
+        <span className="simulado-tempo">{comoRelogio(segundos)}</span>
         <span className="sessao-nota">{respondidas} respondidas</span>
       </div>
       {/* A barra é a única noção de progresso: não há placar durante a prova,

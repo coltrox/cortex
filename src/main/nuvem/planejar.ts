@@ -807,7 +807,14 @@ export function planejar(evento: Evento): Operacao[] {
            tipo de evento próprio, porque o gesto é o mesmo — preencher uma
            nota que o Cortex publicou — e porque um tipo novo exigiria outra
            migração no banco para a mesma capacidade. */
-        'acertos', 'total', 'estudado'
+        'acertos', 'total', 'estudado',
+        /* O histórico de tentativas do conteúdo. Sem ele na lista, refazer os
+           exercícios pelo celular gravaria o acerto novo e descartaria o
+           histórico em silêncio — exatamente o "sem sumir" que ele pediu. */
+        'tentativas',
+        /* Quanto tempo o simulado levou. O celular passou a cronometrar desde
+           a abertura da tela, e o tempo é metade do que o simulado mede. */
+        'minutos'
       ]
       const campos: Record<string, unknown> = {}
       const vindos = dados.campos

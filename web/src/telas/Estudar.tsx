@@ -10,6 +10,7 @@ import { ExerciciosDaNota } from './Exercicios'
 import type { Questao } from '../exercicios'
 import { EscreverRedacao } from './EscreverRedacao'
 import { Simulado } from './Simulado'
+import { PomodoroMovel } from './Pomodoro'
 import type { useEnvio } from '../envio'
 
 /**
@@ -39,6 +40,9 @@ export function Estudar(p: {
   /* Ha sessao aberta? So para decidir se o botao de iniciar aparece — quem
      mostra o cronometro e a barra que vive acima das telas. */
   const [temSessao, setTemSessao] = useState(() => lerSessao(guardadoDoNavegador) !== null)
+  /* O pomodoro aberto. Ocupa a tela, como o simulado: o ciclo de foco não
+     combina com a lista de notas atrás. */
+  const [pomodoro, setPomodoro] = useState(false)
 
   const comecarSessao = (): void => {
     if (lerSessao(guardadoDoNavegador)) return
@@ -153,6 +157,15 @@ export function Estudar(p: {
      link dentro do plano do dia aponta para uma estrutura de redação ou um
      repertório, que moram em outra tela. Antes, clicar nele não achava nada. */
   const escolhido = itens.find(i => i.nome === aberto) ?? lista.find(i => i.nome === aberto)
+
+  if (pomodoro) {
+    return (
+      <div>
+        <Cabecalho titulo="Pomodoro" aoVoltar={() => setPomodoro(false)} />
+        <PomodoroMovel aoVoltar={() => setPomodoro(false)} />
+      </div>
+    )
+  }
 
   /* O simulado ocupa a tela inteira, como no computador: no meio da prova,
      a lista de notas atrás é distração. */
@@ -280,6 +293,12 @@ export function Estudar(p: {
             ▶ Iniciar sessão de estudos
           </Botao>
         )}
+
+        {/* O pomodoro, ao lado da sessão e separado dela — ele foi explícito:
+            "é uma ferramenta a mais que eu vou utilizar separado". */}
+        <Botao tipo="secundario" aoClicar={() => setPomodoro(true)}>
+          Pomodoro
+        </Botao>
 
         <div className="abas-redacao">
           <button type="button" className="btn-aba" data-ativa={aba === 'plano'}

@@ -198,16 +198,28 @@ export function useVault() {
     await abrir(link.resolvedPath)
   }, [abrir])
 
-  const salvar = useCallback(async (): Promise<void> => {
+  /**
+   * Grava um texto JÁ PRONTO na nota aberta.
+   *
+   * Separado de `salvar` por causa da checkbox: quem marca uma tarefa tem o
+   * texto novo em mão, mas o estado `conteudo` só muda no render seguinte —
+   * chamar `salvar` ali gravaria a versão anterior, apagando a marcação.
+   */
+  const salvarTexto = useCallback(async (texto: string): Promise<void> => {
     if (!aberta) return
     try {
-      await window.vaultApi.invoke('note:write', { path: aberta, content: conteudo })
-      setSalvo(conteudo)
+      await window.vaultApi.invoke('note:write', { path: aberta, content: texto })
+      setConteudo(texto)
+      setSalvo(texto)
       await recarregar()
       void carregarLinks(aberta)
       setErro(null)
     } catch (e) { falhou(e) }
-  }, [aberta, conteudo, recarregar, carregarLinks])
+  }, [aberta, recarregar, carregarLinks])
+
+  const salvar = useCallback(async (): Promise<void> => {
+    await salvarTexto(conteudo)
+  }, [salvarTexto, conteudo])
 
   /** Serializa um valor para o frontmatter. Listas e objetos viram JSON inline. */
   const yaml = (val: unknown): string =>
@@ -464,7 +476,7 @@ export function useVault() {
     // arquivo nenhum, então o watcher não dispara e a tela continuaria com a
     // lista antiga até alguém trocar de lente.
     recarregar,
-    abrir, abrirPorNome, abrirLink, fechar, salvar,
+    abrir, abrirPorNome, abrirLink, fechar, salvar, salvarTexto,
     criar, alterar, excluir, excluirVarias, mover, criarPasta, lancar, marcarNoDia,
     autorizarPasta, autorizarArrastadas, removerPasta,
     arvoreDev, lerArquivo, gravarArquivo, abrirTerminal, revelar, novoProjeto, clonarRepo,

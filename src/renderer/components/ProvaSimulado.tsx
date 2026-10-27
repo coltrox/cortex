@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { NoteComCampos } from '../tipos'
 import { figuraSegura } from '../../shared/figura'
+import { registrarTentativa } from '../../shared/tentativas'
 
 /**
  * Fazer o simulado, questão por questão.
@@ -124,7 +125,19 @@ export function ProvaSimulado({ nota, aoSair, aoGravar }: {
       total: e.total,
       minutos,
       // Gravadas para dar para rever o simulado depois.
-      respostas: questoes.map((_, i) => respostas[i] ?? '-').join('')
+      respostas: questoes.map((_, i) => respostas[i] ?? '-').join(''),
+      /* O histórico não pode sumir ao refazer: `acertos` e `total` guardam a
+         última tentativa, e `tentativas` guarda TODAS, com as questões que
+         erraram — foi o que ele pediu para poder refazer só essas. */
+      tentativas: registrarTentativa(nota.campos?.tentativas, {
+        data: new Date().toISOString().slice(0, 10),
+        acertos: e.certas,
+        total: e.total,
+        minutos,
+        erradas: questoes
+          .map((q, i) => (respostas[i] !== q.gabarito ? i + 1 : 0))
+          .filter(n => n > 0)
+      })
     })
   }
 

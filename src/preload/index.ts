@@ -27,6 +27,23 @@ const api = {
     return ipcRenderer.invoke('app:versao')
   },
 
+  /**
+   * Salva a nota aberta como PDF.
+   *
+   * Pedido dele: "opção também de baixar como PDF os conteúdos" — para
+   * estudar impresso e levar o conteúdo para quem não tem o Cortex.
+   *
+   * Quem imprime é o MAIN, sobre a janela que já está na tela: assim o PDF
+   * sai com as fórmulas e as tabelas exatamente como ele vê, sem um segundo
+   * renderizador que divergiria do primeiro. O renderer só marca o `body`
+   * antes de chamar, para o CSS de impressão deixar apenas a nota visível.
+   *
+   * Devolve o caminho salvo, ou `null` se ele cancelou o diálogo.
+   */
+  pdfDaNota(titulo: string): Promise<string | null> {
+    return ipcRenderer.invoke('nota:pdf', { titulo }) as Promise<string | null>
+  },
+
   /** A atualização do app: em que pé está, procurar agora, reiniciar para instalar. */
   atualizacao: {
     estado: (): Promise<import('../shared/types').EstadoAtualizacao> => ipcRenderer.invoke('app:atualizacao'),

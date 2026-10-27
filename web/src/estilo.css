@@ -2752,6 +2752,39 @@ button.md-link{
   gap:10px; margin-bottom:8px;
 }
 
+/* O tempo do simulado, que corre desde a abertura da tela. Tabular para o
+   relógio não dançar a cada segundo. */
+.simulado-tempo{
+  font-variant-numeric:tabular-nums;
+  font-weight:600;
+  color:var(--texto);
+}
+
+/* ---- Pomodoro do celular ----
+   Separado da sessão de estudo de propósito: são duas ferramentas. */
+.pomo{
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:22px 16px; margin:4px 0 14px;
+  border:1px solid var(--borda); border-radius:16px;
+  background:var(--cartao);
+}
+.pomo-fase{
+  font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--texto-fraco);
+}
+.pomo-relogio{
+  font-size:54px; line-height:1.05; font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+.pomo-ciclos{ font-size:12px; color:var(--texto-fraco); }
+/* A cor diz a fase sem precisar ler: foco puxa para a cor de estudos,
+   pausa fica discreta. */
+.pomo[data-fase="foco"] .pomo-relogio{ color:var(--estudos, var(--acento)); }
+.pomo[data-fase="pausa"] .pomo-relogio,
+.pomo[data-fase="pausa-longa"] .pomo-relogio{ color:var(--texto-fraco); }
+.pomo-botoes{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.pomo-botoes > *{ flex:1 1 auto; }
+
 /* A barra é a única noção de progresso durante a prova. */
 .simulado-barra{
   height:4px; border-radius:2px; overflow:hidden;

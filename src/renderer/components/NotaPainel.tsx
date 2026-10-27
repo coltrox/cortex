@@ -31,6 +31,15 @@ type Props = {
   aoEditar: (v: boolean) => void
   aoMudar: (texto: string) => void
   aoSalvar: () => void
+  /**
+   * Salva um texto JÁ PRONTO, sem passar pelo estado.
+   *
+   * Existe por causa da checkbox: marcar uma tarefa deixava a nota "não
+   * salva", e ele precisava clicar em salvar para não perder. Chamar `aoMudar`
+   * e `aoSalvar` em sequência não resolve — o estado do React ainda não mudou
+   * quando o segundo roda, e o que iria para o disco era o texto anterior.
+   */
+  aoSalvarTexto?: (texto: string) => void
   /** `novaAba` vem do Ctrl no clique — ver `AoAbrirLink` no Markdown. */
   aoAbrirNome: (alvo: string, novaAba?: boolean) => void
   aoAbrirPath: (p: string, novaAba?: boolean) => void
@@ -62,6 +71,9 @@ function ExerciciosDaNota({ nota, aoGravar }: {
   // `respostas`, e não `total`: `total` existe desde que a nota foi escrita,
   // e checá-lo diria "já fez" para quem nunca respondeu nada.
   const jaFez = textoDoCampo(nota.campos?.respostas) !== ''
+  const historico = Array.isArray(nota.campos?.tentativas)
+    ? nota.campos.tentativas.filter((x): x is string => typeof x === 'string')
+    : []
 
   if (fazendo) {
     return (
@@ -84,7 +96,38 @@ function ExerciciosDaNota({ nota, aoGravar }: {
       <button className="btn" onClick={() => setFazendo(true)}>
         {jaFez ? 'Fazer de novo' : 'Fazer os exercícios'}
       </button>
+      {/* O histórico fica à vista, e não só no arquivo: ele pediu o acerto
+          "sem sumir" justamente para comparar as tentativas e saber em quais
+          questões errou. */}
+      {historico.length > 0 && (
+        <div className="nota-tentativas">
+          <h3 className="secao-menor">O que já fez aqui</h3>
+          <ul>
+            {historico.map(linha => <li key={linha}>{linha}</li>)}
+          </ul>
+        </div>
+      )}
     </div>
+  )
+}
+
+/**
+ * A lixeira do botão de excluir.
+ *
+ * Desenhada em SVG, e não em caractere: o `×` que estava ali antes ficava
+ * colado ao botão de ler e parecia fechar a nota. Herda a cor por
+ * `currentColor`, então a classe `perigo` do botão continua mandando.
+ */
+function IconeLixeira() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
+      fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M6 6l1 14h10l1-14" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
   )
 }
 
@@ -154,8 +197,8 @@ function LinhaCampo({ campo }: { campo: CampoExibido }) {
 
 export function NotaPainel({
   nota, caminho, conteudo, editando, sujo, saindo, entrando,
-  voltarPara, aoVoltar, aoEditar, aoMudar, aoSalvar, aoAbrirNome, aoAbrirPath, aoExcluir,
-  aoGravarCampos
+  voltarPara, aoVoltar, aoEditar, aoMudar, aoSalvar, aoSalvarTexto,
+  aoAbrirNome, aoAbrirPath, aoExcluir, aoGravarCampos
 }: Props) {
   const area = useRef<HTMLTextAreaElement>(null)
 
@@ -186,7 +229,30 @@ export function NotaPainel({
     const linhas = conteudo.split(/\r\n|\n/)
     if (linha >= linhas.length) return
     linhas[linha] = linhas[linha].replace(/\[([ xX])\]/, feito ? '[x]' : '[ ]')
-    aoMudar(linhas.join('\n'))
+    const novo = linhas.join('\n')
+    aoMudar(novo)
+    /* Marcar tarefa SALVA na hora. Clicar numa checkbox é um gesto completo —
+       ninguém marca e depois procura um botão de salvar; e, no celular, o
+       mesmo clique já salva. Vai o texto pronto, e não o estado, porque o
+       estado só muda no render seguinte. */
+    aoSalvarTexto?.(novo)
+  }
+
+  /**
+   * Salva o conteúdo aberto como PDF.
+   *
+   * Marca o `body` antes de chamar o main: é essa marca que o CSS de
+   * impressão usa para esconder a lateral, a trilha e os botões, deixando só
+   * a nota na folha. A marca sai no `finally` — se ficasse presa por um erro,
+   * a tela continuaria escondendo metade de si mesma.
+   */
+  const salvarPdf = async (titulo: string): Promise<void> => {
+    document.body.dataset.imprimindo = 'nota'
+    try {
+      await window.vaultApi.pdfDaNota(titulo)
+    } finally {
+      delete document.body.dataset.imprimindo
+    }
   }
 
   const links = agrupar(saindo)
@@ -227,14 +293,27 @@ export function NotaPainel({
               </button>
             )
           })()}
+          {/* PDF só na leitura, e só em nota de conteúdo: é o material de
+              estudo que ele quis levar impresso. No modo de escrita a tela é
+              o markdown cru, que não serve para imprimir. */}
+          {!editando && nota?.tipo === 'materia' && (
+            <button className="btn-fantasma" title="Salvar este conteúdo como PDF"
+              onClick={() => void salvarPdf(nota.title)}>
+              PDF
+            </button>
+          )}
           <button className="btn-fantasma" onClick={() => aoEditar(!editando)}>
-            {editando ? 'Ler' : 'Escrever'}
+            {editando ? 'Ler' : 'Editar'}
           </button>
           {editando && (
             <button className="btn" onClick={aoSalvar} disabled={!sujo}>Salvar</button>
           )}
           {aoExcluir && (
-            <button className="btn-icone perigo" title="Excluir nota" onClick={aoExcluir}>×</button>
+            /* Lixeira, e não `×`: o X fica ao lado do botão de ler e parecia
+               fechar a nota, não apagá-la — e apagar é irreversível. */
+            <button className="btn-icone perigo" title="Excluir nota" onClick={aoExcluir}>
+              <IconeLixeira />
+            </button>
           )}
         </span>
       </div>

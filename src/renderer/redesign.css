@@ -1976,6 +1976,66 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
 .nota-exercicios .secao { margin-top: 0; }
 .nota-exercicios .prova { margin-top: 4px; }
 
+/*
+ * Impressão da nota (o botão PDF).
+ *
+ * `data-imprimindo` é posto no `body` pelo próprio painel antes de pedir o
+ * PDF ao main, e tirado logo depois. Esconde tudo o que não é conteúdo —
+ * barra lateral, trilha, botões e os exercícios interativos, que no papel
+ * seriam alternativas sem onde clicar.
+ */
+body[data-imprimindo="nota"] .lateral,
+body[data-imprimindo="nota"] .abas,
+body[data-imprimindo="nota"] .topo,
+body[data-imprimindo="nota"] .nota-trilha,
+body[data-imprimindo="nota"] .nota-lado,
+body[data-imprimindo="nota"] .nota-exercicios,
+body[data-imprimindo="nota"] .terminal-flutuante {
+  display: none !important;
+}
+body[data-imprimindo="nota"] .nota-corpo,
+body[data-imprimindo="nota"] .nota-texto {
+  display: block;
+  max-width: none;
+  width: 100%;
+  padding: 0;
+  overflow: visible;
+}
+/* Fundo branco e texto preto: o tema escuro gastaria tinta e sairia ilegível
+   numa impressora, e o PDF é feito para ser impresso. */
+body[data-imprimindo="nota"],
+body[data-imprimindo="nota"] .shell,
+body[data-imprimindo="nota"] .nota-painel {
+  background: #fff;
+  color: #111;
+  height: auto;
+  overflow: visible;
+}
+
+/* O histórico de tentativas do conteúdo: o acerto que não some ao refazer.
+   Lista enxuta, de leitura rápida — uma linha por tentativa. */
+.nota-tentativas { margin-top: 18px; }
+.secao-menor {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-fraco);
+}
+.nota-tentativas ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.nota-tentativas li {
+  padding: 4px 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--border);
+}
+.nota-tentativas li:last-child { border-bottom: 0; }
+
 /* O filtro de data das listas: hoje e o que vem primeiro, e a janela
    escolhida em chips. Nasceu de a redação de HOJE aparecer no fim da lista. */
 .filtro-datas {
