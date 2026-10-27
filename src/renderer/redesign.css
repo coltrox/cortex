@@ -1856,11 +1856,24 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
 
 .abas {
   display: flex;
-  align-items: stretch;
+  /* `flex-end`, e não `stretch`: a aba encosta na base da faixa, como num
+     navegador. Com `stretch` ela era esticada até a altura do container e,
+     junto com a rolagem abaixo, acabava cortada ao meio. */
+  align-items: flex-end;
   gap: 2px;
   padding: 6px clamp(28px, 3.2vw, 56px) 0;
   background: var(--vidro);
+  /*
+   * Altura fixa e nada de rolagem vertical.
+   *
+   * `overflow-x: auto` obriga o `overflow-y` a deixar de ser `visible` — o
+   * navegador o promove a `auto` sozinho. Sem altura declarada, a faixa
+   * virava uma caixa de rolagem nos DOIS sentidos e as abas apareciam
+   * cortadas pela metade, que foi o que o print mostrou.
+   */
+  height: 40px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   /* A faixa das abas é da janela, não do conteúdo: arrastar por ela move o
      app, como o resto do topo. Os botões de dentro continuam clicáveis. */
@@ -1885,6 +1898,9 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
   flex: 0 0 auto;
   min-width: 132px;
   max-width: 220px;
+  /* A aba ocupa a faixa inteira menos o respiro de cima, para a borda
+     inferior encostar no conteúdo e as duas superfícies virarem uma só. */
+  height: 34px;
   border: 1px solid transparent;
   border-bottom: 0;
   border-radius: var(--raio-1) var(--raio-1) 0 0;
@@ -1983,4 +1999,26 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--text);
+}
+
+/* ==========================================================================
+   Trocar de aba não é abrir página nova
+   ==========================================================================
+   `.lente` tem `animation: entrar-pagina`, e ela rodava a cada troca de aba
+   — a "piscadinha rápida, como se estivesse recarregando". Ao voltar para
+   uma aba que já estava aberta, a animação mente: não há página nova, há
+   um retorno. O App marca a troca e ela some; a rolagem volta junto, pela
+   posição guardada por aba.
+   ========================================================================== */
+
+.shell[data-troca="aba"] .lente { animation: none; }
+
+/* A aba sendo arrastada e o lugar onde ela vai cair. */
+.aba[draggable="true"] { cursor: grab; }
+.aba[draggable="true"]:active { cursor: grabbing; }
+.aba[data-alvo="sim"] {
+  /* Uma barra no lado de destino, em vez de mover tudo: assim o alvo fica
+     claro sem a fila inteira dançar durante o arraste. */
+  box-shadow: inset 2px 0 0 var(--acento, currentColor);
+  background: var(--realce);
 }

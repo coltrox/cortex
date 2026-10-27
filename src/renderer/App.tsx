@@ -10,7 +10,7 @@ import {
 } from './ordemLentes'
 import {
   criarAba, destinoDe, mesmoDestino, navegar, andar, podeVoltar, podeAvancar,
-  abrirEmNova, fecharAba, girar, tituloAba, type Aba, type Destino
+  abrirEmNova, fecharAba, girar, mover, tituloAba, type Aba, type Destino
 } from './abas'
 import { subAreaDaAba } from '../shared/subareas'
 import { lentesVisiveis, lenteDeAbertura } from './lentes'
@@ -173,6 +173,26 @@ export function App() {
     aplicarDestino(r.destino)
   }
 
+  /* Qual aba esta sendo arrastada, e sobre qual ela esta agora. */
+  /* Verdadeiro durante a troca de aba, so para desligar a animacao de
+     entrada da lente — ela existe para pagina nova, e voltar a uma aba ja
+     aberta nao e pagina nova: era a "piscadinha rapida, como se estivesse
+     recarregando". */
+  const [trocaDeAba, setTrocaDeAba] = useState(false)
+  const [abaArrastada, setAbaArrastada] = useState<number | null>(null)
+  const [abaAlvo, setAbaAlvo] = useState<number | null>(null)
+
+  /* Onde cada aba estava rolada.
+   *
+   * Trocar de aba jogava a leitura para o topo: "quando eu troco de aba ele
+   * volta la pro comeco, tem que voltar pra onde eu tava". A posicao fica
+   * por ID da aba, e nao por indice, porque arrastar muda os indices. */
+  const rolagem = useRef(new Map<string, number>())
+
+  /** O elemento que de fato rola — e quem guarda e devolve a posicao. */
+  const areaQueRola = (): HTMLElement | null =>
+    document.querySelector('.main') ?? document.scrollingElement as HTMLElement | null
+
   /** Abre um destino em aba nova e vai para ela (o Ctrl+clique). */
   const abrirEmAbaNova = (d: Destino): void => {
     const r = abrirEmNova(abas, abaAtual, destinoVivo, d)
@@ -184,9 +204,31 @@ export function App() {
   const irParaAba = (i: number): void => {
     if (i === abaAtual || !abas[i]) return
     const base = navegar(abas, abaAtual, destinoVivo)
+
+    /* Guarda onde esta aba estava rolada antes de sair, e devolve a posição
+       da aba de destino depois que o React pintar. Sem isto, trocar de aba
+       jogava a leitura para o topo: "tem que voltar pra onde eu tava". */
+    setTrocaDeAba(true)
+    const area = areaQueRola()
+    const saindo = abas[abaAtual]
+    if (area && saindo) rolagem.current.set(saindo.id, area.scrollTop)
+
     setAbas(base)
     setAbaAtual(i)
     aplicarDestino(destinoDe(base[i]))
+
+    const chegando = base[i]
+    if (chegando) {
+      const guardado = rolagem.current.get(chegando.id) ?? 0
+      /* Dois quadros: um para o React trocar o conteúdo, outro para o layout
+         existir. Antes disso o elemento ainda tem a altura antiga, e
+         `scrollTop` seria recortado para zero. */
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const alvo = areaQueRola()
+        if (alvo) alvo.scrollTop = guardado
+        setTrocaDeAba(false)
+      }))
+    }
   }
 
   const fecharAbaEm = (i: number): void => {
@@ -564,7 +606,7 @@ export function App() {
 
   return (
     <>
-      <div className="shell" data-lente={v.lente} data-sem-lateral={semLateral}>
+      <div className="shell" data-lente={v.lente} data-sem-lateral={semLateral} data-troca={trocaDeAba ? 'aba' : undefined}>
         {/*
           * A sidebar única do redesign.
           *
@@ -791,7 +833,29 @@ export function App() {
                   nota: d.nota ? v.notas.find(n => n.path === d.nota)?.title : undefined
                 })
                 return (
-                  <div key={a.id} className="aba" data-ativa={i === abaAtual || undefined}>
+                  <div
+                    key={a.id}
+                    className="aba"
+                    data-ativa={i === abaAtual || undefined}
+                    data-alvo={abaAlvo === i && abaArrastada !== i ? 'sim' : undefined}
+                    /* Arrastar para reordenar, como no navegador. HTML5 drag
+                       e nao mouse cru: o navegador ja cuida do limiar de
+                       movimento, do cursor e do cancelamento com Esc. */
+                    draggable
+                    onDragStart={e => { setAbaArrastada(i); e.dataTransfer.effectAllowed = 'move' }}
+                    onDragOver={e => { e.preventDefault(); setAbaAlvo(i) }}
+                    onDragEnd={() => { setAbaArrastada(null); setAbaAlvo(null) }}
+                    onDrop={e => {
+                      e.preventDefault()
+                      if (abaArrastada !== null) {
+                        const r = mover(abas, abaArrastada, i, abaAtual)
+                        setAbas(r.abas)
+                        setAbaAtual(r.atual)
+                      }
+                      setAbaArrastada(null)
+                      setAbaAlvo(null)
+                    }}
+                  >
                     <button
                       className="aba-nome"
                       role="tab"

@@ -174,6 +174,38 @@ export function fecharAba(
  * Dá a volta de propósito: com quatro abas, o atalho tem que girar entre elas
  * para sempre, e parar na última seria um atalho que às vezes não faz nada.
  */
+/**
+ * Move uma aba de lugar, como arrastar no navegador.
+ *
+ * Pedido dele: "queria reorganizar a ordem das abas — se eu apertar e
+ * segurar, consigo trazer para a esquerda ou para a direita, igual o Chrome".
+ *
+ * Devolve também onde a aba ATIVA foi parar. Sem isso, arrastar uma aba
+ * qualquer trocaria a aba em que ele está trabalhando: a posição ativa é um
+ * índice, e mexer na lista por baixo dele faz esse índice apontar para outra.
+ */
+export function mover(
+  abas: Aba[], de: number, para: number, atual: number
+): { abas: Aba[]; atual: number } {
+  const fora = de < 0 || de >= abas.length
+  const destinoRuim = para < 0 || para >= abas.length
+  if (fora || destinoRuim || de === para) return { abas, atual }
+
+  const copia = [...abas]
+  const [movida] = copia.splice(de, 1)
+  if (!movida) return { abas, atual }
+  copia.splice(para, 0, movida)
+
+  /* Para onde a aba ativa foi: se era a arrastada, segue com ela; senão,
+     desloca um lugar quando a mudança passou por cima dela. */
+  let novoAtual = atual
+  if (atual === de) novoAtual = para
+  else if (de < atual && para >= atual) novoAtual = atual - 1
+  else if (de > atual && para <= atual) novoAtual = atual + 1
+
+  return { abas: copia, atual: novoAtual }
+}
+
 export function girar(total: number, atual: number, passo: number): number {
   if (total <= 0) return 0
   return (((atual + passo) % total) + total) % total

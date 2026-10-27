@@ -2972,3 +2972,10 @@ html[data-tema="escuro"], html[data-tema="sistema"]{
   padding:2px 6px 0;
   border-top:1.5px solid currentColor;
 }
+
+/* A faixa de assuntos, abaixo da de matérias.
+   Menor que a das matérias de propósito: assunto é um recorte DENTRO da
+   matéria, e dar o mesmo peso visual às duas faria parecer duas escolhas
+   independentes. */
+.treino-assuntos{ margin-top:-6px; margin-bottom:14px; }
+.treino-assuntos .btn-aba{ padding:7px 11px; font-size:13px; }

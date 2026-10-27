@@ -25,6 +25,16 @@ import type { Guardado } from './guardado'
 export type Questao = {
   n?: number
   materia?: string
+  /**
+   * O subtema, dentro da matéria.
+   *
+   * Pedido dele: "o arquivo fala sobre física termologia, eu posso escolher
+   * fazer só exercícios de dilatação, ou rendimento térmico". Uma nota de
+   * termologia tem dezenas de questões de cinco assuntos diferentes, e
+   * treinar o bolo inteiro quando o que falha é dilatação desperdiça a
+   * sessão.
+   */
+  assunto?: string
   enunciado?: string
   a?: string; b?: string; c?: string; d?: string; e?: string
   gabarito?: string
@@ -72,6 +82,8 @@ export type Carta = {
   /** O título da nota de origem, para a tela dizer de onde saiu. */
   origem: string
   materia: string
+  /** O subtema da questão, para treinar um pedaço do conteúdo de cada vez. */
+  assunto: string
   questao: Questao
   /** Se entra no treino livre ou está reservada a um dia do cronograma. */
   pote: Origem
@@ -149,6 +161,7 @@ export function cartasDoCardapio(itens: ItemCardapio[], hoje = ''): Carta[] {
         chave: `${item.nome}#${q.n ?? i + 1}`,
         origem: item.nome,
         materia: q.materia ?? txt(detalhe.materia),
+        assunto: txt(q.assunto),
         questao: q,
         pote: reservada ? 'cronograma' : 'treino'
       })
@@ -160,6 +173,21 @@ export function cartasDoCardapio(itens: ItemCardapio[], hoje = ''): Carta[] {
 /** Só o que pode cair no treino livre. */
 export function paraTreinar(cartas: Carta[]): Carta[] {
   return cartas.filter(c => c.pote === 'treino')
+}
+
+/**
+ * Os assuntos presentes, em ordem alfabética e sem repetição.
+ *
+ * Questão sem assunto não entra na lista: ela aparece em Tudo, e inventar
+ * um rótulo tipo outros só criaria uma gaveta que ninguém escolhe.
+ */
+export function assuntosDe(cartas: Carta[]): string[] {
+  return [...new Set(cartas.map(c => c.assunto).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
+export function filtrarPorAssunto(cartas: Carta[], assunto: string | null): Carta[] {
+  return assunto ? cartas.filter(c => c.assunto === assunto) : cartas
 }
 
 /** As matérias presentes no baralho, em ordem alfabética e sem repetição. */

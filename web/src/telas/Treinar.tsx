@@ -5,7 +5,7 @@ import type { Tela } from '../App'
 import { guardadoDoNavegador } from '../guardado'
 import {
   cartasDoCardapio, materiasDo, filtrarPorMateria, baralho, registrar,
-  placarDoDia, pendentes, lerHistorico, gravarHistorico,
+  placarDoDia, pendentes, lerHistorico, gravarHistorico, assuntosDe, filtrarPorAssunto,
   paraTreinar, desfazer, feitas, type Carta, type Feita
 } from '../exercicios'
 import {
@@ -52,6 +52,10 @@ export function Treinar(p: {
   /* A lista do que ele já respondeu, por cima do treino. */
   const [vendoFeitas, setVendoFeitas] = useState(false)
   const [materia, setMateria] = useState<string | null>(null)
+  /* O subtema dentro da materia. Zera ao trocar de materia: "Dilatacao"
+     nao existe dentro de matematica, e manter o filtro antigo deixaria a
+     tela vazia sem explicar por que. */
+  const [assunto, setAssunto] = useState<string | null>(null)
   const [marcada, setMarcada] = useState<string | null>(null)
   /* Quantas cartas já passaram. Serve para forçar o próximo sorteio quando o
      histórico não distingue duas cartas. */
@@ -70,6 +74,12 @@ export function Treinar(p: {
      estragaria o dia 11. */
   const todas = useMemo(() => paraTreinar(todasAsCartas), [todasAsCartas])
   const materias = useMemo(() => materiasDo(todas), [todas])
+  /* Os assuntos da materia escolhida — e nao do baralho inteiro: a lista de
+     subtemas de fisica nao ajuda quem esta em matematica. */
+  const assuntos = useMemo(
+    () => assuntosDe(filtrarPorMateria(todas, materia)),
+    [todas, materia]
+  )
 
   /*
    * A carta da vez vive em ESTADO, e não num valor derivado.
@@ -92,13 +102,13 @@ export function Treinar(p: {
   todasRef.current = todas
 
   useEffect(() => {
-    const candidatas = filtrarPorMateria(todasRef.current, materia)
+    const candidatas = filtrarPorAssunto(filtrarPorMateria(todasRef.current, materia), assunto)
     const escolhida = baralho(candidatas, historicoRef.current)[0]
     // Baralho vazio não apaga a carta na tela: o cardápio pode ter chegado
     // vazio por um instante, e sumir com a questão no meio seria o mesmo bug
     // de novo, por outro caminho.
     if (escolhida) setAtual(escolhida)
-  }, [materia, rodada])
+  }, [materia, assunto, rodada])
 
   const placar = placarDoDia(historico, p.hoje)
   const aRever = pendentes(todas, historico).length
@@ -276,9 +286,23 @@ export function Treinar(p: {
             onClick={() => { setMateria(null); proxima() }}>Tudo</button>
           {materias.map(m => (
             <button key={m} type="button" className="btn-aba" data-ativa={materia === m}
-              onClick={() => { setMateria(m); proxima() }}>{m}</button>
+              onClick={() => { setMateria(m); setAssunto(null); proxima() }}>{m}</button>
           ))}
         </div>
+
+        {/* Os assuntos da matéria escolhida. Só aparecem quando há mais de
+            um: com um assunto só, a faixa seria um botão que não escolhe
+            nada. */}
+        {assuntos.length > 1 && (
+          <div className="abas-redacao treino-assuntos">
+            <button type="button" className="btn-aba" data-ativa={assunto === null}
+              onClick={() => { setAssunto(null); proxima() }}>Todos os assuntos</button>
+            {assuntos.map(a => (
+              <button key={a} type="button" className="btn-aba" data-ativa={assunto === a}
+                onClick={() => { setAssunto(a); proxima() }}>{a}</button>
+            ))}
+          </div>
+        )}
 
         {!atual ? (
           <p className="vazio">Nenhuma questão desta matéria chegou ao celular.</p>

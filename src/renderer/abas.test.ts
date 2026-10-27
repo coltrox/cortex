@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   criarAba, destinoDe, mesmoDestino, navegar, andar, podeVoltar, podeAvancar,
-  abrirEmNova, fecharAba, girar, tituloAba, type Aba, type Destino
+  abrirEmNova, fecharAba, girar, mover, tituloAba, type Aba, type Destino
 } from './abas'
 
 const d = (lente: string, sub: string, nota: string | null = null): Destino =>
@@ -254,5 +254,57 @@ describe('tituloAba', () => {
 
   it('sem nome nenhum, cai no id da lente em vez de ficar em branco', () => {
     expect(tituloAba(criarAba(d('dev', 'codigo')), {})).toBe('dev')
+  })
+})
+
+describe('mover', () => {
+  const quatro = () => [
+    criarAba(d('hoje', '')), criarAba(d('vida', 'metas')),
+    criarAba(d('saude', 'treinos')), criarAba(d('conhecimento', 'cronograma'))
+  ]
+
+  it('arrasta uma aba para a direita', () => {
+    const r = mover(quatro(), 0, 2, 0)
+    expect(r.abas.map(a => destinoDe(a).lente))
+      .toEqual(['vida', 'saude', 'hoje', 'conhecimento'])
+  })
+
+  it('arrasta para a esquerda', () => {
+    const r = mover(quatro(), 3, 0, 3)
+    expect(r.abas.map(a => destinoDe(a).lente))
+      .toEqual(['conhecimento', 'hoje', 'vida', 'saude'])
+  })
+
+  it('a aba ARRASTADA continua sendo a ativa', () => {
+    // Senao arrastar a aba em que se trabalha jogaria o trabalho para outra.
+    const r = mover(quatro(), 0, 3, 0)
+    expect(r.atual).toBe(3)
+  })
+
+  it('arrastar outra aba por cima da ativa desloca o indice', () => {
+    /* A posicao ativa e um indice: mexer na lista por baixo dele faria o
+       mesmo numero apontar para outra aba. */
+    const r = mover(quatro(), 0, 3, 1)   // ativa era a 1, a 0 foi para o fim
+    expect(r.atual).toBe(0)
+    expect(destinoDe(r.abas[0]!).lente).toBe('vida')
+  })
+
+  it('arrastar de tras para frente tambem acerta o indice', () => {
+    const r = mover(quatro(), 3, 0, 1)   // ativa era a 1
+    expect(r.atual).toBe(2)
+    expect(destinoDe(r.abas[2]!).lente).toBe('vida')
+  })
+
+  it('soltar no mesmo lugar nao mexe em nada', () => {
+    const antes = quatro()
+    const r = mover(antes, 1, 1, 1)
+    expect(r.abas).toBe(antes)
+    expect(r.atual).toBe(1)
+  })
+
+  it('indice invalido nao quebra a lista', () => {
+    const antes = quatro()
+    expect(mover(antes, -1, 2, 0).abas).toBe(antes)
+    expect(mover(antes, 0, 9, 0).abas).toBe(antes)
   })
 })
