@@ -168,6 +168,11 @@ export function formulaLegivel(texto: string): string {
     eta: 'η', quad: '  ', qquad: '    '
   }
   return texto
+    /* `\%`, `\$`, `\&`: no LaTeX a contra-barra só escapa o caractere, que em
+       si não é comando. Sem esta linha ela sobrava na tela — "taxa de 1,2\%"
+       era o que aparecia na questão, porque a troca de comandos abaixo só
+       casa letras e deixava a contra-barra para trás. */
+    .replace(/\\([%$&_#])/g, '$1')
     .replace(/\\text\{([^}]*)\}/g, '$1')
     .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)')
     .replace(/\\sqrt\{([^}]*)\}/g, '√($1)')

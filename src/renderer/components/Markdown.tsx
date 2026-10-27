@@ -100,6 +100,15 @@ function expressao(src: string, chave = 'f'): ReactNode[] {
     if (c === CONTRA_BARRA) {
       // O `.` inicial casa com a própria contra-barra, que a linha acima já
       // confirmou estar ali — evita escrevê-la escapada dentro do regex.
+      /* Contra-barra que só escapa um caractere: `\%`, `\$`, `\&`. Não é
+         comando, e sem este caso ela ia para a tela junto — a questão
+         aparecia com "taxa de 1,2\%" escrito assim mesmo. */
+      const escapado = src[i + 1]
+      if (escapado && '%$&_#'.includes(escapado)) {
+        texto += escapado
+        i += 2
+        continue
+      }
       const m = /^.([A-Za-z]+)/.exec(src.slice(i))
       if (!m) { texto += c; i++; continue }
       const nome = m[1]

@@ -152,6 +152,13 @@ describe('formulaLegivel', () => {
     expect(formulaLegivel('\\text{sen } x')).toBe('sen x')
   })
 
+  it('contra-barra que so escapa o caractere sai junto', () => {
+    // Vinha dos arquivos que ele baixou: "taxa de 1,2\%" aparecia com a
+    // contra-barra na tela, porque a troca de comandos so casa letras.
+    expect(formulaLegivel('taxa de 1,2\\% ao mes')).toBe('taxa de 1,2% ao mes')
+    expect(formulaLegivel('R\\$ 2.600,00')).toBe('R$ 2.600,00')
+  })
+
   it('raiz', () => {
     expect(formulaLegivel('\\sqrt{2gh}')).toBe('√(2gh)')
   })
