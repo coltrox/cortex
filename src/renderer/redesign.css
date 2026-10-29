@@ -1875,10 +1875,34 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
+  /*
+   * A faixa NÃO rola junto com a página, e não encolhe.
+   *
+   * Quem rola é o `.main` (ver `styles.css`), e a faixa mora dentro dele. Sem
+   * `sticky`, bastava rolar a tela para ela subir e ser cortada pela borda da
+   * janela — era o que o print dele mostrava, as abas serradas ao meio no alto
+   * do app. O `.topo` nunca teve esse problema porque já era `sticky`; faltava
+   * a faixa acompanhar.
+   *
+   * `flex-shrink: 0` pelo mesmo motivo por outro caminho: em coluna flex, o
+   * filho encolhe por padrão quando falta espaço, e uma faixa de 40 px
+   * espremida a 10 px corta a aba igual.
+   */
+  position: sticky;
+  top: 0;
+  /* Acima do `.topo` (z-index 2), que gruda logo abaixo dela. */
+  z-index: 3;
+  flex: 0 0 auto;
+  /* Fundo opaco: o conteúdo passando por baixo apareceria atrás das abas. */
+  background: var(--canvas);
   /* A faixa das abas é da janela, não do conteúdo: arrastar por ela move o
      app, como o resto do topo. Os botões de dentro continuam clicáveis. */
   -webkit-app-region: drag;
 }
+
+/* Com a faixa de abas na tela, o caminho gruda ABAIXO dela, e não no topo da
+   janela — senão um cobriria o outro ao rolar. */
+.main:has(.abas) > .topo { top: 40px; }
 .abas::-webkit-scrollbar { display: none; }
 .abas button { -webkit-app-region: no-drag; }
 
