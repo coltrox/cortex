@@ -125,6 +125,43 @@ function ExerciciosDaNota({ nota, aoGravar }: {
  * colado ao botão de ler e parecia fechar a nota. Herda a cor por
  * `currentColor`, então a classe `perigo` do botão continua mandando.
  */
+/**
+ * A ficha da redação enquanto ele escreve: tema, banca e a cobrança.
+ *
+ * Existe porque a tabela genérica de campos não serve aqui. Ela desenha um
+ * campo por linha, com rótulo e botão de copiar, e numa janela de 1280 isso
+ * dava 450px de altura — mais do que a área de escrita inteira numa janela
+ * fora de tela cheia, onde aparecia cortada no meio. Foi a queixa dele:
+ * "quando não tá em tela cheia, fica quebrado as informações, tema ali".
+ *
+ * O tema é o que precisa estar à vista o tempo todo; a cobrança é o que se lê
+ * uma vez, no começo, então recolhe — e nasce recolhida quando já há texto
+ * escrito, pelo mesmo motivo da tela do celular.
+ */
+function FichaDaRedacao({ nota }: { nota: NoteComCampos }) {
+  const tema = textoDoCampo(nota.campos?.tema)
+  const banca = textoDoCampo(nota.campos?.banca)
+  const cobranca = textoDoCampo(nota.campos?.cobranca)
+  const [verCobranca, setVerCobranca] = useState(false)
+
+  if (!tema && !banca && !cobranca) return null
+
+  return (
+    <div className="nota-ficha">
+      <span className="nota-ficha-rotulo">Tema{banca ? ` · ${banca}` : ''}</span>
+      {tema && <strong className="nota-ficha-tema">{tema}</strong>}
+      {cobranca && (
+        <>
+          {verCobranca && <p className="nota-ficha-cobranca">{cobranca}</p>}
+          <button className="nota-ficha-menos" onClick={() => setVerCobranca(v => !v)}>
+            {verCobranca ? 'esconder o que a banca cobra' : 'o que a banca cobra'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 /** Seta circular do recarregar. Mesmo tamanho e cor da lixeira. */
 function IconeRecarregar() {
   return (
@@ -376,15 +413,18 @@ export function NotaPainel({
             </>
           )}
 
-          {/* Os campos do frontmatter, desenhados.
-              Na leitura, sempre. No modo de escrita, só na REDAÇÃO — e por
-              uma razão exata: nas outras notas o YAML está ali em cima, no
-              texto cru, e a mesma coisa duas vezes confunde qual das duas
-              vale; na redação o frontmatter é retirado da caixa (`soTexto`),
-              então não há duplicata nenhuma, e sem isto o tema desaparecia
-              justamente enquanto ele escreve sobre ele. Pedido dele: "não é
-              para esconder o tema, não". */}
-          {nota && (!editando || escrevendoRedacao) && (() => {
+          {/* Escrevendo redação: a ficha compacta, no lugar da tabela de
+              campos. A tabela media 450px numa janela de 1280 — cobrança,
+              situação e os botões de copiar, um campo por linha —, e numa
+              janela que não está em tela cheia ela comia a área de escrita e
+              aparecia cortada no meio. Aqui vale o que ele precisa ver
+              enquanto escreve: o tema. */}
+          {nota && escrevendoRedacao && <FichaDaRedacao nota={nota} />}
+
+          {/* Os campos do frontmatter, desenhados. Só na leitura: no modo de
+              escrita o YAML está ali em cima, no texto cru, e a mesma coisa
+              duas vezes na tela confunde qual das duas é a que vale. */}
+          {nota && !editando && (() => {
             // Treino e cardio têm desenho próprio: o genérico enfileirava as
             // séries como uma lista de números sem rótulo.
             if (nota.tipo === 'sessao') return <NotaTreino campos={nota.campos ?? {}} />

@@ -754,25 +754,62 @@ body {
 .meta-nota { font-family: var(--sans); font-size: 12.5px; margin-bottom: 30px; }
 .campos-nota { border-radius: var(--raio-2); margin-bottom: 34px; }
 
-/* Escrevendo uma redação: o tema fica preso no topo.
-   Antes ele rolava para fora junto com o texto — quanto mais linhas, menos
-   se via sobre o que era para escrever. `sticky` resolve sem tirar nada do
-   fluxo; o fundo opaco é obrigatório, porque o texto passa POR BAIXO.
+/* Escrevendo uma redação: a tela vira folha de papel.
 
-   Medido num harness antes de ficar assim: a primeira tentativa foi travar a
-   rolagem da área (`overflow:hidden`) e deixar só a caixa rolar, e com isso
-   um cabeçalho alto espremia o editor até a altura ZERO. Preso no topo não
-   tem esse risco. */
-.nota-texto[data-escrevendo] .campos-nota {
+   A ficha fica presa no topo, para o tema não rolar para fora conforme o
+   texto cresce, e é COMPACTA de propósito: a tabela genérica de campos media
+   450px numa janela de 1280 e, fora de tela cheia, aparecia cortada no meio.
+
+   `flex: 0 0 auto` nela e `min-height` no editor são o par que impede os dois
+   extremos — a ficha ser espremida até sumir, e o editor ser espremido até a
+   altura zero (aconteceu, medido num harness, quando a área deixou de rolar).
+   Se nem assim couber, quem rola é a área, como sempre foi. */
+.nota-ficha {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--canvas);
-  padding: 10px 0;
+  flex: 0 0 auto;
   margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--acento);
+  border-radius: var(--raio-2);
+  background: var(--surface);
 }
-/* O cabeçalho encolhe na folha: o tema importa, mas 34px de título roubariam
-   um terço da área de escrita. */
+.nota-ficha-rotulo {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--acento);
+}
+.nota-ficha-tema { display: block; font-size: 15px; line-height: 1.4; }
+.nota-ficha-cobranca {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+.nota-ficha-menos {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.nota-ficha-menos:hover { color: var(--acento); }
+
+.nota-texto[data-escrevendo] .editor { flex: 1 1 auto; min-height: 220px; }
+/* O título encolhe na folha: 34px roubariam um terço da área de escrita. */
 .nota-texto[data-escrevendo] .titulo-nota { font-size: 22px; }
 .nota-texto[data-escrevendo] .meta-nota { margin-bottom: 10px; }
 .campo-nota { padding: 13px 18px; background: var(--surface); gap: 18px; }
@@ -828,7 +865,7 @@ body {
   color: var(--text-3);
 }
 .paleta-sinal { width: 12px; color: var(--text-3); }
-.paleta-item.comando[aria-selected="true"] .paleta-sinal { color: var(--accent); }
+.paleta-item.comando[aria-selected="true"] .paleta-sinal { color: var(--acento); }
 
 /* ---------- Pomodoro ---------- */
 
@@ -1001,10 +1038,10 @@ body {
   transition: background var(--dur, .15s), border-color var(--dur, .15s);
 }
 .rodar-script:hover { border-color: var(--border-strong); background: var(--surface); }
-.rodar-script.principal { background: var(--accent-bg); border-color: transparent; color: var(--accent); }
-.rodar-script.principal:hover { border-color: var(--accent); }
+.rodar-script.principal { background: var(--accent-bg); border-color: transparent; color: var(--acento); }
+.rodar-script.principal:hover { border-color: var(--acento); }
 .rodar-play { font-size: 9px; line-height: 1; color: var(--pale-grn); }
-.rodar-script.principal .rodar-play { color: var(--accent); }
+.rodar-script.principal .rodar-play { color: var(--acento); }
 .rodar-script[data-vivo="true"] .rodar-play { color: var(--pale-grn); }
 
 /* Explorador e editor lado a lado, altura presa à janela. */
@@ -1320,7 +1357,7 @@ body {
   width: 190px; padding: 4px 8px; font: 12.5px var(--mono); color: var(--text);
   background: var(--surface-sunk); border: 1px solid var(--border); border-radius: 4px; outline: none;
 }
-.codigo-busca input:focus { border-color: var(--accent); }
+.codigo-busca input:focus { border-color: var(--acento); }
 .codigo-busca-conta { min-width: 62px; font-size: 11.5px; color: var(--text-3); text-align: center; white-space: nowrap; }
 .codigo-busca-conta[data-vazio="true"] { color: var(--pale-red); }
 
@@ -1767,7 +1804,7 @@ button.refeicao-opcao[data-escolhida="true"] .refeicao-opcao-n {
   display: flex; flex-direction: column; gap: 6px;
 }
 .terminal-linha { display: flex; align-items: center; gap: 8px; }
-.terminal-prompt { flex: none; font-family: var(--mono); color: var(--accent); font-size: 14px; }
+.terminal-prompt { flex: none; font-family: var(--mono); color: var(--acento); font-size: 14px; }
 .terminal-campo {
   flex: 1; min-width: 0; padding: 7px 10px; border-radius: var(--raio-1);
   background: var(--surface-sunk); border: 1px solid var(--border); color: var(--text);

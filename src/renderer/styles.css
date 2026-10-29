@@ -223,6 +223,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border-radius: 10px;
   overflow: hidden;
   background: var(--border);
+  /* NÃO encolher. O `overflow: hidden` acima é necessário — é ele que faz as
+     bordas arredondadas cortarem a primeira e a última linha —, mas ele zera
+     o tamanho mínimo automático deste bloco como item de flex. A `.nota-texto`
+     é uma coluna flex, o editor tem altura mínima, e numa janela fora de tela
+     cheia não sobrava espaço: a ficha era espremida abaixo do próprio
+     conteúdo e aparecia cortada no meio de uma linha. Medido: conteúdo de
+     211px dentro de uma caixa de 166px. Com isto, quem rola é a área. */
+  flex: 0 0 auto;
 }
 
 .campo-nota {
