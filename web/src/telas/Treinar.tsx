@@ -49,6 +49,11 @@ export function Treinar(p: {
   /* O relatório da sessão que acabou de ser encerrada, para ele ver na hora
      o que o Cortex vai escrever na nota. */
   const [fechada, setFechada] = useState<ResumoSessao | null>(null)
+  /* A pergunta do "do quê?", entre tocar em encerrar e registrar de fato.
+     Pedido dele: "antes, quando eu clicar para fechar ela, é para perguntar,
+     ah, foi sessão de estudos do quê? Aí eu escrevo". */
+  const [perguntando, setPerguntando] = useState(false)
+  const [assuntoDaSessao, setAssuntoDaSessao] = useState('')
   /* A lista do que ele já respondeu, por cima do treino. */
   const [vendoFeitas, setVendoFeitas] = useState(false)
   const [materia, setMateria] = useState<string | null>(null)
@@ -155,20 +160,25 @@ export function Treinar(p: {
   /**
    * Encerra a sessão: manda o relatório para o Cortex escrever a nota.
    *
-   * Sessão sem resposta nenhuma é descartada em silêncio — foi o botão tocado
-   * por engano, e um evento assim só criaria nota vazia no vault.
+   * Recebe o que ele escreveu na pergunta do "do quê?". Sessão sem resposta
+   * nenhuma E sem assunto é descartada em silêncio — aí foi o botão tocado
+   * por engano, e um evento assim só criaria nota vazia no vault. Com assunto
+   * escrito ela VALE mesmo sem questão alguma: é o estudo que aconteceu fora
+   * do app, que era justamente o que não dava para registrar.
    */
-  const encerrarSessao = (): void => {
+  const encerrarSessao = (dito: string): void => {
     if (!sessao) return
     const agora = new Date()
+    const assuntoDito = dito.replace(/\s+/g, ' ').trim().slice(0, 80)
 
-    if (sessao.respostas.length === 0) {
+    if (sessao.respostas.length === 0 && !assuntoDito) {
       limparSessao(guardadoDoNavegador)
       setSessao(null)
+      setPerguntando(false)
       return
     }
 
-    const r = resumir(sessao, agora)
+    const r = resumir({ ...sessao, assunto: assuntoDito }, agora)
     p.envio.registrar({
       tipo: 'sessao_estudo',
       dia: diaDaSessao(sessao),
@@ -180,12 +190,15 @@ export function Treinar(p: {
            para escrever o relatório, e mandar menos é mandar menos coisa que
            pode chegar torta. */
         materias: r.materias.map(m => ({ nome: m.nome, certas: m.certas, erradas: m.erradas })),
-        conteudos: r.conteudos.map(c => ({ nome: c.nome, certas: c.certas, erradas: c.erradas }))
+        conteudos: r.conteudos.map(c => ({ nome: c.nome, certas: c.certas, erradas: c.erradas })),
+        ...(r.assunto ? { assunto: r.assunto } : {})
       }
     })
 
     limparSessao(guardadoDoNavegador)
     setSessao(null)
+    setPerguntando(false)
+    setAssuntoDaSessao('')
     setFechada(r)
   }
 
@@ -260,8 +273,13 @@ export function Treinar(p: {
         <PainelDaSessao
           sessao={sessao}
           fechada={fechada}
+          perguntando={perguntando}
+          assunto={assuntoDaSessao}
           aoIniciar={abrirSessao}
+          aoPerguntar={() => setPerguntando(true)}
+          aoTrocarAssunto={setAssuntoDaSessao}
           aoEncerrar={encerrarSessao}
+          aoVoltarDaPergunta={() => setPerguntando(false)}
           aoDispensar={() => setFechada(null)}
         />
 
@@ -394,8 +412,13 @@ export function Treinar(p: {
 function PainelDaSessao(p: {
   sessao: SessaoEstudo | null
   fechada: ResumoSessao | null
+  perguntando: boolean
+  assunto: string
   aoIniciar: () => void
-  aoEncerrar: () => void
+  aoPerguntar: () => void
+  aoTrocarAssunto: (v: string) => void
+  aoEncerrar: (assunto: string) => void
+  aoVoltarDaPergunta: () => void
   aoDispensar: () => void
 }) {
   if (p.fechada) {
@@ -409,11 +432,20 @@ function PainelDaSessao(p: {
 
     return (
       <div className="sessao-painel" data-estado="fechada">
-        <h2 className="sessao-titulo">Sessão encerrada</h2>
+        <h2 className="sessao-titulo">
+          {r.assunto ? `Sessão registrada — ${r.assunto}` : 'Sessão encerrada'}
+        </h2>
         <p className="sessao-resumo">
-          {r.minutos > 0 && <><b>{r.minutos} min</b> · </>}
-          <b>{feitas}</b> {feitas === 1 ? 'questão' : 'questões'} ·{' '}
-          <b>{geral.certas} ✓</b> {geral.erradas} ✗
+          {r.minutos > 0 && <><b>{r.minutos} min</b></>}
+          {/* Sem questão nenhuma, o "0 questões · 0 ✓" leria como fracasso —
+              e o que houve foi estudo registrado à mão. */}
+          {feitas > 0 && (
+            <>
+              {r.minutos > 0 && ' · '}
+              <b>{feitas}</b> {feitas === 1 ? 'questão' : 'questões'} ·{' '}
+              <b>{geral.certas} ✓</b> {geral.erradas} ✗
+            </>
+          )}
         </p>
 
         <ul className="sessao-lista">
@@ -444,6 +476,21 @@ function PainelDaSessao(p: {
         </p>
         <Botao tipo="secundario" aoClicar={p.aoDispensar}>Fechar</Botao>
       </div>
+    )
+  }
+
+  /* A pergunta do "do quê?" vem antes do painel aberto: tocar em encerrar
+     troca o painel pela pergunta, e "Continuar estudando" volta para cá sem
+     ter encerrado nada. */
+  if (p.sessao && p.perguntando) {
+    return (
+      <PerguntaDoAssunto
+        sessao={p.sessao}
+        assunto={p.assunto}
+        aoTrocarAssunto={p.aoTrocarAssunto}
+        aoEncerrar={p.aoEncerrar}
+        aoVoltar={p.aoVoltarDaPergunta}
+      />
     )
   }
 
@@ -485,9 +532,93 @@ function PainelDaSessao(p: {
         </ul>
       )}
 
-      <Botao tipo="principal" aoClicar={p.aoEncerrar}>
+      <Botao tipo="principal" aoClicar={p.aoPerguntar}>
         ■ Encerrar e registrar
       </Botao>
+    </div>
+  )
+}
+
+/**
+ * Atalhos do "do quê?".
+ *
+ * Um toque em vez de digitar — no celular, escrever "redação" com o polegar
+ * depois de uma hora de estudo é atrito o bastante para ele deixar em branco,
+ * e em branco a sessão sem questões é descartada. O campo continua livre:
+ * estes são os casos que repetem.
+ */
+const ASSUNTOS_COMUNS = ['Redação', 'Exercícios', 'Revisão', 'Leitura', 'Aula']
+
+/**
+ * "Sessão de estudo do quê?"
+ *
+ * Fica ENTRE o toque em encerrar e o registro, e não no começo da sessão: ao
+ * começar ele não sabe no que o tempo vai acabar indo.
+ *
+ * Com questões respondidas, o nome é opcional — o relatório já se descreve
+ * pelas matérias. Sem questão nenhuma, o nome é a única coisa que a sessão
+ * tem, e sem ele não há o que registrar: por isso o botão fica desabilitado
+ * nesse caso, com a saída de descartar ao lado, para o toque por engano.
+ */
+function PerguntaDoAssunto(p: {
+  sessao: SessaoEstudo
+  assunto: string
+  aoTrocarAssunto: (v: string) => void
+  aoEncerrar: (assunto: string) => void
+  aoVoltar: () => void
+}) {
+  const respondidas = p.sessao.respostas.length
+  const escrito = p.assunto.trim()
+  const precisaDeNome = respondidas === 0 && !escrito
+
+  return (
+    <div className="sessao-painel" data-estado="perguntando">
+      <h2 className="sessao-titulo">Sessão de estudo do quê?</h2>
+      <p className="sessao-dica">
+        {respondidas > 0
+          ? `${respondidas} ${respondidas === 1 ? 'questão respondida' : 'questões respondidas'} aqui. O nome entra no título da nota.`
+          : 'Nenhuma questão respondida no app — escreva o que você estudou para esta sessão virar nota.'}
+      </p>
+
+      <div className="chips">
+        {ASSUNTOS_COMUNS.map(a => (
+          <button
+            key={a}
+            type="button"
+            className={escrito.toLowerCase() === a.toLowerCase() ? 'chip chip-ligado' : 'chip'}
+            onClick={() => p.aoTrocarAssunto(a)}
+          >
+            {a}
+          </button>
+        ))}
+      </div>
+
+      <input
+        className="sessao-campo"
+        value={p.assunto}
+        onChange={e => p.aoTrocarAssunto(e.target.value)}
+        placeholder="redação, revisão de genética, exercícios do livro…"
+        maxLength={80}
+        /* Enter registra: é o gesto natural depois de escrever, e no teclado
+           do celular o botão de confirmar fica embaixo do dedo. */
+        onKeyDown={e => {
+          if (e.key === 'Enter' && !precisaDeNome) p.aoEncerrar(p.assunto)
+        }}
+      />
+
+      <Botao tipo="principal" desligado={precisaDeNome}
+        aoClicar={() => p.aoEncerrar(p.assunto)}>
+        Registrar sessão
+      </Botao>
+      <Botao tipo="secundario" aoClicar={p.aoVoltar}>Continuar estudando</Botao>
+      {respondidas === 0 && (
+        /* A saída do toque por engano: sem nome e sem questão, encerrar
+           apaga a sessão em vez de criar nota vazia. */
+        <button type="button" className="btn btn-fantasma"
+          onClick={() => p.aoEncerrar('')}>
+          Descartar esta sessão
+        </button>
+      )}
     </div>
   )
 }

@@ -2583,10 +2583,25 @@ button.md-link{
 .dia-concluir{ margin-top:22px; padding-top:18px; border-top:1px solid var(--borda); }
 
 /* O tema da redação, fixo acima do campo de escrita. */
+/* O cartão do tema fica PRESO no topo enquanto ele escreve.
+   Antes rolava para fora junto com a página — quanto mais texto, mais o tema
+   sumia, e ele precisava sair da tela para lembrar sobre o que escrever. O
+   fundo é opaco de propósito: `sticky` não tira o elemento do fluxo, mas o
+   texto passa POR BAIXO dele, e com fundo transparente as duas camadas se
+   misturariam. */
 .redacao-tema{
+  position:sticky;
+  top:0;
+  z-index:2;
   padding:14px; border-radius:var(--r2);
   background:var(--painel); border:1px solid var(--borda);
   border-left:3px solid var(--acento);
+}
+.redacao-tema-menos{
+  display:block; margin-top:8px; padding:0;
+  background:none; border:0; cursor:pointer;
+  font:inherit; font-size:12.5px; color:var(--acento);
+  text-decoration:underline; text-underline-offset:3px;
 }
 .redacao-tema-rotulo{
   display:block; margin-bottom:6px;
@@ -2625,6 +2640,22 @@ button.md-link{
   color:var(--txt-3);
 }
 .sessao-titulo{ margin:0 0 8px; font-size:16px; }
+.sessao-painel[data-estado="perguntando"]{ border-left:3px solid var(--acento); }
+/* O campo do "do quê?". `font-size:16px` não é estética: abaixo disso o
+   Safari do iPhone dá zoom na página ao focar o campo, e a tela salta. */
+.sessao-campo{
+  width:100%;
+  box-sizing:border-box;
+  margin:0 0 var(--e3);
+  padding:12px;
+  font-size:16px;
+  font-family:inherit;
+  color:var(--texto);
+  background:var(--fundo);
+  border:1px solid var(--borda);
+  border-radius:10px;
+}
+.sessao-campo:focus{ outline:none; border-color:var(--acento); }
 .sessao-resumo{ margin:0 0 10px; color:var(--txt-2); font-size:14.5px; }
 
 /* Uma linha por matéria: nome à esquerda, placar à direita. Tabela seria

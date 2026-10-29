@@ -674,11 +674,18 @@ export function LenteEstudos({
           <Secao nome="Treinar" />
           <TreinoExercicios notas={notas} />
 
-          <Secao nome="Sessões de estudo" direita={<span className="linha-valor">{sessoes.length}</span>} />
+          {/* "+ Sessão" cria uma à mão: é como se registra o estudo que
+              aconteceu fora do app — redação, exercício no caderno, aula.
+              Pelo celular a sessão nasce do cronômetro e pergunta o assunto
+              ao encerrar; aqui não há cronômetro, então é formulário. */}
+          <Secao nome="Sessões de estudo" acao="Sessão"
+            aoClicar={() => aoAdicionar('sessao-estudo')}
+            direita={<span className="linha-valor">{sessoes.length}</span>} />
           {sessoes.length === 0 ? (
             <Vazio>
               Nenhuma sessão ainda. Elas são gravadas quando você encerra uma
-              sessão no celular, em Estudar → Treinar.
+              sessão no celular, em Estudar → Treinar — ou aqui, em "+ Sessão",
+              para registrar o que você estudou fora do app.
             </Vazio>
           ) : (
             <div className="lista-notas">

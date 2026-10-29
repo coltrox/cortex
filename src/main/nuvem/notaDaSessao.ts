@@ -31,6 +31,16 @@ export type SessaoNormalizada = {
   inicio: string
   fim: string
   minutos: number
+  /**
+   * O que ele estudou, escrito por ele ao encerrar: `redação`, `revisão de
+   * genética`, `exercícios do livro`.
+   *
+   * Existe porque o relatório sabia contar só o que foi respondido DENTRO do
+   * app. Nas palavras dele: "se eu fiz exercício fora do Cortex, ou até mesmo
+   * a redação, não tem como registrar isso". Vazio quando ele não escreveu
+   * nada — aí a sessão é descrita pelas matérias, como antes.
+   */
+  assunto: string
   materias: PlacarSessao[]
   conteudos: PlacarSessao[]
 }
@@ -82,10 +92,14 @@ const pct = (p: PlacarSessao): number => Math.round(taxa(p) * 100)
 /**
  * Valida o payload do celular.
  *
- * Devolve `null` quando a sessão não tem o essencial — dia, horário e ao
- * menos uma questão respondida. Uma sessão sem resposta nenhuma não é
- * relatório: é o botão de encerrar tocado por engano, e criar nota para isso
- * encheria o vault de arquivos vazios.
+ * Devolve `null` quando a sessão não tem o essencial — dia, horário e alguma
+ * substância: ou questões respondidas, ou um assunto escrito por ele.
+ *
+ * A exigência de questão existia sozinha, para o botão de encerrar tocado por
+ * engano não encher o vault de arquivo vazio. Só que ela também barrava o
+ * caso que ele trouxe: estudar com a sessão ligada SEM responder nada no app
+ * — redação, exercício no caderno — e querer aquilo registrado. O assunto
+ * escrito à mão é o que separa os dois: ninguém digita "redação" por engano.
  */
 export function normalizarSessao(dados: Record<string, unknown>): SessaoNormalizada | null {
   const inicio = txt(dados.inicio)
@@ -95,9 +109,14 @@ export function normalizarSessao(dados: Record<string, unknown>): SessaoNormaliz
   const hInicio = hora(inicio)
   if (!hInicio) return null
 
+  /* Uma linha, e curta: isto vira título de nota e nome de arquivo. Quebra de
+     linha sairia no meio do YAML, e os caracteres que o sistema de arquivos
+     recusa são tirados em `seguro()`, na hora de montar o caminho. */
+  const assunto = txt(dados.assunto).replace(/\s+/g, ' ').trim().slice(0, 80)
+
   const materias = placares(dados.materias)
   const conteudos = placares(dados.conteudos)
-  if (materias.length === 0 && conteudos.length === 0) return null
+  if (materias.length === 0 && conteudos.length === 0 && !assunto) return null
 
   const min = num(dados.minutos)
   // Doze horas seguidas de treino é app com defeito, não estudo — o mesmo
@@ -109,6 +128,7 @@ export function normalizarSessao(dados: Record<string, unknown>): SessaoNormaliz
     inicio: hInicio,
     fim: hora(txt(dados.fim)),
     minutos,
+    assunto,
     materias,
     conteudos
   }
@@ -176,13 +196,45 @@ export function notaDaSessao(s: SessaoNormalizada): {
     { nome: 'total', certas: 0, erradas: 0 }
   )
   const questoes = total(geral)
-  const titulo = `Sessão de estudos — ${diaCurto(s.dia)}, ${s.inicio}`
+  /* O assunto na frente do título, quando existe: numa lista de dez sessões
+     do mesmo dia, "Sessão de estudo — redação" diz o que "Sessão de estudos —
+     29/10, 14h30" nunca disse. */
+  const titulo = s.assunto
+    ? `Sessão de estudo — ${s.assunto} (${diaCurto(s.dia)}, ${s.inicio})`
+    : `Sessão de estudos — ${diaCurto(s.dia)}, ${s.inicio}`
   const periodo = s.fim ? `${s.inicio} às ${s.fim}` : s.inicio
 
   const partes: string[] = []
   const tempo = s.minutos > 0 ? `**${s.minutos} min** (${periodo})` : `**${periodo}**`
+
+  if (questoes === 0) {
+    /* Sessão sem questão respondida no app: o tempo e o assunto são tudo o
+       que há, e inventar "0 acertos · 0%" aqui leria como fracasso quando o
+       que houve foi estudo em outro lugar. */
+    partes.push(`${tempo}${s.assunto ? ` · ${s.assunto}` : ''}.`, '')
+    partes.push(
+      'Nenhuma questão respondida pelo app nesta sessão — o tempo foi de ' +
+      'estudo registrado à mão.',
+      ''
+    )
+    return {
+      path: `Estudos/Sessoes/${seguro(`${s.dia} ${s.inicio}`)}.md`,
+      frontmatter: {
+        tipo: 'sessao-estudo',
+        titulo,
+        data: s.dia,
+        inicio: s.inicio,
+        ...(s.fim ? { fim: s.fim } : {}),
+        ...(s.minutos > 0 ? { minutos: s.minutos } : {}),
+        ...(s.assunto ? { assunto: s.assunto } : {})
+      },
+      corpo: partes.join('\n').trimEnd()
+    }
+  }
+
   partes.push(
-    `${tempo} · **${questoes}** ${questoes === 1 ? 'questão' : 'questões'} · ` +
+    `${tempo}${s.assunto ? ` · ${s.assunto}` : ''} · ` +
+    `**${questoes}** ${questoes === 1 ? 'questão' : 'questões'} · ` +
     `**${geral.certas}** ${geral.certas === 1 ? 'acerto' : 'acertos'} e ` +
     `**${geral.erradas}** ${geral.erradas === 1 ? 'erro' : 'erros'} · ` +
     `**${pct(geral)}%** de aproveitamento.`,
@@ -224,6 +276,7 @@ export function notaDaSessao(s: SessaoNormalizada): {
       inicio: s.inicio,
       ...(s.fim ? { fim: s.fim } : {}),
       ...(s.minutos > 0 ? { minutos: s.minutos } : {}),
+      ...(s.assunto ? { assunto: s.assunto } : {}),
       /* `total`, e não `questoes`: em nota de conteúdo `questoes` é o ARRAY
          de exercícios, e o mesmo nome com dois sentidos confunde o app
          inteiro — o formulário esconde o campo e a lista mostra vazio.

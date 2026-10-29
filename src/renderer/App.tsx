@@ -948,6 +948,10 @@ export function App() {
                  pedido dele: "qualquer alteração que eu conseguir fazer
                  assim, sem clicar em editar e salvar, tem que salvar". */
               aoSalvarTexto={texto => void v.salvarTexto(texto)}
+              /* Recarregar do disco. O watcher atualiza a lista de notas, mas
+                 não o texto da nota aberta — quem escreve por fora (o Claude
+                 corrigindo a redação) ficava invisível até fechar e reabrir. */
+              aoRecarregar={() => void v.recarregarNota()}
               /* Ctrl+clique num [[link]] abre a nota numa aba nova. A aba
                  nasce no destino de agora e so entao recebe a nota: assim a
                  de origem fica intacta, que e o ponto de encadear leitura

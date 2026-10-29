@@ -40,6 +40,13 @@ type Props = {
    * quando o segundo roda, e o que iria para o disco era o texto anterior.
    */
   aoSalvarTexto?: (texto: string) => void
+  /**
+   * Relê a nota do disco, sem fechar e abrir.
+   *
+   * Vale para qualquer nota, mas nasceu da redação: o Claude grava a correção
+   * no arquivo e a tela continuava mostrando o texto de antes.
+   */
+  aoRecarregar?: () => void
   /** `novaAba` vem do Ctrl no clique — ver `AoAbrirLink` no Markdown. */
   aoAbrirNome: (alvo: string, novaAba?: boolean) => void
   aoAbrirPath: (p: string, novaAba?: boolean) => void
@@ -118,6 +125,18 @@ function ExerciciosDaNota({ nota, aoGravar }: {
  * colado ao botão de ler e parecia fechar a nota. Herda a cor por
  * `currentColor`, então a classe `perigo` do botão continua mandando.
  */
+/** Seta circular do recarregar. Mesmo tamanho e cor da lixeira. */
+function IconeRecarregar() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
+      fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </svg>
+  )
+}
+
 function IconeLixeira() {
   return (
     <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"
@@ -197,7 +216,7 @@ function LinhaCampo({ campo }: { campo: CampoExibido }) {
 
 export function NotaPainel({
   nota, caminho, conteudo, editando, sujo, saindo, entrando,
-  voltarPara, aoVoltar, aoEditar, aoMudar, aoSalvar, aoSalvarTexto,
+  voltarPara, aoVoltar, aoEditar, aoMudar, aoSalvar, aoSalvarTexto, aoRecarregar,
   aoAbrirNome, aoAbrirPath, aoExcluir, aoGravarCampos
 }: Props) {
   const area = useRef<HTMLTextAreaElement>(null)
@@ -210,6 +229,17 @@ export function NotaPainel({
    * o certo: não há pasta acima da raiz.
    */
   const pastaDaNota = caminho.split('/').slice(0, -1).join('/')
+
+  /**
+   * Escrevendo uma redação: a tela vira folha de papel.
+   *
+   * Só aqui o cabeçalho (tema, banca, cobrança) continua à vista durante a
+   * escrita, e só aqui a área da nota para de rolar — quem rola é a caixa de
+   * texto. Com as duas rolando, o tema saía da tela conforme o texto crescia,
+   * que foi a queixa dele: "quanto mais texto tem, mais vai cobrindo as
+   * informações que ficam em cima".
+   */
+  const escrevendoRedacao = editando && nota?.tipo === 'redacao'
 
   /** Abre o anexo no programa padrão do sistema. Quem valida é o main. */
   const abrirAnexo = (rel: string): void => {
@@ -302,6 +332,21 @@ export function NotaPainel({
               PDF
             </button>
           )}
+          {/*
+            * Recarregar: relê o arquivo do disco.
+            *
+            * Desabilitado enquanto houver texto não salvo, porque reler
+            * sobrescreve o que está na tela — e perder o que ele acabou de
+            * escrever seria pior do que mostrar a versão velha.
+            */}
+          {aoRecarregar && (
+            <button className="btn-icone" onClick={aoRecarregar} disabled={sujo}
+              title={sujo
+                ? 'Salve antes de recarregar — reler o arquivo descarta o que não foi salvo'
+                : 'Recarregar do disco'}>
+              <IconeRecarregar />
+            </button>
+          )}
           <button className="btn-fantasma" onClick={() => aoEditar(!editando)}>
             {editando ? 'Ler' : 'Editar'}
           </button>
@@ -319,7 +364,7 @@ export function NotaPainel({
       </div>
 
       <div className="nota-corpo">
-        <div className="nota-texto">
+        <div className="nota-texto" data-escrevendo={escrevendoRedacao || undefined}>
           {nota && (
             <>
               <h1 className="titulo-nota">{nota.title}</h1>
@@ -332,10 +377,14 @@ export function NotaPainel({
           )}
 
           {/* Os campos do frontmatter, desenhados.
-              Só na leitura: no modo de escrita o YAML está ali em cima, no
-              texto cru, e a mesma coisa duas vezes na tela confunde qual das
-              duas é a que vale. */}
-          {nota && !editando && (() => {
+              Na leitura, sempre. No modo de escrita, só na REDAÇÃO — e por
+              uma razão exata: nas outras notas o YAML está ali em cima, no
+              texto cru, e a mesma coisa duas vezes confunde qual das duas
+              vale; na redação o frontmatter é retirado da caixa (`soTexto`),
+              então não há duplicata nenhuma, e sem isto o tema desaparecia
+              justamente enquanto ele escreve sobre ele. Pedido dele: "não é
+              para esconder o tema, não". */}
+          {nota && (!editando || escrevendoRedacao) && (() => {
             // Treino e cardio têm desenho próprio: o genérico enfileirava as
             // séries como uma lista de números sem rótulo.
             if (nota.tipo === 'sessao') return <NotaTreino campos={nota.campos ?? {}} />

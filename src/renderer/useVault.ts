@@ -176,6 +176,31 @@ export function useVault() {
     } catch (e) { falhou(e) }
   }, [carregarLinks])
 
+  /**
+   * Relê do disco a nota que já está aberta.
+   *
+   * O watcher do vault recarrega a LISTA quando um arquivo muda, mas o texto
+   * da nota aberta foi lido uma vez, no `abrir`, e não se atualiza mais. Então
+   * quando algo escreve no arquivo por fora — o Claude gravando a correção da
+   * redação, um `git pull`, o editor do Dev — a tela mostra a versão velha, e
+   * a única saída era fechar a nota e abrir de novo. Pedido dele, ao pé da
+   * letra: "tem que sair do arquivo e voltar".
+   *
+   * Não decide nada sobre texto não salvo: quem chama é que segura o botão
+   * enquanto houver (`sujo`), porque reler é sobrescrever o que está na tela.
+   */
+  const recarregarNota = useCallback(async (): Promise<void> => {
+    if (!aberta) return
+    try {
+      const r = await window.vaultApi.invoke('note:read', { path: aberta }) as { content: string }
+      setConteudo(r.content)
+      setSalvo(r.content)
+      await recarregar()
+      void carregarLinks(aberta)
+      setErro(null)
+    } catch (e) { falhou(e) }
+  }, [aberta, recarregar, carregarLinks])
+
   const fechar = useCallback((): void => {
     setAberta(null)
     setConteudo('')
@@ -476,7 +501,7 @@ export function useVault() {
     // arquivo nenhum, então o watcher não dispara e a tela continuaria com a
     // lista antiga até alguém trocar de lente.
     recarregar,
-    abrir, abrirPorNome, abrirLink, fechar, salvar, salvarTexto,
+    abrir, abrirPorNome, abrirLink, fechar, salvar, salvarTexto, recarregarNota,
     criar, alterar, excluir, excluirVarias, mover, criarPasta, lancar, marcarNoDia,
     autorizarPasta, autorizarArrastadas, removerPasta,
     arvoreDev, lerArquivo, gravarArquivo, abrirTerminal, revelar, novoProjeto, clonarRepo,

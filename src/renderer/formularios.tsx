@@ -248,6 +248,14 @@ export const FORMULARIOS: Record<string, Formulario> = {
     campos: [
       { k: 'titulo', rotulo: 'Sessão', tipo: 'texto', obrigatorio: true },
       { k: 'data', rotulo: 'Dia', tipo: 'data', obrigatorio: true },
+      /* O que ele estudou. No celular a pergunta aparece ao encerrar; aqui é
+         campo, porque o desktop não tem cronômetro de sessão — e sem ele não
+         havia como registrar o estudo que aconteceu fora do app (redação,
+         exercício no caderno), que foi o que ele pediu. */
+      {
+        k: 'assunto', rotulo: 'Do quê', tipo: 'texto',
+        placeholder: 'redação, revisão de genética, exercícios do livro…'
+      },
       { k: 'inicio', rotulo: 'Começou', tipo: 'texto', placeholder: '14h30' },
       { k: 'fim', rotulo: 'Terminou', tipo: 'texto', placeholder: '15h10' },
       { k: 'minutos', rotulo: 'Minutos', tipo: 'numero' },

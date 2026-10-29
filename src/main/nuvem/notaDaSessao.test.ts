@@ -40,10 +40,31 @@ describe('normalizarSessao', () => {
     expect(normalizarSessao(payload({ inicio: '2026-10-20' }))).toBeNull()
   })
 
-  it('sem nenhuma questao respondida, nao cria nota', () => {
+  it('sem questao nenhuma E sem assunto, nao cria nota', () => {
     /* E o botao de encerrar tocado por engano. Criar arquivo para isso
        encheria o vault de relatorios vazios. */
     expect(normalizarSessao(payload({ materias: [], conteudos: [] }))).toBeNull()
+  })
+
+  it('sem questao nenhuma MAS com assunto, vale', () => {
+    /* O caso que ele trouxe: "hoje eu fiz a redacao com ela ligada... se eu
+       fiz exercicio fora do Cortex, ou ate mesmo a redacao, nao tem como
+       registrar isso". O assunto escrito a mao e o que separa isto do toque
+       acidental — ninguem digita "redacao" por engano. */
+    const s = normalizarSessao(payload({
+      materias: [], conteudos: [], assunto: 'redação'
+    }))
+    expect(s).toMatchObject({ dia: '2026-10-20', minutos: 40, assunto: 'redação' })
+    expect(s?.materias).toEqual([])
+  })
+
+  it('assunto vira uma linha curta', () => {
+    // Vai para titulo de nota e nome de arquivo: quebra de linha sairia no
+    // meio do YAML, e 300 caracteres nao caberiam no caminho.
+    const s = normalizarSessao(payload({ assunto: '  revisão\n  de  genética  ' }))
+    expect(s?.assunto).toBe('revisão de genética')
+    expect(normalizarSessao(payload({ assunto: 'x'.repeat(300) }))?.assunto).toHaveLength(80)
+    expect(normalizarSessao(payload({ assunto: { a: 1 } }))?.assunto).toBe('')
   })
 
   it('data torta e recusada', () => {
@@ -106,6 +127,30 @@ describe('notaDaSessao', () => {
     /* Treinar duas vezes no mesmo dia e o caso normal. Um arquivo por dia
        faria a sessao da noite apagar a da tarde. */
     expect(notaDaSessao(sessao()).path).toBe('Estudos/Sessoes/2026-10-20 14h30.md')
+  })
+
+  it('com assunto, o titulo diz do que foi a sessao', () => {
+    /* Numa lista de sessoes, "Sessao de estudo — redacao" diz o que
+       "Sessao de estudos — 29/10, 14h30" nunca disse. */
+    const s = normalizarSessao(payload({ assunto: 'redação' }))!
+    const n = notaDaSessao(s)
+    expect(n.frontmatter.titulo).toBe('Sessão de estudo — redação (20/10, 14h30)')
+    expect(n.frontmatter.assunto).toBe('redação')
+  })
+
+  it('sessao sem questao nenhuma: tempo e assunto, sem 0% de aproveitamento', () => {
+    /* "0 questoes · 0 acertos · 0%" leria como fracasso, quando o que houve
+       foi estudo em outro lugar. */
+    const s = normalizarSessao(payload({
+      materias: [], conteudos: [], assunto: 'redação'
+    }))!
+    const n = notaDaSessao(s)
+    expect(n.frontmatter).not.toHaveProperty('aproveitamento')
+    expect(n.frontmatter).not.toHaveProperty('total')
+    expect(n.frontmatter.minutos).toBe(40)
+    expect(n.corpo).toContain('redação')
+    expect(n.corpo).not.toContain('%')
+    expect(n.corpo).toContain('registrado à mão')
   })
 
   it('o frontmatter traz o total e o aproveitamento', () => {

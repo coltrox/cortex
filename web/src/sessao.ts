@@ -62,6 +62,19 @@ export type SessaoEstudo = {
    * é o que permite fechar o app pausado e reabrir sem perder a conta.
    */
   pausadaEm?: number
+  /**
+   * O que ele estudou, escrito por ele ao encerrar.
+   *
+   * Pedido dele, com o caso que o motivou: "hoje eu fiz a redação com ela
+   * ligada… se eu fiz exercício fora do Cortex, ou até mesmo a redação, não
+   * tem como registrar isso". Sem este campo a sessão só sabia descrever o
+   * que foi respondido dentro do app — e uma sessão sem resposta nenhuma era
+   * jogada fora como toque acidental.
+   *
+   * Entra no FIM, e não no começo: ao começar ele ainda não sabe no que o
+   * tempo vai acabar indo, e perguntar ali atrasaria o gesto de começar.
+   */
+  assunto?: string
 }
 
 /** Quanto se acertou de alguma coisa — de uma matéria ou de um conteúdo. */
@@ -269,6 +282,8 @@ export type ResumoSessao = {
   inicio: string
   fim: string
   minutos: number
+  /** O que ele escreveu ao encerrar; vazio quando não escreveu nada. */
+  assunto: string
   materias: Placar[]
   conteudos: Placar[]
 }
@@ -278,6 +293,7 @@ export function resumir(s: SessaoEstudo, fim: Date): ResumoSessao {
   return {
     inicio: s.inicio,
     fim: marca,
+    assunto: (s.assunto ?? '').replace(/\s+/g, ' ').trim().slice(0, 80),
     /* Os minutos vêm do CRONÔMETRO, e não da diferença entre começar e
        terminar: o que ficou pausado não foi estudo, e somá-lo encheria o
        relatório de horas que não aconteceram. */
@@ -320,12 +336,14 @@ export function lerSessao(g: Guardado): SessaoEstudo | null {
     const comecouEm = typeof s.comecouEm === 'number' && s.comecouEm > 0 ? s.comecouEm : undefined
     const parado = typeof s.parado === 'number' && s.parado >= 0 ? s.parado : undefined
     const pausadaEm = typeof s.pausadaEm === 'number' && s.pausadaEm > 0 ? s.pausadaEm : undefined
+    const assunto = typeof s.assunto === 'string' && s.assunto.trim() ? s.assunto : undefined
     return {
       inicio: s.inicio,
       respostas,
       ...(comecouEm !== undefined ? { comecouEm } : {}),
       ...(parado !== undefined ? { parado } : {}),
-      ...(pausadaEm !== undefined ? { pausadaEm } : {})
+      ...(pausadaEm !== undefined ? { pausadaEm } : {}),
+      ...(assunto !== undefined ? { assunto } : {})
     }
   } catch {
     return null

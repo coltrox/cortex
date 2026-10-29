@@ -31,6 +31,9 @@ export function EscreverRedacao({ item, envio, aoVoltar }: {
 
   const [texto, setTexto] = useState(() => guardadoDoNavegador.ler(chave) ?? jaEscrito)
   const [entregue, setEntregue] = useState(false)
+  /* A cobrança da banca aberta ou fechada. Começa aberta só na folha em
+     branco: quem já tem texto escrito está escrevendo, não lendo o edital. */
+  const [verCobranca, setVerCobranca] = useState(() => (guardadoDoNavegador.ler(chave) ?? jaEscrito).trim() === '')
 
   const status = typeof item.detalhe.status === 'string' ? item.detalhe.status : ''
   const linhas = texto.split('\n').filter(l => l.trim() !== '').length
@@ -109,7 +112,32 @@ export function EscreverRedacao({ item, envio, aoVoltar }: {
         <div className="redacao-tema">
           <span className="redacao-tema-rotulo">Tema{banca ? ` · ${banca}` : ''}</span>
           <strong>{tema}</strong>
-          {cobranca && <p>{cobranca}</p>}
+          {/*
+            * A cobrança recolhe.
+            *
+            * O cartão ficou PRESO no topo (ver `.redacao-tema` no estilo):
+            * antes ele rolava para fora conforme o texto crescia, e o tema
+            * desaparecia justamente quando mais se precisa dele. Mas cartão
+            * preso ocupa tela, e com o teclado aberto sobra pouca — a
+            * cobrança é o que se lê uma vez, no começo. Então nasce aberta na
+            * folha em branco e fechada quando já existe texto.
+            */}
+          {cobranca && (
+            verCobranca ? (
+              <>
+                <p>{cobranca}</p>
+                <button type="button" className="redacao-tema-menos"
+                  onClick={() => setVerCobranca(false)}>
+                  esconder o que a banca cobra
+                </button>
+              </>
+            ) : (
+              <button type="button" className="redacao-tema-menos"
+                onClick={() => setVerCobranca(true)}>
+                o que a banca cobra
+              </button>
+            )
+          )}
         </div>
       )}
 

@@ -916,6 +916,21 @@ export function planejar(evento: Evento): Operacao[] {
         })
       })
 
+      /* Sessão sem matéria nenhuma — ele estudou com o cronômetro ligado e
+         respondeu fora do app (redação, caderno). Sem esta linha o tempo não
+         entraria em total nenhum, e a semana continuaria parecendo vazia:
+         justamente a queixa que fez o campo `assunto` existir. */
+      if (s.materias.length === 0 && s.minutos > 0) {
+        ops.push({
+          acao: 'diario-lista', dia: s.dia, campo: 'estudos',
+          item: comValor({
+            materia: s.assunto || 'estudo',
+            minutos: s.minutos,
+            obs: `sessão de ${s.inicio}`
+          })
+        })
+      }
+
       return ops
     }
 
