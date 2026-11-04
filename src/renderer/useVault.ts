@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { NoteComCampos } from './tipos'
 import type { ConfigVault } from '../shared/types'
 import { subPadrao } from './subnav'
@@ -80,11 +80,27 @@ export function useVault() {
   const [conteudo, setConteudo] = useState('')
   const [salvo, setSalvo] = useState('')
   const [editando, setEditando] = useState(false)
+  /*
+   * O que está na tela AGORA, num ref.
+   *
+   * `abrir` precisa saber se a nota que está saindo tem texto não salvo,
+   * mas não pode listar `conteudo` nas dependências: ele mudaria de
+   * identidade a cada tecla digitada, e `Cerebro` recebe `v.abrir` como
+   * prop justamente por ela ser estável (ver o comentário em App.tsx). O ref
+   * dá o valor do momento sem mexer na identidade da função.
+   */
+  const naTela = useRef({ aberta: null as string | null, conteudo: '', salvo: '', editando: false })
+
+  /** Quem estava sendo EDITADO, por caminho — ver `abrir`. */
+  const modoEdicao = useRef(new Map<string, boolean>())
+
   const [saindo, setSaindo] = useState<Link[]>([])
   const [entrando, setEntrando] = useState<Backlink[]>([])
 
   const [erro, setErro] = useState<string | null>(null)
   const falhou = (e: unknown): void => setErro(mensagemDeErro(e))
+
+  naTela.current = { aberta, conteudo, salvo, editando }
 
   const recarregar = useCallback(async () => {
     if (!root) return
@@ -164,13 +180,40 @@ export function useVault() {
 
   /* ---------- notas ---------- */
 
+  /**
+   * Abre uma nota — sem perder o que estava escrito na que sai.
+   *
+   * Trocar de aba passa por aqui, e antes isto relia do disco e zerava o modo
+   * de edição. Nas palavras dele: "se eu estou editando uma redação e clico
+   * na outra aba, eu volto, ele para de digitar, volta para a tela normal; se
+   * eu fiz alguma alteração acaba perdendo, porque eu não salvei". São duas
+   * perdas diferentes, e as duas se resolvem aqui.
+   *
+   * 1. O TEXTO. Se a nota que sai tem alteração não salva, ela é GRAVADA
+   *    antes de sair — o mesmo que apertar Salvar. Gravar é melhor do que
+   *    guardar um rascunho na memória: fechar o Cortex perderia o rascunho, e
+   *    redação é justamente o que não pode sumir. Se a gravação falhar, a
+   *    troca não acontece — trocar de aba não pode ser o gesto que apaga o
+   *    texto.
+   * 2. O MODO. Quem estava editando volta editando. Fica por CAMINHO porque
+   *    a aba ao lado pode estar só lendo a mesma nota.
+   */
   const abrir = useCallback(async (path: string): Promise<void> => {
+    const antes = naTela.current
+    if (antes.aberta) {
+      modoEdicao.current.set(antes.aberta, antes.editando)
+      if (antes.aberta !== path && antes.conteudo !== antes.salvo) {
+        try {
+          await window.vaultApi.invoke('note:write', { path: antes.aberta, content: antes.conteudo })
+        } catch (e) { falhou(e); return }
+      }
+    }
     try {
       const r = await window.vaultApi.invoke('note:read', { path }) as { content: string }
       setAberta(path)
       setConteudo(r.content)
       setSalvo(r.content)
-      setEditando(false)
+      setEditando(modoEdicao.current.get(path) ?? false)
       setErro(null)
       void carregarLinks(path)
     } catch (e) { falhou(e) }
@@ -201,7 +244,23 @@ export function useVault() {
     } catch (e) { falhou(e) }
   }, [aberta, recarregar, carregarLinks])
 
-  const fechar = useCallback((): void => {
+  /**
+   * Fecha a nota aberta, gravando o que não foi salvo — mesma razão de
+   * `abrir`: sair de uma aba com redação para uma aba de lente também
+   * passava pelo caminho que perdia texto.
+   *
+   * `gravar: false` é para quem ACABOU DE APAGAR a nota. Sem essa saída, o
+   * salvamento recriaria no disco o arquivo que a linha anterior excluiu.
+   */
+  const fechar = useCallback((gravar = true): void => {
+    const antes = naTela.current
+    if (antes.aberta) {
+      modoEdicao.current.set(antes.aberta, antes.editando)
+      if (gravar && antes.conteudo !== antes.salvo) {
+        const caminho = antes.aberta, texto = antes.conteudo
+        void window.vaultApi.invoke('note:write', { path: caminho, content: texto }).catch(falhou)
+      }
+    }
     setAberta(null)
     setConteudo('')
     setSalvo('')
@@ -295,7 +354,7 @@ export function useVault() {
   const excluir = useCallback(async (path: string): Promise<void> => {
     try {
       await window.vaultApi.invoke('note:delete', { path })
-      if (aberta === path) fechar()
+      if (aberta === path) fechar(false)
       await recarregar()
       setErro(null)
     } catch (e) { falhou(e) }
@@ -306,7 +365,7 @@ export function useVault() {
     try {
       for (const path of paths) {
         await window.vaultApi.invoke('note:delete', { path })
-        if (aberta === path) fechar()
+        if (aberta === path) fechar(false)
       }
       setErro(null)
     } catch (e) { falhou(e) } finally { await recarregar() }

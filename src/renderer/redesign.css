@@ -2165,3 +2165,49 @@ body[data-imprimindo="nota"] .nota-painel {
   box-shadow: inset 2px 0 0 var(--acento, currentColor);
   background: var(--realce);
 }
+
+/* ---------- Ctrl+F dentro da nota (2.27.0) ---------- */
+/*
+ * Mesma forma da busca do editor de código, posicionada sobre o painel da
+ * nota. `sticky` e não `absolute`: o texto da nota rola, e uma barra que some
+ * ao rolar obrigaria a voltar ao topo para ir à próxima ocorrência.
+ */
+.nota-busca {
+  position: sticky; top: 0; z-index: 4; margin: 0 0 8px auto; width: fit-content;
+  display: flex; align-items: center; gap: 4px; padding: 5px 6px 5px 8px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
+}
+.nota-busca input {
+  width: 190px; padding: 4px 8px; font-size: 12.5px; color: var(--text);
+  background: var(--surface-sunk); border: 1px solid var(--border); border-radius: 4px; outline: none;
+}
+.nota-busca input:focus { border-color: var(--acento); }
+.nota-busca-conta { min-width: 62px; font-size: 11.5px; color: var(--text-3); text-align: center; white-space: nowrap; }
+.nota-busca-conta[data-vazio="true"] { color: var(--pale-red); }
+
+/*
+ * As ocorrências no texto LIDO.
+ *
+ * `::highlight()` pinta intervalos que o JavaScript registrou, sem inserir
+ * elemento nenhum no documento — é o que deixa marcar markdown já renderizado
+ * sem mexer na árvore que o React controla.
+ */
+::highlight(busca-nota) {
+  background: color-mix(in srgb, var(--pale-yel) 40%, transparent);
+}
+::highlight(busca-nota-atual) {
+  background: color-mix(in srgb, var(--pale-yel) 85%, transparent);
+  color: #1a1a1a;
+}
+
+/*
+ * A ocorrência no texto EDITADO é a seleção da caixa — e a caixa está sem
+ * foco, porque o foco fica no campo de busca para continuar digitando. Sem
+ * esta regra o Chromium pintaria a seleção inativa de cinza, quase invisível
+ * sobre o fundo escuro.
+ */
+.nota-texto .editor::selection {
+  background: color-mix(in srgb, var(--pale-yel) 85%, transparent);
+  color: #1a1a1a;
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { NoteComCampos } from '../tipos'
 import type { Link, Backlink } from '../useVault'
 import { Markdown } from './Markdown'
+import { BuscaNaNota } from './BuscaNaNota'
 import { NotaTreino, NotaCardio } from './NotaTreino'
 import { ProvaSimulado, questoesDe } from './ProvaSimulado'
 import { corpoAlinhado, semDependenciasDaRede, camposExibiveis, textoDoCampo, separarFrontmatter, type CampoExibido } from '../dados'
@@ -257,6 +258,9 @@ export function NotaPainel({
   aoAbrirNome, aoAbrirPath, aoExcluir, aoGravarCampos
 }: Props) {
   const area = useRef<HTMLTextAreaElement>(null)
+  /* O que envolve o texto — é onde a busca varre quando se está lendo. */
+  const corpoTexto = useRef<HTMLDivElement>(null)
+  const [buscando, setBuscando] = useState(false)
 
   /*
    * A pasta desta nota, para resolver o caminho dos anexos.
@@ -277,6 +281,29 @@ export function NotaPainel({
    * informações que ficam em cima".
    */
   const escrevendoRedacao = editando && nota?.tipo === 'redacao'
+
+  /*
+   * Ctrl+F procura DENTRO da nota aberta.
+   *
+   * Fica aqui, e não no App, porque só faz sentido com uma nota na tela — e
+   * `NotaPainel` só existe quando há uma. `preventDefault` tira do caminho
+   * a busca que o Chromium abriria por conta própria, que procuraria na
+   * janela inteira (barra lateral e trilha incluídas) em vez de na nota.
+   */
+  useEffect(() => {
+    const k = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        setBuscando(true)
+      }
+    }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [])
+
+  /* Trocar de nota fecha a busca: o termo era daquela nota, e a contagem
+     na tela passaria a mentir sobre esta. */
+  useEffect(() => { setBuscando(false) }, [caminho])
 
   /** Abre o anexo no programa padrão do sistema. Quem valida é o main. */
   const abrirAnexo = (rel: string): void => {
@@ -401,7 +428,18 @@ export function NotaPainel({
       </div>
 
       <div className="nota-corpo">
-        <div className="nota-texto" data-escrevendo={escrevendoRedacao || undefined}>
+        {buscando && (
+          <BuscaNaNota
+            editando={editando}
+            area={area}
+            textoDoEditor={nota?.tipo === 'redacao' ? separarFrontmatter(conteudo).corpo : conteudo}
+            raiz={corpoTexto}
+            versao={conteudo}
+            aoFechar={() => setBuscando(false)}
+          />
+        )}
+
+        <div className="nota-texto" ref={corpoTexto} data-escrevendo={escrevendoRedacao || undefined}>
           {nota && (
             <>
               <h1 className="titulo-nota">{nota.title}</h1>

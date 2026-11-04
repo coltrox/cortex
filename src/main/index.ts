@@ -222,9 +222,40 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      /*
+       * O corretor ortográfico, em português do Brasil.
+       *
+       * Sem esta linha o Electron usa o idioma do sistema e, não achando um
+       * dicionário que sirva, cai no inglês — era o que estava acontecendo:
+       * a pasta `Dictionaries` tinha só `en-GB`, e a redação inteira
+       * aparecia sublinhada de vermelho porque cada palavra em português é,
+       * de fato, desconhecida para um dicionário britânico.
+       *
+       * Só `pt-BR`, e de propósito só ele. O Electron aceita também `pt` e
+       * `pt-PT`, e pôr o europeu junto como rede parece prudente mas não é:
+       * com dois dicionários o Chromium dá por boa a palavra que QUALQUER um
+       * conhecer, e grafia só de Portugal — "facto", "óptimo", "contacto" —
+       * deixaria de ser sublinhada. Numa redação de ENEM isso é desvio de
+       * norma culta, e esconder desvio é o oposto do que o corretor serve.
+       *
+       * O `.bdic` é baixado uma vez e fica guardado em `Dictionaries`.
+       */
+      spellcheck: true
     }
   })
+
+  /*
+   * Precisa vir DEPOIS de a janela existir: o idioma é da sessão do
+   * `webContents`, não da configuração da janela. Em erro, o app segue sem
+   * corretor — ficar sem sublinhado é um aborrecimento, não motivo para não
+   * abrir.
+   */
+  try {
+    win.webContents.session.setSpellCheckerLanguages(['pt-BR'])
+  } catch (err) {
+    console.error('[cortex] corretor ortográfico indisponível:', err)
+  }
 
   /*
    * Os dois atalhos que a barra de menu dava, agora sem a barra.
