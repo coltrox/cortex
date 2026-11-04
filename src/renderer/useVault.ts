@@ -200,9 +200,21 @@ export function useVault() {
    */
   const abrir = useCallback(async (path: string): Promise<void> => {
     const antes = naTela.current
+    if (antes.aberta === path) {
+      /*
+       * Já é esta nota que está na tela — e aqui não se relê nada.
+       *
+       * Acontece de verdade: duas abas abertas na MESMA nota, ou o
+       * voltar/avançar caindo nela de novo. Reler do disco nesse caso
+       * sobrescreveria o que está sendo digitado com a versão gravada, que é
+       * exatamente a perda que esta função existe para impedir — só que num
+       * caso mais estreito e mais difícil de notar.
+       */
+      return
+    }
     if (antes.aberta) {
       modoEdicao.current.set(antes.aberta, antes.editando)
-      if (antes.aberta !== path && antes.conteudo !== antes.salvo) {
+      if (antes.conteudo !== antes.salvo) {
         try {
           await window.vaultApi.invoke('note:write', { path: antes.aberta, content: antes.conteudo })
         } catch (e) { falhou(e); return }
