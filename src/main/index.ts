@@ -1128,8 +1128,21 @@ if (!souOPrimeiro) {
 } else {
   app.on('second-instance', (_e, argv) => {
     const alvo = arquivoDosArgumentos(argv, app.isPackaged, c => existsSync(c))
-    if (win?.isMinimized()) win.restore()
-    win?.focus()
+    /*
+     * Sem janela viva, ABRE uma — não basta focar.
+     *
+     * Em 06/11/2026 o Cortex foi encontrado rodando com dois processos e
+     * nenhuma janela. Nesse estado a trava de instância única continua
+     * tomada, então clicar no ícone não abria nada: o Electron manda o
+     * `second-instance` para cá, e o `win?.focus()` de antes não fazia
+     * efeito nenhum porque não havia `win`. O app ficava inalcançável sem
+     * passar pelo gerenciador de tarefas.
+     */
+    if (!win || win.isDestroyed()) createWindow()
+    else {
+      if (win.isMinimized()) win.restore()
+      win.focus()
+    }
     if (alvo) void abrirArquivoDeFora(alvo)
   })
 }
@@ -1207,11 +1220,25 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', async () => {
-  desligarCampainha()
-  // Fechar não pode ficar pendurado: o instalador de uma versão nova espera o
-  // Cortex sair para trocar os arquivos. Se fechar o índice travar, sai assim
-  // mesmo em 3 s — as notas já estão gravadas, e o índice se refaz ao abrir.
+  /*
+   * O cão-de-guarda é armado ANTES de qualquer outra coisa.
+   *
+   * Fechar não pode ficar pendurado: o instalador de uma versão nova espera
+   * o Cortex sair para trocar os arquivos. Se fechar o índice travar, sai
+   * assim mesmo em 3 s — as notas já estão gravadas, e o índice se refaz na
+   * abertura seguinte.
+   *
+   * Ele era armado DEPOIS de `desligarCampainha()`, que não tinha guarda:
+   * uma exceção ali rejeitava este manipulador inteiro antes de o relógio
+   * existir, e o processo ficava vivo para sempre, sem janela e sem ninguém
+   * para fechá-lo. Agora a ordem é a inversa, e cada passo tem a sua rede.
+   */
   const limite = setTimeout(() => app.exit(0), 3000)
+  try {
+    desligarCampainha()
+  } catch (err) {
+    console.error('[cortex] desligar a campainha falhou ao sair:', err)
+  }
   await session.close().catch(() => {})
   clearTimeout(limite)
   if (process.platform !== 'darwin') app.quit()

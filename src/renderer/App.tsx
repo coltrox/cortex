@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import { useVault, type Lente } from './useVault'
+import { useVault, mensagemDeErro, type Lente } from './useVault'
 import { TIPOS_NOTA_CARDAPIO } from '../shared/eventos'
 import type { NoteComCampos } from './tipos'
 import { hojeISO } from './tipos'
@@ -349,6 +349,17 @@ export function App() {
   // que importa aqui não é "achou eventos", é "conseguiu falar com a nuvem".
   const [falhasSincSeguidas, setFalhasSincSeguidas] = useState(0)
 
+  /*
+   * Por que a ÚLTIMA publicação do cardápio falhou, ou nulo se foi bem.
+   *
+   * Antes o erro era descartado com um catch vazio. Em 04/11/2026 o banco
+   * ficou fora do ar e nada foi publicado por dias, sem uma linha na tela:
+   * o aviso "falhando" da aba Celular conta só as falhas de PUXAR, e ficar
+   * sem publicar é tão grave quanto — é o que faz o celular mostrar o
+   * cronograma velho na véspera da prova.
+   */
+  const [erroPublicar, setErroPublicar] = useState<string | null>(null)
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -451,15 +462,40 @@ export function App() {
       .map(n => `${n.path}:${n.mtime}`)
   ].join('|')
 
+  /*
+   * Espera entre as tentativas de publicar, em milissegundos.
+   *
+   * Uma publicação que falha NÃO se repete sozinha de outra forma: a
+   * assinatura do cardápio só muda quando o vault muda, e o vault pode
+   * passar o dia parado. Sem repetição, uma queda de rede de dez segundos
+   * deixava o celular desatualizado até a próxima nota editada.
+   *
+   * A escada sobe até cinco minutos e fica lá — serve tanto para a rede
+   * que volta em segundos quanto para o banco que passa horas fora.
+   */
+  const ESPERAS_PUBLICAR = [5000, 15000, 45000, 120000, 300000]
+
   useEffect(() => {
     if (!v.root) return
-    const t = setTimeout(() => {
-      void window.vaultApi.invoke('nuvem:publicar', {}).catch(() => {})
-      // 900 ms, e nao 1500: continua juntando a rajada de um salvamento
-      // inteiro (o watcher dispara em decimos de segundo), e corta meio
-      // segundo da espera entre marcar no Cortex e ver no celular.
-    }, 900)
-    return () => clearTimeout(t)
+    let vivo = true
+    let relogio: ReturnType<typeof setTimeout>
+
+    const tentar = (n: number): void => {
+      void window.vaultApi.invoke('nuvem:publicar', {})
+        .then(() => { if (vivo) setErroPublicar(null) })
+        .catch((e: unknown) => {
+          if (!vivo) return
+          setErroPublicar(mensagemDeErro(e))
+          const espera = ESPERAS_PUBLICAR[Math.min(n, ESPERAS_PUBLICAR.length - 1)]
+          relogio = setTimeout(() => tentar(n + 1), espera)
+        })
+    }
+
+    // 900 ms, e nao 1500: continua juntando a rajada de um salvamento
+    // inteiro (o watcher dispara em decimos de segundo), e corta meio
+    // segundo da espera entre marcar no Cortex e ver no celular.
+    relogio = setTimeout(() => tentar(0), 900)
+    return () => { vivo = false; clearTimeout(relogio) }
   }, [v.root, assinaturaCardapio])
 
   /*
@@ -798,7 +834,7 @@ export function App() {
           <button
             className="sb-item sb-rodape"
             title={
-              falhasSincSeguidas >= LIMIAR_ALERTA_SYNC
+              falhasSincSeguidas >= LIMIAR_ALERTA_SYNC || erroPublicar
                 ? 'Configurações — a sincronização com o celular está falhando'
                 : 'Configurações'
             }
@@ -806,7 +842,7 @@ export function App() {
           >
             <IconeConfig size={17} />
             <span>Configurações</span>
-            {falhasSincSeguidas >= LIMIAR_ALERTA_SYNC && (
+            {(falhasSincSeguidas >= LIMIAR_ALERTA_SYNC || erroPublicar) && (
               <span className="rail-alerta" aria-hidden="true" />
             )}
           </button>
@@ -1079,6 +1115,7 @@ export function App() {
           aoFechar={() => setConfigurando(false)}
           aoTrocarVault={v.trocarVault}
           sincronizacaoFalhando={falhasSincSeguidas >= LIMIAR_ALERTA_SYNC}
+          erroAoPublicar={erroPublicar}
         />
       )}
 

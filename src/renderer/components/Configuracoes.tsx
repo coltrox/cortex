@@ -34,7 +34,7 @@ const ABAS: { id: Aba; nome: string }[] = [
  */
 export function Configuracoes({
   root, quantasNotas, config, aoSalvarAreas, aoTrocarConfig, aoAbrirNuvem, aoFechar,
-  aoTrocarVault, sincronizacaoFalhando
+  aoTrocarVault, sincronizacaoFalhando, erroAoPublicar
 }: {
   root: string | null
   /** Quantas notas o vault aberto tem. Zero denuncia pasta errada. */
@@ -47,6 +47,14 @@ export function Configuracoes({
   /** Some sozinho: o app volta à tela de criar/escolher no próximo render. */
   aoTrocarVault: () => void
   sincronizacaoFalhando: boolean
+  /**
+   * O motivo da última falha ao publicar o cardápio, quando houve.
+   *
+   * Vai junto do sinalizador porque "falhando" sozinho não diz o que
+   * fazer: banco fora do ar, credencial revogada e rede sem saída pedem
+   * três providências diferentes, e só a mensagem distingue.
+   */
+  erroAoPublicar?: string | null
 }) {
   const [marcadas, setMarcadas] = useState<string[]>(config.areas)
   const [aba, setAba] = useState<Aba>('geral')
@@ -151,8 +159,17 @@ export function Configuracoes({
             </p>
             <button className="btn-fantasma" onClick={aoAbrirNuvem}>
               Abrir conexão com o celular
-              {sincronizacaoFalhando && <span className="config-alerta"> · falhando</span>}
+              {(sincronizacaoFalhando || erroAoPublicar) &&
+                <span className="config-alerta"> · falhando</span>}
             </button>
+            {erroAoPublicar && (
+              <p className="form-dica config-erro-nuvem">
+                <strong>Não está conseguindo publicar para o celular.</strong>
+                O Cortex continua tentando sozinho, com espera crescente até
+                cinco minutos. O que a nuvem respondeu:
+                <code>{erroAoPublicar}</code>
+              </p>
+            )}
           </section>
           )}
 
